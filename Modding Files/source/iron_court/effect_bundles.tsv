@@ -1,0 +1,45 @@
+key	localised_description	localised_title	bundle_target	priority	ui_icon	is_global_effect	show_in_3d_space	owner_only
+#effect_bundles_tables;4;db/effect_bundles_tables/derpy_iron_court								
+derpy_ic_office_priest	The Father of Darkness is served loudly, and the people are quiet.	High Priest of Hashut	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_priest	The temples stand unattended and the sermons go unsaid.	High Priest of Hashut (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_forge	The forges of Zharr Naggrund answer to one voice, and it is his.	Grand Overseer of the Forge	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_forge	No hand guides the forges. Output slips and no one is blamed.	Grand Overseer of the Forge (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_ledger	Every debt in the Dark Lands is written down, and he holds the book.	Keeper of the Black Ledger	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_ledger	The books go unbalanced and the tribute arrives light.	Keeper of the Black Ledger (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_warden	The outer holds are watched, and the watchers are paid on time.	Warden of the Marches	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_warden	The marches keep themselves, badly and at their own expense.	Warden of the Marches (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_hand	He carries the Sorcerer-Prophets' word down the Tower, unaltered.	Hand of the Tower	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_hand	The Tower's word arrives late, and altered on the way.	Hand of the Tower (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_chains	He counts the work gangs, and the gangs know he counts them.	Keeper of the Chains	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_chains	Uncounted, the work gangs move at their own pace.	Keeper of the Chains (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_pits	What comes back from a battlefield is his to sort and his to sell.	Master of the Pits	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_pits	The spoils are picked over by whoever reaches them first.	Master of the Pits (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_quarry	The black rock comes up faster when somebody is counting the carts.	Master of the Quarries	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_quarry	The quarries run at the pace of the laziest overseer in them.	Master of the Quarries (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_roads	The roads out of Zharr are his, and they are quicker than they were.	Warden of the Caravan Roads	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_roads	The roads are unwatched, and the caravans take the long way round.	Warden of the Caravan Roads (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_kilns	Brick and slag leave his kilns cheaper than anyone can explain.	Keeper of the Kilns	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_kilns	The kilns burn on regardless, and the bill arrives regardless.	Keeper of the Kilns (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_fields	Even ash will grow something, if a Dawi Zharr is made to care.	Steward of the Ash Fields	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_fields	The ash fields are left to the ash.	Steward of the Ash Fields (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_scribes	His clerks know which door to knock on, and when.	Master of the Scribes	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_scribes	The clerks knock on the wrong doors and are turned away.	Master of the Scribes (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_muster	He knows what a warrior costs, and he pays no more than that.	Warden of the Muster	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_muster	Every company is hired at whatever it asks for.	Warden of the Muster (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_banners	Raiding is an accounting exercise, and he keeps the account.	Keeper of the Banners	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_banners	The raiders keep their own accounts, which is to say they keep the takings.	Keeper of the Banners (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_grip	Nothing moves in Zharr-Naggrund that the Crown did not set moving.	An Iron Grip on the Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_mastery	The parties argue, and then they do as they are told.	Master of the Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_command	The Crown is first among the parties, and no more than first.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_contested	Every decree is a negotiation, and every negotiation has a price.	A Contested Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_lost	The parties rule and the Crown is consulted, when there is time.	The Court Is Not Yours	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_base	An Overseer of the court sits here, and the province knows it.	Overseer of the Province	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_crown	Your own men hold it, and it is quiet because they are watched.	Overseer: The Crown	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_temple	The temples take the province in hand and it grows for Hashut.	Overseer: The Priesthood	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_forge	Forge-guild overseers run the province like a workshop floor.	Overseer: The Forge	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_chain	The slavers work the province to the bone and account for every hour.	Overseer: The Chain	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_legion	A garrison town under a soldier costs less to keep than it should.	Overseer: The Legion	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_ledger	Brokers take the province's books in hand, and the tribute arrives whole.	Overseer: The Ledger	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_tower	Tower clerks read everything that passes through, and pass it on.	Overseer: The Tower	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_road	The caravan men keep the roads open whatever the season.	Overseer: The Road	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_hearth	The old clans hold it, and men come back to the muster faster.	Overseer: The Hearth	faction	1	chd_conclave_influence.png	true	false	true

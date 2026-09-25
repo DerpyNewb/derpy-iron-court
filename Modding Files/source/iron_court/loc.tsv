@@ -1,0 +1,607 @@
+key	text	tooltip
+#Loc;1;text/db/derpy_iron_court.loc		
+effect_bundles_localised_title_derpy_ic_office_priest	High Priest of Hashut	false
+effect_bundles_localised_description_derpy_ic_office_priest	The Father of Darkness is served loudly, and the people are quiet.	false
+derpy_ic_effects_derpy_ic_office_priest	Control +6, Building income +12%	false
+effect_bundles_localised_title_derpy_ic_vacant_priest	High Priest of Hashut (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_priest	The temples stand unattended and the sermons go unsaid.	false
+derpy_ic_effects_derpy_ic_vacant_priest	Control -6	false
+effect_bundles_localised_title_derpy_ic_office_forge	Grand Overseer of the Forge	false
+effect_bundles_localised_description_derpy_ic_office_forge	The forges of Zharr Naggrund answer to one voice, and it is his.	false
+derpy_ic_effects_derpy_ic_office_forge	Armaments +15%, Raw Materials +12%	false
+effect_bundles_localised_title_derpy_ic_vacant_forge	Grand Overseer of the Forge (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_forge	No hand guides the forges. Output slips and no one is blamed.	false
+derpy_ic_effects_derpy_ic_vacant_forge	Armaments -6%	false
+effect_bundles_localised_title_derpy_ic_office_ledger	Keeper of the Black Ledger	false
+effect_bundles_localised_description_derpy_ic_office_ledger	Every debt in the Dark Lands is written down, and he holds the book.	false
+derpy_ic_effects_derpy_ic_office_ledger	Building income +12%	false
+effect_bundles_localised_title_derpy_ic_vacant_ledger	Keeper of the Black Ledger (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_ledger	The books go unbalanced and the tribute arrives light.	false
+derpy_ic_effects_derpy_ic_vacant_ledger	Building income -6%	false
+effect_bundles_localised_title_derpy_ic_office_warden	Warden of the Marches	false
+effect_bundles_localised_description_derpy_ic_office_warden	The outer holds are watched, and the watchers are paid on time.	false
+derpy_ic_effects_derpy_ic_office_warden	Upkeep -10%, Replenishment +10%	false
+effect_bundles_localised_title_derpy_ic_vacant_warden	Warden of the Marches (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_warden	The marches keep themselves, badly and at their own expense.	false
+derpy_ic_effects_derpy_ic_vacant_warden	Control -4	false
+effect_bundles_localised_title_derpy_ic_office_hand	Hand of the Tower	false
+effect_bundles_localised_description_derpy_ic_office_hand	He carries the Sorcerer-Prophets' word down the Tower, unaltered.	false
+derpy_ic_effects_derpy_ic_office_hand	Research +10	false
+effect_bundles_localised_title_derpy_ic_vacant_hand	Hand of the Tower (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_hand	The Tower's word arrives late, and altered on the way.	false
+derpy_ic_effects_derpy_ic_vacant_hand	Research -4	false
+effect_bundles_localised_title_derpy_ic_office_chains	Keeper of the Chains	false
+effect_bundles_localised_description_derpy_ic_office_chains	He counts the work gangs, and the gangs know he counts them.	false
+derpy_ic_effects_derpy_ic_office_chains	Workload -15%	false
+effect_bundles_localised_title_derpy_ic_vacant_chains	Keeper of the Chains (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_chains	Uncounted, the work gangs move at their own pace.	false
+derpy_ic_effects_derpy_ic_vacant_chains	Workload +6%	false
+effect_bundles_localised_title_derpy_ic_office_pits	Master of the Pits	false
+effect_bundles_localised_description_derpy_ic_office_pits	What comes back from a battlefield is his to sort and his to sell.	false
+derpy_ic_effects_derpy_ic_office_pits	Post-battle Labour +24%	false
+effect_bundles_localised_title_derpy_ic_vacant_pits	Master of the Pits (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_pits	The spoils are picked over by whoever reaches them first.	false
+derpy_ic_effects_derpy_ic_vacant_pits	Post-battle Labour -10%	false
+effect_bundles_localised_title_derpy_ic_office_quarry	Master of the Quarries	false
+effect_bundles_localised_description_derpy_ic_office_quarry	The black rock comes up faster when somebody is counting the carts.	false
+derpy_ic_effects_derpy_ic_office_quarry	Raw Materials +9%	false
+effect_bundles_localised_title_derpy_ic_vacant_quarry	Master of the Quarries (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_quarry	The quarries run at the pace of the laziest overseer in them.	false
+derpy_ic_effects_derpy_ic_vacant_quarry	Raw Materials -4%	false
+effect_bundles_localised_title_derpy_ic_office_roads	Warden of the Caravan Roads	false
+effect_bundles_localised_description_derpy_ic_office_roads	The roads out of Zharr are his, and they are quicker than they were.	false
+derpy_ic_effects_derpy_ic_office_roads	Movement range +6%	false
+effect_bundles_localised_title_derpy_ic_vacant_roads	Warden of the Caravan Roads (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_roads	The roads are unwatched, and the caravans take the long way round.	false
+derpy_ic_effects_derpy_ic_vacant_roads	Movement range -3%	false
+effect_bundles_localised_title_derpy_ic_office_kilns	Keeper of the Kilns	false
+effect_bundles_localised_description_derpy_ic_office_kilns	Brick and slag leave his kilns cheaper than anyone can explain.	false
+derpy_ic_effects_derpy_ic_office_kilns	Construction cost -8%	false
+effect_bundles_localised_title_derpy_ic_vacant_kilns	Keeper of the Kilns (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_kilns	The kilns burn on regardless, and the bill arrives regardless.	false
+derpy_ic_effects_derpy_ic_vacant_kilns	Construction cost +4%	false
+effect_bundles_localised_title_derpy_ic_office_fields	Steward of the Ash Fields	false
+effect_bundles_localised_description_derpy_ic_office_fields	Even ash will grow something, if a Dawi Zharr is made to care.	false
+derpy_ic_effects_derpy_ic_office_fields	Growth +10	false
+effect_bundles_localised_title_derpy_ic_vacant_fields	Steward of the Ash Fields (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_fields	The ash fields are left to the ash.	false
+derpy_ic_effects_derpy_ic_vacant_fields	Growth -5	false
+effect_bundles_localised_title_derpy_ic_office_scribes	Master of the Scribes	false
+effect_bundles_localised_description_derpy_ic_office_scribes	His clerks know which door to knock on, and when.	false
+derpy_ic_effects_derpy_ic_office_scribes	Hero success +8%	false
+effect_bundles_localised_title_derpy_ic_vacant_scribes	Master of the Scribes (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_scribes	The clerks knock on the wrong doors and are turned away.	false
+derpy_ic_effects_derpy_ic_vacant_scribes	Hero success -4%	false
+effect_bundles_localised_title_derpy_ic_office_muster	Warden of the Muster	false
+effect_bundles_localised_description_derpy_ic_office_muster	He knows what a warrior costs, and he pays no more than that.	false
+derpy_ic_effects_derpy_ic_office_muster	Recruitment cost -8%	false
+effect_bundles_localised_title_derpy_ic_vacant_muster	Warden of the Muster (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_muster	Every company is hired at whatever it asks for.	false
+derpy_ic_effects_derpy_ic_vacant_muster	Recruitment cost +4%	false
+effect_bundles_localised_title_derpy_ic_office_banners	Keeper of the Banners	false
+effect_bundles_localised_description_derpy_ic_office_banners	Raiding is an accounting exercise, and he keeps the account.	false
+derpy_ic_effects_derpy_ic_office_banners	Raiding income +10%	false
+effect_bundles_localised_title_derpy_ic_vacant_banners	Keeper of the Banners (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_banners	The raiders keep their own accounts, which is to say they keep the takings.	false
+derpy_ic_effects_derpy_ic_vacant_banners	Raiding income -5%	false
+effect_bundles_localised_title_derpy_ic_control_grip	An Iron Grip on the Court	false
+effect_bundles_localised_description_derpy_ic_control_grip	Nothing moves in Zharr-Naggrund that the Crown did not set moving.	false
+derpy_ic_effects_derpy_ic_control_grip	Control +6, Building income +12%, Upkeep -15%, Growth +2	false
+derpy_ic_control_name_grip	An Iron Grip on the Court	false
+effect_bundles_localised_title_derpy_ic_control_mastery	Master of the Court	false
+effect_bundles_localised_description_derpy_ic_control_mastery	The parties argue, and then they do as they are told.	false
+derpy_ic_effects_derpy_ic_control_mastery	Control +4, Building income +8%, Upkeep -10%	false
+derpy_ic_control_name_mastery	Master of the Court	false
+effect_bundles_localised_title_derpy_ic_control_command	In Command of the Court	false
+effect_bundles_localised_description_derpy_ic_control_command	The Crown is first among the parties, and no more than first.	false
+derpy_ic_effects_derpy_ic_control_command	Control +2	false
+derpy_ic_control_name_command	In Command of the Court	false
+effect_bundles_localised_title_derpy_ic_control_contested	A Contested Court	false
+effect_bundles_localised_description_derpy_ic_control_contested	Every decree is a negotiation, and every negotiation has a price.	false
+derpy_ic_effects_derpy_ic_control_contested	Control -2, Upkeep +5%	false
+derpy_ic_control_name_contested	A Contested Court	false
+effect_bundles_localised_title_derpy_ic_control_lost	The Court Is Not Yours	false
+effect_bundles_localised_description_derpy_ic_control_lost	The parties rule and the Crown is consulted, when there is time.	false
+derpy_ic_effects_derpy_ic_control_lost	Control -8, Upkeep +20%, Building income -15%, Growth -2	false
+derpy_ic_control_name_lost	The Court Is Not Yours	false
+effect_bundles_localised_title_derpy_ic_gov_base	Overseer of the Province	false
+effect_bundles_localised_description_derpy_ic_gov_base	An Overseer of the court sits here, and the province knows it.	false
+derpy_ic_effects_derpy_ic_gov_base	Control +2, Growth +8	false
+effect_bundles_localised_title_derpy_ic_gov_house_crown	Overseer: The Crown	false
+effect_bundles_localised_description_derpy_ic_gov_house_crown	Your own men hold it, and it is quiet because they are watched.	false
+derpy_ic_effects_derpy_ic_gov_house_crown	Control +4	false
+effect_bundles_localised_title_derpy_ic_gov_house_temple	Overseer: The Priesthood	false
+effect_bundles_localised_description_derpy_ic_gov_house_temple	The temples take the province in hand and it grows for Hashut.	false
+derpy_ic_effects_derpy_ic_gov_house_temple	Growth +8	false
+effect_bundles_localised_title_derpy_ic_gov_house_forge	Overseer: The Forge	false
+effect_bundles_localised_description_derpy_ic_gov_house_forge	Forge-guild overseers run the province like a workshop floor.	false
+derpy_ic_effects_derpy_ic_gov_house_forge	Armaments +6%	false
+effect_bundles_localised_title_derpy_ic_gov_house_chain	Overseer: The Chain	false
+effect_bundles_localised_description_derpy_ic_gov_house_chain	The slavers work the province to the bone and account for every hour.	false
+derpy_ic_effects_derpy_ic_gov_house_chain	Post-battle Labour +10%	false
+effect_bundles_localised_title_derpy_ic_gov_house_legion	Overseer: The Legion	false
+effect_bundles_localised_description_derpy_ic_gov_house_legion	A garrison town under a soldier costs less to keep than it should.	false
+derpy_ic_effects_derpy_ic_gov_house_legion	Upkeep -6%	false
+effect_bundles_localised_title_derpy_ic_gov_house_ledger	Overseer: The Ledger	false
+effect_bundles_localised_description_derpy_ic_gov_house_ledger	Brokers take the province's books in hand, and the tribute arrives whole.	false
+derpy_ic_effects_derpy_ic_gov_house_ledger	Building income +6%	false
+effect_bundles_localised_title_derpy_ic_gov_house_tower	Overseer: The Tower	false
+effect_bundles_localised_description_derpy_ic_gov_house_tower	Tower clerks read everything that passes through, and pass it on.	false
+derpy_ic_effects_derpy_ic_gov_house_tower	Research +5	false
+effect_bundles_localised_title_derpy_ic_gov_house_road	Overseer: The Road	false
+effect_bundles_localised_description_derpy_ic_gov_house_road	The caravan men keep the roads open whatever the season.	false
+derpy_ic_effects_derpy_ic_gov_house_road	Movement range +4%	false
+effect_bundles_localised_title_derpy_ic_gov_house_hearth	Overseer: The Hearth	false
+effect_bundles_localised_description_derpy_ic_gov_house_hearth	The old clans hold it, and men come back to the muster faster.	false
+derpy_ic_effects_derpy_ic_gov_house_hearth	Replenishment +8%	false
+derpy_ic_office_name_priest	High Priest of Hashut	false
+derpy_ic_office_name_forge	Grand Overseer of the Forge	false
+derpy_ic_office_name_ledger	Keeper of the Black Ledger	false
+derpy_ic_office_name_warden	Warden of the Marches	false
+derpy_ic_office_name_hand	Hand of the Tower	false
+derpy_ic_office_name_chains	Keeper of the Chains	false
+derpy_ic_office_name_pits	Master of the Pits	false
+derpy_ic_office_name_quarry	Master of the Quarries	false
+derpy_ic_office_name_roads	Warden of the Caravan Roads	false
+derpy_ic_office_name_kilns	Keeper of the Kilns	false
+derpy_ic_office_name_fields	Steward of the Ash Fields	false
+derpy_ic_office_name_scribes	Master of the Scribes	false
+derpy_ic_office_name_muster	Warden of the Muster	false
+derpy_ic_office_name_banners	Keeper of the Banners	false
+derpy_ic_party_name_crown	The Crown	false
+derpy_ic_party_name_temple	The Priesthood	false
+derpy_ic_party_name_forge	The Forge	false
+derpy_ic_party_name_chain	The Chain	false
+derpy_ic_party_name_legion	The Legion	false
+derpy_ic_party_name_ledger	The Ledger	false
+derpy_ic_party_name_tower	The Tower	false
+derpy_ic_party_name_road	The Road	false
+derpy_ic_party_name_hearth	The Hearth	false
+derpy_ic_origin_name_khorakk	the House of Khorakk	false
+derpy_ic_origin_name_uzkulak	the Warfleet of Uzkulak	false
+derpy_ic_origin_name_artificers	Snakebeard's Artificers	false
+derpy_ic_origin_name_fists	the Fists of Hashut	false
+derpy_ic_origin_name_horns	the Horns of Hashut	false
+derpy_ic_origin_name_baal	the House of Baal	false
+derpy_ic_origin_name_azeros	the House of Azeros	false
+derpy_ic_origin_name_bzaark	the House of Bzaark	false
+derpy_ic_origin_name_blackdwarf	the Slaves of the Black Dwarf	false
+derpy_ic_origin_name_kraken	the Black Kraken Armada	false
+derpy_ic_origin_name_conclave	the Servants of the Conclave	false
+derpy_ic_origin_name_astragoth	the Disciples of Hashut	false
+derpy_ic_origin_name_azgorh	the Legion of Azgorh	false
+derpy_ic_origin_name_zhatan	the Warhost of Zharr	false
+derpy_ic_origin_name_skullstack	the Uzkul Mingol Company	false
+derpy_ic_origin_name_zharrduk	the Overlords of Zharrduk	false
+derpy_ic_origin_name_zharr	Zharr-Naggrund	false
+derpy_ic_origin_name_plain	the Plain of Zharr	false
+derpy_ic_origin_name_gorgoth	the Tower of Gorgoth	false
+derpy_ic_origin_name_stump	Daemon's Stump	false
+derpy_ic_origin_name_zornuzkul	Zorn Uzkul	false
+derpy_ic_origin_name_gash	Gash Kadrak	false
+derpy_ic_origin_name_mines	the Mines of Mingol	false
+derpy_ic_origin_name_wastes	the Howling Wastes	false
+derpy_ic_bg_name_household	Household Guard	false
+derpy_ic_bg_name_blood	Blood of the Line	false
+derpy_ic_bg_name_sworn	Sworn Hand	false
+derpy_ic_bg_name_acolyte	Temple Acolyte	false
+derpy_ic_bg_name_ashpriest	Ash-Priest	false
+derpy_ic_bg_name_taurukh	Bull Centaur Taurukh	false
+derpy_ic_bg_name_daemonsmith	Daemonsmith	false
+derpy_ic_bg_name_gunnery	Gunnery Master	false
+derpy_ic_bg_name_furnace	Furnace Master	false
+derpy_ic_bg_name_overseer	Overseer of the Pits	false
+derpy_ic_bg_name_driver	Slave-Driver	false
+derpy_ic_bg_name_wrangler	Hobgoblin Wrangler	false
+derpy_ic_bg_name_immortal	Immortal of Zharr	false
+derpy_ic_bg_name_infernal	Infernal Guard	false
+derpy_ic_bg_name_siege	Siege Captain	false
+derpy_ic_bg_name_broker	Broker of Zharr	false
+derpy_ic_bg_name_tribute	Tribute-Taker	false
+derpy_ic_bg_name_harbour	Harbourmaster	false
+derpy_ic_bg_name_apprentice	Sorcerer's Apprentice	false
+derpy_ic_bg_name_clerk	Clerk of the Tower	false
+derpy_ic_bg_name_omens	Reader of Omens	false
+derpy_ic_bg_name_caravan	Caravan Master	false
+derpy_ic_bg_name_roadwarden	Road Warden	false
+derpy_ic_bg_name_pathfinder	Walker of the Wastes	false
+derpy_ic_bg_name_ashfarmer	Ash-Farmer	false
+derpy_ic_bg_name_kiln	Kiln-Keeper	false
+derpy_ic_bg_name_elder	Clan Elder	false
+character_trait_levels_onscreen_name_derpy_ic_standing_0	Unproven at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_0	He has done nothing the Iron Court thinks worth remembering.	false
+character_trait_levels_explanation_text_derpy_ic_standing_0	No seat of the court is open to him. Influence is earned in the field - a victory, a settlement taken, a rank won - and by holding a seat once he has one.	false
+character_trait_levels_removal_text_derpy_ic_standing_0	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_1	Fit for the Apex	false
+character_trait_levels_colour_text_derpy_ic_standing_1	There is no room above him but Hashut's own.	false
+character_trait_levels_explanation_text_derpy_ic_standing_1	He has earned enough influence for any seat in the court, The Apex included.	false
+character_trait_levels_removal_text_derpy_ic_standing_1	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_2	Weighed at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_2	The old ones have stopped talking over him when he speaks.	false
+character_trait_levels_explanation_text_derpy_ic_standing_2	He has earned enough influence to be seated at The High Table.	false
+character_trait_levels_removal_text_derpy_ic_standing_2	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_3	Spoken For at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_3	A house or two would take him, and one of them says so out loud.	false
+character_trait_levels_explanation_text_derpy_ic_standing_3	He has earned enough influence to be seated on The Broad Step.	false
+character_trait_levels_removal_text_derpy_ic_standing_3	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_4	Noticed at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_4	His name has begun to come up, and not only when something breaks.	false
+character_trait_levels_explanation_text_derpy_ic_standing_4	He has earned enough influence to be seated on The Lower Step, the lowest tier of the ziggurat.	false
+character_trait_levels_removal_text_derpy_ic_standing_4	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_cautious	Cautious	false
+character_trait_levels_colour_text_derpy_ic_ambition_cautious	His influence carries less weight in the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_cautious	His influence counts 25% less towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_cautious	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_steady	Steady	false
+character_trait_levels_colour_text_derpy_ic_ambition_steady	His influence carries its usual weight in the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_steady	His influence counts as usual towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_steady	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_ambitious	Ambitious	false
+character_trait_levels_colour_text_derpy_ic_ambition_ambitious	Every honour becomes another claim on the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_ambitious	His influence counts 25% more towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_ambitious	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_house_khorakk	Born: The House of Khorakk	false
+character_trait_levels_colour_text_derpy_ic_house_khorakk	Born to the bull-cult, and it shows in everything he does.	false
+character_trait_levels_explanation_text_derpy_ic_house_khorakk	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_khorakk	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_uzkulak	Born: The Warfleet of Uzkulak	false
+character_trait_levels_colour_text_derpy_ic_house_uzkulak	Raised on a deck, counting other men's cargo.	false
+character_trait_levels_explanation_text_derpy_ic_house_uzkulak	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_uzkulak	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_artificers	Born: Snakebeard's Artificers	false
+character_trait_levels_colour_text_derpy_ic_house_artificers	Snakebeard's people take apart anything that holds still.	false
+character_trait_levels_explanation_text_derpy_ic_house_artificers	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_artificers	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_fists	Born: The Fists of Hashut	false
+character_trait_levels_colour_text_derpy_ic_house_fists	Temple-drilled, and proud of the scars that took.	false
+character_trait_levels_explanation_text_derpy_ic_house_fists	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_fists	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_horns	Born: The Horns of Hashut	false
+character_trait_levels_colour_text_derpy_ic_house_horns	The Horns raise their sons lean and keep them that way.	false
+character_trait_levels_explanation_text_derpy_ic_house_horns	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_horns	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_baal	Born: The House of Baal	false
+character_trait_levels_colour_text_derpy_ic_house_baal	Baal's kin smell of burnt brass and do not apologise for it.	false
+character_trait_levels_explanation_text_derpy_ic_house_baal	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_baal	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_azeros	Born: The House of Azeros	false
+character_trait_levels_colour_text_derpy_ic_house_azeros	Azeros builds. His people measure a thing before they hate it.	false
+character_trait_levels_explanation_text_derpy_ic_house_azeros	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_azeros	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_bzaark	Born: The House of Bzaark	false
+character_trait_levels_colour_text_derpy_ic_house_bzaark	Bzaark's household is not known for restraint, or for survivors.	false
+character_trait_levels_explanation_text_derpy_ic_house_bzaark	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_bzaark	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_blackdwarf	Born: The Slaves of the Black Dwarf	false
+character_trait_levels_colour_text_derpy_ic_house_blackdwarf	Sworn to the Black Dwarf, which is not the same as being free.	false
+character_trait_levels_explanation_text_derpy_ic_house_blackdwarf	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_blackdwarf	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_kraken	Born: The Black Kraken Armada	false
+character_trait_levels_colour_text_derpy_ic_house_kraken	The Armada raised him, and the Armada expects its due.	false
+character_trait_levels_explanation_text_derpy_ic_house_kraken	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_kraken	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_conclave	Born: The Servants of the Conclave	false
+character_trait_levels_colour_text_derpy_ic_house_conclave	Conclave-raised, and never lets anyone forget which tower taught him.	false
+character_trait_levels_explanation_text_derpy_ic_house_conclave	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_conclave	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_astragoth	Born: The Disciples of Hashut	false
+character_trait_levels_colour_text_derpy_ic_house_astragoth	Old blood, old rites, and a back that has never once bent.	false
+character_trait_levels_explanation_text_derpy_ic_house_astragoth	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_astragoth	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_azgorh	Born: The Legion of Azgorh	false
+character_trait_levels_colour_text_derpy_ic_house_azgorh	Forge-bred in Azgorh, and smells of it at forty paces.	false
+character_trait_levels_explanation_text_derpy_ic_house_azgorh	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_azgorh	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_zhatan	Born: The Warhost of Zharr	false
+character_trait_levels_colour_text_derpy_ic_house_zhatan	Raised in the Warhost, where a man is his last campaign.	false
+character_trait_levels_explanation_text_derpy_ic_house_zhatan	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_zhatan	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_skullstack	Born: The Uzkul Mingol Company	false
+character_trait_levels_colour_text_derpy_ic_house_skullstack	Company-raised: he prices a man before he greets him.	false
+character_trait_levels_explanation_text_derpy_ic_house_skullstack	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_skullstack	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_zharrduk	Born: The Overlords of Zharrduk	false
+character_trait_levels_colour_text_derpy_ic_house_zharrduk	Zharrduk-born, and runs a province the way the plain is run.	false
+character_trait_levels_explanation_text_derpy_ic_house_zharrduk	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_zharrduk	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_zharr	Born: Zharr-Naggrund	false
+character_trait_levels_colour_text_derpy_ic_house_zharr	Raised under the Tower itself, and impossible to impress.	false
+character_trait_levels_explanation_text_derpy_ic_house_zharr	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_zharr	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_plain	Born: The Plain of Zharr	false
+character_trait_levels_colour_text_derpy_ic_house_plain	Plain-bred: he measures everything against a horizon.	false
+character_trait_levels_explanation_text_derpy_ic_house_plain	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_plain	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_gorgoth	Born: The Tower of Gorgoth	false
+character_trait_levels_colour_text_derpy_ic_house_gorgoth	Gorgoth raised him, and Gorgoth raises them hard.	false
+character_trait_levels_explanation_text_derpy_ic_house_gorgoth	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_gorgoth	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_stump	Born: Daemon's Stump	false
+character_trait_levels_colour_text_derpy_ic_house_stump	From the Stump, where the ground is still warm.	false
+character_trait_levels_explanation_text_derpy_ic_house_stump	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_stump	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_zornuzkul	Born: Zorn Uzkul	false
+character_trait_levels_colour_text_derpy_ic_house_zornuzkul	Born on the Great Skull Land. He does not discuss it.	false
+character_trait_levels_explanation_text_derpy_ic_house_zornuzkul	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_zornuzkul	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_gash	Born: Gash Kadrak	false
+character_trait_levels_colour_text_derpy_ic_house_gash	Gash Kadrak: orc country, and he grew up armed.	false
+character_trait_levels_explanation_text_derpy_ic_house_gash	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_gash	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_mines	Born: The Mines of Mingol	false
+character_trait_levels_colour_text_derpy_ic_house_mines	Born underground and never entirely comfortable above it.	false
+character_trait_levels_explanation_text_derpy_ic_house_mines	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_mines	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_house_wastes	Born: The Howling Wastes	false
+character_trait_levels_colour_text_derpy_ic_house_wastes	Waste-born, and he still eats like the next meal is theoretical.	false
+character_trait_levels_explanation_text_derpy_ic_house_wastes	Where he came from. It says nothing about what he wants.	false
+character_trait_levels_removal_text_derpy_ic_house_wastes	His origin has been struck from the rolls.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_household	Household Guard	false
+character_trait_levels_colour_text_derpy_ic_bg_household	He stood at your door before he ever stood in a battle line.	false
+character_trait_levels_explanation_text_derpy_ic_bg_household	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_household	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_blood	Blood of the Line	false
+character_trait_levels_colour_text_derpy_ic_bg_blood	Close enough to the line to be dangerous, and he knows it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_blood	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_blood	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_sworn	Sworn Hand	false
+character_trait_levels_colour_text_derpy_ic_bg_sworn	He swore to the throne personally, and takes that literally.	false
+character_trait_levels_explanation_text_derpy_ic_bg_sworn	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_sworn	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_acolyte	Temple Acolyte	false
+character_trait_levels_colour_text_derpy_ic_bg_acolyte	Temple-raised. He still says the words under his breath.	false
+character_trait_levels_explanation_text_derpy_ic_bg_acolyte	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_acolyte	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_ashpriest	Ash-Priest	false
+character_trait_levels_colour_text_derpy_ic_bg_ashpriest	He has burned enough offerings to have stopped smelling them.	false
+character_trait_levels_explanation_text_derpy_ic_bg_ashpriest	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_ashpriest	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_taurukh	Bull Centaur Taurukh	false
+character_trait_levels_colour_text_derpy_ic_bg_taurukh	Half a bull and entirely a zealot, which is the usual pairing.	false
+character_trait_levels_explanation_text_derpy_ic_bg_taurukh	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_taurukh	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_daemonsmith	Daemonsmith	false
+character_trait_levels_colour_text_derpy_ic_bg_daemonsmith	He talks to what he binds, and it is not clear who is listening.	false
+character_trait_levels_explanation_text_derpy_ic_bg_daemonsmith	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_daemonsmith	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_gunnery	Gunnery Master	false
+character_trait_levels_colour_text_derpy_ic_bg_gunnery	He can tell you what a barrel will do before it does it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_gunnery	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_gunnery	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_furnace	Furnace Master	false
+character_trait_levels_colour_text_derpy_ic_bg_furnace	Twenty years at a furnace mouth. His eyes are not what they were.	false
+character_trait_levels_explanation_text_derpy_ic_bg_furnace	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_furnace	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_overseer	Overseer of the Pits	false
+character_trait_levels_colour_text_derpy_ic_bg_overseer	He counts a work gang the way other men count coin.	false
+character_trait_levels_explanation_text_derpy_ic_bg_overseer	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_overseer	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_driver	Slave-Driver	false
+character_trait_levels_colour_text_derpy_ic_bg_driver	Cheerful, loud, and entirely without a floor.	false
+character_trait_levels_explanation_text_derpy_ic_bg_driver	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_driver	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_wrangler	Hobgoblin Wrangler	false
+character_trait_levels_colour_text_derpy_ic_bg_wrangler	He handles hobgoblins, which means he trusts nothing that moves.	false
+character_trait_levels_explanation_text_derpy_ic_bg_wrangler	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_wrangler	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_immortal	Immortal of Zharr	false
+character_trait_levels_colour_text_derpy_ic_bg_immortal	He has stood in the front rank and expects the courtesy of it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_immortal	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_immortal	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_infernal	Infernal Guard	false
+character_trait_levels_colour_text_derpy_ic_bg_infernal	Masked so long that the face underneath is a rumour.	false
+character_trait_levels_explanation_text_derpy_ic_bg_infernal	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_infernal	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_siege	Siege Captain	false
+character_trait_levels_colour_text_derpy_ic_bg_siege	He has taken walls down for a living and finds doors insulting.	false
+character_trait_levels_explanation_text_derpy_ic_bg_siege	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_siege	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_broker	Broker of Zharr	false
+character_trait_levels_colour_text_derpy_ic_bg_broker	He prices everything, including this conversation.	false
+character_trait_levels_explanation_text_derpy_ic_bg_broker	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_broker	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_tribute	Tribute-Taker	false
+character_trait_levels_colour_text_derpy_ic_bg_tribute	He has collected from people who could not pay, and did anyway.	false
+character_trait_levels_explanation_text_derpy_ic_bg_tribute	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_tribute	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_harbour	Harbourmaster	false
+character_trait_levels_colour_text_derpy_ic_bg_harbour	He knows what every hull on the Sea of Dread is carrying.	false
+character_trait_levels_explanation_text_derpy_ic_bg_harbour	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_harbour	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_apprentice	Sorcerer's Apprentice	false
+character_trait_levels_colour_text_derpy_ic_bg_apprentice	Never finished the Tower. Nobody asks him why.	false
+character_trait_levels_explanation_text_derpy_ic_bg_apprentice	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_apprentice	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_clerk	Clerk of the Tower	false
+character_trait_levels_colour_text_derpy_ic_bg_clerk	He has read more of the Tower's word than he was meant to.	false
+character_trait_levels_explanation_text_derpy_ic_bg_clerk	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_clerk	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_omens	Reader of Omens	false
+character_trait_levels_colour_text_derpy_ic_bg_omens	He reads the sky and tells you only the parts you can act on.	false
+character_trait_levels_explanation_text_derpy_ic_bg_omens	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_omens	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_caravan	Caravan Master	false
+character_trait_levels_colour_text_derpy_ic_bg_caravan	He has crossed the Wastes enough times to have stopped counting.	false
+character_trait_levels_explanation_text_derpy_ic_bg_caravan	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_caravan	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_roadwarden	Road Warden	false
+character_trait_levels_colour_text_derpy_ic_bg_roadwarden	He keeps a road open by making the alternative worse.	false
+character_trait_levels_explanation_text_derpy_ic_bg_roadwarden	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_roadwarden	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_pathfinder	Walker of the Wastes	false
+character_trait_levels_colour_text_derpy_ic_bg_pathfinder	He goes out further than anyone sensible and comes back.	false
+character_trait_levels_explanation_text_derpy_ic_bg_pathfinder	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_pathfinder	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_ashfarmer	Ash-Farmer	false
+character_trait_levels_colour_text_derpy_ic_bg_ashfarmer	He has made ash grow something, which nobody believes until they eat.	false
+character_trait_levels_explanation_text_derpy_ic_bg_ashfarmer	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_ashfarmer	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_kiln	Kiln-Keeper	false
+character_trait_levels_colour_text_derpy_ic_bg_kiln	He smells of slag and can judge a firing by the sound.	false
+character_trait_levels_explanation_text_derpy_ic_bg_kiln	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_kiln	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_bg_elder	Clan Elder	false
+character_trait_levels_colour_text_derpy_ic_bg_elder	Old clan, small clan, and a memory for every slight in it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_elder	What he did before you had a use for him, and who that puts him with at court.	false
+character_trait_levels_removal_text_derpy_ic_bg_elder	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_title_priest	High Priest of Hashut	false
+character_trait_levels_colour_text_derpy_ic_title_priest	The Father of Darkness is served loudly, and the people are quiet.	false
+character_trait_levels_explanation_text_derpy_ic_title_priest	Control: +6, Income from all buildings: +12%	false
+character_trait_levels_removal_text_derpy_ic_title_priest	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_forge	Grand Overseer of the Forge	false
+character_trait_levels_colour_text_derpy_ic_title_forge	The forges of Zharr Naggrund answer to one voice, and it is his.	false
+character_trait_levels_explanation_text_derpy_ic_title_forge	Armaments output: +15%, Raw Materials output: +12%	false
+character_trait_levels_removal_text_derpy_ic_title_forge	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_ledger	Keeper of the Black Ledger	false
+character_trait_levels_colour_text_derpy_ic_title_ledger	Every debt in the Dark Lands is written down, and he holds the book.	false
+character_trait_levels_explanation_text_derpy_ic_title_ledger	Income from all buildings: +12%	false
+character_trait_levels_removal_text_derpy_ic_title_ledger	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_warden	Warden of the Marches	false
+character_trait_levels_colour_text_derpy_ic_title_warden	The outer holds are watched, and the watchers are paid on time.	false
+character_trait_levels_explanation_text_derpy_ic_title_warden	Upkeep: -10%, Casualty replenishment rate: +10%	false
+character_trait_levels_removal_text_derpy_ic_title_warden	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_hand	Hand of the Tower	false
+character_trait_levels_colour_text_derpy_ic_title_hand	He carries the Sorcerer-Prophets' word down the Tower, unaltered.	false
+character_trait_levels_explanation_text_derpy_ic_title_hand	Research rate: +10	false
+character_trait_levels_removal_text_derpy_ic_title_hand	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_chains	Keeper of the Chains	false
+character_trait_levels_colour_text_derpy_ic_title_chains	He counts the work gangs, and the gangs know he counts them.	false
+character_trait_levels_explanation_text_derpy_ic_title_chains	Workload requirement for Raw Materials: -15%	false
+character_trait_levels_removal_text_derpy_ic_title_chains	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_pits	Master of the Pits	false
+character_trait_levels_colour_text_derpy_ic_title_pits	What comes back from a battlefield is his to sort and his to sell.	false
+character_trait_levels_explanation_text_derpy_ic_title_pits	Labour gained post-battle: +24%	false
+character_trait_levels_removal_text_derpy_ic_title_pits	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_quarry	Master of the Quarries	false
+character_trait_levels_colour_text_derpy_ic_title_quarry	The black rock comes up faster when somebody is counting the carts.	false
+character_trait_levels_explanation_text_derpy_ic_title_quarry	Raw Materials output: +9%	false
+character_trait_levels_removal_text_derpy_ic_title_quarry	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_roads	Warden of the Caravan Roads	false
+character_trait_levels_colour_text_derpy_ic_title_roads	The roads out of Zharr are his, and they are quicker than they were.	false
+character_trait_levels_explanation_text_derpy_ic_title_roads	Campaign movement range: +6%	false
+character_trait_levels_removal_text_derpy_ic_title_roads	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_kilns	Keeper of the Kilns	false
+character_trait_levels_colour_text_derpy_ic_title_kilns	Brick and slag leave his kilns cheaper than anyone can explain.	false
+character_trait_levels_explanation_text_derpy_ic_title_kilns	Construction cost: -8% for all buildings	false
+character_trait_levels_removal_text_derpy_ic_title_kilns	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_fields	Steward of the Ash Fields	false
+character_trait_levels_colour_text_derpy_ic_title_fields	Even ash will grow something, if a Dawi Zharr is made to care.	false
+character_trait_levels_explanation_text_derpy_ic_title_fields	Growth: +10	false
+character_trait_levels_removal_text_derpy_ic_title_fields	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_scribes	Master of the Scribes	false
+character_trait_levels_colour_text_derpy_ic_title_scribes	His clerks know which door to knock on, and when.	false
+character_trait_levels_explanation_text_derpy_ic_title_scribes	Hero action success chance: +8%	false
+character_trait_levels_removal_text_derpy_ic_title_scribes	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_muster	Warden of the Muster	false
+character_trait_levels_colour_text_derpy_ic_title_muster	He knows what a warrior costs, and he pays no more than that.	false
+character_trait_levels_explanation_text_derpy_ic_title_muster	Recruitment cost: -8%	false
+character_trait_levels_removal_text_derpy_ic_title_muster	He has been stripped of the office, and everyone saw it.	false
+character_trait_levels_onscreen_name_derpy_ic_title_banners	Keeper of the Banners	false
+character_trait_levels_colour_text_derpy_ic_title_banners	Raiding is an accounting exercise, and he keeps the account.	false
+character_trait_levels_explanation_text_derpy_ic_title_banners	Income from raiding: +10%	false
+character_trait_levels_removal_text_derpy_ic_title_banners	He has been stripped of the office, and everyone saw it.	false
+event_feed_strings_text_derpy_ic_event_plot_ok_title	The Court Moves	false
+event_feed_strings_text_derpy_ic_event_plot_ok_primary	Your move succeeded. The court has felt it, and the parties have adjusted their opinion of you accordingly.	false
+event_feed_strings_text_derpy_ic_event_plot_ok_secondary	SUCCESS	false
+event_feed_strings_text_derpy_ic_event_plot_fail_title	The Court Refuses	false
+event_feed_strings_text_derpy_ic_event_plot_fail_primary	Your move failed. What it cost you is spent, and the party it was aimed at now knows you tried.	false
+event_feed_strings_text_derpy_ic_event_plot_fail_secondary	FAILURE	false
+event_feed_strings_text_derpy_ic_event_office_lost_title	A Seat Stands Empty	false
+event_feed_strings_text_derpy_ic_event_office_lost_primary	An officer no longer holds his seat. The office grants nothing while it stands empty, and its party will not thank you for the vacancy.	false
+event_feed_strings_text_derpy_ic_event_party_joined_title	A Party Enters the Court	false
+event_feed_strings_text_derpy_ic_event_party_joined_primary	A faction you absorbed has brought its men into your court as a party of its own. It holds weight now, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_joined_secondary	THE COURT GROWS	false
+event_feed_strings_text_derpy_ic_event_secede_warn_title	A Party Prepares to Leave	false
+event_feed_strings_text_derpy_ic_event_secede_warn_primary	A party has begun counting down to secession. When the count runs out it takes its provinces with it. Settle with it, or take its seats away before it can.	false
+event_feed_strings_text_derpy_ic_event_secede_warn_secondary	SECESSION PENDING	false
+event_feed_strings_text_derpy_ic_event_snub_title	A Party Is Slighted	false
+event_feed_strings_text_derpy_ic_event_snub_primary	A party is owed a seat it does not hold. Its loyalty falls every turn the grievance stands.	false
+event_feed_strings_text_derpy_ic_event_secede_done_title	A Party Has Broken With You	false
+event_feed_strings_text_derpy_ic_event_secede_done_primary	A party has left your court. It has taken land with it, and there is an army of its own people standing on that land. Its seats are empty and its men have come home to your own house.	false
+event_feed_strings_text_derpy_ic_event_secede_done_secondary	SECESSION	false
+event_feed_strings_text_derpy_ic_event_loyalty_warn_title	A Party Turns Against You	false
+event_feed_strings_text_derpy_ic_event_loyalty_warn_primary	A party's loyalty has fallen far enough to be worth watching. Give it a seat, or buy it off - a party that reaches the bottom does not wait, and it leaves with whatever land it holds.	false
+event_feed_strings_text_derpy_ic_event_loyalty_warn_secondary	DISLOYALTY	false
+event_feed_strings_text_derpy_ic_event_splinter_title	Your Own House Splits	false
+event_feed_strings_text_derpy_ic_event_splinter_primary	Your party's loyalty has run out. The men who will not answer to you any more have organised as an interest of their own - they hold a share of the court that used to be yours, and they will expect seats like any other party.	false
+event_feed_strings_text_derpy_ic_event_splinter_secondary	A NEW PARTY	false
+event_feed_strings_text_derpy_ic_event_secede_soon_title	The Count Is Nearly Out	false
+event_feed_strings_text_derpy_ic_event_secede_soon_primary	A party that began counting down to secession is close to the end of it. When the count runs out it leaves, and it takes the provinces it holds with it. There will be no further warning.	false
+event_feed_strings_text_derpy_ic_event_secede_soon_secondary	SECESSION IMMINENT	false
+event_feed_strings_text_derpy_ic_event_splinter_warn_title	Your Own House Is Turning	false
+event_feed_strings_text_derpy_ic_event_splinter_warn_primary	Your party's loyalty has run out. The men who will not answer to you any more are organising as an interest of their own, and when they finish they will hold a share of the court that is currently yours. Win them back before it is settled, or lose them.	false
+event_feed_strings_text_derpy_ic_event_splinter_warn_secondary	A SPLIT PENDING	false
+event_feed_strings_text_derpy_ic_event_dissolved_title	A Party Dissolves	false
+event_feed_strings_text_derpy_ic_event_dissolved_primary	A party with nobody left in it and no province to its name has broken up rather than walk out. Nobody leaves and nothing is lost; its share of the court is simply gone.	false
+event_feed_strings_text_derpy_ic_event_dissolved_secondary	PARTY DISSOLVED	false
+event_feed_strings_text_derpy_ic_event_party_plot_warn_title	A Party Moves Against You	false
+event_feed_strings_text_derpy_ic_event_party_plot_warn_primary	One of the court's parties is preparing to strike at the Crown next turn. Open the Iron Court: their card names the man and the move, and what would stop it.	false
+event_feed_strings_text_derpy_ic_event_party_plot_warn_secondary	WARNING	false
+event_feed_strings_text_derpy_ic_event_party_plot_ok_title	The Court Strikes at the Crown	false
+event_feed_strings_text_derpy_ic_event_party_plot_ok_primary	A party's move against the Crown has landed. The court record says who did it and what it cost you.	false
+event_feed_strings_text_derpy_ic_event_party_plot_ok_secondary	STRUCK	false
+event_feed_strings_text_derpy_ic_event_party_plot_fail_title	A Plot Is Foiled	false
+event_feed_strings_text_derpy_ic_event_party_plot_fail_primary	A party tried to move against the Crown and failed. What it spent is gone, and the court record names them.	false
+event_feed_strings_text_derpy_ic_event_party_plot_fail_secondary	FOILED	false
+event_feed_strings_text_derpy_ic_event_party_plot_dropped_title	A Plot Comes to Nothing	false
+event_feed_strings_text_derpy_ic_event_party_plot_dropped_primary	The move a party was preparing against the Crown has fallen apart before it could land.	false
+event_feed_strings_text_derpy_ic_event_party_plot_dropped_secondary	ABANDONED	false
+event_feed_strings_text_derpy_ic_event_party_feud_title	A Feud in the Court	false
+event_feed_strings_text_derpy_ic_event_party_feud_primary	Two parties have turned on each other. While the feud lasts they strike at each other rather than at you.	false
+event_feed_strings_text_derpy_ic_event_party_feud_secondary	FEUD	false
+event_feed_strings_text_derpy_ic_event_party_feud_end_title	A Feud Ends	false
+event_feed_strings_text_derpy_ic_event_party_feud_end_primary	A feud between two parties is over. Either may turn its attention back to the Crown.	false
+event_feed_strings_text_derpy_ic_event_party_feud_end_secondary	FEUD OVER	false
+event_feed_strings_text_derpy_ic_event_party_feud_murder_title	Blood Between Parties	false
+event_feed_strings_text_derpy_ic_event_party_feud_murder_primary	A feud at court has ended in a killing. One of your men is dead at the hands of a rival party. The court record names both sides.	false
+event_feed_strings_text_derpy_ic_event_party_feud_murder_secondary	KILLED	false
+event_feed_strings_text_derpy_ic_event_party_demand_title	A Party Makes a Demand	false
+event_feed_strings_text_derpy_ic_event_party_demand_primary	One of the court's parties demands a post for one of its men. Their card names the man and the post. Grant it and their loyalty rises; refuse it, or let the time run out, and it falls.	false
+event_feed_strings_text_derpy_ic_event_party_demand_secondary	DEMAND	false
+event_feed_strings_text_derpy_ic_event_party_demand_refused_title	A Demand Refused	false
+event_feed_strings_text_derpy_ic_event_party_demand_refused_primary	A party's demand went unmet. They will remember it, and their loyalty has fallen.	false
+event_feed_strings_text_derpy_ic_event_party_demand_refused_secondary	REFUSED	false
+event_feed_strings_text_derpy_ic_event_party_offer_title	A Party Offers a Favour	false
+event_feed_strings_text_derpy_ic_event_party_offer_primary	A loyal party offers the Crown something for nothing. Their card says what. Click it to accept or decline, but the offer will not wait long, and the other parties will notice if you take it.	false
+event_feed_strings_text_derpy_ic_event_party_offer_secondary	OFFER	false
+event_feed_strings_text_derpy_ic_move_bribe_ok	BRIBE - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_bribe_fail	BRIBE - FAILURE	false
+event_feed_strings_text_derpy_ic_move_discredit_ok	DISCREDIT - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_discredit_fail	DISCREDIT - FAILURE	false
+event_feed_strings_text_derpy_ic_move_rumour_ok	SPREAD RUMOURS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_rumour_fail	SPREAD RUMOURS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_murder_ok	A FORGE ACCIDENT - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_murder_fail	A FORGE ACCIDENT - FAILURE	false
+event_feed_strings_text_derpy_ic_move_provoke_ok	PROVOKE - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_provoke_fail	PROVOKE - FAILURE	false
+event_feed_strings_text_derpy_ic_move_purge_ok	PURGE THE HOUSE - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_purge_fail	PURGE THE HOUSE - FAILURE	false
+event_feed_strings_text_derpy_ic_move_unseat_ok	STRIKE THEIR SEATS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_unseat_fail	STRIKE THEIR SEATS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_recall_ok	RECALL THEIR GOVERNORS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_recall_fail	RECALL THEIR GOVERNORS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_oath_ok	BLOOD-OATH ON THE ANVIL - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_oath_fail	BLOOD-OATH ON THE ANVIL - FAILURE	false
+event_feed_strings_text_derpy_ic_move_patron_ok	STAND HIS PATRON - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_patron_fail	STAND HIS PATRON - FAILURE	false
+event_feed_strings_text_derpy_ic_move_kinsman_ok	NAME HIM KINSMAN - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_kinsman_fail	NAME HIM KINSMAN - FAILURE	false
+event_feed_strings_text_derpy_ic_move_pledge_ok	PLEDGE OF THE FORGE - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_pledge_fail	PLEDGE OF THE FORGE - FAILURE	false
+event_feed_strings_text_derpy_ic_move_embezzle_ok	EMBEZZLE FROM THE VAULTS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_embezzle_fail	EMBEZZLE FROM THE VAULTS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_feast_ok	A FEAST OF ASH - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_feast_fail	A FEAST OF ASH - FAILURE	false
+event_feed_strings_text_derpy_ic_move_audience_ok	HOLD THE ASH COURT - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_audience_fail	HOLD THE ASH COURT - FAILURE	false
+event_feed_strings_text_derpy_ic_move_circuit_ok	RIDE THE CIRCUIT - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_circuit_fail	RIDE THE CIRCUIT - FAILURE	false
+missions_localised_title_derpy_ic_demand_office	A Party Demands an Office	false
+missions_localised_description_derpy_ic_demand_office	One of the court's parties wants one of its men seated in a vacant office. Their party card names the man and the office. Seat him before the time runs out and their loyalty rises; let it run out, or give the office to someone else, and it falls.	false
+missions_localised_mission_completed_text_derpy_ic_demand_office	The office is filled as they asked, and the party is satisfied.	false
+mission_text_text_derpy_ic_demand_office	Seat the party's man in the office they named (see their party card).	false
+missions_localised_title_derpy_ic_demand_province	A Party Demands a Province	false
+missions_localised_description_derpy_ic_demand_province	One of the court's parties wants one of its men made overseer of a province. Their party card names the man and the province. Appoint him before the time runs out and their loyalty rises; let it run out, or give the province to someone else, and it falls.	false
+missions_localised_mission_completed_text_derpy_ic_demand_province	The province has the overseer they asked for, and the party is satisfied.	false
+mission_text_text_derpy_ic_demand_province	Make the party's man overseer of the province they named (see their party card).	false
+campaign_payload_ui_details_description_derpy_ic_demand_reward	The party's loyalty rises.	false

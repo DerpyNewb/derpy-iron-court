@@ -1,0 +1,74 @@
+<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="The Iron Court - a courtier's standing, over CA's character panel"
+	precache_condition="">
+	<hierarchy>
+		<root this="IC340001-D000-4000-B000000000000001">
+			<derpy_ic_standing this="IC340004-D000-4000-B000000000000004"/>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="IC340001-D000-4000-B000000000000001"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="IC340001-D000-4000-B000000000000001"
+			currentstate="IC340002-D000-4000-B000000000000002"
+			defaultstate="IC340002-D000-4000-B000000000000002">
+			<states>
+				<standard
+					this="IC340002-D000-4000-B000000000000002"
+					name="standard"
+					width="190"
+					height="22"
+					uniqueguid="IC340002-D000-4000-B000000000000002">
+				</standard>
+			</states>
+		</root>
+		<derpy_ic_standing
+			this="IC340004-D000-4000-B000000000000004"
+			id="derpy_ic_standing"
+			tooltipslocalised="true"
+			uniqueguid="IC340004-D000-4000-B000000000000004"
+			currentstate="IC340005-D000-4000-B000000000000005"
+			defaultstate="IC340005-D000-4000-B000000000000005">
+			<componentimages>
+				<component_image
+					this="IC340004-D001-4000-B000000000000004"
+					uniqueguid="IC340004-D001-4000-B000000000000004"
+					imagepath="ui/skins/default/button_round_medium_underlay.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC340005-D000-4000-B000000000000005"
+					name="standard"
+					width="190"
+					height="22"
+					uniqueguid="IC340005-D000-4000-B000000000000005">
+					<imagemetrics>
+						<image
+							this="IC340004-D002-4000-B000000000000004"
+							uniqueguid="IC340004-D002-4000-B000000000000004"
+							componentimage="IC340004-D001-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="190"
+							height="22"
+							dockpoint="Center"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="20"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="header_20_bold"/>
+				</standard>
+			</states>
+		</derpy_ic_standing>
+	</components>
+</layout>

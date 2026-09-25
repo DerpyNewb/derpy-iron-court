@@ -1,0 +1,18 @@
+__pycache__/
+*.pyc
+.skilltree_cache/
+TWUI_Studio/
+*.pack
+*.bak*
+
+# Creative Assembly-derived art is never published. It ships in the .pack only.
+*.png
+*.dds
+*.jpg
+*.jpeg
+*.webp
+*.tga
+
+# CA's own factions rows (exported from db.pack); regenerated from your own game.
+Modding Files/source/iron_court/factions.tsv
+Modding Files/source/iron_court/_donor_factions.tsv
