@@ -5,10 +5,15 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
-## 2026-09-25 - build 226121E7
+## 2026-09-25 - build D4CC1CE1
 
 Deployed 2026-09-25, the last of several builds that day after 272C876B. MD5
-`226121E771A645DF4CB3C4FE0F7D24D6`, 8,991,087 bytes.
+`D4CC1CE112ABDE5256C024D538D60D8E`, 8,991,481 bytes.
+
+- **Fixed: build 226121E7 crashed the game on every new campaign.** The settings page asked
+  the game whether it was multiplayer while the campaign was still loading, before the game
+  had built it. It now takes that answer from MCT, which works it out before the load starts.
+  226121E7 was only ever in the author's `data/` folder.
 
 - **An MCT settings page.** Difficulty (Gentle, Default, Harsh, Ruthless, Custom), seven
   switches and fourteen Custom numbers. The settings are fixed into the save when a campaign

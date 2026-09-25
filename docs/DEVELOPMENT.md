@@ -181,8 +181,8 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the three scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (648 checks)`. |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 476 mutants, each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (649 checks)`. |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 478 mutants, each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
 | Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 12 files, 478 components`. |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |

@@ -2916,13 +2916,20 @@ end"""),
      """            elseif SWITCHES[i][5] then
                 o:set_locked(true, LOCK_REASON)"""),
     ("live: the switches open in multiplayer", S,
-     """            if mp then
+     """            if in_mp then
                 o:set_locked(true, MP_REASON)""",
      """            if false then
                 o:set_locked(true, MP_REASON)"""),
     ("live: an old save's locks never lifted", S,
-     """core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function()""",
-     """core:add_listener("derpy_ic_mct_loaded_gone", "MctInitialized", true, function()"""),
+     """core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function(context)""",
+     """core:add_listener("derpy_ic_mct_loaded_gone", "MctInitialized", true, function(context)"""),
+    # THE 226121E7 CRASH: the model read from inside CA's LoadingGame callbacks.
+    ("crash: the MCT page asking the game about multiplayer while it loads", S,
+     """    in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true""",
+     """    in_mp = cm:is_multiplayer() == true"""),
+    ("live: MCT's multiplayer answer ignored", S,
+     """    in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true""",
+     """    in_mp = false"""),
 
     # ---- live switches: read again at load and on Finalize (2026-09-25) ----
     ("live: the switches never read again at load", M,

@@ -20481,16 +20481,41 @@ check("in a campaign only the live switches can be changed, even on a save that 
     for _, o in pairs(opts) do o.locked = true end
     local loaded = core.listeners["derpy_ic_mct_loaded"]
     assert(loaded, "nothing unlocks the live switches once MCT has loaded the save")
-    loaded({})
+    -- MctInitialized's context as MCT builds it (Registry:load): the answer to
+    -- "is this multiplayer", worked out by MCT before the save began to load.
+    loaded({is_multiplayer = function() return false end})
     held(opts, "once MCT has loaded the save")
     -- IN MULTIPLAYER NOTHING ON THE PAGE IS READ, so nothing looks changeable.
-    cm.is_multiplayer = function() return true end
     opts = load_mct_file(true)
-    core.listeners["derpy_ic_mct_loaded"]({})
-    cm.is_multiplayer = nil
+    core.listeners["derpy_ic_mct_loaded"]({is_multiplayer = function() return true end})
     for key, o in pairs(opts) do
         assert(o.locked == true, key .. " can be changed in a multiplayer campaign")
     end
+end)
+
+check("the MCT page never asks the campaign anything while the game loads", function()
+    -- THE CRASH OF BUILD 226121E7 (2026-09-25): the page's MctInitialized
+    -- listener asked cm:is_multiplayer(), which reads the model, from inside
+    -- CA's LoadingGame callbacks - before the game exists. A null read inside
+    -- Warhammer3.exe, four times, on every new campaign. The file's own load
+    -- came earlier still, and only logged. A pcall catches neither kind, so
+    -- the page may not touch cm at all: the recorder below answers every
+    -- call and writes down that it was made.
+    local touched = {}
+    local was = cm
+    cm = setmetatable({}, {__index = function(_, key)
+        touched[#touched + 1] = key
+        return function() return false end
+    end})
+    local ok, err = pcall(function()
+        load_mct_file(true)
+        core.listeners["derpy_ic_mct_loaded"]({is_multiplayer = function() return false end})
+        core.listeners["derpy_ic_mct_ready"]({})
+    end)
+    cm = was
+    assert(ok, tostring(err))
+    assert(#touched == 0, "the MCT page called cm:" .. table.concat(touched, ", cm:")
+        .. " while loading - the model does not exist yet")
 end)
 
 -- MULTIPLAYER FOR THE LENGTH OF fn. `local_faction` is what the forced

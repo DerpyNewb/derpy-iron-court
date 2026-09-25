@@ -5,9 +5,9 @@ planning; see its "Amended 2026-09-25" block). Plan:
 `docs/superpowers/plans/2026-09-25-iron-court-mct-multiplayer.md`. Pre-change copies of every
 edited file: `Modding Files/source/iron_court_bak_pre_mctmp_20260925/`.
 
-BUILT and deployed to `data/derpy_iron_court.pack` (8,991,087 bytes, MD5 `226121e7`, after the
+BUILT and deployed to `data/derpy_iron_court.pack` (8,991,481 bytes, MD5 `d4cc1ce1`, after the
 review fix pass in section 7, the party counts in section 8, Ruthless's pressure line and the two
-Purge fixes in section 9, the office terms in section 10, the seven QoL features in section 11 and the six live switches in section 12). Not uploaded. The pack from before this change is
+Purge fixes in section 9, the office terms in section 10, the seven QoL features in section 11, the six live switches in section 12 and the load-crash fix in section 13). Not uploaded. The pack from before this change is
 `data/derpy_iron_court.pack.bak_pre_mctmp_20260925`.
 
 ## 1. What shipped
@@ -400,3 +400,42 @@ mid-campaign", now "the frozen switches editable mid-campaign"). 476 mutants, al
 (`mutants_full_live.txt`). The full run found one survivor, "the cleared countdowns never saved": the
 check's fixture had never saved the running countdown, so a reload read 0 whether the flip saved
 or not. The fixture now saves first and checks that it did.
+
+## 13. Build 226121E7 crashed every new campaign; fixed in D4CC1CE1 (2026-09-25)
+
+**Symptom.** Four crashes at a new campaign's load (20:54 to 21:22), all the same null read at
+`Warhammer3.exe+0x281FE44`. The campaign loaded with the pack unticked.
+
+**Cause.** Section 12's `derpy_ic_mct_loaded` listener (on `MctInitialized`) ran `relock`,
+which called `is_mp()`, which called `cm:is_multiplayer()`. That goes through `cm:model()` to
+`game_interface:model():is_ready_for_script_access()`. MCT fires `MctInitialized` synchronously
+from inside its own `LoadingGame` callback, before the model exists. The crashed script log
+proves it: it stops after the last `Loading value` and before the `LoadingGame` footer that CA
+prints once every loading callback has returned, and this listener was the only new code in
+that window. The same `is_mp()` call at the file's own load, earlier still, only logged two
+script errors ("model() before the model was created"). `pcall` catches neither kind of fault.
+
+**Fix.** The settings file makes no `cm:` call at all:
+- `in_mp` starts false and is set from `context:is_multiplayer()` on `MctInitialized`. MCT works
+  that value out itself, in `Registry:load`, before the load starts.
+- `relock` reads `in_mp`, so the file's own load treats the campaign as single player until
+  MCT answers.
+- The model is untouched: `IC.is_mp()` runs from the first tick onward, when the model exists.
+
+**Check.** "the MCT page never asks the campaign anything while the game loads" runs the page's
+load, its `MctInitialized` listener and its `MctFinalized` listener against a `cm` that records
+every access. It failed first ("called cm:is_multiplayer, cm:is_multiplayer, cm:is_multiplayer
+while loading"). The multiplayer half of the page check now passes MCT's context instead of
+stubbing `cm`. Mutants:
+- "crash: the MCT page asking the game about multiplayer while it loads" (new);
+- "live: MCT's multiplayer answer ignored" (new);
+- "live: the switches open in multiplayer" and "live: an old save's locks never lifted"
+  (re-aimed).
+
+Every `mct:`, `live:` and `crash:` mutant is caught (46). The full run was not repeated: only
+the settings file and two harness checks changed. 649 checks, 478 mutants.
+
+**Deployed** to `data/` after the game was closed: 8,991,481 bytes, MD5
+`D4CC1CE112ABDE5256C024D538D60D8E`, the same in Modpacks. (A first build, `49C7AEB2`, went into
+Modpacks while the game was running. Packs are not byte-reproducible, so the deploy's rebuild
+has a different MD5.) Not yet loaded in game.

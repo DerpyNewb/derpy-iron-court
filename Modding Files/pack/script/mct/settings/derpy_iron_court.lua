@@ -34,11 +34,13 @@ local LOCK_REASON = "Fixed for the life of a campaign. Change it from the main "
 local MP_REASON = "Not used in multiplayer, where every player gets the defaults."
 local LIVE_NOTE = " You can change this during a campaign."
 
-local function is_mp()
-    if not IN_CAMPAIGN then return false end
-    local ok, v = pcall(function() return cm:is_multiplayer() end)
-    return ok and v == true
-end
+-- MULTIPLAYER IS MCT'S ANSWER, NEVER THE GAME'S. This file runs, and its
+-- MctInitialized listener fires, while the campaign is still loading, before
+-- the model exists. Asking cm:is_multiplayer() there crashed the game on every
+-- new campaign (build 226121E7, 2026-09-25) - a null read inside the engine,
+-- which no pcall catches. MCT works the answer out itself before the load and
+-- hands it over on MctInitialized; until then this reads single player.
+local in_mp = false
 
 m:add_new_section("preset", "Difficulty")
 m:add_new_section("systems", "Systems")
@@ -183,11 +185,10 @@ local function relock(custom)
     end
     if IN_CAMPAIGN then o_preset:set_locked(true, LOCK_REASON) end
     if not IN_CAMPAIGN then return end
-    local mp = is_mp()
     for i = 1, #SWITCHES do
         local o = m:get_option_by_key(SWITCHES[i][1])
         if o then
-            if mp then
+            if in_mp then
                 o:set_locked(true, MP_REASON)
             elseif SWITCHES[i][5] then
                 o:set_locked(false)
@@ -208,7 +209,8 @@ core:add_listener("derpy_ic_mct_ready", "MctFinalized", true, function()
 end, false)
 -- MCT'S load_game PUTS BACK EVERY LOCK THE SAVE WAS WRITTEN WITH, after this
 -- file has run - and every save before 2026-09-25 locked all seven switches.
-core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function()
+core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function(context)
+    in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true
     relock(o_preset:get_finalized_setting() == "custom")
 end, true)
 relock(o_preset:get_finalized_setting() == "custom")
