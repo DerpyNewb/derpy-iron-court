@@ -1,8 +1,8 @@
 # The Iron Court
 
 A campaign mod for **Total War: WARHAMMER III** that gives the Chaos Dwarfs a court. Your
-lords and heroes belong to parties: the Crown, which is yours, and two to four rival parties
-rolled at the start of each campaign. You seat men in fourteen offices and make them
+lords and heroes belong to parties: the Crown, which is yours, and one to five rival parties
+rolled at the start of each campaign (three on the default difficulty). You seat men in fourteen offices and make them
 overseers of provinces, and every seat you hand out moves a party's share of the court and
 its loyalty. Hold enough of the court and the whole empire runs better. Let a party's
 loyalty run out and it secedes, taking provinces and lords with it and going to war under
@@ -14,8 +14,8 @@ secession wakes, are overridden to give each its own banner. Only the banner col
 changes, but a mod that edits those same four rows will conflict with this one.
 
 **Status:** playable, and tested live in Chaos Dwarf campaigns. It is not on the Steam
-Workshop yet. It needs no other mod and has no MCT settings. Only Chaos Dwarf factions have
-a court.
+Workshop yet. It needs no other mod; with MCT installed it has a settings page (below).
+Only Chaos Dwarf factions have a court.
 
 ## The parties
 
@@ -54,18 +54,20 @@ their own.
   Court Is Not Yours (below 10%). The top bands add public order, income, growth and
   cheaper upkeep; the bottom ones take them away.
 - **Fourteen offices in four tiers.** Each gives the faction a bonus, and an empty one costs
-  a little. A seat asks for rank and influence, is held for a five-turn term, and is lost if
-  its holder's influence falls below the bar. Giving a party's claimed office to an outsider
-  angers the party every turn he sits there. An empty lowest-tier seat can be filled by
-  hiring a new hero straight into it.
+  a little. A seat asks for rank and influence, is held for a ten-turn term, and is lost if
+  its holder's influence falls below the bar. When a term ends, the same man cannot take
+  that seat again for three turns, and his party is not rewarded when he does. Giving a
+  party's claimed office to an outsider angers the party every turn he sits there. An empty
+  lowest-tier seat can be filled by hiring a new hero straight into it, and Fill Empty Seats
+  fills every empty seat by the court's own rules, listing its choices before you click.
 - **Overseers.** Any of your men can govern a province. A lord leading an army governs only
   while he stands in it. Overseers gain experience every turn, and a party whose overseer
   runs a province under the Military Doctrine commandment gains loyalty.
 - **Loyalty.** Each party's loyalty, 0 to 100, moves every turn with its seats, its
   provinces, its traits and its leader's. Battles its men win raise it; a member's death, a
   dismissal and a snub lower it. The loyalty tooltip lists every term.
-- **Secession.** A rival holding at least a quarter of the court with loyalty at 20 or less
-  starts a five-turn countdown, with a warning card at the start and again three turns
+- **Secession.** On the default difficulty, a rival holding at least a quarter of the court
+  with loyalty at 20 or less starts a five-turn countdown, with a warning card at the start and again three turns
   out. At zero it goes at once. It takes provinces (never your capital), up to three of its
   lords as generals and two of its heroes, and goes to war with you under its own name and
   one of four rebel banners. A party with no men and no province dissolves instead.
@@ -97,11 +99,29 @@ Great Guilds and the Zharr Exchange when those mods are present. It has six tabs
 Offices, Governors, Intrigue, Petitions and Record. It is sized to the screen, from 1600x900
 up to 2560x1440; below 1920 wide it uses a compact layout one font size down. A man's exact
 influence also shows beside his rank on the character details panel. Event cards raised
-while the panel is open wait until it closes.
+while the panel is open wait until it closes. The button's tooltip sums up the court: your
+share, empty seats, terms ending next turn, parties counting down to leave. A card warns you
+the turn before a term ends. A party's roster has a Find button that moves the camera to
+each man on the map, and in single player the panel reopens on the tab you left it on.
 
-**Multiplayer:** not supported. Panel actions change the campaign on the machine that
-clicks and are not sent through the multiplayer transport, so a two-player campaign would
-fall out of sync. It has not been tried.
+## Settings (MCT)
+
+With the Mod Configuration Tool installed, the Iron Court page has:
+
+- **Difficulty:** Gentle, Default, Harsh, Ruthless or Custom. It sets how many rival parties
+  the court starts with (1, 3, 4 or 5), how loyal they are, how fast they turn, and what
+  favours cost. Custom opens fourteen numbers to edit.
+- **Systems:** rival parties act on their own; other Chaos Dwarf factions have courts;
+  parties can secede; a weak Crown pushes rivals out; your own party can split; show routine
+  event messages. Plus a detailed log for bug reports.
+
+The difficulty, the numbers and "other factions have courts" are fixed when a campaign
+starts. The other six switches can be changed at any time in single player. Without MCT,
+every campaign plays on Default.
+
+**Multiplayer:** supported but not yet tried on two machines. Every panel action is sent
+through the game's multiplayer channel and applied on both machines. MCT is not read in
+multiplayer, so every player gets the defaults.
 
 ## Installing
 

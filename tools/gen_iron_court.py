@@ -937,6 +937,14 @@ EVENTS = [
      "what. Click it to accept or decline, but the offer will not wait long, "
      "and the other parties will notice if you take it.",
      "OFFER"),
+    # THE TURN BEFORE office_lost (author, 2026-09-25). The call site names the
+    # seat when only one is ending; the default below is for two or more.
+    ("term_soon", True, "chd/civilisation_down", "Neutral",
+     "A Term Ends Next Turn",
+     "An officer's term ends at the start of your next turn, and his seat will "
+     "stand empty. He cannot take the same seat straight back, so decide now "
+     "who follows him.",
+     "TERMS END"),
 ]
 
 # THE DEMAND MISSIONS. Issued from Lua as a mission string (IC.demand_string);
@@ -1977,18 +1985,20 @@ def check():
     if CROWN not in set(party_slugs()):
         out.append("the crown %s is not in PARTIES" % CROWN)
 
-    # 10c. AND ENOUGH OF THEM TO ROLL. The model rolls two to four rivals and
-    #      never the crown, so four rivals have to exist to be drawn without
-    #      repeating one. RIVALS_MAX is read out of the model Lua rather than
-    #      written down twice.
-    _rivals_max = 4
+    # 10c. AND ENOUGH OF THEM TO ROLL. The model rolls up to rivals_max rivals
+    #      and never the crown, so that many have to exist to be drawn without
+    #      repeating one. Read out of the model Lua rather than written down
+    #      twice - and the LARGEST of every rivals_max in it, since the
+    #      difficulties set their own (Ruthless five) and the first one in the
+    #      file is only Default's.
+    _rivals_max = 5
     try:
         _model = io.open(os.path.join(
             root, "Modding Files", "pack", "script", "campaign", "mod",
             "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
-        _m = re.search(r"rivals_max\s*=\s*(\d+)", _model)
-        if _m:
-            _rivals_max = int(_m.group(1))
+        _all = [int(v) for v in re.findall(r"rivals_max\s*=\s*(\d+)", _model)]
+        if _all:
+            _rivals_max = max(_all)
     except IOError:
         pass
     if len(PARTIES) - 1 < _rivals_max:

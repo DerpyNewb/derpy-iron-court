@@ -18,10 +18,26 @@ entry to raise, a banner for a rebellion.
 |---|---|---|
 | `zzz_derpy_iron_court.lua` | `IC` | The model: parties, backgrounds, influence, offices, overseers, loyalty, the five control bands, intrigue, favours, secession, splintering, the record, save state. |
 | `zzz_derpy_iron_court_parties.lua` | `IC` (extends it) | The rival parties' own acts: intrigue against the Crown, feuds, demands, offers, and overseer experience. Loads after the model (`.` sorts before `_`) and changes nothing in the campaign at load. |
-| `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its six tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. It calls the model's own functions and never writes court state directly. |
+| `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its six tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. Every action it takes goes through `IC.mp_send`; it never calls a model mutator or writes court state directly. |
+| `script/mct/settings/derpy_iron_court.lua` | none (MCT's own environment) | The MCT page: a difficulty dropdown, seven switches and fourteen Custom numbers. Runs only when MCT is installed and calls nothing in the mod. |
 
-There are no MCT settings. Every tunable is in `IC.TUNE` (the model) or at the top of the
-parties file, which appends its own keys to the same table.
+Every tunable is in `IC.TUNE` (the model) or at the top of the parties file, which appends
+its own keys to the same table. **The MCT settings are frozen into the save at the first
+tick** (`IC.freeze_tune`, saved value `derpy_ic_tuned`), because MCT gates nothing in a
+campaign by itself. A difficulty other than Custom sets all fourteen numbers
+(`IC.PRESETS`). Six switches stay live (`IC.LIVE_TUNE`: `parties_act`, `secession`,
+`pressure`, `crown_split`, `all_cards`, `detailed_log`). They are read again at every load
+and on MCT's `MctFinalized`, and a countdown switched off ends at once. `ai_courts`, the
+difficulty and the numbers stay frozen. A new setting is appended to `IC.TUNE_ORDER`, never
+inserted. In multiplayer MCT is not read at all, because each machine's MCT is its own.
+
+**Multiplayer.** Every panel action (appoint, dismiss, overseer, release, plot, favour,
+hire, grant, refuse, accept, decline, fill) goes through `IC.mp_send(faction_key, op, arg)`.
+In single player that runs the action at once. In multiplayer it sends `ic1|op|arg`
+through `CampaignUI.TriggerCampaignScriptEvent`, and the `ic_mp` listener runs it on every
+machine. The model answers through `IC.after_op`, which the panel shows only to the player
+who clicked. One action is in flight at a time. None of this has been tried on two machines
+yet.
 
 **Coverage is the Chaos Dwarf subculture** (`IC.is_chd`, `wh3_dlc23_sc_chd_chaos_dwarfs`).
 Every such faction, human or AI, runs `IC.turn` at its turn start. The panel, event cards,
@@ -38,7 +54,8 @@ so no other mod is required.
 
 `IC.turn`, per Chaos Dwarf faction, in this order: roll the court if it is new, stamp
 backgrounds, reconcile parties, find leaders, reconcile overseers, tick province loyalty,
-pay influence, expire terms, enforce the office bars (human only), let an AI court fill its
+pay influence, expire terms, warn of terms ending next turn (human only), enforce the
+office bars (human only), let an AI court fill its
 offices and provinces, restamp the influence traits, drift loyalty, apply the office,
 overseer and control bundles, roll pressure, flush the feed, run the parties' turn (human
 only), tick secession, check the Crown for a split, save.
@@ -46,6 +63,8 @@ only), tick secession, check the Crown for a split, save.
 | Listener | Event | Does |
 |---|---|---|
 | `ic_turn` | `FactionTurnStart` | `IC.turn`, above. |
+| `ic_mp` | `UITrigger` | Runs a panel action sent through `IC.mp_send`, on every machine. |
+| `ic_live_tune` | `MctFinalized` | Re-reads the six live switches (single player only). |
 | `ic_confed` | `FactionJoinsConfederation` | Stamps the arriving men and seats their faction as a party. |
 | `ic_born` | `CharacterCreated` | Stamps a new man's origin and background; completes a hire. |
 | `ic_battle` | `CharacterCompletedBattle` | Influence for the winner, loyalty for his party. |
@@ -72,7 +91,8 @@ ambition (75, 100 or 125%). Its **share** is its weight over the court's total. 
 share picks one of `IC.CONTROL`'s five bands (75, 60, 40, 10, 0).
 
 Offices ask a rank of 30, 20, 12 or 5 by tier and, for the player only, influence of 400,
-300, 200 or 100. Terms are 5 turns. **Loyalty** starts at 55 and has exactly one writer,
+300, 200 or 100. Terms are 10 turns. The man whose term ended cannot take that seat again
+for 3 turns, and his party gets no +8 when he does. **Loyalty** starts at 55 and has exactly one writer,
 `IC.move_loyalty`. Its per-turn terms (`IC.loyalty_terms`, which the tooltip draws) are +2
 per seat and per province held, -1 with no seat, -2 while an outsider holds a claimed
 office, +2 per province under Military Doctrine, the party's traits, its leader's trait and
@@ -91,7 +111,9 @@ All keys are `cm:set_saved_value` strings.
 
 | Key | Holds |
 |---|---|
-| `derpy_ic_<faction>` | the court, one per Chaos Dwarf faction: eight sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition) |
+| `derpy_ic_<faction>` | the court, one per Chaos Dwarf faction: ten sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition, the rolled marker, each seat's last holder). The last two are optional, so an older save still reads |
+| `derpy_ic_tuned` | the settings the campaign plays on, in `IC.TUNE_ORDER` order |
+| `derpy_ic_ui_prefs` | the panel's last tab and sorts (single player only) |
 | `derpy_ic_agenda_<faction>` | the human court's agenda: a warned move, feuds, feud rest, the live demand, open offers |
 | `derpy_ic_risen_<rebel faction>` | the name a rebellion took, re-applied on every load |
 
@@ -159,10 +181,10 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the three scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (579 checks)`. |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 358 mutants, each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (648 checks)`. |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 476 mutants, each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
-| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 12 files, 476 components`. |
+| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 12 files, 478 components`. |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |
@@ -186,7 +208,7 @@ What `import_iron_court.py` adds: each random roll has one caller; no harness st
 method CA's `scripting_doc.html` does not document; loyalty has one writer; every TSV
 matches `build()`; the Lua's copies of origins, offices, tiers, ambition, control bands and
 hires match the generator's; `SetStateText`, `:Parent()` and `Resize` are used safely;
-`luac` and the harness pass; no undeclared ALL_CAPS global (`check_lua_undeclared.py`); no
+`luac` and the harness pass; the panel calls no model mutator directly, only `IC.mp_send`; every MCT setting has a reader; no undeclared ALL_CAPS global (`check_lua_undeclared.py`); no
 number literal on the left of an arithmetic operator (`check_lua_literal_left.py`); every
 layout offset in the Lua equals the generator's; the layouts on disk match the generator;
 the portrait mask list matches the installed packs. Run `py tools/check_lua_api.py`

@@ -90,6 +90,11 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
         -- against CA's own member index - so a stub cannot invent one again.
         is_alive = function() return c._dead ~= true end,
         has_region = function() return c._province ~= nil end,
+        -- WHERE HE STANDS, for the roster's Find. CA documents both as floats;
+        -- a fixture that never set _at answers 0, 0, which is nowhere.
+        display_position_x = function() return (c._at or {0, 0})[1] end,
+        display_position_y = function() return (c._at or {0, 0})[2] end,
+        is_wounded = function() return c._wounded == true end,
         -- WHETHER HE IS A GENERAL. Documented on the character, and true for
         -- an EMBEDDED hero as well as for the lord commanding.
         --
@@ -329,6 +334,9 @@ local function make_faction(name, subculture, characters, provinces)
         -- a favour spends: every other price in this system is a courtier's own
         -- standing, which lives in the court rather than on the faction.
         treasury = function() return f._gold or 0 end,
+        -- THE CQI A UITrigger CARRIES. Documented on FACTION_SCRIPT_INTERFACE;
+        -- a check that sends sets _cqi, everything else answers 0.
+        command_queue_index = function() return f._cqi end,
         -- A faction with no province at all answers NULL, which is the branch
         -- IC.hire_settlement falls through to its region list on.
         home_region = function()
@@ -345,6 +353,7 @@ local function make_faction(name, subculture, characters, provinces)
         _characters = characters,
         _provinces = provinces,
         _gold = 0,
+        _cqi = 0,
     }
     for _, c in ipairs(characters) do c._faction = f end
     factions[name] = f
@@ -895,6 +904,24 @@ local parties_chunk, parties_err = loadfile(PARTIES_FILE)
 assert(parties_chunk, "could not load " .. PARTIES_FILE .. ": " .. tostring(parties_err))
 parties_chunk()
 assert(IC.party_turn, "the parties file must define IC.party_turn")
+
+-- A PARTIES' TURN THAT FAILS IS CAUGHT BY IC.turn AND ONLY SAID (2026-09-25), so
+-- the court still ticks its clocks and saves. Caught is also hidden: every such
+-- line is collected here, and the last-but-one check fails on any the one check
+-- that breaks the turn on purpose did not clear.
+IC_PARTY_FAULTS = {}
+do
+    -- IC.warn, WHICH IC.say ALSO GOES THROUGH, so this sees both logs. The
+    -- failure line is IC.warn's since 2026-09-25 and has to be watched whatever
+    -- the detailed_log setting says.
+    local warn = IC.warn
+    IC.warn = function(text)
+        if string.find(tostring(text), "parties' turn failed", 1, true) then
+            IC_PARTY_FAULTS[#IC_PARTY_FAULTS + 1] = tostring(text)
+        end
+        return warn(text)
+    end
+end
 
 -- BUILD 1'S THREE ACTS BY DEFAULT. Every check written before demands and
 -- offers existed was written for a court where only these can fire; a check
@@ -4091,6 +4118,8 @@ check("every panel, row and card cell has a layout offset", function()
     -- the panel and opaque: one with no offset is a black box at the screen
     -- origin, exactly as the dial's plate would be.
     want["ic_crown_box"] = true
+    -- THE OFFICES TAB'S FILL BUTTON, in the pager's row.
+    want["ic_fill"] = true
     -- THE TWO COLUMN HEADERS AND THE RULE BETWEEN THEM. The court tab is the
     -- only two-column view and these three are what make it read as one.
     for _, name in ipairs(ICUI.COLUMN_KEYS) do
@@ -19675,6 +19704,1972 @@ check("the calm offer's tooltip reads with one colon", function()
                        .. IC.TUNE.party_offer_calm .. ". 3 turns left.", 1, true),
            "the calm offer reads: " .. tip)
     cm.get_human_factions = function() return {} end
+end)
+
+-- ---------------------------------------------------------------------------
+-- THE FIVE BUGS OF 2026-09-25, each found by reading the code against the
+-- handoffs' open lists and each pinned here before it was fixed.
+-- ---------------------------------------------------------------------------
+
+check("a fifth rising joins a running one and leaves its name alone", function()
+    -- THE POOL IS FULL: four risings alive, so a fifth party joins one of them
+    -- (see "a rebellion joining one already running crowns nobody"). It used to
+    -- RENAME that rising after itself, so the party that rose first lost its
+    -- name on the map and in the save.
+    party_of(1, 0)
+    IC.name_party(F, "legion")
+    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    local host = IC.rebel_faction()
+    saved["derpy_ic_risen_" .. host] = "Covenant of the Older Rising"
+    renames = {}
+    IC.secede(F, "legion")
+    assert(#forces >= 1 and forces[1].faction == host,
+        "the party did not join " .. tostring(host))
+    assert(#renames == 0, "the running rising was renamed to "
+        .. tostring(renames[1] and renames[1].name))
+    assert(saved["derpy_ic_risen_" .. host] == "Covenant of the Older Rising",
+        "the older rising's saved name became "
+        .. tostring(saved["derpy_ic_risen_" .. host]))
+end)
+
+check("a rising's own court never secedes into the rising itself", function()
+    -- A REBEL FACTION IS A CHAOS DWARF FACTION, so it runs a court of its own,
+    -- and the live saves show its parties seceding too. With every other rising
+    -- alive, the fallback picked the first living pool key - which could be the
+    -- court's own faction: war on itself, provinces handed to itself.
+    party_of(1, 0)
+    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    for i = 1, #IC.REBEL_POOL do
+        local own = IC.REBEL_POOL[i]
+        local key = IC.rebel_faction_for(own, "legion")
+        assert(key and key ~= own,
+            "a court run by " .. own .. " would secede into " .. tostring(key))
+    end
+end)
+
+check("an error in the parties' turn does not cost the court its turn", function()
+    -- IC.turn called IC.party_turn bare, so one error there skipped the
+    -- secession clocks, the Crown's split and the save for that whole court.
+    party_court({legion = 40, forge = 80})
+    IC.court(F).houses["forge"].clock = 3
+    local was = IC.party_turn
+    IC.party_turn = function() error("the parties broke") end
+    logged = {}
+    local ok, err = pcall(IC.turn, F)
+    IC.party_turn = was
+    local said = false
+    for i = 1, #logged do
+        if string.find(logged[i], "parties' turn failed", 1, true) then said = true end
+    end
+    IC_PARTY_FAULTS = {}
+    assert(ok, "the error escaped the court's turn: " .. tostring(err))
+    assert(IC.court(F).houses["forge"].clock ~= 3,
+        "the secession clocks never ticked after the error")
+    assert(said, "the error was swallowed without a word in the log")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a party placated before the turn is not struck by the turn's drift", function()
+    -- THE PLAYER LIFTS A WARNING PARTY TO ONE ABOVE THE LINE on his turn. The
+    -- next turn start drifted loyalty FIRST and asked "placated?" after, so a
+    -- drift of -1 put it back on the line and the warned move landed anyway.
+    party_court({legion = 20, forge = 80})
+    local office = legion_office()
+    IC.court(F).offices[office] = 301
+    IC.party_turn(F)
+    local p = IC.agenda(F).plot
+    assert(p and p.move == "unseat", "the fixture did not warn an unseat")
+    local line = IC.party_move_by_key("unseat").line
+    -- THROUGH THE ONE WRITER AND SAVED, as a gift on the player's turn is:
+    -- IC.turn opens with IC.load, which reads the saved court back.
+    IC.move_loyalty(F, "legion", line + 1 - IC.court(F).houses["legion"].loyalty)
+    IC.save(F)
+    local drift = IC.drift_loyalty
+    local drifted = nil
+    IC.drift_loyalty = function(fk)
+        IC.move_loyalty(fk, "legion", -1)
+        drifted = IC.court(fk).houses["legion"].loyalty
+    end
+    turn = 11
+    shown = {}
+    local ok, err = pcall(IC.turn, F)
+    IC.drift_loyalty = drift
+    assert(ok, tostring(err))
+    assert(drifted == line,
+        "the fixture's drift left the party at " .. tostring(drifted)
+        .. ", not back on its line " .. line)
+    assert(IC.court(F).offices[office] == 301,
+        "the drift undid the player's placating: the seat went")
+    assert(cards_of("party_plot_dropped") == 1, "no card for the dropped move")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("an office demand whose man falls short lapses at no cost", function()
+    -- ACCEPT IS RED while the named man is short of the office's influence, so
+    -- the player cannot grant it - and running out still charged the party's
+    -- refusal. A demand nobody could grant lapses: void, no loyalty, no card.
+    local house = legion_demand("office", "warden")
+    IC.court(F).standing[311] = 0
+    assert(not IC.can_grant_demand(F), "the fixture's man still qualifies")
+    turn = 15
+    shown = {}
+    local before = house.loyalty
+    assert(IC.check_demand(F) == "void", "a demand nobody could grant was refused")
+    assert(house.loyalty == before, "loyalty went " .. before .. " -> " .. house.loyalty)
+    assert(cards_of("party_demand_refused") == 0, "a refusal card for a lapsed demand")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("the engine running out a demand nobody could grant charges nothing", function()
+    -- THE SAME, BY THE OTHER ROAD: the engine's turn limit fails the mission and
+    -- the listener settles it. It promoted a refusal only to "met".
+    local house = legion_demand("office", "warden")
+    IC.court(F).standing[311] = 0
+    turn = 15
+    local before = house.loyalty
+    core.listeners["ic_demand_failed"](mission_event("derpy_ic_demand_office"))
+    assert(IC.agenda(F).demand == nil, "the engine's failure left the demand open")
+    assert(house.loyalty == before,
+        "the engine's failure charged " .. (before - house.loyalty))
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a dead officer's term goes with him", function()
+    -- ic_dead vacated the seat and left its term in the save, where nothing
+    -- ever cleared it: expire_terms walks the HELD offices only.
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, "forge")
+    IC.register()
+    local court = IC.court(F)
+    court.offices["warden"] = 1
+    court.terms["warden"] = 6
+    killed, killed_force = {}, {}
+    cm:kill_character("cqi:1", false)
+    assert(court.offices["warden"] == nil, "the fixture's seat was not vacated")
+    assert(court.terms["warden"] == nil,
+        "a dead man's term outlived him: " .. tostring(court.terms["warden"]))
+end)
+
+-- ---------------------------------------------------------------------------
+-- SETTINGS (MCT) AND MULTIPLAYER, 2026-09-25.
+-- docs/superpowers/specs/2026-09-25-iron-court-mct-multiplayer-design.md
+-- ---------------------------------------------------------------------------
+
+-- AN MCT HOLDING `values`: option key -> what get_finalized_setting answers. An
+-- option not named is absent, which is what a missing registration looks like.
+-- `mod_key` is the page it answers for; any other key answers nil.
+local function stub_mct(values, mod_key)
+    local mod = {
+        get_option_by_key = function(_, key)
+            if values[key] == nil then return nil end
+            return {get_finalized_setting = function() return values[key] end}
+        end,
+    }
+    return {
+        get_mod_by_key = function(_, key)
+            if key == (mod_key or "derpy_iron_court") then return mod end
+            return nil
+        end,
+    }
+end
+
+-- fn with get_mct answering `mct` (nil: MCT is not installed). Afterwards every
+-- setting goes back to its default and the save forgets the frozen copy, so no
+-- later check plays on a preset.
+local function with_mct(mct, fn)
+    get_mct = mct and function() return mct end or nil
+    local ok, err = pcall(fn)
+    get_mct = nil
+    saved["derpy_ic_tuned"] = nil
+    IC.apply_tune(IC.TUNE_DEFAULTS)
+    if not ok then error(err, 0) end
+end
+
+check("the settings pack and unpack whole", function()
+    local t = {}
+    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    t.loyalty_start, t.loyalty_drift_none, t.parties_act = 71, -4, false
+    local back = IC.unpack_tune(IC.pack_tune(t))
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        assert(back[key] == t[key], key .. " came back " .. tostring(back[key])
+            .. ", packed as " .. tostring(t[key]))
+    end
+end)
+
+check("an older save one setting short keeps the new one on its default", function()
+    -- THE APPEND-ONLY RULE, from the reading side: a save written before the
+    -- last key existed has one field fewer, and that key must come back as its
+    -- default and not as nil.
+    local last = IC.TUNE_ORDER[#IC.TUNE_ORDER]
+    local short = string.match(IC.pack_tune(IC.TUNE_DEFAULTS), "^(.*)|[^|]*$")
+    local back = IC.unpack_tune(short)
+    assert(back[last] == IC.TUNE_DEFAULTS[last],
+        last .. " came back " .. tostring(back[last]) .. " from a save without it")
+end)
+
+check("a partial settings table packs its defaults, never zeros", function()
+    -- 0 IS OFF for a switch and a real number for a price, so a missing key
+    -- written as 0 switches things off in every save that lacks it.
+    assert(IC.pack_tune({}) == IC.pack_tune(IC.TUNE_DEFAULTS),
+        "an empty table packed as " .. IC.pack_tune({}))
+end)
+
+check("a garbled or newer saved string keeps the defaults it cannot read", function()
+    -- REVIEW FOCUS 1. The first field (a number) and the parties_act field (a
+    -- switch) are unreadable, and one field too many is on the end.
+    local parts = {}
+    for piece in string.gmatch(IC.pack_tune(IC.TUNE_DEFAULTS), "[^|]+") do
+        parts[#parts + 1] = piece
+    end
+    local first = IC.TUNE_ORDER[1]
+    local switch_at = nil
+    for i = 1, #IC.TUNE_ORDER do
+        if IC.TUNE_ORDER[i] == "parties_act" then switch_at = i end
+    end
+    parts[1] = "junk"
+    parts[switch_at] = "junk"
+    parts[#parts + 1] = "99"
+    local back = IC.unpack_tune(table.concat(parts, "|"))
+    assert(back[first] == IC.TUNE_DEFAULTS[first],
+        first .. " read " .. tostring(back[first]) .. " from an unreadable field")
+    assert(back.parties_act == true,
+        "an unreadable switch read as " .. tostring(back.parties_act) .. ", not its default")
+end)
+
+check("without MCT the settings are the defaults", function()
+    with_mct(nil, function()
+        local t = IC.read_mct_or_defaults()
+        for _, key in ipairs(IC.TUNE_ORDER) do
+            assert(t[key] == IC.TUNE_DEFAULTS[key], key .. " read " .. tostring(t[key]))
+        end
+    end)
+end)
+
+check("MCT without this mod's page reads as the defaults", function()
+    -- REVIEW FOCUS 2: the settings file failed to load, so MCT holds no page
+    -- called derpy_iron_court.
+    with_mct(stub_mct({preset = "harsh"}, "some_other_mod"), function()
+        local t = IC.read_mct_or_defaults()
+        assert(t.loyalty_start == IC.TUNE_DEFAULTS.loyalty_start,
+            "read " .. tostring(t.loyalty_start) .. " with no page registered")
+    end)
+end)
+
+check("each difficulty sets its fourteen numbers", function()
+    for name, preset in pairs(IC.PRESETS) do
+        with_mct(stub_mct({preset = name}), function()
+            local t = IC.read_mct_or_defaults()
+            for key, v in pairs(preset) do
+                assert(t[key] == v, name .. " read " .. key .. " = " .. tostring(t[key])
+                    .. ", the preset says " .. v)
+            end
+        end)
+    end
+    -- AND THE TABLE IS THE SPEC'S, one value per difficulty.
+    assert(IC.PRESETS.gentle.loyalty_start == 65 and IC.PRESETS.harsh.loyalty_start == 50
+        and IC.PRESETS.ruthless.loyalty_start == 45,
+        "the preset table has drifted from the design")
+end)
+
+check("every difficulty names exactly the fourteen numbers", function()
+    local numbers = {}
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        if type(IC.TUNE_DEFAULTS[key]) == "number" then numbers[key] = true end
+    end
+    for name, preset in pairs(IC.PRESETS) do
+        for key in pairs(numbers) do
+            assert(preset[key] ~= nil, name .. " leaves " .. key .. " unset")
+        end
+        for key in pairs(preset) do
+            assert(numbers[key], name .. " sets " .. key .. ", which is not a number setting")
+        end
+    end
+end)
+
+check("a difficulty ignores the sliders and Custom reads them", function()
+    with_mct(stub_mct({preset = "harsh", loyalty_start = 70}), function()
+        local v = IC.read_mct_or_defaults().loyalty_start
+        assert(v == 50, "harsh read the slider: " .. tostring(v))
+    end)
+    with_mct(stub_mct({preset = "default", loyalty_start = 70}), function()
+        local v = IC.read_mct_or_defaults().loyalty_start
+        assert(v == IC.TUNE_DEFAULTS.loyalty_start, "default read the slider: " .. tostring(v))
+    end)
+    with_mct(stub_mct({preset = "custom", loyalty_start = 70}), function()
+        local t = IC.read_mct_or_defaults()
+        assert(t.loyalty_start == 70, "custom ignored the slider: " .. tostring(t.loyalty_start))
+        assert(t.secede_turns == IC.TUNE_DEFAULTS.secede_turns,
+            "an unset slider read " .. tostring(t.secede_turns))
+    end)
+end)
+
+check("the switches are read on every difficulty", function()
+    for _, name in ipairs({"default", "gentle", "custom"}) do
+        with_mct(stub_mct({preset = name, parties_act = false}), function()
+            assert(IC.read_mct_or_defaults().parties_act == false,
+                name .. " ignored the parties_act switch")
+        end)
+    end
+end)
+
+check("a setting of the wrong type falls back to its default", function()
+    with_mct(stub_mct({preset = "custom", loyalty_start = true, parties_act = 1}), function()
+        local t = IC.read_mct_or_defaults()
+        assert(t.loyalty_start == IC.TUNE_DEFAULTS.loyalty_start,
+            "a slider answering a boolean read " .. tostring(t.loyalty_start))
+        assert(t.parties_act == true,
+            "a checkbox answering a number read " .. tostring(t.parties_act))
+    end)
+end)
+
+check("fewest rival parties above most is clamped down to it", function()
+    with_mct(stub_mct({preset = "custom", rivals_min = 4, rivals_max = 2}), function()
+        local t = IC.read_mct_or_defaults()
+        assert(t.rivals_min == 2 and t.rivals_max == 2,
+            "read " .. t.rivals_min .. " to " .. t.rivals_max)
+    end)
+end)
+
+check("multiplayer never reads MCT", function()
+    cm.is_multiplayer = function() return true end
+    local ok, err = pcall(with_mct, stub_mct({preset = "ruthless", parties_act = false}),
+        function()
+            local t = IC.read_mct_or_defaults()
+            assert(t.loyalty_start == IC.TUNE_DEFAULTS.loyalty_start,
+                "multiplayer read the preset: " .. tostring(t.loyalty_start))
+            assert(t.parties_act == true, "multiplayer read a switch")
+        end)
+    cm.is_multiplayer = nil
+    if not ok then error(err, 0) end
+end)
+
+check("a multiplayer check that errors reads as single player", function()
+    cm.is_multiplayer = function() error("no model yet") end
+    local mp = IC.is_mp()
+    cm.is_multiplayer = nil
+    assert(mp == false, "an erroring is_multiplayer read as " .. tostring(mp))
+end)
+
+check("the settings freeze once and a reload keeps them", function()
+    with_mct(stub_mct({preset = "harsh"}), function()
+        saved["derpy_ic_tuned"] = nil
+        IC.freeze_tune()
+        assert(IC.TUNE.loyalty_start == 50, "the freeze applied " .. IC.TUNE.loyalty_start)
+        assert(type(saved["derpy_ic_tuned"]) == "string", "nothing was written into the save")
+        -- THE PLAYER CHANGES MCT AND RELOADS. A new session starts on the
+        -- defaults, and the save must win over what MCT now says.
+        get_mct = function() return stub_mct({preset = "gentle"}) end
+        IC.apply_tune(IC.TUNE_DEFAULTS)
+        IC.freeze_tune()
+        assert(IC.TUNE.loyalty_start == 50, "a reload re-read MCT: " .. IC.TUNE.loyalty_start)
+    end)
+end)
+
+check("a new campaign rolls the player's court on the frozen numbers", function()
+    -- THE TIMING. A new campaign rolls the player's court at first tick and
+    -- fires no FactionTurnStart until turn 1 ends, so a freeze taken at the
+    -- turn start rolled every player's court on the defaults.
+    with_mct(stub_mct({preset = "custom", rivals_min = 1, rivals_max = 1}), function()
+        IC.state = {}
+        saved["derpy_ic_tuned"] = nil
+        saved["derpy_ic_" .. F] = nil
+        rng(nil)
+        cm.get_human_factions = function() return {F} end
+        make_faction(F, IC.CHD_SUBCULTURE, {make_character(801, ANY_SEAT, nil, nil)}, {})
+        local ok, err = pcall(IC.first_tick)
+        cm.get_human_factions = function() return {} end
+        assert(ok, "the first tick raised: " .. tostring(err))
+        local n = 0
+        for _ in pairs(IC.court(F).houses) do n = n + 1 end
+        assert(n == 2, "the court rolled " .. n .. " parties; the Crown and exactly one "
+            .. "rival were set, so the roll ran before the freeze")
+    end)
+end)
+
+check("an old save takes the settings on load and keeps its parties' loyalty", function()
+    -- REVIEW FOCUS 3, THROUGH THE REAL LOAD. A save from before this build holds
+    -- a court and no derpy_ic_tuned. The court is saved, dropped from memory and
+    -- loaded back by IC.first_tick, as a reload does: the load freezes the
+    -- player's MCT choice and must not re-roll or rewrite a party already
+    -- seated. (Calling IC.freeze_tune alone, as this check once did, touches no
+    -- court and could never fail.)
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(801, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).houses.legion.loyalty = 33
+    IC.save(F)
+    IC.state = {}
+    with_mct(stub_mct({preset = "harsh"}), function()
+        saved["derpy_ic_tuned"] = nil
+        cm.get_human_factions = function() return {F} end
+        local ok, err = pcall(IC.first_tick)
+        cm.get_human_factions = function() return {} end
+        assert(ok, "the first tick raised: " .. tostring(err))
+        assert(IC.TUNE.secede_turns == 4, "the old save did not take the preset")
+        local legion = IC.court(F).houses.legion
+        assert(legion and legion.loyalty == 33,
+            "the load rewrote a seated party's loyalty to "
+            .. tostring(legion and legion.loyalty))
+    end)
+end)
+
+check("the settings move the loyalty rumour and discredit start at", function()
+    -- THE ONE LOAD-TIME COPY: the parties file copies party_intrigue_line into
+    -- two moves when it loads, so apply_tune has to write it through.
+    local t = {}
+    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    t.party_intrigue_line = 40
+    IC.apply_tune(t)
+    local lines = {}
+    for _, move in ipairs(IC.PARTY_MOVES) do lines[move.key] = move.line end
+    IC.apply_tune(IC.TUNE_DEFAULTS)
+    assert(lines.discredit == 40 and lines.rumour == 40,
+        "discredit " .. tostring(lines.discredit) .. ", rumour " .. tostring(lines.rumour))
+    assert(lines.murder == 10, "a fixed line moved with the setting: " .. tostring(lines.murder))
+end)
+
+-- SETTINGS AS A SAVE HOLDS THEM: `changes` over the defaults, packed into
+-- derpy_ic_tuned and frozen through IC.freeze_tune - never by writing IC.TUNE
+-- directly, which is how a switch that was never registered passed its test
+-- in the Great Guilds (2026-09-12).
+local function with_frozen(changes, fn)
+    local t = {}
+    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    for k, v in pairs(changes) do t[k] = v end
+    saved["derpy_ic_tuned"] = IC.pack_tune(t)
+    IC.freeze_tune()
+    local ok, err = pcall(fn)
+    saved["derpy_ic_tuned"] = nil
+    IC.apply_tune(IC.TUNE_DEFAULTS)
+    if not ok then error(err, 0) end
+end
+
+check("with parties_act off a party starts nothing new", function()
+    -- THE SAME COURT ACTS WITH THE SETTING ON, measured first, so the off case
+    -- is not passing on a court that would never have acted.
+    party_court({legion = 5}, "all")
+    local acted = IC.party_turn(F)
+    assert(acted, "the fixture's court does not act even with the setting on")
+    with_frozen({parties_act = false}, function()
+        party_court({legion = 5}, "all")
+        local done = IC.party_turn(F)
+        local a = IC.agenda(F)
+        assert(done == nil, "a party acted with parties_act off: " .. tostring(done))
+        assert(a.plot == nil and a.demand == nil, "something new was opened")
+    end)
+    use_acts(BUILD1_ACTS)
+    cm.get_human_factions = function() return {} end
+end)
+
+check("with ai_courts off an AI court is never rolled or run", function()
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    cm.get_human_factions = function() return {} end
+    local f = make_faction(F, IC.CHD_SUBCULTURE,
+                           {make_character(901, ANY_SEAT, nil, nil)}, {"prov_a"})
+    IC.register()
+    with_frozen({ai_courts = false}, function()
+        core.listeners["ic_turn"]({faction = function() return f end})
+        assert(not IC.court_rolled(F), "an AI court was rolled with ai_courts off")
+    end)
+    -- AND ON, the same listener rolls it, so the off case is not passing on a
+    -- listener that never runs.
+    core.listeners["ic_turn"]({faction = function() return f end})
+    assert(IC.court_rolled(F), "the fixture's AI court is not rolled with the setting on")
+end)
+
+check("with ai_courts off an AI man earns nothing from a settlement and a player's still does", function()
+    IC.state = {}
+    local man = make_character(902, ANY_SEAT, nil, nil)
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.register()
+    with_frozen({ai_courts = false}, function()
+        cm.get_human_factions = function() return {} end
+        core.listeners["ic_took"]({character = function() return man end})
+        assert(IC.standing(F, 902) == 0,
+            "an AI man earned " .. IC.standing(F, 902) .. " with ai_courts off")
+        cm.get_human_factions = function() return {F} end
+        core.listeners["ic_took"]({character = function() return man end})
+        assert(IC.standing(F, 902) == IC.TUNE.settlement_influence,
+            "a player's man earned " .. IC.standing(F, 902) .. " with ai_courts off")
+    end)
+    cm.get_human_factions = function() return {} end
+end)
+
+check("with secession off an angry party never starts its countdown", function()
+    cm.get_human_factions = function() return {F} end
+    local on = angry_court()
+    IC.tick_secession(F)
+    assert((on.houses.legion.clock or 0) > 0, "the fixture starts no countdown with the setting on")
+    with_frozen({secession = false}, function()
+        local court = angry_court()
+        shown = {}
+        for _ = 1, IC.TUNE.secede_turns + 2 do IC.tick_secession(F) end
+        assert(court.houses.legion, "the legion seceded with secession off")
+        assert((court.houses.legion.clock or 0) == 0,
+            "a countdown ran: " .. tostring(court.houses.legion.clock))
+        assert(#shown == 0, #shown .. " warning card(s) raised with secession off")
+    end)
+    cm.get_human_factions = function() return {} end
+end)
+
+check("with pressure off a weak Crown presses nobody", function()
+    local function weak_court()
+        IC.state = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.add_house(F, "chain")
+        local court = IC.court(F)
+        court.houses[IC.CROWN].weight = 5
+        court.houses["forge"].weight = 30
+        court.houses["chain"].weight = 65
+        return court
+    end
+    cm.get_human_factions = function() return {F} end
+    local on = weak_court()
+    rng({1})
+    IC.tick_pressure(F)
+    rng(nil)
+    assert(on.houses["chain"].pressed, "the fixture presses nobody with the setting on")
+    with_frozen({pressure = false}, function()
+        local court = weak_court()
+        court.houses["chain"].pressed = true   -- a press left over from before
+        rng({1})
+        local chance = IC.tick_pressure(F)
+        rng(nil)
+        assert(chance == 0, "the pressure rolled at " .. tostring(chance))
+        assert(not court.houses["chain"].pressed, "the biggest party is pressed with pressure off")
+    end)
+    cm.get_human_factions = function() return {} end
+end)
+
+check("with crown_split off the Crown never splits", function()
+    crown_at(0)
+    assert(split_out(F), "the fixture's Crown does not split with the setting on")
+    with_frozen({crown_split = false}, function()
+        crown_at(0)
+        local slug = split_out(F)
+        assert(slug == nil, "the Crown split into " .. tostring(slug) .. " with crown_split off")
+    end)
+end)
+
+check("with detailed_log off routine lines stop and failures are still written", function()
+    with_frozen({detailed_log = false}, function()
+        logged = {}
+        IC.say("IRON COURT: a routine line")
+        IC.warn("IRON COURT: a failure line")
+        local routine, failure = false, false
+        for i = 1, #logged do
+            if string.find(logged[i], "a routine line", 1, true) then routine = true end
+            if string.find(logged[i], "a failure line", 1, true) then failure = true end
+        end
+        assert(not routine, "a routine line was written with the detailed log off")
+        assert(failure, "a failure was silenced with the detailed log")
+        -- AND THE FAILURE THE TURN CATCHES, through the real turn.
+        party_court({legion = 40, forge = 80})
+        local was = IC.party_turn
+        IC.party_turn = function() error("the parties broke") end
+        logged = {}
+        local ok = pcall(IC.turn, F)
+        IC.party_turn = was
+        IC_PARTY_FAULTS = {}
+        cm.get_human_factions = function() return {} end
+        local said = false
+        for i = 1, #logged do
+            if string.find(logged[i], "parties' turn failed", 1, true) then said = true end
+        end
+        assert(ok and said, "the parties' turn failure was not written with the detailed log off")
+    end)
+end)
+
+-- THE SIX A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
+-- IC.LIVE_TUNE, so a key dropped from that list fails a check.
+local LIVE = {"parties_act", "secession", "pressure", "crown_split", "all_cards",
+              "detailed_log"}
+
+check("mid-campaign the live switches follow MCT and the rest of the save stays frozen", function()
+    -- A SAVE FROZEN ON THE DEFAULTS, loaded by a player who has since turned
+    -- every switch off and moved two numbers under Custom.
+    local values = {preset = "custom", term_turns = 4, loyalty_start = 70}
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        if type(IC.TUNE_DEFAULTS[key]) == "boolean" then values[key] = false end
+    end
+    with_mct(stub_mct(values), function()
+        with_frozen({}, function()
+            for _, key in ipairs(LIVE) do
+                assert(IC.TUNE[key] == false, key .. " kept the save's value after MCT turned it off")
+            end
+            assert(IC.TUNE.ai_courts == true,
+                "ai_courts followed MCT in a running campaign, stranding the other courts' bundles")
+            assert(IC.TUNE.term_turns == IC.TUNE_DEFAULTS.term_turns
+                and IC.TUNE.loyalty_start == IC.TUNE_DEFAULTS.loyalty_start,
+                "a number followed MCT in a running campaign")
+            -- WRITTEN INTO THE SAVE, so a player who later removes MCT keeps it.
+            local back = IC.unpack_tune(saved["derpy_ic_tuned"])
+            assert(back.secession == false and back.all_cards == false,
+                "the live change was not written into the save")
+            assert(back.ai_courts == true and back.term_turns == IC.TUNE_DEFAULTS.term_turns,
+                "a frozen value was rewritten in the save")
+        end)
+    end)
+end)
+
+check("a switch turned off in MCT mid-turn ends its countdowns at once", function()
+    -- EVERY COUNTDOWN IS ON THE PANEL: a party still reading SECEDES 3 after
+    -- the player has switched secession off says the switch did nothing.
+    cm.get_human_factions = function() return {F} end
+    local values = {preset = "default"}
+    with_mct(stub_mct(values), function()
+        with_frozen({}, function()
+            local court = angry_court()
+            IC.tick_secession(F)
+            assert((court.houses.legion.clock or 0) > 0, "the fixture starts no countdown")
+            court.houses.legion.pressed = true
+            court.houses[IC.CROWN].split = 2
+            -- IN THE SAVE AS IT STANDS, or the reload below reads 0 whether the
+            -- flip saved or not.
+            IC.save(F)
+            assert((IC.load(F).houses.legion.clock or 0) > 0, "the fixture's countdown is not saved")
+            court = IC.court(F)
+            IC.register()
+            local fire = core.listeners["ic_live_tune"]
+            assert(fire, "nothing listens for MCT's Finalize")
+            values.secession, values.pressure, values.crown_split = false, false, false
+            fire({})
+            assert(IC.TUNE.secession == false, "secession did not follow MCT's Finalize")
+            court = IC.court(F)
+            assert((court.houses.legion.clock or 0) == 0,
+                "the legion still counts down: " .. tostring(court.houses.legion.clock))
+            assert(not court.houses.legion.pressed, "the legion is still pressed")
+            assert((court.houses[IC.CROWN].split or 0) == 0,
+                "the Crown still counts to a split: " .. tostring(court.houses[IC.CROWN].split))
+            local back = IC.load(F)
+            assert((back.houses.legion.clock or 0) == 0, "the cleared countdown was not saved")
+        end)
+    end)
+    cm.get_human_factions = function() return {} end
+end)
+
+-- THE REAL SETTINGS FILE, run against a recording MCT. What it registers is held
+-- against IC.TUNE, IC.TUNE_ORDER and IC.PRESETS - the other places a setting has
+-- to be named before its control does anything.
+local MCT_FILE = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
+local function load_mct_file(in_campaign)
+    local opts = {}
+    local option_methods = {
+        set_text = function() end,
+        set_tooltip_text = function() end,
+        add_option_set_callback = function() end,
+        set_assigned_section = function(o, s) o.section = s end,
+        slider_set_min_max = function(o, lo, hi) o.lo, o.hi = lo, hi end,
+        slider_set_step_size = function(o, step) o.step = step end,
+        set_default_value = function(o, v) o.default = v end,
+        set_locked = function(o, on) o.locked = on end,
+        add_dropdown_value = function(o, key, _text, _tip, is_default)
+            o.values[#o.values + 1] = key
+            if is_default then o.default = key end
+        end,
+        get_finalized_setting = function(o) return o.default end,
+        get_selected_setting = function(o) return o.default end,
+    }
+    local mod = setmetatable({}, {__index = function() return function() end end})
+    mod.add_new_option = function(_, key, kind)
+        local o = setmetatable({key = key, kind = kind, values = {}},
+                               {__index = option_methods})
+        opts[key] = o
+        return o
+    end
+    mod.get_option_by_key = function(_, key) return opts[key] end
+    get_mct = function()
+        return {register_mod = function(_, key) mod.registered = key return mod end}
+    end
+    __lib_type_campaign = "campaign"
+    __game_mode = in_campaign and "campaign" or "frontend"
+    local chunk, err = loadfile(MCT_FILE)
+    local ok = chunk ~= nil
+    if ok then ok, err = pcall(chunk) end
+    get_mct, __game_mode, __lib_type_campaign = nil, nil, nil
+    assert(ok, "the MCT settings file did not run: " .. tostring(err))
+    return opts, mod.registered
+end
+
+check("every setting is registered in MCT, in the save order and with its default", function()
+    local opts, registered = load_mct_file(false)
+    assert(registered == "derpy_iron_court", "the page registers as "
+        .. tostring(registered) .. ", and IC.read_mct_or_defaults asks for derpy_iron_court")
+    local ordered = {}
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        ordered[key] = true
+        local o = opts[key]
+        local d = IC.TUNE_DEFAULTS[key]
+        assert(d ~= nil, key .. " is in IC.TUNE_ORDER with no default in IC.TUNE")
+        assert(o, key .. " is in IC.TUNE_ORDER and not on the MCT page")
+        local want = type(d) == "boolean" and "checkbox" or "slider"
+        assert(o.kind == want, key .. " is a " .. tostring(o.kind) .. " and its default wants a " .. want)
+        assert(o.default == d, key .. " defaults to " .. tostring(o.default)
+            .. " in MCT and " .. tostring(d) .. " in IC.TUNE")
+        assert(o.section, key .. " has no section, so MCT files it where the player may never look")
+    end
+    for key in pairs(opts) do
+        assert(key == "preset" or ordered[key],
+            key .. " is on the MCT page and in no IC.TUNE_ORDER, so it changes nothing")
+    end
+end)
+
+check("every difficulty's numbers sit inside their sliders", function()
+    local opts = load_mct_file(false)
+    local p = opts["preset"]
+    assert(p and p.kind == "dropdown", "the page has no difficulty dropdown")
+    assert(p.default == "default", "the difficulty defaults to " .. tostring(p.default))
+    local listed, n_presets = {}, 0
+    for _, v in ipairs(p.values) do listed[v] = true end
+    for name in pairs(IC.PRESETS) do
+        n_presets = n_presets + 1
+        assert(listed[name], name .. " is a difficulty MCT does not offer")
+    end
+    assert(listed["default"] and listed[IC.PRESET_CUSTOM], "Default or Custom is missing")
+    assert(#p.values == n_presets + 2, "MCT offers a difficulty IC.PRESETS does not define")
+    local function on_slider(o, v, what)
+        local step = o.step or 1
+        assert(v >= o.lo and v <= o.hi, what .. " = " .. v .. " is outside "
+            .. o.lo .. " to " .. o.hi)
+        assert((v - o.lo) % step == 0, what .. " = " .. v .. " is off the slider's step of " .. step)
+    end
+    for name, preset in pairs(IC.PRESETS) do
+        for key, v in pairs(preset) do on_slider(opts[key], v, name .. " " .. key) end
+    end
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        if opts[key].kind == "slider" then
+            on_slider(opts[key], IC.TUNE_DEFAULTS[key], "the default " .. key)
+        end
+    end
+end)
+
+check("in a campaign only the live switches can be changed, even on a save that locked them", function()
+    -- MCT HAS NO CAMPAIGN GATING OF ITS OWN; the lock is the only notice the
+    -- player gets that a change made now does nothing to this save.
+    local live = {}
+    for _, key in ipairs(LIVE) do live[key] = true end
+    local mine = {}
+    for _, key in ipairs(IC.LIVE_TUNE or {}) do mine[key] = true end
+    for key in pairs(live) do
+        assert(mine[key], key .. " is live on the page and not in IC.LIVE_TUNE")
+    end
+    for key in pairs(mine) do
+        assert(live[key], key .. " is in IC.LIVE_TUNE and not in the checked list")
+    end
+    local function held(opts, when)
+        for key, o in pairs(opts) do
+            if live[key] then
+                assert(o.locked ~= true, key .. " is locked in a running campaign " .. when)
+            else
+                assert(o.locked == true, key .. " can be changed in a running campaign " .. when)
+            end
+        end
+    end
+    local opts = load_mct_file(true)
+    held(opts, "at load")
+    -- MCT'S load_game PUTS BACK EVERY LOCK A SAVE WAS WRITTEN WITH, after this
+    -- file has run - and every save before this build locked all seven.
+    for _, o in pairs(opts) do o.locked = true end
+    local loaded = core.listeners["derpy_ic_mct_loaded"]
+    assert(loaded, "nothing unlocks the live switches once MCT has loaded the save")
+    loaded({})
+    held(opts, "once MCT has loaded the save")
+    -- IN MULTIPLAYER NOTHING ON THE PAGE IS READ, so nothing looks changeable.
+    cm.is_multiplayer = function() return true end
+    opts = load_mct_file(true)
+    core.listeners["derpy_ic_mct_loaded"]({})
+    cm.is_multiplayer = nil
+    for key, o in pairs(opts) do
+        assert(o.locked == true, key .. " can be changed in a multiplayer campaign")
+    end
+end)
+
+-- MULTIPLAYER FOR THE LENGTH OF fn. `local_faction` is what the forced
+-- local-faction read answers on this machine (the unforced one throws, as the
+-- engine's does). Every trigger sent is kept in `sent` for the check to
+-- deliver, or not, through the real ic_mp listener.
+local function with_mp(local_faction, fn)
+    local sent = {}
+    cm.is_multiplayer = function() return true end
+    cm.get_local_faction_name = function(_, force)
+        if force ~= true then error("unforced local-faction read in multiplayer") end
+        return local_faction
+    end
+    CampaignUI = {TriggerCampaignScriptEvent = function(cqi, id)
+        sent[#sent + 1] = {cqi = cqi, id = id}
+    end}
+    local ok, err = pcall(fn, sent)
+    cm.is_multiplayer, cm.get_local_faction_name, CampaignUI = nil, nil, nil
+    if not ok then error(err, 0) end
+end
+
+-- THE TRIGGER COMING BACK, as it does on every machine, through the listener
+-- IC.register installed.
+local function deliver(msg)
+    core.listeners["ic_mp"]({
+        trigger = function() return msg.id end,
+        faction_cqi = function() return msg.cqi end,
+    })
+end
+
+check("in multiplayer MCT changes no switch mid-campaign either", function()
+    -- EACH MACHINE'S MCT IS ITS OWN: one player's Finalize read on one machine
+    -- is two courts in two saves.
+    local values = {secession = false, all_cards = false}
+    with_mct(stub_mct(values), function()
+        with_mp(F, function()
+            with_frozen({}, function()
+                assert(IC.TUNE.secession == true and IC.TUNE.all_cards == true,
+                    "a live switch followed MCT at load in multiplayer")
+                IC.register()
+                core.listeners["ic_live_tune"]({})
+                assert(IC.TUNE.secession == true and IC.TUNE.all_cards == true,
+                    "a live switch followed MCT's Finalize in multiplayer")
+            end)
+        end)
+    end)
+end)
+
+check("in single player an action runs at once and its answer comes straight back", function()
+    local calls = 0
+    local was_f, was_a = IC.favour, IC.after_op
+    IC.favour = function() calls = calls + 1 return false, "gold", 300 end
+    local got = {}
+    IC.after_op = function(...) got[#got + 1] = {...} end
+    local ok, err = pcall(IC.mp_send, F, "favour", "gift|legion")
+    IC.favour, IC.after_op = was_f, was_a
+    assert(ok, "mp_send raised: " .. tostring(err))
+    assert(calls == 1, "the action ran " .. calls .. " times")
+    local a = got[1]
+    assert(a and a[1] == F and a[2] == "favour" and a[3] == "gift|legion"
+        and a[4] == false and a[5] == "gold" and a[6] == 300,
+        "the answer arrived as " .. (a and table.concat({tostring(a[1]), tostring(a[2]),
+        tostring(a[3]), tostring(a[4]), tostring(a[5]), tostring(a[6])}, ", ") or "nothing"))
+end)
+
+check("each of the twelve actions waits for its trigger, then reaches the model as the panel called it", function()
+    -- {op, wire argument, model function, argument count, what the panel passes,
+    --  and what the model answers when that is not simply true}
+    local cases = {
+        {"appoint", "warden|501", "appoint", 2, {"warden", 501}},
+        {"dismiss", "warden", "dismiss", 1, {"warden"}},
+        {"gov", "prov_a|501", "assign_governor", 2, {"prov_a", 501}},
+        {"ungov", "prov_a", "release_governor", 1, {"prov_a"}},
+        {"plot", "bribe|501|502", "plot", 3, {"bribe", 501, "502"}},
+        {"plot", "feast|501|", "plot", 3, {"feast", 501, nil}},
+        {"favour", "gift|legion", "favour", 2, {"gift", "legion"}},
+        {"hire", "warden|2", "hire", 2, {"warden", 2}},
+        {"grant", "", "grant_demand", 0, {}},
+        {"refuse", "", "refuse_demand", 0, {}},
+        {"accept", "legion", "accept_offer", 1, {"legion"}},
+        {"decline", "legion", "decline_offer", 1, {"legion"}},
+        -- HOW MANY IT SEATED, which the answer counts.
+        {"fill", "", "fill_offices", 0, {}, 1},
+    }
+    local n_ops = 0
+    for _ in pairs(IC.MP_OPS) do n_ops = n_ops + 1 end
+    assert(n_ops == 12, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twelve")
+    IC.state = {}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    f._cqi = 41
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local failed = nil
+    for _, c in ipairs(cases) do
+        local op, arg, name, n, want = c[1], c[2], c[3], c[4], c[5]
+        local ret = c[6] == nil and true or c[6]
+        local got = nil
+        local was = IC[name]
+        IC[name] = function(...) got = {n = select("#", ...), ...} return ret end
+        local ok, err = pcall(with_mp, "someone_else", function(sent)
+            IC.mp_send(F, op, arg)
+            assert(got == nil, op .. " ran on the sending machine before its trigger came back")
+            assert(#sent == 1, op .. " sent " .. #sent .. " triggers")
+            assert(sent[1].cqi == 41, op .. " was sent for cqi " .. tostring(sent[1].cqi))
+            deliver(sent[1])
+            assert(got, op .. " came back and never reached IC." .. name)
+            assert(got[1] == F, op .. " acted for " .. tostring(got[1]))
+            for i = 1, n do
+                assert(got[i + 1] == want[i] and type(got[i + 1]) == type(want[i]),
+                    op .. " argument " .. i .. " arrived as " .. type(got[i + 1]) .. " "
+                    .. tostring(got[i + 1]) .. "; the panel passes " .. type(want[i]) .. " "
+                    .. tostring(want[i]))
+            end
+        end)
+        IC[name] = was
+        if not ok then failed = err break end
+    end
+    cm.get_human_factions = function() return {} end
+    if failed then error(failed, 0) end
+end)
+
+check("in multiplayer a dismissal waits for its trigger and then empties the office", function()
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(501, ANY_SEAT, "forge")}, {})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 501
+    local ok, err = pcall(with_mp, "someone_else", function(sent)
+        IC.mp_send(F, "dismiss", office)
+        assert(IC.court(F).offices[office] == 501, "dismissed before the trigger came back")
+        deliver(sent[1])
+        assert(IC.court(F).offices[office] == nil, "the trigger came back and he is still seated")
+    end)
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+end)
+
+check("a trigger that is not ours, or from nobody we know, changes nothing", function()
+    IC.state = {}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    f._cqi = 41
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local called = 0
+    local was = IC.dismiss
+    IC.dismiss = function() called = called + 1 return true end
+    local ok, err = pcall(with_mp, "someone_else", function()
+        deliver({cqi = 999, id = "ic1|dismiss|warden"})    -- nobody we know
+        deliver({cqi = 41, id = "gg1|dismiss|warden"})     -- another mod's
+        deliver({cqi = 41, id = "ic1|nope|warden"})        -- no such action
+        assert(IC.mp_receive("gg1|buy|x", 41) == nil, "another mod's trigger was claimed")
+    end)
+    IC.dismiss = was
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+    assert(called == 0, "a stray trigger dismissed " .. called .. " time(s)")
+end)
+
+check("an action too long for one trigger is refused, not applied on this machine", function()
+    IC.state = {}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    f._cqi = 41
+    local called = 0
+    local was = IC.plot
+    IC.plot = function() called = called + 1 return true end
+    logged = {}
+    local ok, err = pcall(with_mp, "someone_else", function(sent)
+        IC.mp_send(F, "plot", "bribe|501|" .. string.rep("x", 100))
+        assert(#sent == 0, #sent .. " over-long trigger(s) went out")
+    end)
+    IC.plot = was
+    if not ok then error(err, 0) end
+    assert(called == 0, "the refused action ran on this machine")
+    local said = false
+    for i = 1, #logged do
+        if string.find(logged[i], "not sent", 1, true) then said = true end
+    end
+    assert(said, "the refusal was silent")
+end)
+
+check("an action for a faction with no command queue index is refused, not applied here", function()
+    local called = 0
+    local was = IC.dismiss
+    IC.dismiss = function() called = called + 1 return true end
+    local ok, err = pcall(with_mp, "someone_else", function(sent)
+        IC.mp_send("no_such_faction_key", "dismiss", "warden")
+        assert(#sent == 0, "a trigger went out with no cqi to carry")
+    end)
+    IC.dismiss = was
+    if not ok then error(err, 0) end
+    assert(called == 0, "the unsendable action ran on this machine")
+end)
+
+check("a trigger with a garbled number is refused by the model, not by an error", function()
+    -- REVIEW FOCUS 4.
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(501, ANY_SEAT, "forge")}, {})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    endow(F)
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    local got = {}
+    local was = IC.after_op
+    IC.after_op = function(...) got[#got + 1] = {...} end
+    logged = {}
+    local ok, err = pcall(with_mp, "someone_else", function()
+        deliver({cqi = 41, id = "ic1|appoint|" .. office .. "|abc"})
+    end)
+    IC.after_op = was
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+    for i = 1, #logged do
+        assert(not string.find(logged[i], "UITrigger failed", 1, true),
+            "the garbled trigger raised: " .. logged[i])
+    end
+    assert(IC.court(F).offices[office] == nil, "a garbled cqi was appointed")
+    assert(got[1] and got[1][4] == false, "the refusal never reached the panel")
+end)
+
+check("in multiplayer the open panel holds no event card", function()
+    -- The panel is open on one machine and not the other, so a hold would raise
+    -- the model's event calls at two different times.
+    party_court({legion = 40})
+    local ok, err = pcall(with_mp, F, function()
+        IC.hold_feed(true)
+        assert(IC.feed_held == false, "the feed was held in multiplayer")
+        IC.feed(F, "secede_warn")
+        assert(#shown == 1, "the card waited behind one machine's panel")
+    end)
+    IC.hold_feed(false)
+    IC.feed_held = false
+    IC.feed_queue = {}
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+end)
+
+check("the panel's player is this machine's, read the forced way", function()
+    -- REVIEW FOCUS 5: this machine's player is not the first human - here a
+    -- Dwarf beside a Chaos Dwarf host - and must never be shown the host's court.
+    local DWARF = "wh_main_dwf_dwarfs"
+    cm.get_human_factions = function() return {F, DWARF} end
+    cm.get_local_faction_name = function(_, force)
+        if force ~= true then error("unforced local-faction read in multiplayer") end
+        return DWARF
+    end
+    local me = ICUI.player()
+    cm.get_local_faction_name = function() error("no local faction yet") end
+    local fallback = ICUI.player()
+    cm.get_local_faction_name = nil
+    cm.get_human_factions = function() return {} end
+    assert(me == DWARF, "the panel read " .. tostring(me) .. ", the first human's court")
+    assert(fallback == F, "a failed read did not fall back to the first human: " .. tostring(fallback))
+end)
+
+check("each of the twelve panel clicks sends in multiplayer and waits for its trigger", function()
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE,
+                           {make_character(501, ANY_SEAT, "forge")}, {"prov_a"})
+    f._cqi = 41
+    f._gold = 99999
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    local ctx = {component = {}}
+    local saved_idx, saved_check, saved_view = ICUI.clicked_index, ICUI.act_check, ICUI.view
+    ICUI.clicked_index = function() return 1 end
+    ICUI.act_check = function() return true end
+    local function petition(kind, yes)
+        return function()
+            ICUI.pick = nil
+            ICUI.view = "petitions"
+            ICUI.petition_rows = {[1] = kind == "demand" and {kind = "demand"}
+                                         or {kind = "offer", slug = "legion"}}
+            ICUI.scroll.petitions = 0
+            ICUI.on_petition_click(ctx, yes)
+        end
+    end
+    local function pick(p, row)
+        return function()
+            ICUI.pick = p
+            ICUI.pick_rows = {[1] = row}
+            ICUI.scroll.pick = 0
+            ICUI.on_pick_click(ctx, F)
+        end
+    end
+    local clicks = {
+        {"grant_demand", petition("demand", true)},
+        {"refuse_demand", petition("demand", false)},
+        {"accept_offer", petition("offer", true)},
+        {"decline_offer", petition("offer", false)},
+        {"appoint", pick({kind = "office", key = office}, 501)},
+        {"hire", pick({kind = "office", key = office}, {hire = 1})},
+        {"plot", pick({kind = "plot", plot = "bribe", key = "502"}, 501)},
+        {"assign_governor", pick({kind = "gov", key = "prov_a"}, 501)},
+        {"dismiss", function()
+            ICUI.pick = nil
+            IC.court(F).offices[office] = 501
+            ICUI.on_office_click(ctx)
+        end},
+        {"release_governor", function()
+            ICUI.pick = nil
+            ICUI.view = "govs"
+            ICUI.gov_keys = {"prov_a"}
+            ICUI.scroll.govs = 0
+            IC.court(F).govs["prov_a"] = 501
+            ICUI.on_row_action(ctx)
+        end},
+        {"favour", function()
+            ICUI.pick = nil
+            ICUI.sel = "legion"
+            ICUI.on_act_click("ic_act_gift")
+        end},
+        {"fill_offices", function()
+            ICUI.pick = nil
+            ICUI.view = "offices"
+            IC.court(F).offices = {}
+            IC.court(F).govs = {}
+            IC.court(F).standing[501] = 5000
+            ICUI.on_fill_click()
+        end},
+    }
+    local failed = nil
+    for _, c in ipairs(clicks) do
+        local name, click = c[1], c[2]
+        local ran = 0
+        local was = IC[name]
+        -- A COUNT FOR THE FILL, whose answer counts what it seated.
+        IC[name] = function() ran = ran + 1 return name == "fill_offices" and 1 or true end
+        local ok, err = pcall(with_mp, F, function(sent)
+            click()
+            assert(ran == 0, "the " .. name .. " click changed the campaign before its "
+                .. "trigger came back")
+            assert(#sent == 1, "the " .. name .. " click sent " .. #sent .. " triggers")
+            deliver(sent[1])
+            assert(ran == 1, "the " .. name .. " trigger came back and reached the model "
+                .. ran .. " times")
+        end)
+        IC[name] = was
+        if not ok then failed = err break end
+    end
+    ICUI.clicked_index, ICUI.act_check, ICUI.view = saved_idx, saved_check, saved_view
+    ICUI.pick, ICUI.sel, ICUI.notice = nil, nil, nil
+    cm.get_human_factions = function() return {} end
+    if failed then error(failed, 0) end
+end)
+
+check("in multiplayer a picker waits for the answer and closes when it comes", function()
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(501, ANY_SEAT, "forge")}, {})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    endow(F)
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    ICUI.pick = {kind = "office", key = office}
+    ICUI.pick_rows = {[1] = 501}
+    ICUI.scroll.pick = 0
+    ICUI.notice = nil
+    local saved_idx, saved_refresh = ICUI.clicked_index, ICUI.refresh
+    local refreshed = 0
+    ICUI.clicked_index = function() return 1 end
+    ICUI.refresh = function() refreshed = refreshed + 1 end
+    local ok, err = pcall(with_mp, F, function(sent)
+        ICUI.on_pick_click({component = {}}, F)
+        assert(IC.court(F).offices[office] == nil, "appointed before the trigger came back")
+        assert(ICUI.pick, "the picker closed before the answer came")
+        deliver(sent[1])
+        assert(IC.court(F).offices[office] == 501, "the trigger came back and nobody was appointed")
+        assert(ICUI.pick == nil, "the answer did not close the picker")
+        assert(refreshed >= 1, "the answer never redrew the panel, and no click is waiting to")
+    end)
+    ICUI.clicked_index, ICUI.refresh = saved_idx, saved_refresh
+    ICUI.pick = nil
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+end)
+
+check("in multiplayer the other machine applies the answer and draws nothing", function()
+    IC.state = {}
+    turn = 1
+    local G = "wh3_dlc23_chd_zhatan"
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(501, ANY_SEAT, "forge")}, {})
+    f._cqi = 41
+    make_faction(G, IC.CHD_SUBCULTURE, {}, {})._cqi = 42
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    endow(F)
+    cm.get_human_factions = function() return {F, G} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    local mine = {kind = "office", key = "a_picker_of_my_own"}
+    ICUI.pick, ICUI.notice = mine, "mine"
+    sounds = {}
+    local ok, err = pcall(with_mp, G, function()
+        deliver({cqi = 41, id = "ic1|appoint|" .. office .. "|501"})
+    end)
+    local pick, notice = ICUI.pick, ICUI.notice
+    ICUI.pick, ICUI.notice = nil, nil
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+    assert(IC.court(F).offices[office] == 501, "the other machine did not apply the appointment")
+    assert(pick == mine and notice == "mine",
+        "this machine's panel was answered for another player's click")
+    assert(#sounds == 0, "this machine played " .. #sounds .. " confirmation(s) for another "
+        .. "player's click")
+end)
+
+check("an empty saved field keeps its default and moves nothing after it", function()
+    -- REVIEW FOCUS 1, THE PLAINEST UNREADABLE FIELD. A split that skips an
+    -- empty field slides every later value onto the key before it: field 2
+    -- emptied once read secede_loyalty's 20 as loyalty_drift_none, so every
+    -- party with no office GAINED 20 loyalty a turn.
+    local parts = {}
+    for piece in string.gmatch(IC.pack_tune(IC.TUNE_DEFAULTS) .. "|", "([^|]*)|") do
+        parts[#parts + 1] = piece
+    end
+    parts[2] = ""
+    local back = IC.unpack_tune(table.concat(parts, "|"))
+    for _, key in ipairs(IC.TUNE_ORDER) do
+        assert(back[key] == IC.TUNE_DEFAULTS[key], key .. " read " .. tostring(back[key])
+            .. " with field 2 empty; its default is " .. tostring(IC.TUNE_DEFAULTS[key]))
+    end
+end)
+
+check("in multiplayer a second click before the answer sends nothing", function()
+    -- THE PICKER IS STILL OPEN until the trigger comes back, so a second click on
+    -- it - the same man or another - sent a second appointment, and both landed
+    -- on every machine: the party's loyalty paid twice, or the first man
+    -- unseated by the second with no dismissal counted.
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(501, ANY_SEAT, "forge"),
+                                                  make_character(502, ANY_SEAT, "forge")}, {})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    endow(F)
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local office = IC.OFFICES[1].slug
+    local saved_idx, saved_refresh = ICUI.clicked_index, ICUI.refresh
+    local row = 1
+    ICUI.clicked_index = function() return row end
+    ICUI.refresh = function() end
+    ICUI.pick = {kind = "office", key = office}
+    ICUI.pick_rows = {[1] = 501, [2] = 502}
+    ICUI.scroll.pick = 0
+    local ok, err = pcall(with_mp, F, function(sent)
+        ICUI.on_pick_click({component = {}}, F)
+        row = 2
+        ICUI.on_pick_click({component = {}}, F)
+        assert(#sent == 1, "a second click before the answer sent " .. #sent .. " triggers")
+        deliver(sent[1])
+        assert(IC.court(F).offices[office] == 501, "the first pick did not land")
+        -- THE ANSWER ENDS THE WAIT: the next action goes out.
+        row = 1
+        ICUI.on_office_click({component = {}})
+        assert(#sent == 2, "the answer came back and the next click was still held")
+        -- AND SO DOES CLOSING THE PANEL. A trigger that never comes back must
+        -- not leave the court dead until the campaign is reloaded.
+        ICUI.close()
+        ICUI.on_office_click({component = {}})
+        assert(#sent == 3, "closing the panel did not end the wait")
+    end)
+    ICUI.clicked_index, ICUI.refresh = saved_idx, saved_refresh
+    ICUI.pick, ICUI.notice, ICUI.waiting = nil, nil, nil
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+end)
+
+check("a player who is not a Chaos Dwarf gets no court button and no panel", function()
+    -- A MIXED CAMPAIGN: this machine's player is a Dwarf beside a Chaos Dwarf
+    -- host. The court is the Chaos Dwarfs'; opened for a Dwarf it was an empty
+    -- one that still hired Chaos Dwarf officers into his faction.
+    local DWARF = "wh_main_dwf_dwarfs"
+    make_faction(DWARF, "wh_main_sc_dwf_dwarfs", {}, {})
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    cm.get_human_factions = function() return {F, DWARF} end
+    local created = {}
+    local saved_root, saved_find, saved_cb = core.get_ui_root, find_uicomponent, cm.callback
+    core.get_ui_root = function()
+        return {CreateComponent = function(_self, name) created[#created + 1] = name end,
+                Dimensions = function() return 1920, 1080 end,
+                Position = function() return 0, 0 end}
+    end
+    find_uicomponent = function() return false end
+    cm.callback = function() end
+    local function try(me)
+        created = {}
+        ICUI.btn_at = nil
+        cm.get_local_faction_name = function() return me end
+        pcall(ICUI.place_opener, 1)
+        pcall(ICUI.open)
+        return #created
+    end
+    local dwarf_n, chd_n = try(DWARF), try(F)
+    cm.get_local_faction_name = nil
+    core.get_ui_root, find_uicomponent, cm.callback = saved_root, saved_find, saved_cb
+    cm.get_human_factions = function() return {} end
+    ICUI.btn_at = nil
+    assert(chd_n > 0, "nothing was created for a Chaos Dwarf either, so this stub "
+        .. "cannot see a Dwarf's court being made")
+    assert(dwarf_n == 0, "a Dwarf player was given " .. dwarf_n .. " court component(s)")
+end)
+
+check("each difficulty seats exactly its number of rival parties", function()
+    -- THE COURT'S SIZE IS THE DIFFICULTY (author, 2026-09-25). Counted with the
+    -- Crown, as the grid's six cards are: Gentle 2, Default 4, Harsh 5 and
+    -- Ruthless 6, the grid full. A fixed number, not a roll between two - so
+    -- every attempt must land on it, through the real first tick.
+    local want = {gentle = 1, default = 3, harsh = 4, ruthless = 5}
+    for name, n in pairs(want) do
+        with_mct(stub_mct({preset = name}), function()
+            for _attempt = 1, 4 do
+                IC.state = {}
+                saved["derpy_ic_tuned"] = nil
+                saved["derpy_ic_" .. F] = nil
+                rng(nil)
+                make_faction(F, IC.CHD_SUBCULTURE, {make_character(801, ANY_SEAT, nil, nil)}, {})
+                cm.get_human_factions = function() return {F} end
+                local ok, err = pcall(IC.first_tick)
+                cm.get_human_factions = function() return {} end
+                assert(ok, "the first tick raised: " .. tostring(err))
+                local rivals = -1                    -- the Crown is not a rival
+                for _ in pairs(IC.court(F).houses) do rivals = rivals + 1 end
+                assert(rivals == n, name .. " seated " .. rivals .. " rival parties, not " .. n)
+            end
+        end)
+    end
+end)
+
+check("a full Ruthless court is not pushing a rival out on its first turn", function()
+    -- Six parties on equal footing leave the Crown about a sixth of the court.
+    -- The line the Crown must hold sits BELOW that (author, 2026-09-25): at 20
+    -- a fresh Ruthless court was pressed from turn 1, before the player had
+    -- done anything at all.
+    with_mct(stub_mct({preset = "ruthless"}), function()
+        IC.state = {}
+        saved["derpy_ic_tuned"] = nil
+        saved["derpy_ic_" .. F] = nil
+        rng(nil)
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        cm.get_human_factions = function() return {F} end
+        local ok, err = pcall(IC.first_tick)
+        cm.get_human_factions = function() return {} end
+        assert(ok, "the first tick raised: " .. tostring(err))
+        local n = IC.control(F)
+        assert(n > 10 and n < 20, "the Crown holds " .. n .. ", not about a sixth")
+        assert(IC.control_pressure(F) == 0,
+               "a fresh court at " .. n .. " is pressed at "
+               .. IC.control_pressure(F) .. " in a hundred")
+    end)
+end)
+
+check("a move is rolled at the odds the panel showed, whatever the price leaves", function()
+    -- THE PRICE WAS TAKEN FIRST (found 2026-09-25): plot_chance asks can_plot,
+    -- which refuses a man who can no longer afford the move, and a refused
+    -- chance skipped the roll - so a purge by a man holding under twice its
+    -- price never failed, while the panel showed him 85 in a hundred.
+    local function purge(roll)
+        IC.state = {}
+        local actor = make_character(993, ANY_SEAT, "crown")
+        local target = make_character(994, ANY_SEAT, "legion")
+        make_faction(F, IC.CHD_SUBCULTURE, {actor, target}, {})
+        IC.add_house(F, "crown")
+        IC.add_house(F, "legion")
+        IC.court(F).standing[993] = IC.TUNE.plot_purge_cost
+        IC.court(F).standing[994] = 0
+        local shown = IC.plot_chance(F, "purge", 993, "994")
+        rng({roll(shown)})
+        local done, outcome = IC.plot(F, "purge", 993, "994")
+        rng(nil)
+        return shown, done, outcome, IC.court(F).houses["legion"] ~= nil
+    end
+    local shown, done, outcome, kept = purge(function(s) return s + 1 end)
+    assert(shown and shown < 100, "the panel showed no odds: " .. tostring(shown))
+    assert(done and outcome == "failed" and kept,
+           "a roll of " .. (shown + 1) .. " against " .. shown .. " landed")
+    shown, done, outcome, kept = purge(function(s) return s end)
+    assert(done and outcome ~= "failed" and not kept,
+           "a roll of " .. shown .. " against " .. shown .. " missed")
+end)
+
+check("a court whose last rival is gone rules alone, and is never rolled again", function()
+    -- THE PARTY RULES ALONE AS LONG AS LOYALTY IS KEPT (author, 2026-09-25).
+    -- court_rolled used to mean "more than one party is seated", so a purge or
+    -- a secession that took the last rival had the next turn roll a whole new
+    -- court. A new party now comes only from the Crown splitting, or with a
+    -- confederation.
+    local function alone()
+        for slug in pairs(IC.court(F).houses) do
+            if slug ~= IC.CROWN then return false, slug end
+        end
+        return true
+    end
+    local function empty_and_turn(label)
+        for slug in pairs(IC.court(F).houses) do
+            if slug ~= IC.CROWN then IC.remove_house(F, slug) end
+        end
+        IC.turn(F)
+        local ok, slug = alone()
+        assert(ok, label .. ": the next turn seated " .. tostring(slug))
+        IC.save(F)
+        IC.state = {}
+        IC.load(F)
+        IC.turn(F)
+        ok, slug = alone()
+        assert(ok, label .. ": after a reload the turn seated " .. tostring(slug))
+    end
+
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    factions = {}
+    rng(nil)
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.roll_court(F)
+    empty_and_turn("a new court")
+
+    -- A SAVE FROM BEFORE THE MARKER: eight fields, two parties seated. It must
+    -- be known as rolled before its last rival goes, not after.
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    IC.unpack(F, "crown,10,55,0;legion,10,55,0,3,1|||||||")
+    IC.turn(F)
+    empty_and_turn("an old save")
+    rng(nil)
+end)
+
+check("losing a claimed seat takes back exactly what taking it gave", function()
+    -- THE LEAK (found 2026-09-25): a party's own claimed seat gave it
+    -- weight_per_office twice over, and every way of losing the seat took back
+    -- weight_per_office once. Four terms of one seat left its party 24 heavier
+    -- for a seat it no longer held.
+    local function seat_then(lose)
+        IC.state = {}
+        turn = 1
+        local zhaak = make_character(1, ANY_SEAT, "forge")
+        make_faction(F, IC.CHD_SUBCULTURE, {zhaak}, {})
+        IC.add_house(F, "forge")
+        endow(F)
+        local before = IC.court(F).houses["forge"].weight
+        assert(IC.appoint(F, "forge", 1), "the claimed seat was refused")
+        assert(IC.court(F).houses["forge"].weight > before, "taking the seat gave nothing")
+        lose()
+        return before, IC.court(F).houses["forge"].weight
+    end
+    local b, a = seat_then(function()
+        turn = turn + IC.TUNE.term_turns
+        assert(IC.expire_terms(F) == 1, "the term did not end")
+    end)
+    assert(a == b, "an ended term left the party at " .. a .. ", not " .. b)
+    b, a = seat_then(function() assert(IC.dismiss(F, "forge"), "no dismissal") end)
+    assert(a == b, "a dismissal left the party at " .. a .. ", not " .. b)
+    b, a = seat_then(function() cm:kill_character("cqi:1", false) end)
+    assert(a == b, "a death in the seat left the party at " .. a .. ", not " .. b)
+    turn = 1
+end)
+
+check("a man whose term ended waits three turns for that seat, and comes back unwelcomed", function()
+    -- THE PUMP (found 2026-09-25): an ended term emptied the seat for free, the
+    -- same man could be put straight back, and every return paid his party
+    -- loyalty_appointed again - +8 a term for one click. Now the seat is his
+    -- again only after renew_wait turns (author: "the seat cannot be renewed
+    -- for 3 turns"), and taking it back is a renewal, which pays no welcome.
+    local function ended(men)
+        IC.state = {}
+        saved["derpy_ic_" .. F] = nil
+        turn = 1
+        local list = {}
+        for i = 1, men do list[i] = make_character(i, ANY_SEAT, "forge") end
+        make_faction(F, IC.CHD_SUBCULTURE, list, {})
+        IC.add_house(F, "forge")
+        endow(F)
+        IC.court(F).houses["forge"].loyalty = 50
+        assert(IC.appoint(F, "forge", 1), "the first appointment was refused")
+        turn = turn + IC.TUNE.term_turns
+        assert(IC.expire_terms(F) == 1, "the term did not end")
+        return turn
+    end
+
+    local over = ended(1)
+    for wait = IC.TUNE.renew_wait, 1, -1 do
+        -- THROUGH A SAVE, every turn: a wait held only in memory ends at the
+        -- next load.
+        IC.save(F); IC.state = {}; IC.load(F)
+        local ok, why, left = IC.can_appoint(F, "forge", 1)
+        assert(not ok and why == "renew" and left == wait,
+               "turn " .. (turn - over) .. " after his term: " .. tostring(ok)
+               .. " " .. tostring(why) .. " " .. tostring(left))
+        turn = turn + 1
+    end
+    local was = IC.court(F).houses["forge"].loyalty
+    assert(IC.appoint(F, "forge", 1), "the renewal was refused after the wait")
+    assert(IC.court(F).houses["forge"].loyalty == was,
+           "a renewal moved his party from " .. was .. " to "
+           .. IC.court(F).houses["forge"].loyalty)
+
+    -- ANYONE ELSE, AT ONCE, and his party is welcomed as ever.
+    ended(2)
+    was = IC.court(F).houses["forge"].loyalty
+    assert(IC.appoint(F, "forge", 2), "another man was kept out of the seat")
+    assert(IC.court(F).houses["forge"].loyalty == was + IC.TUNE.loyalty_appointed,
+           "a new man's party moved from " .. was .. " to "
+           .. IC.court(F).houses["forge"].loyalty)
+    -- AND THE SEAT IS NO LONGER THE FIRST MAN'S to renew once another has held
+    -- it: he comes back at once, and is welcomed.
+    assert(IC.dismiss(F, "forge"), "no dismissal")
+    was = IC.court(F).houses["forge"].loyalty
+    assert(IC.appoint(F, "forge", 1),
+           "the seat's old holder is still kept waiting after another man held it")
+    assert(IC.court(F).houses["forge"].loyalty == was + IC.TUNE.loyalty_appointed,
+           "the old holder's return moved his party from " .. was .. " to "
+           .. IC.court(F).houses["forge"].loyalty)
+
+    -- AND THE PICKER SAYS SO BEFORE THE CLICK.
+    ended(1)
+    ICUI.pick = {kind = "office", key = "forge"}
+    ICUI.scroll.pick = 0
+    with_fake_panel(function(panel)
+        ICUI.refresh()
+        local row = panel.children[ICUI.ROW .. "_1"]
+        assert(row and row.visible, "the only candidate must be on screen")
+        assert(plain(row.children.ic_row_e.text)
+               == string.format("Wait %d", IC.TUNE.renew_wait),
+               "the waiting man's row says " .. row.children.ic_row_e.text)
+        assert(ICUI.pick_rows[1] == nil, "a waiting man is still pickable")
+    end)
+    ICUI.pick = nil
+    assert(ICUI.reason_text("renew", 2):find("2 turns"),
+           "the refusal does not say how long: " .. tostring(ICUI.reason_text("renew", 2)))
+    turn = 1
+end)
+
+check("a term that ends next turn is announced the turn before, once", function()
+    -- QOL (author, 2026-09-25): the seat used to be announced only once it
+    -- stood empty, and with a man barred from taking it straight back, the turn
+    -- before is when the player can still do something about it.
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    turn = 1
+    local zhaak = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {zhaak}, {})
+    cm.get_human_factions = function() return {F} end
+    IC.add_house(F, "crown")
+    IC.add_house(F, "forge")
+    endow(F)
+    assert(IC.appoint(F, "forge", 1), "the fixture could not seat him")
+    local title = "event_feed_strings_text_derpy_ic_event_term_soon_title"
+    local function cards_at(t)
+        turn = t
+        local before, n, card = #shown, 0, nil
+        IC.turn(F)
+        for i = before + 1, #shown do
+            if shown[i].title == title then n, card = n + 1, shown[i] end
+        end
+        return n, card
+    end
+    local ends = 1 + IC.TUNE.term_turns
+    assert(cards_at(ends - 2) == 0, "the card came two turns early")
+    local n, card = cards_at(ends - 1)
+    assert(n == 1, n .. " cards the turn before the term ended")
+    assert(card.secondary == IC.office_title_key("forge"),
+           "the card does not name the seat: " .. tostring(card.secondary))
+    assert(cards_at(ends) == 0, "the card came again on the turn the term ended")
+    cm.get_human_factions = function() return {} end
+    turn = 1
+end)
+
+check("with all_cards off routine news goes to the log, and warnings still raise a card", function()
+    -- QOL (author, 2026-09-25): a big court raises a card for every seat that
+    -- empties and every feud, and the player reads them in the Log tab anyway.
+    local function run()
+        IC.state = {}
+        saved["derpy_ic_" .. F] = nil
+        turn = 1
+        local zhaak = make_character(1, ANY_SEAT, "forge")
+        make_faction(F, IC.CHD_SUBCULTURE, {zhaak}, {})
+        cm.get_human_factions = function() return {F} end
+        IC.add_house(F, "crown")
+        IC.add_house(F, "forge")
+        endow(F)
+        assert(IC.appoint(F, "forge", 1), "the fixture could not seat him")
+        turn = 1 + IC.TUNE.term_turns
+        local before = #shown
+        IC.expire_terms(F)
+        IC.feed(F, "secede_warn")
+        local titles = {}
+        for i = before + 1, #shown do titles[shown[i].title] = true end
+        local logged = false
+        for _, e in ipairs(IC.court(F).log) do
+            if e.kind == "term" then logged = true end
+        end
+        cm.get_human_factions = function() return {} end
+        turn = 1
+        return titles, logged
+    end
+    local lost = "event_feed_strings_text_derpy_ic_event_office_lost_title"
+    local warn = "event_feed_strings_text_derpy_ic_event_secede_warn_title"
+    local titles = run()
+    assert(titles[lost] and titles[warn], "with the setting on, a card is missing")
+    -- THROUGH THE REAL FREEZE, so a key missing from IC.TUNE_ORDER - which
+    -- would fall back to its default on the way through - fails here.
+    with_frozen({all_cards = false}, function()
+        local quiet, logged = run()
+        assert(not quiet[lost], "an emptied seat still raised a card")
+        assert(logged, "an emptied seat was not written to the log")
+        assert(quiet[warn], "a warning was silenced")
+    end)
+end)
+
+check("an empty seat's card says its old holder is waiting, and who he is", function()
+    -- QOL (author, 2026-09-25): the wait used to show only inside the picker.
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    turn = 1
+    local zhaak = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {zhaak}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "forge")
+    endow(F)
+    assert(IC.appoint(F, "forge", 1), "the fixture could not seat him")
+    turn = 1 + IC.TUNE.term_turns
+    assert(IC.expire_terms(F) == 1, "the term did not end")
+    local index
+    for i = 1, #IC.OFFICES do
+        if IC.OFFICES[i].slug == "forge" then index = i end
+    end
+    local function card_now()
+        local term, tip
+        ICUI.view = "offices"
+        with_fake_panel(function(panel)
+            ICUI.refresh()
+            local card = panel.children[ICUI.CARD .. "_" .. index]
+            term = plain(card.children.ic_card_term.text)
+            tip = card.children.ic_card_button.tooltip or ""
+        end)
+        ICUI.view = "court"
+        return term, tip
+    end
+    local term, tip = card_now()
+    assert(term == string.format("Vacant - holder waits %d turns", IC.TUNE.renew_wait),
+           "the card reads " .. term)
+    assert(tip:find(ICUI.character_name(zhaak), 1, true),
+           "the button does not name the old holder: " .. tip)
+    turn = turn + IC.TUNE.renew_wait - 1
+    term = card_now()
+    assert(term == "Vacant - holder waits 1 turn", "one turn left reads " .. term)
+    turn = turn + 1
+    term = card_now()
+    assert(term == "Seat is vacant", "after the wait the card reads " .. term)
+    turn = 1
+end)
+
+check("the court button's tooltip sums up the court, and the button wears it", function()
+    -- QOL (author, 2026-09-25): the court's state without opening the panel.
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    turn = 1
+    local zhaak = make_character(1, ANY_SEAT, "forge")
+    local grom = make_character(2, ANY_SEAT, "legion")
+    local fobj = make_faction(F, IC.CHD_SUBCULTURE, {zhaak, grom}, {})
+    cm.get_human_factions = function() return {F} end
+    IC.add_house(F, "crown")
+    IC.add_house(F, "forge")
+    IC.add_house(F, "legion")
+    endow(F)
+    -- A SEAT WHOSE MAN HAS WAITED OUT HIS TERM'S END, and may take it again.
+    assert(IC.appoint(F, "forge", 1), "the fixture could not seat zhaak")
+    turn = 1 + IC.TUNE.term_turns
+    assert(IC.expire_terms(F) == 1, "the term did not end")
+    turn = turn + IC.TUNE.renew_wait
+    -- A SEAT WHOSE TERM ENDS NEXT TURN.
+    local other = IC.OFFICES[#IC.OFFICES].slug
+    assert(other ~= "forge", "the fixture's two seats are one")
+    assert(IC.appoint(F, other, 2), "the fixture could not seat grom")
+    IC.court(F).terms[other] = turn + 1
+    -- A PARTY COUNTING DOWN.
+    IC.court(F).houses["legion"].clock = 2
+
+    local tip = ICUI.opener_tip(F)
+    local function has(s)
+        assert(tip:find(s, 1, true), "the tooltip lacks " .. s .. ":\n" .. tip)
+    end
+    has("The Iron Court||")
+    has(string.format("Your party holds %d%% of the court: %s.", IC.control(F),
+                      ICUI.band_name(IC.control_band(F))))
+    has(string.format("Empty seats: %d of %d.", #IC.OFFICES - 1, #IC.OFFICES))
+    has("Terms ending next turn: " .. ICUI.office_name(other) .. ".")
+    has(ICUI.house_name("legion", F) .. " leaves the court in 2 turns.")
+    has(ICUI.character_name(zhaak) .. " (" .. ICUI.office_name("forge") .. ")")
+
+    -- NOTHING THAT IS NOT TRUE: no line for what is not happening.
+    IC.court(F).terms[other] = turn + 5
+    IC.court(F).houses["legion"].clock = 0
+    tip = ICUI.opener_tip(F)
+    assert(not tip:find("Terms ending", 1, true), "a line for no term ending")
+    assert(not tip:find("leaves the court", 1, true), "a line for nobody leaving")
+
+    -- AND THE BUTTON WEARS IT.
+    local button = {SetTooltipText = function(self, t) self.tooltip = t end,
+                    Position = function() return 0, 0 end}
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    find_uicomponent = function(_p, name) return name == ICUI.BTN and button or false end
+    is_uicomponent = function(c) return type(c) == "table" end
+    local ok, err = pcall(ICUI.update_opener_tip)
+    find_uicomponent, is_uicomponent = saved_find, saved_is
+    assert(ok, "update_opener_tip raised: " .. tostring(err))
+    assert(button.tooltip == tip, "the button reads " .. tostring(button.tooltip))
+
+    -- AND KEPT FRESH: when the court closes, and on the player's own turn start,
+    -- one tick late so the model has run the turn first.
+    local function wears_after(fn)
+        button.tooltip = nil
+        find_uicomponent = function(_p, name) return name == ICUI.BTN and button or false end
+        is_uicomponent = function(c) return type(c) == "table" end
+        local ok2, err2 = pcall(fn)
+        find_uicomponent, is_uicomponent = saved_find, saved_is
+        assert(ok2, tostring(err2))
+        return button.tooltip
+    end
+    assert(wears_after(ICUI.close) == ICUI.opener_tip(F),
+           "closing the court left the summary stale")
+    local fire = core.listeners["ic_opener_tip"]
+    assert(fire, "no turn-start listener refreshes the summary")
+    local was_cb = cm.callback
+    cm.callback = function(_, fn) fn() end
+    local got = wears_after(function() fire({faction = function() return fobj end}) end)
+    cm.callback = was_cb
+    assert(got == ICUI.opener_tip(F), "the player's turn start left the summary stale")
+    cm.get_human_factions = function() return {} end
+    turn = 1
+end)
+
+check("the tab and the sorts survive a reload in single player, and only there", function()
+    -- QOL (author, 2026-09-25). They already outlive a close; a load reset them.
+    -- THROUGH close() AND open(), because a save and a load nothing calls is
+    -- the failure that would go unseen.
+    IC.state = {}
+    factions = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    saved[ICUI.PREFS_KEY] = nil
+    local function reset()
+        ICUI.view = "court"
+        ICUI.sort.pick, ICUI.sort_desc.pick = 1, false
+        ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
+        ICUI.prefs_loaded = nil
+    end
+    with_fake_root(function()
+        ICUI.open()
+        ICUI.view = "offices"
+        ICUI.sort.pick, ICUI.sort_desc.pick = 3, true
+        ICUI.sort.govs = 2
+        ICUI.close()
+        reset()                             -- the load
+        ICUI.open()
+        ICUI.close()
+    end)
+    assert(ICUI.view == "offices", "the tab came back as " .. ICUI.view)
+    assert(ICUI.sort.pick == 3 and ICUI.sort_desc.pick == true,
+           "the picker's sort came back as " .. ICUI.sort.pick .. "/"
+           .. tostring(ICUI.sort_desc.pick))
+    assert(ICUI.sort.govs == 2, "the governors' sort came back as " .. ICUI.sort.govs)
+
+    -- A VALUE THAT MEANS NOTHING NOW - a tab since removed, a sort past the
+    -- list's end - leaves the defaults alone.
+    reset()
+    saved[ICUI.PREFS_KEY] = "nonesuch;99;1;0;0"
+    ICUI.load_prefs()
+    assert(ICUI.view == "court" and ICUI.sort.pick == 1 and ICUI.sort.govs == 1,
+           "a meaningless value moved the panel")
+
+    -- NOT IN MULTIPLAYER: one machine's value is a difference between two saves.
+    reset()
+    saved[ICUI.PREFS_KEY] = nil
+    with_mp(F, function()
+        ICUI.view = "offices"
+        ICUI.save_prefs()
+    end)
+    assert(saved[ICUI.PREFS_KEY] == nil, "multiplayer wrote " .. tostring(saved[ICUI.PREFS_KEY]))
+    reset()
+    saved[ICUI.PREFS_KEY] = nil
+end)
+
+check("a house roster finds a man on the map, and offers nothing for one who is not there", function()
+    -- QOL (author, 2026-09-25): the roster's rows reported and did nothing. A man
+    -- on the map now carries a Find button that closes the court and moves the
+    -- camera to him. Camera only - nothing in the model moves, nothing is sent.
+    IC.state = {}
+    factions = {}
+    local here = make_character(1, ANY_SEAT, "forge")
+    here._at = {312.5, 140.25}
+    local hurt = make_character(2, ANY_SEAT, "forge")
+    hurt._at = {10, 10}
+    hurt._wounded = true
+    local lost = make_character(3, ANY_SEAT, "forge")     -- never on the map
+    make_faction(F, IC.CHD_SUBCULTURE, {here, hurt, lost}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "forge")
+    ICUI.pick = {kind = "house", slug = "forge"}
+    ICUI.scroll.pick = 0
+    local labels = {}
+    with_fake_panel(function(panel)
+        ICUI.refresh()
+        for i = 1, 3 do
+            local cqi = ICUI.pick_rows[i]
+            local row = panel.children[ICUI.ROW .. "_" .. i]
+            labels[#labels + 1] = plain(row.children.ic_row_e.text) .. "=" .. tostring(cqi)
+        end
+    end)
+    table.sort(labels)
+    assert(table.concat(labels, ",") == "=nil,=nil,Find=1",
+           "the roster reads " .. table.concat(labels, ","))
+    local row
+    for i = 1, 3 do if ICUI.pick_rows[i] == 1 then row = i end end
+
+    local camera, sent = nil, 0
+    local was_cam, was_send = cm.scroll_camera_from_current, IC.mp_send
+    cm.scroll_camera_from_current = function(_, correct, time, pos)
+        camera = {correct = correct, time = time, pos = pos}
+    end
+    IC.mp_send = function(...) sent = sent + 1 return was_send(...) end
+    local was_idx = ICUI.clicked_index
+    ICUI.clicked_index = function() return row end
+    local ok, err = pcall(ICUI.on_pick_click, {component = {}}, F)
+    ICUI.clicked_index, cm.scroll_camera_from_current, IC.mp_send = was_idx, was_cam, was_send
+    assert(ok, "the click raised: " .. tostring(err))
+    assert(camera, "the camera never moved")
+    assert(camera.correct == true, "the camera was not handed back to the player")
+    assert(camera.pos[1] == 312.5 and camera.pos[2] == 140.25,
+           "the camera went to " .. tostring(camera.pos[1]) .. "," .. tostring(camera.pos[2]))
+    assert(sent == 0, "a camera move was sent to the other machines")
+    assert(ICUI.pick == nil, "the court was left open over the map")
+end)
+
+-- THE FILL BUTTON'S FIXTURE: a claimed seat whose party has a man, a claimed
+-- seat whose party has none, and two Crown men for the seats nobody here claims.
+local function fill_fixture()
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    factions = {}
+    turn = 1
+    local men = {make_character(701, ANY_SEAT, "forge"),
+                 make_character(702, ANY_SEAT, "crown"),
+                 make_character(703, ANY_SEAT, "crown")}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    f._cqi = 41
+    cm.get_human_factions = function() return {F} end
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    -- A SEATED PARTY WITH NOBODY, whose claimed seat must stay empty.
+    local empty_party
+    for i = 1, #IC.OFFICES do
+        local a = IC.OFFICES[i].affinity
+        if a and a ~= "forge" and a ~= IC.CROWN then empty_party = a break end
+    end
+    IC.add_house(F, empty_party)
+    endow(F)
+    return men, empty_party
+end
+
+check("the fill button's plan gives a claimed seat to its own party, and applies exactly that", function()
+    -- QOL (author, 2026-09-25): refilling seats was the most repeated click. The
+    -- plan is the AI's own rule - a claimed seat to its own party's man or to
+    -- nobody while that party sits in the court, any other seat to the best man
+    -- left - so a player's fill never snubs a party the AI's would not.
+    local _men, empty_party = fill_fixture()
+    local plan = IC.fill_plan(F)
+    local by_seat, by_man = {}, {}
+    for _, p in ipairs(plan) do
+        assert(not by_seat[p.slug], p.slug .. " was planned twice")
+        assert(not by_man[p.cqi], p.cqi .. " was planned into two seats")
+        by_seat[p.slug], by_man[p.cqi] = p.cqi, p.slug
+    end
+    assert(by_seat["forge"] == 701, "forge's own seat went to " .. tostring(by_seat["forge"]))
+    for i = 1, #IC.OFFICES do
+        local o = IC.OFFICES[i]
+        if o.affinity == empty_party then
+            assert(by_seat[o.slug] == nil, o.slug .. ", claimed by a party with no "
+                   .. "man, was planned for " .. tostring(by_seat[o.slug]))
+        end
+    end
+    assert(#plan == 3, #plan .. " seats planned for three free men")
+    -- A PLAN IS NOT A CHANGE.
+    assert(next(IC.court(F).offices) == nil, "planning seated somebody")
+    assert(IC.fill_offices(F) == 3, "the fill did not seat three")
+    for slug, cqi in pairs(by_seat) do
+        assert(IC.court(F).offices[slug] == cqi, slug .. " holds "
+               .. tostring(IC.court(F).offices[slug]) .. ", not the planned " .. cqi)
+    end
+    assert(#IC.fill_plan(F) == 0, "a full court still plans a fill")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("the fill button shows its plan on the offices tab and answers every click", function()
+    fill_fixture()
+    local function draw(view)
+        local fill
+        ICUI.view = view
+        with_fake_panel(function(panel)
+            ICUI.refresh()
+            fill = panel.children.ic_fill
+            fill = {visible = fill.visible, text = plain(fill.text or ""),
+                    red = is_red(fill.text or ""), tip = fill.tooltip or ""}
+        end)
+        return fill
+    end
+    local b = draw("offices")
+    assert(b.visible == true, "the button is not on the offices tab")
+    assert(b.text == "Fill Empty Seats" and not b.red, "the button reads " .. b.text)
+    assert(b.tip:find(ICUI.office_name("forge") .. ": ", 1, true)
+           and b.tip:find(ICUI.character_name(IC.character_by_cqi(F, 701)), 1, true),
+           "the tooltip does not show the plan: " .. b.tip)
+    for _, view in ipairs({"court", "govs", "intrigue", "log", "petitions"}) do
+        assert(draw(view).visible == false, "the button shows on the " .. view .. " tab")
+    end
+    -- THE CLICK, in single player: straight through, and the notice says so.
+    ICUI.view = "offices"
+    with_fake_panel(function()
+        ICUI.on_fill_click()
+    end)
+    assert(IC.court(F).offices["forge"] == 701, "the click seated nobody")
+    assert(ICUI.notice and ICUI.notice:find("3 seats filled", 1, true),
+           "the answer reads " .. tostring(ICUI.notice))
+    -- NOTHING LEFT TO FILL: red, and a click says why rather than nothing.
+    b = draw("offices")
+    assert(b.red, "a button with nothing to do is not red")
+    ICUI.notice = nil
+    local sent = 0
+    local was = IC.mp_send
+    IC.mp_send = function(...) sent = sent + 1 return was(...) end
+    with_fake_panel(function() ICUI.on_fill_click() end)
+    IC.mp_send = was
+    assert(sent == 0, "a click with nothing to fill was sent")
+    assert(ICUI.notice and ICUI.notice ~= "", "a click with nothing to fill said nothing")
+    ICUI.notice, ICUI.view = nil, "court"
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a seat is held for ten turns on every difficulty", function()
+    -- FIVE MADE THE COURT EASIER, not harder (author, 2026-09-25): every end
+    -- was a free chance to re-seat, and a full court had three seats to refill
+    -- every turn. The length is not a difficulty knob.
+    for _, name in ipairs({"gentle", "default", "harsh", "ruthless"}) do
+        with_mct(stub_mct({preset = name}), function()
+            IC.state = {}
+            saved["derpy_ic_tuned"] = nil
+            saved["derpy_ic_" .. F] = nil
+            rng(nil)
+            make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+            cm.get_human_factions = function() return {F} end
+            local ok, err = pcall(IC.first_tick)
+            cm.get_human_factions = function() return {} end
+            assert(ok, "the first tick raised: " .. tostring(err))
+            assert(IC.TUNE.term_turns == 10,
+                   name .. " holds a seat for " .. IC.TUNE.term_turns .. " turns")
+        end)
+    end
+end)
+
+check("no parties' turn failed anywhere in the run", function()
+    -- LAST BUT ONE. IC.turn now catches a failing parties' turn and only says
+    -- so; this is what keeps that catch from hiding a real fault from the run.
+    assert(#IC_PARTY_FAULTS == 0, #IC_PARTY_FAULTS .. " parties' turn(s) failed:\n  "
+        .. table.concat(IC_PARTY_FAULTS, "\n  "))
 end)
 
 check("no engine setter was ever handed anything but a boolean", function()

@@ -6,7 +6,6 @@
 
 local T = IC.TUNE
 T.party_act_floor       = 10   -- a motive below this is no event at all
-T.party_intrigue_line   = 55   -- rumour and discredit at or below this loyalty
 T.party_feud_turns      = 10
 T.party_feud_murder_age = 5
 T.party_feud_seat       = 20   -- motive to feud over a stolen seat
@@ -299,13 +298,27 @@ function IC.party_warn(faction_key, slug, t)
     IC.feed(faction_key, "party_plot_warn")
 end
 
+-- PLACATED IS READ AS THE PLAYER LEFT IT. IC.turn calls this before the turn
+-- moves any loyalty: the landing below runs after the drift, so a party lifted
+-- one above its line on the player's turn drifted back onto it and the warned
+-- move landed anyway (found 2026-09-25). Not saved: set and read in one turn.
+function IC.party_placate(faction_key)
+    local p = IC.agenda(faction_key).plot
+    if not p then return end
+    local house = IC.court(faction_key).houses[p.slug]
+    local move = IC.party_move_by_key(p.move)
+    if house and move and (house.loyalty or 0) > move.line then p.placated = true end
+end
+
 -- Why a warned move no longer lands, or nil when it still does.
 function IC.plot_void(faction_key, p)
     local court = IC.court(faction_key)
     local house = court.houses[p.slug]
     if not house then return "gone" end
     local move = IC.party_move_by_key(p.move)
-    if not move or (house.loyalty or 0) > move.line then return "placated" end
+    if not move or p.placated or (house.loyalty or 0) > move.line then
+        return "placated"
+    end
     if not IC.character_by_cqi(faction_key, p.actor) then return "plotter dead" end
     if IC.standing(faction_key, p.actor) < IC.plot_cost(p.move) then
         return "poor"
@@ -601,7 +614,7 @@ function IC.issue_demand(faction_key, slug, t)
     if not ok then
         a.demand = nil
         IC.save_agenda(faction_key)
-        IC.say("IRON COURT: demand not issued in " .. faction_key .. ": "
+        IC.warn("IRON COURT: demand not issued in " .. faction_key .. ": "
                .. tostring(err))
         return false
     end
@@ -652,7 +665,17 @@ function IC.demand_state(faction_key, d)
     end
     if holder == d.cqi then return "met" end
     if holder and holder ~= d.was then return "refused" end
-    if cm:model():turn_number() >= d.ends then return "refused" end
+    if cm:model():turn_number() >= d.ends then
+        -- A DEMAND NOBODY COULD GRANT LAPSES. Its man short of the office's bar
+        -- is exactly when ACCEPT is red (can_grant_demand), and running out
+        -- charged the refusal for a seat the player could never give (found
+        -- 2026-09-25). A man put in another post is still a refusal: that one
+        -- the player chose.
+        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
+            return "void"
+        end
+        return "refused"
+    end
     return nil
 end
 
@@ -783,7 +806,11 @@ local function demand_event(outcome)
             -- in no known order, so a man seated on the last turn is re-read.
             -- A local, not `outcome`: that upvalue is every later event's too.
             local result = outcome
-            if result == "refused" and IC.demand_state(faction_key, d) == "met" then result = "met" end
+            -- AND ONE NOBODY COULD GRANT LAPSES, as IC.demand_state rules.
+            if result == "refused" then
+                local now = IC.demand_state(faction_key, d)
+                if now == "met" or now == "void" then result = now end
+            end
             IC.settle_demand(faction_key, result, true)
         end
     end
@@ -1010,6 +1037,13 @@ function IC.party_turn(faction_key)
         IC.save_agenda(faction_key)
         IC.save(faction_key)
         return done
+    end
+    -- THE parties_act SETTING OFF: what is already open settles above, and
+    -- nothing new - no scheme, feud, demand or offer - is started.
+    if not T.parties_act then
+        IC.save_agenda(faction_key)
+        IC.save(faction_key)
+        return nil
     end
     local picks = {}
     for _, slug in ipairs(IC.present_houses(faction_key)) do

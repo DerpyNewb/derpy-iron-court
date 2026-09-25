@@ -187,6 +187,72 @@ background ui for the number of seats present".
 - **The width proxy is still wrong for capitals.** Recalibrating it against the engine's
   `TextDimensionsForText` through the bridge would let 20g catch this class; not done.
 
+## 4f. Five bugs from the open lists, fixed (deployed 2026-09-25)
+
+Deployed to `data/derpy_iron_court.pack`: MD5 `a1224d0dc9a8579b7c1c365ae0bb1aea`, 8,933,745
+bytes, 1,713 files; the three scripts and twelve `.twui.xml` read back out of the deployed pack
+and compared byte for byte. Previous live copy (272C876B) kept as
+`data/derpy_iron_court.pack.bak_pre_bugfix_20260925`.
+
+Author: "what else is missing in the mod", then "Fix the bugs first". Each was found by reading
+the code against the handoffs' open lists, pinned by a harness check watched failing for its
+own reason, then fixed.
+
+1. **A full rebel pool renamed a running rising, or picked the seceding court itself.** With
+   qb1-qb3 and invasion all alive, `IC.rebel_faction()` fell back to the first living key.
+   Joining a running rising is the design (a fifth party joins one of the four), but the
+   secession then renamed it after the newcomer, and a court run BY a rising (it is a Chaos
+   Dwarf faction) could get its own key back. Now `IC.rebel_faction(exclude)` never returns the
+   seceding faction, and `IC.secede` renames only a woken faction or one with no
+   `derpy_ic_risen_` name yet.
+2. **`IC.turn` called `IC.party_turn` bare**, so one error there skipped the secession clocks,
+   the Crown split and the save. Now `pcall`'d and said ("the parties' turn failed in ...").
+   The harness wraps `IC.say`, collects every such line, and a last-but-one check fails on
+   any, so the catch cannot hide a fault from the run.
+3. **Placated was read after the drift.** A party lifted one above its line on the player's
+   turn drifted back onto it and the warned move landed. `IC.party_placate` now runs right
+   after `IC.load` at the top of `IC.turn` and marks the plot; `IC.plot_void` honours the mark.
+   (The first version of the test set loyalty in memory only; `IC.turn`'s `IC.load` read the
+   saved court back and undid it. The test now placates through `IC.move_loyalty` and saves,
+   as a gift does.)
+4. **An office demand nobody could grant still cost -10 when it ran out.** ACCEPT is red
+   while the man is short of the office's influence, yet expiry settled "refused". Now at
+   expiry an office demand whose man fails `IC.can_appoint` is "void" (no loyalty, no card),
+   by both roads: `IC.demand_state` and the engine's `MissionFailed` listener. A man the player
+   put in another post is still a refusal. **Ruling:** a player who spends the man's influence
+   on intrigue can dodge the -10 this way; accepted as minor.
+5. **A dead officer's term stayed in the save.** `ic_dead` vacated the seat and left
+   `court.terms[office]`; `expire_terms` walks held offices only. Cleared with the seat.
+
+Not changed: the Great Guilds paying +10 to all six guilds when an Iron Court demand
+completes (its `gg_mission` pays on every non-bounty `MissionSucceeded`). That is the Guilds'
+own "any mission" rule and a decision for the author, not a bug fix. The thin light lines at
+1600x900 need the bridge at that resolution.
+
+Gates: harness 587 green (seven new checks plus "no parties' turn failed anywhere in the run").
+Nine new mutants (each fix undone, plus "every office demand lapses", which is the void rule
+made too wide), all caught; four older mutants re-aimed at the rewritten lines ("the parties
+given no turn", "a placated party striking anyway", "demand_state with no expiry", "the
+engine's expiry refusing a demand the player met"), all caught; 367 anchored.
+
+**The demand, read out of the script log first** (author: "check logs first about the
+demand"; `script_log_250926_1302.txt`, a new Conclave campaign on the 272C876B build):
+
+- Turn 1, 65.6s: `forge demands gov wh3_main_combi_province_the_plain_of_zharr for cqi 1451`.
+  At 122.0s the click was `ic_row_f` in `derpy_ic_row_1` on the Petitions tab - the Refuse
+  button (`ICUI.on_petition_click(context, false)`) - and it settled `refused` in that click;
+  the refusal card waited for the panel to close (130.7s), as `IC.hold_feed` does. The autosave
+  at 447.6s has an empty agenda (`||||`) and forge at 43 loyalty against 50-58 for the others:
+  the -10 plus drift.
+- 503.3s: `temple demands office kilns for cqi 1501`. At 525.8s the click was `ic_row_e`
+  (Accept): `derpy_ic_title_kilns` added to cqi 1501 and the demand settled `met`.
+- **0 "is not a ui component" lines** in the whole session: the 4d fix holds with logging on.
+  The two SCRIPT ERRORs are CA's (Conclave has no `main_warhammer` faction intro; Vampire
+  Lairs finds a faction with no home region).
+- NOT answerable from the log: whether the engine closed the two demand MISSIONS.
+  `cm:complete_scripted_mission_objective` is an engine call with no CA Lua wrapper and logs
+  nothing, and our mission raises no MissionManager line. Look at the objectives panel.
+
 ## 5. Owed in game
 
 1. The card root takes a click through its children (only the tooltip cells are interactive).

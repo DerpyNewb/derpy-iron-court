@@ -564,6 +564,9 @@ event_feed_strings_text_derpy_ic_event_party_demand_refused_secondary	REFUSED	fa
 event_feed_strings_text_derpy_ic_event_party_offer_title	A Party Offers a Favour	false
 event_feed_strings_text_derpy_ic_event_party_offer_primary	A loyal party offers the Crown something for nothing. Their card says what. Click it to accept or decline, but the offer will not wait long, and the other parties will notice if you take it.	false
 event_feed_strings_text_derpy_ic_event_party_offer_secondary	OFFER	false
+event_feed_strings_text_derpy_ic_event_term_soon_title	A Term Ends Next Turn	false
+event_feed_strings_text_derpy_ic_event_term_soon_primary	An officer's term ends at the start of your next turn, and his seat will stand empty. He cannot take the same seat straight back, so decide now who follows him.	false
+event_feed_strings_text_derpy_ic_event_term_soon_secondary	TERMS END	false
 event_feed_strings_text_derpy_ic_move_bribe_ok	BRIBE - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_bribe_fail	BRIBE - FAILURE	false
 event_feed_strings_text_derpy_ic_move_discredit_ok	DISCREDIT - SUCCESS	false

@@ -17,8 +17,9 @@ nothing in CA's whole scripting reference writes one - searched, not assumed.
 cm:change_custom_faction_name fixes the NAME and has no counterpart for the
 picture. So the only lever is the DB, and the DB is read before the campaign
 rolls which parties it seats: the crest can be distinct per FACTION and can never
-be the specific party's own sigil. Four crests is the engine's ceiling, and
-IC.TUNE.rivals_max is 4, so a campaign can never seat a fifth party that wants one.
+be the specific party's own sigil. Four crests is the engine's ceiling. Ruthless
+seats five rivals (2026-09-25), and a fifth party that leaves joins a rising
+already under way instead of wanting a crest of its own - IC.rebel_faction.
 
 RECOLOURED, NOT DRAWN. The frame, the rivets, the scratched plate and the torn
 edge are CA's and stay CA's; only the sigil's hue moves. A hand-drawn crest beside

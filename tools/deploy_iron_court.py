@@ -54,6 +54,10 @@ SCRIPTS = [
      "script/campaign/mod/zzz_derpy_iron_court_ui.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua",
      "script/campaign/mod/zzz_derpy_iron_court_parties.lua"),
+    # MCT loads every .lua under script/mct/settings/. Listed here, it is also in
+    # the post-save check below, which asks the saved pack for every SCRIPTS path.
+    ("Modding Files/pack/script/mct/settings/derpy_iron_court.lua",
+     "script/mct/settings/derpy_iron_court.lua"),
 ]
 UI = [("Modding Files/pack/ui/campaign ui/%s" % os.path.basename(p),
        "ui/campaign ui/%s" % os.path.basename(p)) for p in V.UI_FILES]

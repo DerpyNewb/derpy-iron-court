@@ -40,6 +40,8 @@ MOD = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod")
 M = os.path.join(MOD, "zzz_derpy_iron_court.lua")
 U = os.path.join(MOD, "zzz_derpy_iron_court_ui.lua")
 P = os.path.join(MOD, "zzz_derpy_iron_court_parties.lua")
+S = os.path.join(ROOT, "Modding Files", "pack", "script", "mct", "settings",
+                 "derpy_iron_court.lua")
 HARNESS = os.path.join(ROOT, "tools", "_iron_court_harness.lua")
 LUA = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 
@@ -1058,15 +1060,12 @@ end"""),
      """                ICUI.on_petition_click(context, false)""",
      """                ICUI.on_petition_click(context, true)"""),
 
-    ("a roster row wired to a man, on a list that offers nothing", U,
-     """        if roster then
-            -- NIL, DELIBERATELY. Every row of the roster is unwired: it reports
-            -- rather than offers, and on_pick_click reads this table.
-            ICUI.pick_rows[#lines] = nil
-        elseif targeting or plotting then""",
-     """        if false then
-            ICUI.pick_rows[#lines] = nil
-        elseif targeting or plotting then"""),
+    # RE-AIMED 2026-09-25: a roster row now offers Find, but only for a man the
+    # camera can go to. The mistake is wiring the rest.
+    ("a roster row wired to a man the camera cannot go to", U,
+     """            ICUI.pick_rows[#lines] = ICUI.map_spot(cand.character)
+                                     and cand.cqi or nil""",
+     """            ICUI.pick_rows[#lines] = cand.cqi"""),
 
     ("the roster listing every house's men, not your own", U,
      """      if not roster or cand.slug == ICUI.pick.slug then""",
@@ -1874,8 +1873,8 @@ end"""),
     # FIELD EIGHT IS THE SAVE'S AMBITION MAP. Dropping it leaves an old-looking
     # seven-field court that restamps everyone after a load.
     ("ambition omitted from field 8 of IC.pack", M,
-     """                 join(logged, ";"), join(prov, ";"), join(ambition, ";")}, "|")""",
-     """                 join(logged, ";"), join(prov, ";")}, "|")"""),
+     """                 join(logged, ";"), join(prov, ";"), join(ambition, ";"),""",
+     """                 join(logged, ";"), join(prov, ";"), "","""),
 
     # A CQI that has left the faction must lose its band with its standing; it
     # otherwise remains serialized forever and can contaminate a reused CQI.
@@ -2037,9 +2036,9 @@ end"""),
     # term turns over.
     ("the AI back to filling seats on standing alone", M,
      """                    if not used[cqi] and ((pass == 1) == affine)
-                            and IC.appoint(faction_key, office.slug, cqi) then""",
+                            and IC.can_appoint(faction_key, office.slug, cqi) then""",
      """                    if not used[cqi]
-                            and IC.appoint(faction_key, office.slug, cqi) then"""),
+                            and IC.can_appoint(faction_key, office.slug, cqi) then"""),
 
     # THE SECOND PASS RUN WHATEVER THE CLAIMANT IS, which is how it shipped on
     # 2026-09-22: the live saves showed every falling AI party was one whose seat
@@ -2184,12 +2183,16 @@ end"""),
     # The pressure exemption removed. The court still fills and every party is
     # content; the strongest one is pressed anyway and leaves at full loyalty.
     ("an AI court pressed like a player's", M,
-     """    if not IC.is_human(faction_key) then
+     """    if not IC.TUNE.pressure or not IC.is_human(faction_key) then
         for _slug, house in pairs(court.houses) do house.pressed = nil end
         return 0
     end
     local chance = IC.control_pressure(faction_key)""",
-     """    local chance = IC.control_pressure(faction_key)"""),
+     """    if not IC.TUNE.pressure then
+        for _slug, house in pairs(court.houses) do house.pressed = nil end
+        return 0
+    end
+    local chance = IC.control_pressure(faction_key)"""),
 
     # The standing bar put back on the AI. Its court is empty for the first
     # twenty to thirty turns and half of it walks before a seat is ever filled.
@@ -2215,8 +2218,8 @@ end"""),
 
     # ---- rival parties that act on their own -------------------------------
     ("the parties given no turn", M,
-     "    if IC.party_turn then IC.party_turn(faction_key) end\n",
-     ""),
+     "        local ok, err = pcall(IC.party_turn, faction_key)\n",
+     "        local ok, err = true, nil\n"),
     ("an AI court's parties acting", P,
      "    if not IC.is_human(faction_key) then return nil end\n    IC.governor_xp",
      "    IC.governor_xp"),
@@ -2257,8 +2260,8 @@ end"""),
      "    if IC.agenda(faction_key).plot then\n        local done = IC.land_plot(faction_key)",
      "    if false then\n        local done = IC.land_plot(faction_key)"),
     ("a placated party striking anyway", P,
-     "    if not move or (house.loyalty or 0) > move.line then return \"placated\" end",
-     "    if not move then return \"placated\" end"),
+     "    if not move or p.placated or (house.loyalty or 0) > move.line then\n",
+     "    if not move or p.placated then\n"),
     ("a warned move following a man out of his seat", P,
      "    if p.move == \"unseat\" and court.offices[p.key] ~= p.target then",
      "    if false then"),
@@ -2412,8 +2415,8 @@ end"""),
      """    if holder then return "refused" end"""),
 
     ("demand_state with no expiry", P,
-     """    if cm:model():turn_number() >= d.ends then return "refused" end""",
-     """"""),
+     """    if cm:model():turn_number() >= d.ends then\n""",
+     """    if false then\n"""),
 
     ("a dead man's demand not voided", P,
      """    if not IC.character_by_cqi(faction_key, d.cqi) then return "void" end""",
@@ -2570,8 +2573,8 @@ end"""),
      """            local may = false"""),
 
     ("ACCEPT on an offer routed to decline_offer", U,
-     """        done, why, spare = IC.accept_offer(faction, p.slug)""",
-     """        done, why, spare = IC.decline_offer(faction, p.slug)"""),
+     '        op = yes and "accept" or "decline"',
+     '        op = yes and "decline" or "decline"'),
 
     ("the warned move not leading the Intrigue alert", U,
      """    local plot_line = ICUI.plot_alert(faction)
@@ -2606,8 +2609,8 @@ end"""),
     IC.feed(faction_key, "party_demand_refused")"""),
 
     ("REFUSE on an offer routed to accept_offer", U,
-     """        done, why, spare = IC.decline_offer(faction, p.slug)""",
-     """        done, why, spare = IC.accept_offer(faction, p.slug)"""),
+     '        op = yes and "accept" or "decline"',
+     '        op = yes and "accept" or "accept"'),
 
     ("the lapsed reason dropped from reason_text", U,
      """    elseif why == "lapsed" then
@@ -2617,8 +2620,8 @@ end"""),
 
     # ---- Build 2: the final fix wave -------------------------------------------
     ("the engine's expiry refusing a demand the player met", P,
-     """            if result == "refused" and IC.demand_state(faction_key, d) == "met" then result = "met" end""",
-     """"""),
+     """                if now == "met" or now == "void" then result = now end""",
+     """                if now == "void" then result = now end"""),
 
     ("a late event settling a demand issued this turn", P,
      """            if d.ends - T.party_demand_turns >= cm:model():turn_number() then return end""",
@@ -2782,6 +2785,448 @@ end"""),
     ("the bar's visibility built from an and-chain that can be nil", U,
      """    local rival = slug ~= nil and slug ~= IC.CROWN and court.houses[slug] ~= nil""",
      """    local rival = slug and slug ~= IC.CROWN and court.houses[slug] ~= nil"""),
+
+    # THE FIVE BUGS OF 2026-09-25. Each fix undone, and one fix made too wide.
+    ("a full pool's fallback allowed to be the seceding court itself", M,
+     """            if key ~= exclude then fallback = fallback or key end""",
+     """            fallback = fallback or key"""),
+    ("a party joining a running rising renames it again", M,
+     """    if rebels and flying and (waking or not risen or risen == "") then""",
+     """    if rebels and flying then"""),
+    ("the parties' turn called bare again", M,
+     """        local ok, err = pcall(IC.party_turn, faction_key)""",
+     """        local ok, err = true, IC.party_turn(faction_key)"""),
+    ("placated read after the drift again", M,
+     """    if IC.party_placate then IC.party_placate(faction_key) end""",
+     """    -- placated read late"""),
+    ("the placated mark ignored at the landing", P,
+     """    if not move or p.placated or (house.loyalty or 0) > move.line then""",
+     """    if not move or (house.loyalty or 0) > move.line then"""),
+    ("a demand nobody could grant refused at the turn's end", P,
+     """        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
+            return "void"
+        end""",
+     """        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
+            return "refused"
+        end"""),
+    ("every office demand lapses at the turn's end", P,
+     """        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then""",
+     """        if d.kind == "office" then"""),
+    ("the engine's expiry charging a demand nobody could grant", P,
+     """                if now == "met" or now == "void" then result = now end""",
+     """                if now == "met" then result = now end"""),
+    ("a dead officer's term left in the save", M,
+     "                court.terms[office_slug] = nil\n",
+     ""),
+
+    # ---- MCT: the settings, frozen into the save (2026-09-25) ---------------
+    ("mct: multiplayer reading MCT after all", M,
+     "    if IC.is_mp() then return t end",
+     "    if false then return t end"),
+    ("mct: an erroring multiplayer check read as multiplayer", M,
+     "    return ok and v == true",
+     "    return (not ok) or v == true"),
+    ("mct: an older save's missing key left nil", M,
+     """    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    -- EVERY FIELD, EMPTY ONES INCLUDED""",
+     """    -- EVERY FIELD, EMPTY ONES INCLUDED"""),
+    ("mct: an empty saved field sliding the rest onto the wrong keys", M,
+     """    for chunk in string.gmatch((packed or "") .. "|", "([^|]*)|") do""",
+     """    for chunk in string.gmatch(packed or "", "[^|]+") do"""),
+    ("mct: a partial table packed as zeros", M,
+     "        if v == nil then v = IC.TUNE_DEFAULTS[key] end",
+     "        if v == nil then v = 0 end"),
+    ("mct: an unreadable saved field read as zero", M,
+     "        local n = tonumber(chunk)",
+     "        local n = tonumber(chunk) or 0"),
+    ("mct: the sliders read under every difficulty", M,
+     "                and preset == IC.PRESET_CUSTOM",
+     "                and true"),
+    ("mct: the switches read under Custom only", M,
+     '            if type(IC.TUNE_DEFAULTS[key]) == "boolean" or custom_number then',
+     "            if custom_number then"),
+    ("mct: a setting's type never checked", M,
+     "            if type(v) == type(IC.TUNE_DEFAULTS[key]) then return v end",
+     "            if v ~= nil then return v end"),
+    ("mct: fewest rivals left above most", M,
+     "    if t.rivals_min > t.rivals_max then t.rivals_min = t.rivals_max end",
+     "    local _ = t.rivals_min"),
+    ("mct: the intrigue line left where it loaded", M,
+     "            move.line = IC.TUNE.party_intrigue_line",
+     "            move.line = move.line"),
+    ("mct: a reload re-reading MCT", M,
+     '    if type(packed) == "string" and packed ~= "" then',
+     "    if false then"),
+    ("mct: the court rolled before the freeze", M,
+     """    IC.freeze_tune()
+    IC.register()""",
+     """    IC.register()"""),
+    ("mct: parties acting with parties_act off", P,
+     "    if not T.parties_act then",
+     "    if false then"),
+    ("mct: AI courts run with ai_courts off", M,
+     "    if IC.TUNE.ai_courts then return true end",
+     # NOT a bare `return true`: Lua 5.1 refuses a statement after a return, so
+     # that mutant was a parse error the runner rightly reported as no catch.
+     "    if true then return true end"),
+    ("mct: the settlement listener deaf to ai_courts", M,
+     """        if not IC.runs_court(faction) then return end
+        IC.add_standing(faction:name(), character:command_queue_index(),
+                        IC.TUNE.settlement_influence)""",
+     """        if not IC.is_chd(faction) then return end
+        IC.add_standing(faction:name(), character:command_queue_index(),
+                        IC.TUNE.settlement_influence)"""),
+    ("mct: secession with secession off", M,
+     "    if not IC.TUNE.secession then",
+     "    if false then"),
+    ("mct: pressure with pressure off", M,
+     "    if not IC.TUNE.pressure or not IC.is_human(faction_key) then",
+     "    if not IC.is_human(faction_key) then"),
+    ("mct: the Crown splitting with crown_split off", M,
+     """    if not IC.TUNE.crown_split then
+""",
+     """    if false then
+"""),
+    ("live: a split countdown left running with crown_split off", M,
+     """        if crown then crown.split = 0 end
+""",
+     ""),
+    ("mct: routine lines written with the detailed log off", M,
+     "    if IC.TUNE and IC.TUNE.detailed_log == false then return end",
+     "    if false then return end"),
+    ("mct: the parties' turn failure silenced with the routine log", M,
+     """            IC.warn("IRON COURT: the parties' turn failed in " .. faction_key""",
+     """            IC.say("IRON COURT: the parties' turn failed in " .. faction_key"""),
+    ("mct: a switch left off the settings page", S,
+     '    {"parties_act", "Rival parties act on their own", "systems",',
+     '    {"parties_act_gone", "Rival parties act on their own", "systems",'),
+    ("mct: the frozen switches editable mid-campaign", S,
+     """            else
+                o:set_locked(true, LOCK_REASON)
+            end""",
+     """            else
+                o:set_locked(false)
+            end"""),
+    ("live: ai_courts marked live on the page", S,
+     """     .. "can split. Off, only your court runs.", false},""",
+     """     .. "can split. Off, only your court runs.", true},"""),
+    ("live: the live switches locked in a campaign", S,
+     """            elseif SWITCHES[i][5] then
+                o:set_locked(false)""",
+     """            elseif SWITCHES[i][5] then
+                o:set_locked(true, LOCK_REASON)"""),
+    ("live: the switches open in multiplayer", S,
+     """            if mp then
+                o:set_locked(true, MP_REASON)""",
+     """            if false then
+                o:set_locked(true, MP_REASON)"""),
+    ("live: an old save's locks never lifted", S,
+     """core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function()""",
+     """core:add_listener("derpy_ic_mct_loaded_gone", "MctInitialized", true, function()"""),
+
+    # ---- live switches: read again at load and on Finalize (2026-09-25) ----
+    ("live: the switches never read again at load", M,
+     """    IC.apply_tune(t)
+    IC.refresh_live_tune()
+    return t""",
+     """    IC.apply_tune(t)
+    return t"""),
+    ("live: ai_courts following MCT mid-campaign", M,
+     """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",""",
+     """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split", "ai_courts","""),
+    ("live: the log switch dropped from the live set", M,
+     """                "all_cards", "detailed_log"}""",
+     """                "all_cards"}"""),
+    ("live: multiplayer following each machine's MCT", M,
+     """function IC.refresh_live_tune()
+    if IC.is_mp() then return false end""",
+     """function IC.refresh_live_tune()"""),
+    ("live: a live change never written into the save", M,
+     """    cm:set_saved_value("derpy_ic_tuned", IC.pack_tune(IC.TUNE))
+    -- A COUNTDOWN""",
+     """    -- A COUNTDOWN"""),
+    ("live: countdowns settled when a switch goes ON", M,
+     """                off[key] = not v
+""",
+     """                off[key] = v
+"""),
+    ("live: a switched-off secession left counting until the turn", M,
+     """            if off.secession then IC.tick_secession(faction_key) end
+""",
+     ""),
+    ("live: the pressure mark left on", M,
+     """            if off.pressure then IC.tick_pressure(faction_key) end
+""",
+     ""),
+    ("live: the Crown's count left on", M,
+     """            if off.crown_split then IC.splinter(faction_key) end
+""",
+     ""),
+    ("live: the cleared countdowns never saved", M,
+     """            if off.crown_split then IC.splinter(faction_key) end
+            IC.save(faction_key)""",
+     """            if off.crown_split then IC.splinter(faction_key) end"""),
+    ("live: nothing listening for Finalize", M,
+     """    core:add_listener("ic_live_tune", "MctFinalized", true, function()""",
+     """    core:add_listener("ic_live_tune_gone", "MctFinalized", true, function()"""),
+
+    # ---- MP: every panel action through one transport (2026-09-25) ---------
+    ("mp: an unsendable action applied on this machine", M,
+     """    if not cqi then
+        IC.warn("IRON COURT: no command queue index for " .. tostring(faction_key)
+                .. " - " .. op .. " not sent")
+        return false
+    end""",
+     """    if not cqi then
+        IC.MP_OPS[op](faction_key, arg)
+        return false
+    end"""),
+    ("mp: the length ceiling dropped", M,
+     "    if #id > IC.MP_MAX then",
+     "    if false then"),
+    ("mp: another mod's trigger read as ours", M,
+     """    local op, arg = string.match(id, "^" .. IC.MP_TAG .. "|([^|]*)|(.*)$")""",
+     """    local op, arg = string.match(id, "^%w+|([^|]*)|(.*)$")"""),
+    ("mp: a trigger from nobody acted on for the first human", M,
+     "    local faction_key = IC.faction_by_cqi(cqi)",
+     "    local faction_key = IC.faction_by_cqi(cqi) or (cm:get_human_factions() or {})[1]"),
+    ("mp: a cqi left a string on the wire", M,
+     """    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], tonumber(f[2])))""",
+     """    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], f[2]))"""),
+    ("mp: an empty plot target sent as an empty string", M,
+     """    if target == "" then target = nil end""",
+     "    local _ = target"),
+    ("mp: the answer never reaching the panel", M,
+     "    if IC.after_op then IC.after_op(faction_key, op, arg, done, why, spare) end",
+     "    local _ = IC.after_op"),
+    ("mp: the feed held in multiplayer", M,
+     "    if IC.is_mp() then return 0 end",
+     "    if false then return 0 end"),
+    ("mp: the panel reading the first human again", U,
+     "    local ok, me = pcall(function() return cm:get_local_faction_name(true) end)",
+     "    local ok, me = false, nil"),
+    ("mp: the unforced local-faction read", U,
+     "    local ok, me = pcall(function() return cm:get_local_faction_name(true) end)",
+     "    local ok, me = pcall(function() return cm:get_local_faction_name() end)"),
+    ("mp: every machine answering every click", U,
+     "    if mp and faction_key ~= ICUI.player() then return end",
+     "    local _ = mp"),
+    ("mp: an answer that never redraws in multiplayer", U,
+     "    if mp then ICUI.refresh() end",
+     "    local _ = mp"),
+    ("mp: a dismissal called straight at the model", U,
+     """        ICUI.send(faction, "dismiss", office.slug)""",
+     """        IC.dismiss(faction, office.slug)"""),
+    ("mp: the favour paid straight off the click", U,
+     """        ICUI.send(faction, "favour", move.favour .. "|" .. slug)""",
+     """        IC.favour(faction, move.favour, slug)"""),
+    ("mp: a refused pick closing the picker", U,
+     """        if not done then
+            ICUI.notice = ICUI.reason_text(why, spare)
+            return
+        end""",
+     """        if not done then
+            ICUI.notice = ICUI.reason_text(why, spare)
+        end"""),
+
+    # ---- The final review's fix pass (2026-09-25) ---------------------------
+    ("mp: a second click sent before the answer", U,
+     "    if ICUI.waiting then return false end",
+     "    if false then return false end"),
+    ("mp: the wait never ended by the answer", U,
+     """    if mp and faction_key ~= ICUI.player() then return end
+    ICUI.waiting = nil""",
+     """    if mp and faction_key ~= ICUI.player() then return end"""),
+    ("mp: the wait kept past closing the panel", U,
+     """    -- AND AN ACTION STILL IN FLIGHT: see ICUI.send.
+    ICUI.waiting = nil""",
+     """    -- AND AN ACTION STILL IN FLIGHT: see ICUI.send."""),
+    ("mp: a court button for a player who is not a Chaos Dwarf", U,
+     """    attempt = attempt or 1
+    if not ICUI.court_player() then return false end""",
+     """    attempt = attempt or 1"""),
+    ("mp: a court opened for a player who is not a Chaos Dwarf", U,
+     """    if not ICUI.court_player() then return end
+    if not ICUI.prefs_loaded then ICUI.load_prefs() end
+    if comp(ICUI.PANEL) then ICUI.refresh() return end""",
+     """    if not ICUI.prefs_loaded then ICUI.load_prefs() end
+    if comp(ICUI.PANEL) then ICUI.refresh() return end"""),
+    # ---- The court's size is the difficulty (2026-09-25) --------------------
+    ("mct: Ruthless seating one party short of a full court", M,
+     "        party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,",
+     "        party_intrigue_line = 65, rivals_min = 4, rivals_max = 4, term_turns = 10,"),
+    ("mct: Default rolling a range again", M,
+     "    rivals_min          = 3,",
+     "    rivals_min          = 2,"),
+    ("mct: Ruthless pressing a fresh full court from turn 1", M,
+     "secede_share = 15, secede_turns = 3, pressure_below = 15,",
+     "secede_share = 15, secede_turns = 3, pressure_below = 20,"),
+    ("plot: the odds read after the price is taken", M,
+     "    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)\n"
+     "    IC.add_standing(faction_key, actor_cqi, -cost)\n",
+     "    IC.add_standing(faction_key, actor_cqi, -cost)\n"
+     "    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)\n"),
+    ("court: a roll that never marks the court rolled", M,
+     "    IC.court(faction_key).rolled = true\n",
+     "\n"),
+    ("court: an old save never marked while it still has rivals", M,
+     "    if n > 1 then court.rolled = true end\n",
+     "\n"),
+    ("court: the rolled marker never saved", M,
+     "                 court.rolled and \"1\" or \"\", join(last",
+     "                 \"\", join(last"),
+    ("office: a dismissal takes back the single weight again", M,
+     "            court.houses[slug].weight - IC.office_weight(office_slug, slug))",
+     "            court.houses[slug].weight - IC.TUNE.weight_per_office)"),
+    ("office: a death in the seat takes back the single weight again", M,
+     "                        - IC.office_weight(office_slug, slug))",
+     "                        - IC.TUNE.weight_per_office)"),
+    ("office: a man whose term ended never kept waiting", M,
+     "    if wait > 0 then return false, \"renew\", wait end\n",
+     "    if false then return false, \"renew\", wait end\n"),
+    ("office: a renewal welcomed like a new man", M,
+     "    if not renewal then\n"
+     "        IC.move_loyalty(faction_key, slug, IC.TUNE.loyalty_appointed)\n",
+     "    if true then\n"
+     "        IC.move_loyalty(faction_key, slug, IC.TUNE.loyalty_appointed)\n"),
+    ("office: an ended term never remembers its man", M,
+     "        court.last[done[i].slug] = {cqi = done[i].cqi, turn = turn}\n",
+     "\n"),
+    ("office: a new man leaves the old one's renewal standing", M,
+     "    court.last[office_slug] = nil\n"
+     "    court.offices[office_slug] = cqi\n",
+     "    court.offices[office_slug] = cqi\n"),
+    ("office: the renewal wait never saved", M,
+     "                 court.rolled and \"1\" or \"\", join(last, \";\")}, \"|\")",
+     "                 court.rolled and \"1\" or \"\", \"\"}, \"|\")"),
+    ("office: the renewal wait never read back", M,
+     "            court.last[bits[1]] = {cqi = cqi, turn = ended}\n",
+     "\n"),
+    ("mct: Harsh holding a seat for five turns again", M,
+     "party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,",
+     "party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 5,"),
+    ("ui: the waiting man's row says nothing of the wait", U,
+     "        elseif wait > 0 then\n"
+     "            action = string.format(\"Wait %d\", wait)\n",
+     ""),
+    ("ui: the waiting man offered on the picker", U,
+     "                (cand.rank >= rank_bar and wait == 0 and not cand.busy\n",
+     "                (cand.rank >= rank_bar and not cand.busy\n"),
+    ("ui: the renewal refusal not put into words", U,
+     "    elseif why == \"renew\" then\n",
+     "    elseif why == \"renew_\" then\n"),
+    # --- QOL, 2026-09-25 ---------------------------------------------------
+    ("qol: no warning the turn before a term ends", M,
+     "    IC.expire_terms(faction_key)\n    IC.warn_terms(faction_key)\n",
+     "    IC.expire_terms(faction_key)\n"),
+    ("qol: the term warning two turns early", M,
+     "        if ends and ends - turn == 1 then out[#out + 1] = slug end\n",
+     "        if ends and ends - turn == 2 then out[#out + 1] = slug end\n"),
+    ("qol: the term warning never names the seat", M,
+     "            #ending == 1 and IC.office_title_key(ending[1]) or nil)",
+     "            nil)"),
+    ("qol: all_cards off silences nothing", M,
+     "    if IC.TUNE.all_cards == false and IC.ROUTINE_EVENTS[slug] then return false end\n",
+     "\n"),
+    ("qol: all_cards off silences a warning too", M,
+     "    office_lost = true, party_joined = true, snub = true, party_feud = true,",
+     "    office_lost = true, secede_warn = true, party_joined = true, snub = true, party_feud = true,"),
+    ("qol: all_cards left out of the save order", M,
+     "    \"detailed_log\", \"all_cards\",\n",
+     "    \"detailed_log\",\n"),
+    ("qol: an empty seat's card never mentions the wait", U,
+     "            if wait > 0 then\n"
+     "                term_text = string.format(\"Vacant - holder waits %d turn%s\",",
+     "            if false then\n"
+     "                term_text = string.format(\"Vacant - holder waits %d turn%s\","),
+    ("qol: an empty seat's button never names its old holder", U,
+     "                local tip = \"\"\n                if was then\n",
+     "                local tip = \"\"\n                if false then\n"),
+    ("qol: the button's summary leaves out the terms ending", U,
+     "    if #ending > 0 then\n        for i = 1, #ending do",
+     "    if false then\n        for i = 1, #ending do"),
+    ("qol: the button's summary leaves out a party leaving", U,
+     "        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then",
+     "        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 99 then"),
+    ("qol: the button's summary leaves out who may return", U,
+     "    if #back > 0 then\n        lines[#lines + 1] = \"Free to take",
+     "    if false then\n        lines[#lines + 1] = \"Free to take"),
+    ("qol: closing the court leaves the button's summary stale", U,
+     "    ICUI.save_prefs()\n"
+     "    -- WHAT THE PLAYER JUST CHANGED, on the button he closes the panel onto.\n"
+     "    ICUI.update_opener_tip()\n",
+     "    ICUI.save_prefs()\n"),
+    ("qol: the player's turn start leaves the button's summary stale", U,
+     "    cm:callback(function() ICUI.update_opener_tip() end, 0)\n",
+     "\n"),
+    ("qol: closing the court never saves the tab", U,
+     "    ICUI.save_prefs()\n"
+     "    -- WHAT THE PLAYER JUST CHANGED",
+     "    -- WHAT THE PLAYER JUST CHANGED"),
+    ("qol: opening the court never reads the tab back", U,
+     "    if not ICUI.prefs_loaded then ICUI.load_prefs() end\n",
+     "\n"),
+    ("qol: multiplayer saves the tab", U,
+     "function ICUI.save_prefs()\n    if IC.is_mp() then return false end\n",
+     "function ICUI.save_prefs()\n"),
+    ("qol: a tab that no longer exists is read back", U,
+     "        if view == f[1] then ICUI.view = view end\n",
+     "        ICUI.view = f[1]\n"),
+    ("qol: a sort past its list's end is read back", U,
+     "        if n and ICUI.SORTS[view] and ICUI.SORTS[view][n] then\n",
+     "        if n then\n"),
+    ("qol: a wounded man offered Find", U,
+     "    if hurt_ok and hurt then return nil end\n",
+     "\n"),
+    ("qol: a man at nowhere offered Find", U,
+     "    if not ok or not x or not y or (x == 0 and y == 0) then return nil end\n",
+     "    if not ok or not x or not y then return nil end\n"),
+    ("qol: Find leaves the court open over the map", U,
+     "    if not x then return false end\n    ICUI.close()\n",
+     "    if not x then return false end\n"),
+    ("qol: Find keeps the camera from the player", U,
+     "    cm:scroll_camera_from_current(true, 1, {x, y, 14.7, 0, 12})",
+     "    cm:scroll_camera_from_current(false, 1, {x, y, 14.7, 0, 12})"),
+    ("qol: a roster click sent as a governor", U,
+     "    elseif ICUI.pick.kind == \"house\" then\n"
+     "        -- NOT SENT: a camera is one player's own, and nothing in the model moves.\n"
+     "        return ICUI.find(faction, chosen)\n",
+     ""),
+    ("qol: the fill plan seats as it plans", M,
+     "                            and IC.can_appoint(faction_key, office.slug, cqi) then\n"
+     "                        used[cqi] = true\n"
+     "                        plan[#plan + 1]",
+     "                            and IC.appoint(faction_key, office.slug, cqi) then\n"
+     "                        used[cqi] = true\n"
+     "                        plan[#plan + 1]"),
+    ("qol: the fill button not red with nothing to do", U,
+     "    set_text(button, #plan > 0 and ICUI.FILL_LABEL or ICUI.red(ICUI.FILL_LABEL))",
+     "    set_text(button, ICUI.FILL_LABEL)"),
+    ("qol: an empty fill sent anyway", U,
+     "    if #IC.fill_plan(faction) == 0 then\n"
+     "        ICUI.notice = ICUI.reason_text(\"no fill\")\n",
+     "    if false then\n"
+     "        ICUI.notice = ICUI.reason_text(\"no fill\")\n"),
+    ("qol: the fill button on every tab", U,
+     "    show(comp(\"ic_fill\", panel), ICUI.pick == nil and ICUI.view == \"offices\")",
+     "    show(comp(\"ic_fill\", panel), ICUI.pick == nil)"),
+    ("qol: the fill tooltip without its plan", U,
+     "    for i = 1, #plan do\n        local man = IC.character_by_cqi(faction, plan[i].cqi)",
+     "    for i = 1, 0 do\n        local man = IC.character_by_cqi(faction, plan[i].cqi)"),
+    ("qol: the fill's answer never says how many", U,
+     "        ICUI.notice = string.format(\"%d seat%s filled.\", spare or 0,",
+     "        ICUI.notice = string.format(\"%d seat%s done.\", spare or 0,"),
+    ("court: the rolled marker never read back", M,
+     "    court.rolled = (fields[9] == \"1\") or nil\n",
+     "    court.rolled = nil\n"),
+    # NOT `if empty` -> `if true`: IC.roll_court refuses a court already
+    # rolled, so seeding a loaded court changes no loyalty and that mutant is
+    # equivalent code. The load itself is what the old-save check guards.
+    ("mct: an old save's court not read back on its first load", M,
+     """            local court = IC.load(human[i])
+            local empty = true""",
+     """            local court = IC.court(human[i])
+            local empty = true"""),
 ]
 
 

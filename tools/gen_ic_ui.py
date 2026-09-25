@@ -669,6 +669,16 @@ def card_grid():
 
 
 CARD_GRID = card_grid()
+
+# THE FILL BUTTON, on the offices tab (author, 2026-09-25): the pager's row,
+# which that tab never uses - fourteen seats never page - centred under the
+# ziggurat, on the pager's plate like the court tab's action bar. Its width is
+# its label at BODY plus the plate's end caps and some over; check 20g2 holds
+# the label to it.
+FILL_W = 220
+PANEL_LAYOUT["ic_fill"] = (CARDS_X + (CONTENT_W - FILL_W) // 2,
+                           PANEL_LAYOUT["ic_page_prev"][1], FILL_W,
+                           PANEL_LAYOUT["ic_page_prev"][3])
 # ---------------------------------------------------------------------------
 # THE INTRIGUE TAB: ONE COLUMN PER CATEGORY OF MOVE.
 #
@@ -972,9 +982,9 @@ PARTIES_Y = COL_BODY_Y
 PARTY_ROWS = 3
 PARTY_H = ((PANEL_LAYOUT["ic_page_prev"][1] - 6 - PARTIES_Y
             - (PARTY_ROWS - 1) * PARTY_GAP_Y) // PARTY_ROWS)
-# SIX, NOT TEN. Two columns in this height is three rows, and a court of the
-# Crown plus rivals_max rivals is five - so a normal court still fits one page
-# and only confederates reach a second.
+# SIX, NOT TEN. Two columns in this height is three rows, and the biggest court
+# a difficulty rolls - Ruthless, the Crown plus five rivals - is exactly six, so
+# every rolled court fits one page and only confederates reach a second.
 PARTY_SLOTS = PARTY_COLS * PARTY_ROWS
 def party_grid():
     return [(PARTIES_X + col * (PARTY_W + PARTY_GAP_X),
@@ -2495,7 +2505,8 @@ BTN_PLATE_MARGIN = max([ly["margin"] for ly in BTN_LAYERS] or [0])
 # 16px they do. "APPOINT" fit ic_card_button's 74px box by 7px and drew over both
 # ends of the plate, which is the 2026-09-17 report.
 BTN_CELLS = {"ic_card_button", "ic_row_e", "ic_row_f", "ic_plot_go",
-             "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge"}
+             "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
+             "ic_fill"}
 
 
 def usable_w(box_w, name):
@@ -2847,8 +2858,8 @@ def _panel():
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=CLOSE_LAYERS, hover=CLOSE_HOVER,
                            tooltip="Close"))
-        elif name in ("ic_page_prev", "ic_page_next") or name.startswith("ic_act_") \
-                and name != "ic_act_hint":
+        elif name in ("ic_page_prev", "ic_page_next", "ic_fill") \
+                or name.startswith("ic_act_") and name != "ic_act_hint":
             # THE ACTION BAR WEARS THE PAGER'S PLATE: same row, same height,
             # and a button beside a button of another shape reads as two bars.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
@@ -3180,6 +3191,8 @@ NOT_GEOMETRY = [
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
     # built it.
     "ACT_BUTTONS",
+    # The fill button's 1920 width, the same: it built PANEL_LAYOUT["ic_fill"].
+    "FILL_W",
     "_i",       # the move-category heading loop's counter, left behind by it
     "FRAME_INK",
 ]
@@ -4744,10 +4757,18 @@ def check():
         # path in both files to one value.
         _strings["ic_card_need"] = [COST_MARKUP + "%d / lvl %d" % (b, r)
                                     for b, r in zip(_bars, _levels)]
+        # THE OLD HOLDER'S WAIT, at its longest - read out of the model, the
+        # number being IC.TUNE.renew_wait there and nowhere else.
+        _wait = re.search(r"renew_wait\s*=\s*(\d+)", _model)
+        if not _wait:
+            out.append("cannot read renew_wait out of the model Lua, so the "
+                       "card's waiting line is unmeasured")
         _strings["ic_card_term"] = [
             "Seat is vacant", "Term ends this turn",
             "%d influence - 1 turn left" % (max(_bars or [0]) * 10),
-            "%d influence - %d turns left" % (max(_bars or [0]) * 10, 99)]
+            "%d influence - %d turns left" % (max(_bars or [0]) * 10, 99),
+            "Vacant - holder waits %d turns" % int(_wait.group(1) if _wait else 99),
+            "Vacant - holder waits 1 turn"]
         _strings["ic_card_button"] = ["Appoint", "Dismiss"]
         for _name, _texts in sorted(_strings.items()):
             _w = usable_w(CARD_LAYOUT[_name][2], _name)
@@ -4833,6 +4854,7 @@ def check():
             _act = dict(re.findall(r'(ic_act_\w+)\s*=\s*"([^"]+)"',
                                    _block_of(_uisrc, "ICUI.ACT_LABEL")))
             _hints = re.findall(r'"([^"]+)"', _block_of(_uisrc, "ICUI.ACT_HINT"))
+            _fill = re.search(r'ICUI\.FILL_LABEL\s*=\s*"([^"]+)"', _uisrc)
         except Exception as exc:
             out.append("cannot read the action bar's words out of the panel "
                        "Lua: %r" % (exc,))
@@ -4840,6 +4862,10 @@ def check():
             _bar = dict((_k, [_v]) for _k, _v in _act.items())
             _bar["ic_act_hint"] = _hints
             _bar["ic_tab_petitions"] = ["Petitions"]
+            _bar["ic_fill"] = [_fill.group(1)] if _fill else []
+            if not _fill:
+                out.append("the panel Lua declares no ICUI.FILL_LABEL, so the "
+                           "fill button's label is unmeasured")
             for _name in [n for n, _w in ACT_BUTTONS] + ["ic_act_hint"]:
                 if not _bar.get(_name):
                     out.append("the panel Lua gives %s no words to draw" % _name)

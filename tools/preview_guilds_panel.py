@@ -29,12 +29,15 @@ approximate and this cannot answer a "does that label fit" question - gen_great_
 help-fit check and the game itself own that. Everything positional is exact. It does not
 run Lua, so it draws a plausible set of contents, not your save's.
 
-    py tools/preview_guilds_panel.py            # render to .skilltree_cache/ui_preview/
+    py tools/preview_guilds_panel.py            # render to .skilltree_cache/ui_preview/:
+                                                #   gg_standings, gg_guilds, gg_log, gg_pick
     py tools/preview_guilds_panel.py slavers    # ... with that guild's baked ground
     py tools/preview_guilds_panel.py --check    # validate the XML only, no PNG
     py tools/preview_guilds_panel.py --selftest
 
-Vendored source: TWUI_Studio/src (non-commercial licence, see its LICENSE.txt).
+Imports TWUI_Studio/pyc (the installed build's modules, tools/extract_twui_studio.py) when
+present, else the vendored 0.22.2 source in TWUI_Studio/src. Non-commercial licence, see
+TWUI_Studio/LICENSE.txt.
 """
 import io
 import os
@@ -42,7 +45,10 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-STUDIO = os.path.join(ROOT, "TWUI_Studio", "src")
+# pyc/ is the installed exe's own modules (tools/extract_twui_studio.py); src/ is the 0.22.2
+# source, the last one published, and the fallback wherever pyc/ was never extracted.
+STUDIO_PYC = os.path.join(ROOT, "TWUI_Studio", "pyc")
+STUDIO = STUDIO_PYC if os.path.isdir(STUDIO_PYC) else os.path.join(ROOT, "TWUI_Studio", "src")
 OURS = os.path.join(ROOT, "Modding Files", "pack", "ui", "campaign ui")
 CACHE = os.path.join(ROOT, ".skilltree_cache", "ui_preview")
 UI = os.path.join(CACHE, "ui")
@@ -54,6 +60,11 @@ def _studio():
     """Import TWUI Studio's model and renderer. It reads its catalogs from its own cwd."""
     if not os.path.isdir(STUDIO):
         raise SystemExit("TWUI_Studio/src is not present - vendor the 0.22.2 source there")
+    if STUDIO == STUDIO_PYC:
+        ver = [open(os.path.join(d, "VERSION.txt")).read().strip() for d in (STUDIO, os.path.dirname(STUDIO))]
+        if ver[0] != ver[1]:
+            raise SystemExit("TWUI_Studio/pyc is %s but the exe is %s - re-run tools/extract_twui_studio.py"
+                             % tuple(ver))
     here = os.getcwd()
     sys.path.insert(0, STUDIO)
     os.chdir(STUDIO)
@@ -170,24 +181,44 @@ def extract_art(prefix=GG, extra=()):
     return len(want), missing
 
 
-# The tab this renders. Standings is the one with the faction list on it.
-HIDDEN_ON_STANDINGS = ("gg_prev", "gg_next", "gg_rep_bar", "gg_bar_track")
-
 DEMO_FACTIONS = ("You", "Uzkul Mingol Company", "Slaves of the Black Dwarf",
                  "Labourfleet of Uzkulak", "Disciples of Hashut",
                  "The Legion of Azgorh", "Sentinels of Zharr", "Drazhoath's Host")
 
+# CA'S OWN COLOURS for the three [[col:]] names this panel writes, read out of
+# db/ui_colours_tables - the table the tag resolves against - and not picked by eye.
+# selftest() re-reads the cached table when it is there.
+INK = {"red": (0xFF, 0x2D, 0x2D, 255), "yellow": (0xFF, 0xB9, 0x00, 255),
+       "green": (0xA0, 0xFF, 0x37, 255)}
+PALE, GOLD = (235, 225, 200, 255), (255, 211, 122, 255)
+DIM = (0xC9, 0xBF, 0xA8, 255)          # the card descriptions' and help lines' colour
+MARKUP = re.compile(r"\[\[(/?)col(?::([^\]]*))?\]\]")
 
-def render(path=None, guild=None, tag=""):
-    """Draw the panel. `guild` swaps the ground for that guild's baked background.
+# GGUI.TAB numbers the tabs by age; the strip draws them in this order.
+TAB_LABELS = ("Guilds", "Leaderboard", "Bounties", "Court", "Log", "Help")
+TAB_SLOT = {1: 0, 2: 1, 3: 2, 4: 3, 5: 5, 6: 4}
 
-    THE GROUND IS NOT IN THE .twui.xml. The file names CA's tier_01 background and the
-    campaign Lua replaces image index 1 at runtime as the player pages from guild to
-    guild, so a preview that only reads the file draws the one ground nobody with the
-    mod installed ever sees.
-    """
-    from PIL import Image, ImageDraw
+
+def _shown(name, tab):
+    """Whether GGUI.refresh leaves a panel part visible on this tab (GGUI.TAB numbering)."""
+    if name.startswith(("gg_help_", "gg_card_")):
+        return False              # text only, or drawn from the card's own file
+    if name in ("gg_prev", "gg_next"):
+        return tab in (1, 4, 5, 6)
+    if name in ("gg_bar_track", "gg_rep_bar"):
+        return tab == 1
+    if name.startswith("gg_gtab_") or name == "gg_gsel":
+        return tab in (1, 4)
+    if name.startswith("gg_lf_"):
+        return tab == 6
+    return True
+
+
+def _setup(guild=None, tag="", size=None):
+    """A canvas, and the means to paste any part of our four files onto it."""
+    from PIL import Image, ImageDraw, ImageFont
     from pathlib import Path
+    from types import SimpleNamespace
     model, rendering = _studio()
     G = _gen()
     n_art, missing = extract_art()
@@ -197,20 +228,20 @@ def render(path=None, guild=None, tag=""):
         if not ground.is_file():
             raise SystemExit("no baked ground for %r: %s (py tools/"
                              "make_guild_backgrounds.py writes them)" % (guild, ground))
-
-    def doc_of(name):
-        return model.Document(io.open(os.path.join(OURS, name), encoding="utf-8").read())
-
-    panel, row, lst = (doc_of("derpy_gg_panel.twui.xml"), doc_of("derpy_gg_row.twui.xml"),
-                       doc_of("derpy_gg_list.twui.xml"))
-    named = {}
-    for d, kind in ((panel, "panel"), (row, "row"), (lst, "list")):
+    docs, named = {}, {}
+    for kind in ("panel", "row", "list", "card"):
+        d = model.Document(io.open(os.path.join(OURS, "derpy_gg_%s.twui.xml" % kind),
+                                   encoding="utf-8").read())
+        docs[kind] = d
         for c in d.components:
             named[(kind, c.get("id", c.tag))] = c
+    canvas = Image.new("RGBA", size or (G.PANEL_W, G.PANEL_H), (0, 0, 0, 255))
 
-    canvas = Image.new("RGBA", (G.PANEL_W, G.PANEL_H), (0, 0, 0, 255))
-
-    def paste(doc, comp, x, y, w=None, h=None):
+    def paste(kind, name, x, y, w=None, h=None, swap=None):
+        """`swap` maps an imagepath to the one the Lua puts there with SetImagePath."""
+        doc, comp = docs[kind], named.get((kind, name))
+        if comp is None:
+            return
         images = {}
         box = comp.child("componentimages")
         if box is not None:
@@ -225,6 +256,7 @@ def render(path=None, guild=None, tag=""):
             p = images.get(n.get("componentimage"))
             if not p:
                 continue
+            p = (swap or {}).get(p, p)
             asset = Path(os.path.join(UI, os.path.relpath(p, "ui").replace("/", os.sep)))
             if ground is not None and p == G.PANEL_ART:
                 asset = ground
@@ -241,40 +273,127 @@ def render(path=None, guild=None, tag=""):
             canvas.alpha_composite(rendering.raster(asset, iw, ih, n),
                                    (int(x + ox), int(y + oy)))
 
-    paste(panel, named[("panel", "derpy_gg_panel")], 0, 0, G.PANEL_W, G.PANEL_H)
-    for name, (x, y, w, h) in sorted(G.PANEL_LAYOUT.items()):
-        if name.startswith(("gg_help_", "gg_card_")) or name in HIDDEN_ON_STANDINGS:
-            continue
-        c = named.get(("panel", name))
-        if c is not None:
-            paste(panel, c, x, y, w, h)
+    def icon(guild_key, x, y, w, h):
+        """The glyph the Lua paints per guild with SetImagePath."""
+        f = os.path.join(OURS, "derpy_gg_icons", guild_key + tag + ".png")
+        if os.path.isfile(f):
+            canvas.alpha_composite(Image.open(f).convert("RGBA").resize((w, h)), (x, y))
 
     draw = ImageDraw.Draw(canvas)
-    pale, gold = (235, 225, 200, 255), (255, 211, 122, 255)
-    draw.text((58, 18), "The Great Guilds", fill=pale)
-    # Pitch read off the generator's own TABS, so a re-pitched strip draws where it is.
-    for i, lbl in enumerate(("Guilds", "Leaderboard", "Bounties", "Court", "Log", "Help")):
-        draw.text((20 + i * G.TAB_W + 40, 68), lbl, fill=gold if i == 1 else pale)
-    draw.text((24, 110), "Hover a row for the full table.   Rivals last turn: 0 services "
-                         "bought, 0 demands paid, 0 patrons afield", fill=pale)
+    fonts = {}
+
+    def font(size):
+        if size not in fonts:
+            fonts[size] = ImageFont.load_default(size=size)
+        return fonts[size]
+
+    def ink(x, y, text, size=12, base=PALE):
+        """A string with its [[col:]] markup honoured, left-aligned at x."""
+        f, pos, colour = font(size), 0, base
+        for m in MARKUP.finditer(text):
+            seg = text[pos:m.start()]
+            draw.text((x, y), seg, fill=colour, font=f)
+            x += draw.textlength(seg, font=f)
+            colour = base if m.group(1) else INK.get(m.group(2), base)
+            pos = m.end()
+        draw.text((x, y), text[pos:], fill=colour, font=f)
+
+    def width(text, size=12):
+        return draw.textlength(MARKUP.sub("", text), font=font(size))
+
+    def cell(box, text, size=12, align="left", base=PALE):
+        """Text in a layout box the way its component_text sits: 6px in, or centred."""
+        x, y, w, h = box
+        ty = y + (h - size) / 2 - 1
+        if align == "center":
+            ink(x + (w - width(text, size)) / 2, ty, text, size, base)
+        else:
+            ink(x + 6, ty, text, size, base)
 
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import gen_great_guilds as GEN
+    loc = dict((r["key"], r["text"]) for r in GEN.build()["loc"])
+
+    def L(key):
+        """This mod's own words, out of the rows gen_great_guilds.py ships."""
+        return loc.get("derpy_gg_" + key + tag, loc.get("derpy_gg_" + key, key))
+
+    return SimpleNamespace(G=G, GEN=GEN, F=GEN.FLAVOURS[tag], tag=tag, canvas=canvas,
+                           draw=draw, paste=paste, icon=icon, ink=ink, width=width,
+                           cell=cell, font=font, L=L, n_art=n_art, missing=missing)
+
+
+def _frame(P, tab):
+    """The ground, every panel part this tab shows, the title and the tab strip."""
+    G = P.G
+    P.paste("panel", "derpy_gg_panel", 0, 0, G.PANEL_W, G.PANEL_H)
+    for name, (x, y, w, h) in sorted(G.PANEL_LAYOUT.items()):
+        # The bar is narrowed to the fraction earned and the marker moved to the page,
+        # both at runtime; their callers draw them.
+        if _shown(name, tab) and name not in ("gg_rep_bar", "gg_gsel"):
+            P.paste("panel", name, x, y, w, h)
+    # Centred in gg_title's own box at its own size, read off the generator.
+    tx, ty, tw, th = G.PANEL_LAYOUT["gg_title"]
+    title = "The Great Guilds"
+    P.draw.text((tx + (tw - P.draw.textlength(title, font=P.font(24))) / 2,
+                 ty + (th - 24) / 2), title, fill=PALE, font=P.font(24))
+    # Pitch read off the generator's own TABS, so a re-pitched strip draws where it is.
+    for i, lbl in enumerate(TAB_LABELS):
+        P.draw.text((20 + i * G.TAB_W + 40, 68), lbl,
+                    fill=GOLD if i == TAB_SLOT[tab] else PALE)
+    if _shown("gg_prev", tab):
+        P.cell(G.PANEL_LAYOUT["gg_prev"], P.L("prev"), 14, "center")
+        P.cell(G.PANEL_LAYOUT["gg_next"], P.L("next"), 14, "center")
+
+
+def _save(P, name, path=None):
+    out = path or os.path.join(CACHE, name)
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    P.canvas.convert("RGB").save(out)
+    return out
+
+
+def render(path=None, guild=None, tag=""):
+    """The Leaderboard. `guild` swaps the ground for that guild's baked background.
+
+    THE GROUND IS NOT IN THE .twui.xml. The file names CA's tier_01 background and the
+    campaign Lua replaces image index 1 at runtime as the player pages from guild to
+    guild, so a preview that only reads the file draws the one ground nobody with the
+    mod installed ever sees.
+    """
+    from PIL import Image, ImageDraw
+    P = _setup(guild, tag)
+    G, GEN, draw = P.G, P.GEN, P.draw
+    _frame(P, 2)
+    draw.text((24, 110), "Hover a row for the full table.   Rivals last turn: 0 services "
+                         "bought, 0 demands paid, 0 patrons afield", fill=PALE)
+
     low = GEN.FLAVOURS[tag]["ranks"][0]          # the flavour's own lowest rank
-    for i, g in enumerate(GEN.FLAVOURS[tag]["guilds"][k] for k in GEN.GUILDS):
+    RL = G.ROW_LAYOUT
+    for i, key in enumerate(GEN.GUILDS):
+        g = GEN.FLAVOURS[tag]["guilds"][key]
         ry = 170 + i * 44
-        paste(row, named[("row", "derpy_gg_row")], 20, ry, G.ROW_W, G.ROW_H)
+        P.paste("row", "derpy_gg_row", 20, ry, G.ROW_W, G.ROW_H)
+        ix, iy, iw, ih = RL["row_icon"]
+        P.icon(key, 20 + ix, ry + iy, iw, ih)
         sel = (i == 0)
-        for dx, s in ((14, g),
-                      (212, "You: %s (%d)  %d/8" % (low, 9 if sel else 0, 1 if sel else 5)),
-                      (416, "Leader: " + ("You" if sel else "Nobody yet"))):
-            draw.text((20 + dx, ry + 14), s, fill=gold if sel and dx == 14 else pale)
+        lx0 = 20 + RL["row_leader"][0]
+        for name, s in (("row_guild", g),
+                        ("row_rank", "You: %s (%d)  %d/8"
+                         % (low, 9 if sel else 0, 1 if sel else 5)),
+                        ("row_leader", "Leader:" if sel else "Leader: Nobody")):
+            draw.text((20 + RL[name][0], ry + 14), s,
+                      fill=GOLD if sel and name == "row_guild" else PALE)
+        if sel:
+            # Your flag after "Leader:", a 24px square as the inline [[img:]] draws it.
+            fx = lx0 + draw.textlength("Leader: ") + 4
+            draw.rectangle([fx, ry + 8, fx + 24, ry + 32], outline=(120, 100, 70, 255))
 
     lx, ly = G.LIST_XY
     cx, cy, cw, ch = G.LIST_LAYOUT["list_clip"]
     vx, vy, vw, vh = G.LIST_LAYOUT["vslider"]
-    paste(lst, named[("list", "vslider")], lx + vx, ly + vy, vw, vh)
-    paste(lst, named[("list", "handle")], lx + vx, ly + vy, G.SLIDER_W, G.HANDLE_H)
+    P.paste("list", "vslider", lx + vx, ly + vy, vw, vh)
+    P.paste("list", "handle", lx + vx, ly + vy, G.SLIDER_W, G.HANDLE_H)
 
     clip = Image.new("RGBA", (cw, ch), (0, 0, 0, 0))
     cd = ImageDraw.Draw(clip)
@@ -284,16 +403,176 @@ def render(path=None, guild=None, tag=""):
             break
         cd.rectangle([2, ry + 2, 22, ry + 22], outline=(120, 100, 70, 255))
         cd.text((28, ry + 6), "%d.  %s   %d   %s" % (i + 1, f, 9 if i == 0 else 0, low),
-                fill=gold if i == 0 else pale)
-    canvas.alpha_composite(clip, (lx + cx, ly + cy))
+                fill=GOLD if i == 0 else PALE)
+    P.canvas.alpha_composite(clip, (lx + cx, ly + cy))
     draw.rectangle([lx + cx, ly + cy, lx + cx + cw, ly + cy + ch], outline=(90, 80, 60, 255))
-    draw.text((24, 646), "Favour: 9", fill=pale)
+    draw.text((24, 646), "Favour: 9", fill=PALE)
 
-    out = path or os.path.join(CACHE, "gg_standings%s%s.png"
-                               % (guild and "_" + guild or "", tag))
-    os.makedirs(os.path.dirname(out), exist_ok=True)
-    canvas.convert("RGB").save(out)
-    return out, n_art, missing, (ch // G.FROW_H, len(DEMO_FACTIONS))
+    out = _save(P, "gg_standings%s%s.png" % (guild and "_" + guild or "", tag), path)
+    return out, P.n_art, P.missing, (ch // G.FROW_H, len(DEMO_FACTIONS))
+
+
+def _wrap(P, text, box_w, size=12, max_lines=2):
+    """GGUI.wrap's rule, against PIL's font: by words, and " ..." marks a cut."""
+    lines, cur = [], None
+    for word in text.split():
+        t = word if cur is None else cur + " " + word
+        if cur is not None and P.width(t, size) > box_w:
+            lines.append(cur)
+            if len(lines) >= max_lines:
+                lines[-1] = cur + " ..."
+                return lines
+            cur = word
+        else:
+            cur = t
+    if cur:
+        lines.append(cur)
+    return lines
+
+
+def _card(P, x, y, guild_key, name, desc, cost, button):
+    """One card the way GGUI.fill_card writes it: plate, glyph and six cells."""
+    G = P.G
+    CL = G.CARD_LAYOUT
+    P.paste("card", "derpy_gg_card", x, y, G.CARD_W, G.CARD_H)
+    ix, iy, iw, ih = CL["card_icon"]
+    P.icon(guild_key, x + ix, y + iy, iw, ih)
+
+    def at(n):
+        cx, cy, cw, ch = CL[n]
+        return (x + cx, y + cy, cw, ch)
+    if button:
+        P.paste("card", "card_buy", *at("card_buy"))
+        P.cell(at("card_buy"), button, 12, "center")
+    P.cell(at("card_name"), name, 14)
+    for i, line in enumerate(desc[:2]):
+        P.cell(at("card_desc_%d" % (i + 1)), line, 12, base=DIM)
+    P.cell(at("card_cost"), cost, 14, "center")
+
+
+def render_guilds(path=None, tag="", guild="khanate", rep=340, favour=240):
+    """The Guilds tab, with the three states of a service card that has a live button:
+    waiting on a map target (Select), asking before a big spend (Confirm), and locked by
+    rank. The six guild buttons and the page marker run along the bottom.
+    """
+    P = _setup(guild, tag)
+    G, GEN, F, L = P.G, P.GEN, P.F, P.L
+    _frame(P, 1)
+    order = list(GEN.GUILDS)                     # GGUI.GUILD_ORDER is the same six
+    page = order.index(guild) + 1
+
+    thr = GEN.RANK_THRESHOLDS
+    rank = max(i for i in range(len(thr)) if rep >= thr[i])
+    nxt = thr[min(rank + 1, len(thr) - 1)]
+    P.cell(G.PANEL_LAYOUT["gg_rank_line"], "%s   %s   %s %d / %d" % (
+        F["guilds"][guild], F["ranks"][rank], L("reputation"), rep, nxt))
+    # NARROWED AT RUNTIME to the fraction earned (the Lua resizes it), so it is drawn
+    # here as the flat tint it is: its image metric would draw it at full width.
+    bx, by, bw, bh = G.PANEL_LAYOUT["gg_rep_bar"]
+    tint = G.REP_BAR_LAYERS[0]["colour"]
+    P.draw.rectangle([bx, by, bx + int(bw * rep / nxt) - 1, by + bh - 1],
+                     fill=tuple(int(tint[i:i + 2], 16) for i in (1, 3, 5, 7)))
+
+    mine = [s for s in GEN.SERVICES if s["guild"] == guild]
+    for i, s in enumerate(mine[:3]):
+        cx, cy = G.PANEL_LAYOUT["gg_card_%d" % (i + 1)][:2]
+        name = F["services"][s["key"]]
+        state = ("pick", "confirm", "rank")[i]
+        if state == "pick":
+            name += "  [[col:red]]" + L("needs_target_short") + "[[/col]]"
+            button = L("pick_button")
+        elif state == "confirm":
+            button = "[[col:yellow]]" + L("confirm") + "[[/col]]"
+        else:
+            name += ("  [[col:red]]" + L("needs") + " " + F["ranks"][s["rank"] - 1]
+                     + "[[/col]]")
+            button = "[[col:red]]" + L("buy") + "[[/col]]"
+        # What the card reads: GGUI.loc_service_desc, up to its first "||".
+        blurb = L("service_desc_" + s["key"]).split("||")[0]
+        desc_w = G.CARD_LAYOUT["card_desc_1"][2] - 6
+        _card(P, cx, cy, guild, name, _wrap(P, blurb, desc_w), str(s["cost"]), button)
+
+    P.cell(G.PANEL_LAYOUT["gg_earned"], "%s +14 (%s 8, %s 6)   %s +9" % (
+        L("earned_now"), L("src_missions"), L("src_bounties"), L("earned_last")))
+    # The six buttons: the glyph, and the badge's gold count where something is ready.
+    ready = {"brass": 2, "khanate": 1}
+    for i, g in enumerate(order):
+        x, y, w, h = G.PANEL_LAYOUT["gg_gtab_%d" % (i + 1)]
+        P.paste("panel", "gg_gtab_%d" % (i + 1), x, y, w, h,
+                swap={G.GTAB_ICON_PATH: "ui/campaign ui/derpy_gg_icons/%s.png" % g})
+        if ready.get(g):
+            n = str(ready[g])
+            # tx -2, ty -1, right and bottom: the component_text the generator writes.
+            P.draw.text((x + w - 2 - P.width(n), y + h - 14), n, fill=GOLD, font=P.font(12))
+    gx = G.PANEL_LAYOUT["gg_gtab_%d" % page][0]
+    _sx, sy, sw, sh = G.PANEL_LAYOUT["gg_gsel"]
+    P.paste("panel", "gg_gsel", gx, sy, sw, sh)
+    P.cell(G.PANEL_LAYOUT["gg_footer"], "%s: %d" % (L("favour"), favour))
+    return _save(P, "gg_guilds%s.png" % tag, path)
+
+
+def render_log(path=None, tag="", guild="brass"):
+    """The Log tab with its four filters, All active, over a page of mixed entries."""
+    P = _setup(guild, tag)
+    G, F, L = P.G, P.F, P.L
+    _frame(P, 6)
+    P.cell(G.PANEL_LAYOUT["gg_rank_line"], "%s   1 %s 3" % (L("hdr_log"), L("help_of")))
+    for f in ("all", "mine", "rivals", "ranks"):
+        lbl = L("lf_" + f)
+        if f == "all":
+            lbl = "[[col:yellow]]" + lbl + "[[/col]]"
+        P.cell(G.PANEL_LAYOUT["gg_lf_" + f], lbl, 12, "center")
+    gn, sv, rk = F["guilds"], F["services"], F["ranks"]
+    rival = DEMO_FACTIONS[1]
+    entries = [
+        (30, "brass", "%s %s (50 %s)" % (L("log_bought"), sv["caravan_levy"],
+                                         L("favour").lower()), False),
+        (30, "khanate", "%s %s %s" % (rival, L("log_ai_bought"), sv["knife_in_dark"]),
+         False),
+        (29, "khanate", "%s %s %s" % (sv["khans_price"], L("log_hit"), rival), True),
+        (28, "immortals", "%s %s" % (L("log_rose"), rk[2]), False),
+        (27, "brass", "%s %s %s" % (L("log_lead_won"), L("log_from"), rival), False),
+        (26, "slavers", "%s %s" % (L("log_lead_lost"), rival), True),
+        (25, "overseers", "%s %s" % (L("log_fell"), rk[1]), True),
+        (24, "daemonsmiths", "%s %s %s" % (rival, L("log_ai_bought"),
+                                           sv["bound_blueprint"]), False),
+    ]
+    slot = 0
+    for turn, g, body, bad in entries:
+        text = "%s %d   %s:  %s." % (L("log_turn"), turn, gn[g], body)
+        for j, line in enumerate(_wrap(P, text, G.PANEL_LAYOUT["gg_help_01"][2] - 6,
+                                       12, 3)):
+            if slot >= G.HELP_SLOTS:
+                break
+            line = ("     " if j else "") + line
+            if bad:
+                line = "[[col:red]]" + line + "[[/col]]"
+            P.cell(G.PANEL_LAYOUT["gg_help_%02d" % (slot + 1)], line, 12, base=DIM)
+            slot += 1
+    P.cell(G.PANEL_LAYOUT["gg_footer"], "%s: 240" % L("favour"))
+    return _save(P, "gg_log%s.png" % tag, path)
+
+
+def render_pick(path=None, tag="", service="raise_ziggurat"):
+    """The card a pick puts at the top of the screen, over a stand-in for the map.
+
+    Drawn with the LONGEST instruction any pick shows - a building service's - because a
+    picture of the easy case answers nothing. GGUI.start_pick wraps it across the card's
+    two lines, and the Escape note goes in the tooltip.
+    """
+    G = _gen()
+    P = _setup(None, tag, size=(G.CARD_W + 40, G.CARD_H + 40))
+    P.canvas.paste((46, 54, 40, 255), (0, 0, G.CARD_W + 40, G.CARD_H + 40))
+    GEN, F, L = P.GEN, P.F, P.L
+    s = [x for x in GEN.SERVICES if x["key"] == service][0]
+    # GGUI.target_hint's rule.
+    hint = {"unit": "needs_army", "shroud": "needs_region_any",
+            "building": "needs_region_own"}.get(s.get("kind"), "needs_target")
+    if s.get("hostile"):
+        hint = "needs_target"
+    lines = _wrap(P, L(hint), G.CARD_LAYOUT["card_desc_1"][2] - 6)
+    _card(P, 20, 20, s["guild"], F["services"][service], lines, "", L("cancel"))
+    return _save(P, "gg_pick%s.png" % tag, path), lines
 
 
 def selftest():
@@ -325,6 +604,23 @@ def selftest():
     for attr in ("PANEL_W", "PANEL_H", "PANEL_LAYOUT", "LIST_XY", "LIST_LAYOUT",
                  "ROW_W", "ROW_H", "FROW_H", "SLIDER_W", "HANDLE_H"):
         assert hasattr(G, attr), "gen_guilds_ui.py no longer exposes %s" % attr
+    # THE COLOURS ARE CA'S. [[col:]] resolves against db/ui_colours_tables; the cache is
+    # optional (RPFM makes it and a game patch deletes it), so this is skipped without it.
+    try:
+        sys.path.insert(0, os.path.join(ROOT, "tools"))
+        import read_vanilla_cache as _V
+        rows = _V.load("ui_colours")[0]
+    except (ImportError, FileNotFoundError, IndexError, ValueError):
+        rows = []
+    if rows:
+        # The cached definition's field names are shifted against its data: the key is
+        # under "blue" and the hex under "description" (see preview_iron_court.py).
+        by_key = dict((r["blue"], r["description"].upper()) for r in rows)
+        for name, rgba in INK.items():
+            assert by_key.get(name) == "%02X%02X%02X" % rgba[:3], (
+                "db/ui_colours_tables calls %s %s, not %02X%02X%02X"
+                % ((name, by_key.get(name)) + tuple(rgba[:3])))
+
     print("selftest ok: %d files validate, the reader catches a broken link"
           % len(our_files()))
 
@@ -355,4 +651,9 @@ if __name__ == "__main__":
             print("  art not found in any ui pack: " + m)
         print("wrote %s  (%d art files, %d of %d faction rows visible)"
               % (out, n_art, shown, total))
+        print("wrote %s" % render_guilds(tag=tag))
+        print("wrote %s" % render_log(tag=tag))
+        pick, lines = render_pick(tag=tag)
+        print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
+              % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...") else ""))
         sys.exit(1 if problems else 0)

@@ -91,6 +91,10 @@ MANIFEST = [(p, p) for p in [
      "docs/history/HANDOFF_20260924_GUILDS_DEF_HEF_GATE.md"),
     ("docs/sessions/HANDOFF_20260924_GUILDS_BUILDING_LINE_LEDGER.md",
      "docs/history/HANDOFF_20260924_GUILDS_BUILDING_LINE_LEDGER.md"),
+    ("docs/sessions/HANDOFF_20260925_GUILDS_MP_MCT.md",
+     "docs/history/HANDOFF_20260925_GUILDS_MP_MCT.md"),
+    ("docs/sessions/HANDOFF_20260925_GUILDS_QOL.md",
+     "docs/history/HANDOFF_20260925_GUILDS_QOL.md"),
 ]
 
 

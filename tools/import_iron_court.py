@@ -21,7 +21,8 @@ SRC = "Modding Files/source/iron_court"
 MODEL_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua"
 UI_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua"
 PARTIES_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
-SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA]
+MCT_LUA = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
+SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA, MCT_LUA]
 # The UI file legitimately reads other mods' globals (EX.BUTTON_SIZE,
 # GGUI.BTN_SIZE) and our own model's (IC.HOUSES). check_lua_undeclared does not
 # resolve TABLE.FIELD, so the union of what the whole pack AND its optional
@@ -745,6 +746,80 @@ def check_loyalty_writers(src):
     return out
 
 
+# THE ELEVEN PANEL ACTIONS. Called straight off a click they change the campaign
+# on the clicking machine only, which in multiplayer is a desync.
+DIRECT_ACTION = re.compile(
+    r"\bIC\.(appoint|dismiss|assign_governor|release_governor|plot|favour|hire|"
+    r"grant_demand|refuse_demand|accept_offer|decline_offer|fill_offices)\s*\(")
+
+
+def check_mp_routing(ui_src):
+    """The panel changes the campaign only through IC.mp_send.
+
+    A model change made on one machine and not the others is a desync, so every
+    panel action is sent as a UITrigger and applied on every machine when it
+    comes back. One call site left calling the model directly plays perfectly in
+    single player and desyncs the first time it is clicked in multiplayer - a
+    campaign nobody here can run, so nothing in play would ever show it.
+    Comments and strings are blanked first: the panel describes the calls it no
+    longer makes.
+    """
+    body = _CLU._blank(ui_src)
+    hits = sorted(set(m.group(1) for m in DIRECT_ACTION.finditer(body)))
+    if not hits:
+        return []
+    return ["the panel calls %s directly - in multiplayer that changes one machine "
+            "only; send it through IC.mp_send" % ", ".join("IC." + h for h in hits)]
+
+
+TUNE_ORDER_BLOCK = re.compile(r"IC\.TUNE_ORDER\s*=\s*\{(.*?)\n\}", re.S)
+REGISTRATION_BLOCKS = re.compile(r"IC\.(TUNE_ORDER|PRESETS)\s*=\s*\{.*?\n\}", re.S)
+
+
+def check_tune_reads(model_src, sources):
+    """Every setting on the MCT page is read by name somewhere it does something.
+
+    A setting is registered three times - the MCT page, IC.TUNE, IC.TUNE_ORDER -
+    and the court harness holds those against each other. This is the fourth
+    hit: a read. Without one the control renders, toggles, freezes into the save
+    and changes nothing, which is how the Great Guilds shipped one (2026-09-12).
+    `sources` are the campaign scripts' texts, the model's included; the two
+    registration blocks are cut out first, since they name every key.
+    """
+    m = TUNE_ORDER_BLOCK.search(model_src)
+    if not m:
+        return ["the model declares no IC.TUNE_ORDER, so no setting was checked"]
+    keys = re.findall(r'"(\w+)"', m.group(1))
+    if not keys:
+        return ["IC.TUNE_ORDER names no setting, so no setting was checked"]
+    text = "\n".join(re.sub(r"--[^\n]*", "", REGISTRATION_BLOCKS.sub("", s))
+                     for s in sources)
+    out = []
+    for key in keys:
+        if not re.search(r'\bTUNE\.%s\b|\bT\.%s\b|"%s"' % (key, key, key), text):
+            out.append("the setting %s is on the MCT page and read nowhere - its "
+                       "control would change nothing" % key)
+    return out
+
+
+def _selftest():
+    """Each check added for MCT and multiplayer reports a planted fault and
+    passes the clean shape. A check nobody has watched fail proves nothing."""
+    assert check_mp_routing('IC.mp_send(faction, "appoint", k)') == []
+    assert check_mp_routing('-- IC.appoint(faction, k, cqi)\nlocal s = "IC.plot("') == []
+    assert check_mp_routing("IC.plot_chance(f, k) IC.favour_cost(k) IC.hire_settlement(f)") == []
+    bad = check_mp_routing("IC.appoint(faction, k, cqi)\nIC.decline_offer(f, s)")
+    assert len(bad) == 1 and "IC.appoint" in bad[0] and "IC.decline_offer" in bad[0], bad
+    model = 'IC.TUNE_ORDER = {\n    "alpha", "beta", "gamma",\n}\nlocal x = IC.TUNE.alpha\n'
+    parties = "local y = T.beta -- IC.TUNE.gamma is only mentioned here\n"
+    bad = check_tune_reads(model, [model, parties])
+    assert len(bad) == 1 and "gamma" in bad[0], bad
+    quoted = model + 'local z = "gamma"\n'
+    assert check_tune_reads(quoted, [quoted, parties]) == []
+    assert check_tune_reads("local nothing = 1", []) != []
+    print("import_iron_court selftest: ok")
+
+
 def verify():
     problems = G.check()
     built = G.build()
@@ -776,6 +851,22 @@ def verify():
     if os.path.isfile(MODEL_LUA):
         problems.extend(check_loyalty_writers(
             io.open(MODEL_LUA, encoding="utf-8").read()))
+
+    # 0d. THE PANEL CHANGES THE CAMPAIGN ONLY THROUGH IC.mp_send. See
+    #     check_mp_routing: a direct call is a multiplayer desync nothing in
+    #     single-player play would ever show.
+    if os.path.isfile(UI_LUA):
+        problems.extend(check_mp_routing(io.open(UI_LUA, encoding="utf-8").read()))
+
+    # 0e. EVERY SETTING IS READ, and the page that offers them ships. See
+    #     check_tune_reads.
+    if not os.path.isfile(MCT_LUA):
+        problems.append("the MCT settings file is missing, so the pack would ship "
+                        "with no settings page")
+    if os.path.isfile(MODEL_LUA):
+        srcs = [io.open(p, encoding="utf-8").read()
+                for p in (MODEL_LUA, PARTIES_LUA, UI_LUA) if os.path.isfile(p)]
+        problems.extend(check_tune_reads(srcs[0], srcs))
 
     # 1. Every generated table has a destination, and its on-disk TSV matches
     #    build() row for row. A stale TSV is how a removed feature nearly ships.
@@ -1608,6 +1699,9 @@ def verify():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv[1:]:
+        _selftest()
+        sys.exit(0)
     bad = verify()
     for problem in bad:
         print("REFUSING: " + problem)
@@ -1625,8 +1719,8 @@ if __name__ == "__main__":
         print("  %-42s -> %s" % (table + ".tsv", dest))
     print("  %-42s -> %s" % ("loc.tsv", LOC_DEST))
     for path in SCRIPTS:
-        print("  %-42s -> script/campaign/mod/%s"
-              % (os.path.basename(path), os.path.basename(path)))
+        print("  %-42s -> %s" % (os.path.basename(path),
+                                 path.split("Modding Files/pack/", 1)[1]))
     for path in UI_FILES:
         print("  %-42s -> ui/campaign ui/%s"
               % (os.path.basename(path), os.path.basename(path)))

@@ -5,6 +5,35 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-25 - build 226121E7
+
+Deployed 2026-09-25, the last of several builds that day after 272C876B. MD5
+`226121E771A645DF4CB3C4FE0F7D24D6`, 8,991,087 bytes.
+
+- **An MCT settings page.** Difficulty (Gentle, Default, Harsh, Ruthless, Custom), seven
+  switches and fourteen Custom numbers. The settings are fixed into the save when a campaign
+  starts, except six switches that can be changed at any time in single player: rival
+  parties acting, secession, pressure, your own party splitting, routine event messages and
+  the detailed log. Switching one off stops any countdown it had running.
+- **The difficulty sets the size of the court:** 1, 3, 4 or 5 rival parties. Ruthless fills
+  the grid.
+- **Multiplayer support.** Every panel action goes through the game's multiplayer channel
+  and lands on both machines. MCT is not read in multiplayer. Not yet tried on two machines.
+- **Offices are held for ten turns,** up from five. A man whose term ended cannot take the
+  same seat for three turns, and his party gets no loyalty for the renewal.
+- **Fill Empty Seats** on the Offices tab fills every empty seat by the court's own rules,
+  and its tooltip lists each choice first.
+- **Find** on a party's roster moves the camera to a man on the map.
+- A card warns you the turn before a term ends. The court button's tooltip sums up the
+  court. An empty seat's card says how long its last holder must wait. In single player the
+  panel reopens on the tab you left it on.
+- Fixed: a move could not fail unless the man making it held twice its price, so a purge
+  landed while the panel showed 85%.
+- Fixed: a court whose last rival was purged or seceded was rolled again at full size the
+  next turn. The Crown now rules alone until it splits.
+- Fixed: every ended term leaked six weight into the party that held the seat.
+- Fixed: a fresh Ruthless court pushed a rival out from turn 1. Its pressure line is now 15.
+
 ## 2026-09-25 - build 272C876B
 
 Deployed 2026-09-25. MD5 `272C876BFEC4A5D4F1AFFD3D79BA48BE`, 8,930,970 bytes.

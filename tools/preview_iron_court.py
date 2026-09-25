@@ -332,17 +332,17 @@ def validate():
 # ("The League of the Ninth Furnace"). A demo easier than the real thing is a
 # preview that lies about the only question the card's two-line name exists for.
 #
-# So the court is derived: the Crown plus IC.TUNE.rivals_max rivals - the most
-# the roller ever seats - each wearing the LONGEST name its own tail list can
+# So the court is derived: the Crown plus the LARGEST rivals_max in the model -
+# Ruthless's five, the most the roller ever seats, which fills the grid - each wearing the LONGEST name its own tail list can
 # produce, and the Crown wearing a faction display name, which this mod does not
 # write and cannot bound.
 # ---------------------------------------------------------------------------
 # One loyalty in each mood band: the plate is the only cell whose text turns on a
 # threshold, so a demo where they all read LOYAL never draws the other two.
-DEMO_LOYALTY = (100, 57, 52, 21, 54)
+DEMO_LOYALTY = (100, 57, 52, 21, 54, 38)
 DEMO_LEADERS = ("Drazkarh Hackhand", "Amarudz Grimtidesson", None,
-                "Mulagunnar Growlish", "Dazminus Deathdealer")
-DEMO_LTRAITS = ("Schemer", "Shrewd", "", "Steady", "Steady")
+                "Mulagunnar Growlish", "Dazminus Deathdealer", "Zhargul Ashbeard")
+DEMO_LTRAITS = ("Schemer", "Shrewd", "", "Steady", "Steady", "Shrewd")
 # The longest Chaos Dwarf faction name on the map, for the Crown's card.
 DEMO_CROWN_NAME = "Slaves of the Black Dwarf"
 
@@ -350,9 +350,9 @@ DEMO_CROWN_NAME = "Slaves of the Black Dwarf"
 # offer ahead of the loyalty band, so the demo court carries one demand and two
 # offers - the same three the Petitions picture lists - and one party plotting,
 # which is a word the card draws RED. The Crown reads its band.
-DEMO_STATE = ("LOYAL", "DEMANDING", "OFFERING", "PLOTTING", "OFFERING")
+DEMO_STATE = ("LOYAL", "DEMANDING", "OFFERING", "PLOTTING", "OFFERING", "RESTLESS")
 # Loyalty a turn, per card: rising, falling, flat, and the steepest fall.
-DEMO_TREND = (1, -2, 0, -4, 3)
+DEMO_TREND = (1, -2, 0, -4, 3, -1)
 # THE CARD THE DEMO HAS CHOSEN. A rival, so the action bar draws its three
 # buttons rather than the hint - the hint is one line of text, the bar is what
 # the change is for.
@@ -376,7 +376,8 @@ def demo_court(G):
         return max(("%s of %s" % (h, t) for h in heads for t in tails[slug]),
                    key=len)
 
-    rivals = int(re.search(r"rivals_max\s*=\s*(\d+)", src).group(1))
+    # THE LARGEST, not the first: the first rivals_max in the file is Default's.
+    rivals = max(int(v) for v in re.findall(r"rivals_max\s*=\s*(\d+)", src))
 
     slugs = [p[0] for p in G.IC.PARTIES][:rivals + 1]
     share = 100 // len(slugs)
@@ -1772,7 +1773,7 @@ def selftest():
     assert len(counts) == len(court) and min(counts) > 0, "a demo party got no slices"
     # THE DEMO MUST BE THE HARD CASE. A court that fits the grid comfortably, or
     # names short enough never to need the second line, is a picture of nothing.
-    assert len(court) == max(len(court), 5), "the demo court shrank below rivals_max + 1"
+    assert len(court) >= 6, "the demo court shrank below a full grid of six"
     assert max(len(row[1]) for row in court) >= 30, (
         "the demo names are too short to exercise the card's two-line split")
 

@@ -53,12 +53,14 @@ _DOCS = [
     ("docs/superpowers/specs/2026-09-20-iron-court-edict-loyalty-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-23-iron-court-rival-party-ai-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-24-iron-court-ui-scale-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-09-25-iron-court-mct-multiplayer-design.md", "docs/design/"),
     ("docs/IRON_COURT_VS_ROME2.md", "docs/design/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-ambition.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-edict-loyalty.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-23-iron-court-rival-party-ai-build1.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-23-iron-court-rival-party-ai-build2.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-24-iron-court-ui-scale.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-09-25-iron-court-mct-multiplayer.md", "docs/plans/"),
 ] + [("docs/sessions/" + n, "docs/history/") for n in [
     "HANDOFF_20260911_IRON_COURT_DESIGN.md",
     "HANDOFF_20260914_IRON_COURT_SAVE_BUG_AND_FONT_PASS.md",
@@ -72,6 +74,7 @@ _DOCS = [
     "HANDOFF_20260923_IRON_COURT_AI_LIVE_CHECK.md",
     "HANDOFF_20260924_IRON_COURT_PARTY_BAR.md",
     "HANDOFF_20260924_IRON_COURT_UI_SCALE.md",
+    "HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md",
 ]]
 
 
@@ -81,6 +84,7 @@ def manifest(root=ROOT):
         _MOD + "zzz_derpy_iron_court.lua",
         _MOD + "zzz_derpy_iron_court_parties.lua",
         _MOD + "zzz_derpy_iron_court_ui.lua",
+        "Modding Files/pack/script/mct/settings/derpy_iron_court.lua",
     ] + [_UI + "derpy_ic_%s%s.twui.xml" % (n, c)
          for n in ("panel", "card", "row", "party", "plot") for c in ("", "_compact")] + [
         _UI + "derpy_ic_opener.twui.xml",

@@ -303,6 +303,9 @@ ICUI.PANEL_XY = {
     ic_act_secure    = {1432, 978, 216, 34},
     ic_act_purge     = {1654, 978, 100, 34},
     ic_act_hint      = {976, 982, 926, 26},
+    -- THE FILL BUTTON, the offices tab's alone, in the same row: that tab never
+    -- pages. FILL_W in tools/gen_ic_ui.py.
+    ic_fill          = {850, 978, 220, 34},
     ic_alert         = {18, 1018, 1884, 44},
 }
 -- Segment width is derived from the house count in BOTH files. It was a literal
@@ -1097,8 +1100,68 @@ function ICUI.show_standing()
     return true
 end
 
+-- THE COURT AT A GLANCE, on the button (author, 2026-09-25): its state without
+-- opening the panel. A line for something that is not happening is left out,
+-- not written as a zero - except the empty seats, which are always worth a look.
+function ICUI.opener_tip(faction)
+    local court = IC.court(faction)
+    local lines = {}
+    if court.houses[IC.CROWN] then
+        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
+            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+    end
+    local empty, back = 0, {}
+    for i = 1, #IC.OFFICES do
+        local slug = IC.OFFICES[i].slug
+        if not court.offices[slug] then
+            empty = empty + 1
+            local last = court.last[slug]
+            local man = last and IC.renew_wait(faction, slug, last.cqi) == 0
+                        and IC.character_by_cqi(faction, last.cqi) or nil
+            if man then
+                back[#back + 1] = string.format("%s (%s)",
+                    ICUI.character_name(man), ICUI.office_name(slug))
+            end
+        end
+    end
+    lines[#lines + 1] = string.format("Empty seats: %d of %d.", empty, #IC.OFFICES)
+    local ending = IC.terms_ending(faction)
+    if #ending > 0 then
+        for i = 1, #ending do ending[i] = ICUI.office_name(ending[i]) end
+        lines[#lines + 1] = "Terms ending next turn: " .. table.concat(ending, ", ") .. "."
+    end
+    local seated = IC.present_houses(faction)
+    for i = 1, #seated do
+        local house = court.houses[seated[i]]
+        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
+            lines[#lines + 1] = string.format("%s leaves the court in %d turn%s.",
+                ICUI.house_name(seated[i], faction), house.clock,
+                house.clock == 1 and "" or "s")
+        end
+    end
+    if #back > 0 then
+        lines[#lines + 1] = "Free to take their old seat again: "
+            .. table.concat(back, ", ") .. "."
+    end
+    return "The Iron Court||" .. table.concat(lines, "\n")
+end
+
+function ICUI.update_opener_tip()
+    if not ICUI.court_player() then return false end
+    local button = comp(ICUI.BTN)
+    if not button then return false end
+    local ok, tip = pcall(ICUI.opener_tip, ICUI.player())
+    if not ok then
+        log("the court button's tooltip failed: " .. tostring(tip))
+        return false
+    end
+    pcall(function() button:SetTooltipText(tip, "", true) end)
+    return true
+end
+
 function ICUI.place_opener(attempt)
     attempt = attempt or 1
+    if not ICUI.court_player() then return false end
 
     -- Every "not ready" branch routes through here so the chain cannot be given
     -- up on in one place and kept alive in another.
@@ -1189,6 +1252,7 @@ function ICUI.place_opener(attempt)
     -- ONLY WHEN IT MOVED. This runs again at every turn start, and a line a turn
     -- forever buries the one that matters.
     if moved then
+        ICUI.update_opener_tip()
         log(string.format("opener placed at %d,%d (%s) visible=%s %sx%s priority=%s",
                           gx, gy, tostring(why), vis, tostring(bw2), tostring(bh2),
                           tostring(prio)))
@@ -1207,9 +1271,26 @@ function ICUI.crest(slug)
     return IC.house_icon(slug, ICUI.player())
 end
 
+-- THIS MACHINE'S PLAYER, read the forced way: unforced, get_local_faction_name
+-- throws in multiplayer. The first human is the fallback when the read fails,
+-- and in single player that is the same faction.
 function ICUI.player()
+    local ok, me = pcall(function() return cm:get_local_faction_name(true) end)
+    if ok and type(me) == "string" and me ~= "" then return me end
     local human = cm:get_human_factions()
     return human and human[1] or nil
+end
+
+-- THE COURT IS THE CHAOS DWARFS'. In a mixed campaign this machine's player may
+-- be anyone, and a Dwarf given the panel got an empty court that still hired
+-- Chaos Dwarf officers into his faction. False only for a player known to be
+-- something else: with no player read yet there is nothing to refuse.
+function ICUI.court_player()
+    local me = ICUI.player()
+    if not me then return true end
+    local ok, f = pcall(function() return cm:get_faction(me) end)
+    if not ok or not f or f:is_null_interface() then return true end
+    return IC.is_chd(f)
 end
 
 -- PLACES EVERY COMPONENT, including the panel's own children, which the .twui.xml
@@ -1573,6 +1654,47 @@ ICUI.SORTS = {
 -- and keeping it out of the save means no fifteenth field and no migration.
 ICUI.sort = {pick = 1, govs = 1}
 ICUI.sort_desc = {pick = false, govs = false}
+
+-- THE TAB AND THE SORTS, across a save and a load (author, 2026-09-25). They
+-- already outlive a close, being plain fields of ICUI; a load is what reset
+-- them. Written on close, read on the first open after a load.
+-- SINGLE PLAYER ONLY: a saved value one machine writes and the other does not
+-- is a difference between the two saves.
+ICUI.PREFS_KEY = "derpy_ic_ui_prefs"
+ICUI.PREFS_SORTS = {"pick", "govs"}
+
+function ICUI.save_prefs()
+    if IC.is_mp() then return false end
+    local parts = {ICUI.view or "court"}
+    for _, view in ipairs(ICUI.PREFS_SORTS) do
+        parts[#parts + 1] = tostring(ICUI.sort[view] or 1)
+        parts[#parts + 1] = ICUI.sort_desc[view] and "1" or "0"
+    end
+    cm:set_saved_value(ICUI.PREFS_KEY, table.concat(parts, ";"))
+    return true
+end
+
+-- A value that no longer means anything - a tab since removed, a sort past the
+-- end of its list - leaves that setting on its default.
+function ICUI.load_prefs()
+    ICUI.prefs_loaded = true
+    if IC.is_mp() then return false end
+    local packed = cm:get_saved_value(ICUI.PREFS_KEY)
+    if type(packed) ~= "string" or packed == "" then return false end
+    local f = {}
+    for field in string.gmatch(packed .. ";", "([^;]*);") do f[#f + 1] = field end
+    for _, view in pairs(ICUI.TAB_VIEW) do
+        if view == f[1] then ICUI.view = view end
+    end
+    for i, view in ipairs(ICUI.PREFS_SORTS) do
+        local n = tonumber(f[2 * i])
+        if n and ICUI.SORTS[view] and ICUI.SORTS[view][n] then
+            ICUI.sort[view] = n
+            ICUI.sort_desc[view] = f[2 * i + 1] == "1"
+        end
+    end
+    return true
+end
 
 function ICUI.sort_mode(view)
     local list = ICUI.SORTS[view]
@@ -3269,6 +3391,49 @@ function ICUI.draw_actions(panel, faction, court, px, py)
     if hint then hint:SetVisible(not rival) end
 end
 
+-- THE FILL BUTTON (author, 2026-09-25): every empty seat that has a man for it,
+-- by IC.fill_plan - the rule the AI fills its own court by. The tooltip is the
+-- plan itself, so the click does exactly what the hover said. Red when there is
+-- nothing to do, and a click then says why rather than nothing.
+ICUI.FILL_LABEL = "Fill Empty Seats"
+
+function ICUI.fill_tip(faction, plan)
+    local lines = {"Put the best man available into each empty seat:"}
+    for i = 1, #plan do
+        local man = IC.character_by_cqi(faction, plan[i].cqi)
+        local slug = man and IC.house_of_character(man, faction) or nil
+        lines[#lines + 1] = string.format("%s: %s, %s", ICUI.office_name(plan[i].slug),
+            man and ICUI.character_name(man) or "?",
+            slug and ICUI.house_name(slug, faction) or "no party")
+    end
+    if #plan == 0 then lines[#lines + 1] = ICUI.red(ICUI.reason_text("no fill")) end
+    lines[#lines + 1] = "\nA seat a party claims goes only to that party's own men "
+        .. "while the party sits in your court. Fill it by hand to choose anyone else."
+    return table.concat(lines, "\n")
+end
+
+function ICUI.draw_fill(panel, faction)
+    local button = comp("ic_fill", panel)
+    if not button then return end
+    local plan = IC.fill_plan(faction)
+    set_text(button, #plan > 0 and ICUI.FILL_LABEL or ICUI.red(ICUI.FILL_LABEL))
+    pcall(function() button:SetTooltipText(ICUI.fill_tip(faction, plan), "", true) end)
+end
+
+function ICUI.on_fill_click()
+    local faction = ICUI.player()
+    if not faction or ICUI.pick then return false end
+    if #IC.fill_plan(faction) == 0 then
+        ICUI.notice = ICUI.reason_text("no fill")
+        ICUI.refresh()
+        return false
+    end
+    -- SENT, NOT CALLED; the answer is ICUI.ANSWERS.fill.
+    local sent = ICUI.send(faction, "fill", "")
+    ICUI.refresh()
+    return sent
+end
+
 function ICUI.draw_court(panel, faction, court, px, py)
     local slugs = ICUI.court_slugs(faction)
     local slots = ICUI.dial_slots(faction, court)
@@ -3492,7 +3657,28 @@ function ICUI.draw_offices(panel, faction, court)
                 term_text = string.format("%d influence",
                                           IC.standing(faction, cqi))
             end
+            -- THE MAN WHOSE TERM JUST ENDED, while he waits to take it back
+            -- (author, 2026-09-25). The count fits the cell; a name would not,
+            -- so his name rides the button's tooltip.
+            local last = (not cqi) and court.last[office.slug] or nil
+            local wait = last and IC.renew_wait(faction, office.slug, last.cqi) or 0
+            local was = wait > 0 and IC.character_by_cqi(faction, last.cqi) or nil
+            if wait > 0 then
+                term_text = string.format("Vacant - holder waits %d turn%s",
+                                          wait, wait == 1 and "" or "s")
+            end
             set_text(comp("ic_card_term", card), term_text)
+            local button = comp("ic_card_button", card)
+            if button then
+                local tip = ""
+                if was then
+                    tip = string.format("Last held by %s, whose term has ended. He "
+                        .. "may take this seat again in %d turn%s; any other man "
+                        .. "may take it now.", ICUI.character_name(was), wait,
+                        wait == 1 and "" or "s")
+                end
+                pcall(function() button:SetTooltipText(tip, "", true) end)
+            end
             -- AN EMPTY SEAT COSTS NOTHING, so the cell says nothing rather
             -- than the penalty it used to carry.
             set_text(comp("ic_card_effect", card),
@@ -4229,6 +4415,13 @@ function ICUI.reason_text(why, spare)
         return string.format(
             "That seat is held for another %d turns. Dismiss him, or wait.",
             spare or 0)
+    elseif why == "no fill" then
+        return "No empty seat has a man who can take it."
+    elseif why == "renew" then
+        return string.format(
+            "His term in that seat has just ended. He may take it again in %d "
+            .. "turn%s, or another man may take it now.",
+            spare or 0, (spare == 1) and "" or "s")
     elseif why == "too high" then
         return "A bought officer starts on the lowest tier and climbs from there."
     elseif why == "no settlement" then
@@ -4453,29 +4646,14 @@ function ICUI.on_petition_click(context, yes)
     if not row then return end
     local p = ICUI.petition_rows[row + (ICUI.scroll.petitions or 0)]
     if not p then return end
-    local done, why, spare
+    -- SENT, NOT CALLED: see IC.mp_send. The answer is ICUI.ANSWERS'.
+    local op
     if p.kind == "demand" then
-        if yes then
-            done, why, spare = IC.grant_demand(faction)
-        else
-            done, why, spare = IC.refuse_demand(faction)
-        end
-        -- A DEMAND THE TURN HAD ALREADY DECIDED, and reason_text's "gone" is
-        -- worded for an offer.
-        if why == "gone" then why = "no demand" end
-    elseif yes then
-        done, why, spare = IC.accept_offer(faction, p.slug)
+        op = yes and "grant" or "refuse"
     else
-        done, why, spare = IC.decline_offer(faction, p.slug)
+        op = yes and "accept" or "decline"
     end
-    if done then
-        ICUI.notice = nil
-        -- THE GOOD SOUND FOR A YES and the bad one for a no, which is what a
-        -- refusal is to the party that asked.
-        ICUI.confirm(nil, yes)
-    else
-        ICUI.notice = ICUI.reason_text(why, spare)
-    end
+    ICUI.send(faction, op, p.kind == "demand" and "" or p.slug)
     ICUI.refresh()
 end
 
@@ -4540,6 +4718,9 @@ function ICUI.draw_picker(panel, faction, court)
         -- earned it".
         local has = IC.standing(faction, cand.cqi)
         local affordable = has >= cost
+        -- A MAN WHOSE TERM IN THIS SEAT JUST ENDED, and 0 for every other list.
+        local wait = (ICUI.pick.kind == "office")
+                     and IC.renew_wait(faction, ICUI.pick.key, cand.cqi) or 0
         local action = "Choose"
         -- BOTH PLOT LISTS ASK THE MODEL, not a second copy of its rules. Who may
         -- be moved against and who may do the moving are decided by IC.may_target
@@ -4583,14 +4764,17 @@ function ICUI.draw_picker(panel, faction, court)
         -- man on this list is already one of the player's own lords or heroes -
         -- his house says who he speaks for at court, not who he serves.
         if roster then
-            -- NOTHING TO CLICK. An empty last cell is what fill_rows reads to
-            -- hide the button, so this is the difference between a row that
-            -- says nothing and a plate that promises something.
-            action = ""
+            -- FIND, for a man on the map (author, 2026-09-25); nothing for one
+            -- who is not, since an empty last cell is what fill_rows reads to
+            -- hide the button - a row that says nothing, not a plate that
+            -- promises something.
+            action = ICUI.map_spot(cand.character) and "Find" or ""
         elseif targeting or plotting then
             -- Decided above, out of the model's own answer.
         elseif cand.rank < rank_bar then
             action = string.format("Rank %d", rank_bar)
+        elseif wait > 0 then
+            action = string.format("Wait %d", wait)
         elseif cand.busy then
             -- A SEAT DOES NOT STOP HIM PLOTTING - that is why the plot branch
             -- above never reaches this one. BUSY is about taking a second post,
@@ -4663,14 +4847,16 @@ function ICUI.draw_picker(panel, faction, court)
         }
         -- Parallel to `lines`, so row N of the drawn window maps back to a man.
         if roster then
-            -- NIL, DELIBERATELY. Every row of the roster is unwired: it reports
+            -- ONLY A MAN THE CAMERA CAN GO TO. Every other roster row reports
             -- rather than offers, and on_pick_click reads this table.
-            ICUI.pick_rows[#lines] = nil
+            ICUI.pick_rows[#lines] = ICUI.map_spot(cand.character)
+                                     and cand.cqi or nil
         elseif targeting or plotting then
             ICUI.pick_rows[#lines] = may and cand.cqi or nil
         else
             ICUI.pick_rows[#lines] =
-                (cand.rank >= rank_bar and not cand.busy and affordable)
+                (cand.rank >= rank_bar and wait == 0 and not cand.busy
+                 and affordable)
                 and cand.cqi or nil
         end
         -- AND RED ON EXACTLY THE ROWS THE CLICK WOULD REFUSE. Read off
@@ -4758,18 +4944,44 @@ end
 -- A click on a picker row. The row index is a WINDOW index, so the scroll offset
 -- has to be added back on before it means anything - forgetting that picks the
 -- wrong man, quietly, and only once the list is scrolled.
+-- WHERE A MAN STANDS ON THE MAP, or nil when he is not on it: wounded, or at
+-- 0, 0, which is what a character with no place on the map answers.
+function ICUI.map_spot(character)
+    if not character then return nil end
+    local ok, x, y = pcall(function()
+        return character:display_position_x(), character:display_position_y()
+    end)
+    if not ok or not x or not y or (x == 0 and y == 0) then return nil end
+    local hurt_ok, hurt = pcall(function() return character:is_wounded() end)
+    if hurt_ok and hurt then return nil end
+    return x, y
+end
+
+-- FIND HIM (author, 2026-09-25): close the court, which covers the map, and
+-- move the camera to him. The same five numbers CA's own scripts use to look
+-- at a character; true hands the camera back to the player where it lands.
+function ICUI.find(faction, cqi)
+    local x, y = ICUI.map_spot(IC.character_by_cqi(faction, cqi))
+    if not x then return false end
+    ICUI.close()
+    cm:scroll_camera_from_current(true, 1, {x, y, 14.7, 0, 12})
+    return true
+end
+
 function ICUI.on_pick_click(context, faction)
     local row = ICUI.clicked_index(context)
     if not row then return false end
     local at = ICUI.scroll.pick or 0
     local chosen = ICUI.pick_rows[row + at]
     if not chosen then return false end     -- unranked, already busy, or refused
-    local done, why, spare
+    -- SENT, NOT CALLED: see IC.mp_send. The answer (the picker closed, the
+    -- notice, the sound) is ICUI.ANSWERS'. In single player it has already run
+    -- when mp_send returns; in multiplayer it runs when the trigger comes back.
     if type(chosen) == "table" then
         -- A man who does not exist yet. Only the office picker offers these.
-        done, why, spare = IC.hire(faction, ICUI.pick.key, chosen.hire)
+        ICUI.send(faction, "hire", ICUI.pick.key .. "|" .. tostring(chosen.hire))
     elseif ICUI.pick.kind == "office" then
-        done, why, spare = IC.appoint(faction, ICUI.pick.key, chosen)
+        ICUI.send(faction, "appoint", ICUI.pick.key .. "|" .. tostring(chosen))
     elseif ICUI.pick.kind == "plot_target" then
         -- NOT A REFUSAL AND NOT A DONE MOVE: the first of two questions. The
         -- second picker opens on the same panel with the victim now named.
@@ -4779,35 +4991,13 @@ function ICUI.on_pick_click(context, faction)
         ICUI.notice = nil
         return true
     elseif ICUI.pick.kind == "plot" then
-        done, why, spare = IC.plot(faction, ICUI.pick.plot, chosen, ICUI.pick.key)
+        ICUI.send(faction, "plot", ICUI.pick.plot .. "|" .. tostring(chosen) .. "|"
+                   .. (ICUI.pick.key or ""))
+    elseif ICUI.pick.kind == "house" then
+        -- NOT SENT: a camera is one player's own, and nothing in the model moves.
+        return ICUI.find(faction, chosen)
     else
-        done, why, spare = IC.assign_governor(faction, ICUI.pick.key, chosen)
-    end
-    if done then
-        -- THE SEAT THIS FILLED, read BEFORE the picker is cleared: once
-        -- ICUI.pick is nil there is nothing left saying which card to light.
-        local filled = (ICUI.pick.kind == "office") and ICUI.pick.key or nil
-        ICUI.pick = nil
-        ICUI.scroll.pick = 0
-        -- A PLOT THAT RESOLVED IS STILL OWED AN ANSWER. `done` means the move
-        -- happened; it does not mean it worked. IC.plot hands back "landed" or
-        -- "failed" in the slot a refusal uses for its reason, and a miss that
-        -- said nothing would read as a button that did nothing.
-        if why == "failed" then
-            ICUI.notice = "It did not work. The influence is spent, and they "
-                          .. "know perfectly well who tried."
-            ICUI.confirm(nil, false)
-        else
-            ICUI.notice = nil
-            -- THE CARD THAT JUST CHANGED, when a seat is what changed. The
-            -- panel is about to redraw the whole ziggurat and the only
-            -- difference will be one name in the middle of fourteen cards.
-            ICUI.confirm(filled and ICUI.office_card(filled) or nil, true)
-        end
-    else
-        -- The picker stays OPEN on a refusal. Closing it would drop the player
-        -- back on a list with no idea why nothing changed.
-        ICUI.notice = ICUI.reason_text(why, spare)
+        ICUI.send(faction, "gov", ICUI.pick.key .. "|" .. tostring(chosen))
     end
     return true
 end
@@ -5015,6 +5205,9 @@ function ICUI.refresh()
             show(comp(ICUI.ROW .. "_" .. i, panel), false)
         end
     end
+    -- THE FILL BUTTON IS THE OFFICES TAB'S, and under a picker it is nobody's.
+    -- A boolean, never nil: see draw_actions.
+    show(comp("ic_fill", panel), ICUI.pick == nil and ICUI.view == "offices")
 
     -- EVERY DRAW IS WRAPPED, and this is not defensive padding. A draw that
     -- throws used to abort refresh() halfway: the headers had already been
@@ -5029,6 +5222,7 @@ function ICUI.refresh()
             warn = ICUI.draw_picker(panel, faction, court)
         elseif view == "offices" then
             warn = ICUI.draw_offices(panel, faction, court)
+            ICUI.draw_fill(panel, faction)
         elseif view == "govs" then
             warn = ICUI.draw_govs(panel, faction, court)
         elseif view == "intrigue" then
@@ -5127,6 +5321,8 @@ function ICUI.show_hud(on)
 end
 
 function ICUI.open()
+    if not ICUI.court_player() then return end
+    if not ICUI.prefs_loaded then ICUI.load_prefs() end
     if comp(ICUI.PANEL) then ICUI.refresh() return end
     local ok, err = pcall(function()
         local r = root()
@@ -5237,8 +5433,13 @@ function ICUI.close()
     -- AND THE CHOSEN PARTY, for the same reason: the next open starts on the
     -- court with nothing chosen, not on a bar aimed at last week's rival.
     ICUI.sel = nil
+    -- AND AN ACTION STILL IN FLIGHT: see ICUI.send.
+    ICUI.waiting = nil
     local panel = comp(ICUI.PANEL)
     if panel then pcall(function() panel:DestroyChildren() panel:Destroy() end) end
+    ICUI.save_prefs()
+    -- WHAT THE PLAYER JUST CHANGED, on the button he closes the panel onto.
+    ICUI.update_opener_tip()
 end
 
 -- The office card's one button, which is two verbs: a filled office dismisses,
@@ -5300,12 +5501,8 @@ function ICUI.on_office_click(context)
     if not office then return end
     local court = IC.court(faction)
     if court.offices[office.slug] then
-        IC.dismiss(faction, office.slug)
-        -- THE BAD SOUND, deliberately. Sacking a man is not a win: it empties a
-        -- seat you were getting something from and insults the party he came
-        -- from. The confirmation should not congratulate the player for it.
-        ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false)
-        ICUI.notice = nil
+        -- SENT, NOT CALLED; the bad sound is ICUI.ANSWERS.dismiss.
+        ICUI.send(faction, "dismiss", office.slug)
     else
         -- NO LOCK TO TEST. The seat is empty, which is the only way this
         -- branch is reached: a term keeps a man in his seat, it does not keep
@@ -5349,7 +5546,7 @@ function ICUI.on_row_action(context)
     if not province_key then return end
     local court = IC.court(faction)
     if court.govs[province_key] then
-        IC.release_governor(faction, province_key)
+        ICUI.send(faction, "ungov", province_key)
     else
         ICUI.pick = {kind = "gov", key = province_key}
         ICUI.scroll.pick = 0
@@ -5420,16 +5617,121 @@ function ICUI.on_act_click(key)
         ICUI.scroll.pick = 0
         ICUI.notice = nil
     else
-        local done, reason, spare = IC.favour(faction, move.favour, slug)
-        if done then
-            ICUI.notice = nil
-            ICUI.confirm(nil, true)
-        else
-            ICUI.notice = ICUI.reason_text(reason, spare)
-        end
+        -- SENT, NOT CALLED; the answer is ICUI.ANSWERS.favour.
+        ICUI.send(faction, "favour", move.favour .. "|" .. slug)
     end
     ICUI.refresh()
 end
+
+-- ---------------------------------------------------------------------------
+-- THE MODEL'S ANSWER TO A PANEL ACTION (IC.after_op). In single player
+-- IC.mp_send runs the action at once, so this fires inside the click and the
+-- click's own refresh follows it. In multiplayer it fires when the UITrigger
+-- comes back, on every machine: only this machine's player draws anything, and
+-- it refreshes for itself because no click is waiting to.
+-- ---------------------------------------------------------------------------
+ICUI.ANSWERS = {}
+
+-- A yes or a no that confirms with a sound, and a refusal that says why.
+local function confirmed(yes, demand)
+    return function(_arg, done, why, spare)
+        -- A DEMAND THE TURN HAD ALREADY DECIDED, and reason_text's "gone" is
+        -- worded for an offer.
+        if demand and why == "gone" then why = "no demand" end
+        if done then
+            ICUI.notice = nil
+            -- THE GOOD SOUND FOR A YES and the bad one for a no, which is what
+            -- a refusal is to the party that asked.
+            ICUI.confirm(nil, yes)
+        else
+            ICUI.notice = ICUI.reason_text(why, spare)
+        end
+    end
+end
+ICUI.ANSWERS.grant = confirmed(true, true)
+ICUI.ANSWERS.refuse = confirmed(false, true)
+ICUI.ANSWERS.accept = confirmed(true, false)
+ICUI.ANSWERS.decline = confirmed(false, false)
+ICUI.ANSWERS.favour = confirmed(true, false)
+
+-- The four pickers.
+local function picked(op)
+    return function(arg, done, why, spare)
+        -- The picker stays OPEN on a refusal. Closing it would drop the player
+        -- back on a list with no idea why nothing changed.
+        if not done then
+            ICUI.notice = ICUI.reason_text(why, spare)
+            return
+        end
+        -- THE SEAT THIS FILLED, off the wire: in multiplayer the picker that
+        -- sent this may have closed by now.
+        local filled = nil
+        if op == "appoint" or op == "hire" then filled = string.match(arg or "", "^([^|]*)") end
+        ICUI.pick = nil
+        ICUI.scroll.pick = 0
+        -- A PLOT THAT RESOLVED IS STILL OWED AN ANSWER. `done` means the move
+        -- happened, not that it worked: IC.plot hands back "landed" or "failed"
+        -- in the slot a refusal uses for its reason.
+        if why == "failed" then
+            ICUI.notice = "It did not work. The influence is spent, and they "
+                          .. "know perfectly well who tried."
+            ICUI.confirm(nil, false)
+        else
+            ICUI.notice = nil
+            -- THE CARD THAT JUST CHANGED, when a seat is what changed.
+            ICUI.confirm(filled and ICUI.office_card(filled) or nil, true)
+        end
+    end
+end
+for _, op in ipairs({"appoint", "hire", "plot", "gov"}) do ICUI.ANSWERS[op] = picked(op) end
+
+-- THE FILL: how many, with the good sound; or why none.
+ICUI.ANSWERS.fill = function(_arg, done, why, spare)
+    if done then
+        ICUI.notice = string.format("%d seat%s filled.", spare or 0,
+                                    spare == 1 and "" or "s")
+        ICUI.confirm(nil, true)
+    else
+        ICUI.notice = ICUI.reason_text(why, spare)
+    end
+end
+
+-- THE BAD SOUND, deliberately. Sacking a man is not a win: it empties a seat
+-- you were getting something from and insults the party he came from.
+ICUI.ANSWERS.dismiss = function(arg)
+    for slot, office in ipairs(IC.OFFICES) do
+        if office.slug == arg then
+            ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false)
+        end
+    end
+    ICUI.notice = nil
+end
+
+-- ONE ACTION IN FLIGHT. In multiplayer the answer comes back with the trigger,
+-- and until it does the picker is still open and every button still live: a
+-- second click sent the action again, and both copies landed on every machine.
+-- The answer ends the wait, and so does closing the panel, so a trigger that
+-- never comes back cannot leave the court dead.
+function ICUI.send(faction, op, arg)
+    if ICUI.waiting then return false end
+    -- SET BEFORE SENDING, so an answer that arrives inside the send still finds
+    -- it to clear. Nil in single player, where the answer has already run when
+    -- mp_send returns.
+    ICUI.waiting = IC.is_mp() or nil
+    local sent = IC.mp_send(faction, op, arg)
+    if not sent then ICUI.waiting = nil end
+    return sent
+end
+
+function ICUI.after_op(faction_key, op, arg, done, why, spare)
+    local mp = IC.is_mp()
+    if mp and faction_key ~= ICUI.player() then return end
+    ICUI.waiting = nil
+    local answer = ICUI.ANSWERS[op]
+    if answer then answer(arg, done, why, spare) end
+    if mp then ICUI.refresh() end
+end
+IC.after_op = ICUI.after_op
 
 function ICUI.toggle()
     if comp(ICUI.PANEL) then ICUI.close() else ICUI.open() end
@@ -5483,6 +5785,8 @@ function ICUI.register()
             ICUI.on_party_click(context)
         elseif ICUI.ACT_MOVE[id] and comp(ICUI.PANEL) then
             ICUI.on_act_click(id)
+        elseif id == "ic_fill" and comp(ICUI.PANEL) then
+            ICUI.on_fill_click()
         elseif id == "ic_row_e" and comp(ICUI.PANEL) then
             ICUI.on_row_action(context)
         -- THE SECOND BUTTON EXISTS ONLY ON THE PETITIONS TAB. fill_rows hides it
@@ -5509,6 +5813,16 @@ end)
 -- actually moves.
 core:add_listener("ic_opener_place", "FactionTurnStart", true, function()
     ICUI.place_opener(1)
+end, true)
+
+-- THE SUMMARY, on the player's own turn start and ONE TICK LATE: this file's
+-- listeners are registered before the model's, so read now it would describe
+-- the court before its turn - terms not yet ended, clocks not yet moved.
+core:add_listener("ic_opener_tip", "FactionTurnStart", true, function(context)
+    local faction = context:faction()
+    if not faction or faction:is_null_interface() then return end
+    if faction:name() ~= ICUI.player() then return end
+    cm:callback(function() ICUI.update_opener_tip() end, 0)
 end, true)
 
 -- ---------------------------------------------------------------------------

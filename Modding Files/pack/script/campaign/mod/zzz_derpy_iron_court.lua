@@ -71,7 +71,7 @@ function IC.rebel_faction_for(faction_key, slug)
             return own, dead
         end
     end
-    return IC.rebel_faction()
+    return IC.rebel_faction(faction_key)
 end
 
 function IC.rebel_rename(rebels, name)
@@ -95,13 +95,17 @@ function IC.rebel_rename_all()
     end
 end
 
-function IC.rebel_faction()
+-- `exclude` is the seceding court's own faction. A RISING RUNS A COURT TOO - it
+-- is a Chaos Dwarf faction - so with the pool full its parties secede as well,
+-- and the first living key could be itself: war on itself, provinces handed to
+-- itself (found 2026-09-25).
+function IC.rebel_faction(exclude)
     local fallback = nil
     for i = 1, #IC.REBEL_POOL do
         local key = IC.REBEL_POOL[i]
         local ok, f = pcall(function() return cm:get_faction(key) end)
         if ok and f and f ~= false then
-            fallback = fallback or key
+            if key ~= exclude then fallback = fallback or key end
             local dead = false
             pcall(function() dead = f:is_dead() end)
             if dead then return key, true end
@@ -144,8 +148,15 @@ IC.REBEL_ROSTER = {
 }
 
 -- CA's `out` is a callable table, not a function. Keep the call isolated from turns.
-function IC.say(text)
+-- IC.warn is a FAILURE and is always written. IC.say is the routine log, and the
+-- detailed_log setting silences it - so a caught error must never go through it.
+function IC.warn(text)
     if out then pcall(function() out(tostring(text)) end) end
+end
+
+function IC.say(text)
+    if IC.TUNE and IC.TUNE.detailed_log == false then return end
+    IC.warn(text)
 end
 
 IC.BACKGROUNDS = {
@@ -333,7 +344,12 @@ IC.TUNE = {
     -- 12 of 24 men at 0 influence. Bars unchanged; they are the player's only.
     influence_trickle   = 5,
     influence_trickle_general = 0,
-    term_turns          = 5,
+    -- TEN, NOT FIVE (author, 2026-09-25): every end was a free chance to
+    -- re-seat, and a full court had three seats to refill every turn.
+    term_turns          = 10,
+    -- A man whose term ended takes the same seat again only this many turns
+    -- later, and without loyalty_appointed (author, 2026-09-25).
+    renew_wait          = 3,
     hire_standing       = 100,
 
     battle_influence    = {
@@ -455,8 +471,11 @@ IC.TUNE = {
     secede_turns        = 5,
     sufferance_share    = 20,   -- the player's own party below this
 
-    rivals_min          = 2,
-    rivals_max          = 4,
+    -- THE COURT'S SIZE IS THE DIFFICULTY (author, 2026-09-25): one fixed
+    -- number per preset, three rivals here, so the Crown and its rivals are
+    -- four of the grid's six cards. Only Custom rolls between two.
+    rivals_min          = 3,
+    rivals_max          = 3,
 
     prov_loyalty_start  = 60,
     prov_gain_governed  = 3,    -- per turn, a contented party's man governing it
@@ -479,7 +498,247 @@ IC.TUNE = {
     warn_turns          = 3,
     splinter_loyalty    = 25,
     splinter_weight     = 5,
+
+    -- Rumour and discredit at or below this loyalty. Defined here, not in the
+    -- parties file, since 2026-09-25, so the settings below can freeze it.
+    party_intrigue_line = 55,
+
+    -- THE SEVEN SWITCHES (the MCT page's Systems and Debug). All on: a campaign
+    -- without MCT plays exactly as it did before they existed.
+    parties_act         = true,
+    ai_courts           = true,
+    secession           = true,
+    pressure            = true,
+    crown_split         = true,
+    detailed_log        = true,
+    -- Off, IC.ROUTINE_EVENTS go to the Log tab only (author, 2026-09-25).
+    all_cards           = true,
 }
+
+-- ---------------------------------------------------------------------------
+-- SETTINGS. Fourteen numbers and six switches belong to the player, through MCT.
+-- Each is read ONCE, frozen into the save as derpy_ic_tuned, and applied over
+-- IC.TUNE, so every IC.TUNE.x read in this mod is unchanged and a save plays
+-- on the numbers it started with whatever MCT says later.
+--
+-- REGISTERED THREE TIMES: in IC.TUNE above, in IC.TUNE_ORDER below, and in
+-- script/mct/settings/derpy_iron_court.lua. The court harness holds all three
+-- against each other, and the packing gate refuses a setting nothing reads.
+--
+-- A NEW KEY IS APPENDED, NEVER INSERTED. unpack_tune walks this list by
+-- position against the saved string, so a key put anywhere but the end moves
+-- every value after it onto the wrong setting in every existing save.
+IC.TUNE_ORDER = {
+    "loyalty_start", "loyalty_drift_none", "secede_loyalty", "secede_share",
+    "secede_turns", "pressure_below", "influence_trickle", "settlement_influence",
+    "favour_gift_cost", "favour_secure_cost", "party_intrigue_line",
+    "rivals_min", "rivals_max", "term_turns",
+    "parties_act", "ai_courts", "secession", "pressure", "crown_split",
+    "detailed_log", "all_cards",
+}
+
+-- Today's values, taken off IC.TUNE before anything can change it.
+IC.TUNE_DEFAULTS = {}
+for _i = 1, #IC.TUNE_ORDER do
+    IC.TUNE_DEFAULTS[IC.TUNE_ORDER[_i]] = IC.TUNE[IC.TUNE_ORDER[_i]]
+end
+
+-- The difficulty dropdown. Default is IC.TUNE_DEFAULTS and so is not listed,
+-- and Custom reads the sliders. A preset names numbers only: the switches are
+-- the player's on every difficulty.
+IC.PRESET_CUSTOM = "custom"
+IC.PRESETS = {
+    gentle = {
+        loyalty_start = 65, loyalty_drift_none = 0, secede_loyalty = 15,
+        secede_share = 30, secede_turns = 7, pressure_below = 5,
+        influence_trickle = 7, settlement_influence = 30,
+        favour_gift_cost = 400, favour_secure_cost = 1800,
+        party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
+    },
+    harsh = {
+        loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
+        secede_share = 20, secede_turns = 4, pressure_below = 15,
+        influence_trickle = 4, settlement_influence = 20,
+        favour_gift_cost = 800, favour_secure_cost = 3200,
+        party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+    },
+    ruthless = {
+        loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
+        -- THE PRESSURE LINE SITS UNDER A FRESH FULL COURT. Six parties on equal
+        -- footing leave the Crown 17 of the court; at 20 it was pressed from
+        -- turn 1, before the player had moved (author, 2026-09-25).
+        secede_share = 15, secede_turns = 3, pressure_below = 15,
+        influence_trickle = 3, settlement_influence = 16,
+        favour_gift_cost = 1000, favour_secure_cost = 4000,
+        -- FIVE RIVALS FILL THE GRID. Only four can rise under a banner of their
+        -- own (IC.REBEL_POOL); a fifth that leaves joins one already risen.
+        party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
+    },
+}
+
+-- AN ENGINE CALL THAT ERRORS READS AS SINGLE PLAYER: locking a single-player
+-- campaign out of its own settings over a failed call is the worse failure.
+function IC.is_mp()
+    local ok, v = pcall(function() return cm:is_multiplayer() end)
+    return ok and v == true
+end
+
+function IC.read_mct_or_defaults()
+    local t = {}
+    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    -- BEFORE MCT IS EVEN ASKED: two machines holding different settings would
+    -- freeze two different courts into two saves at the first tick.
+    if IC.is_mp() then return t end
+    local ok, mct = pcall(function() return get_mct and get_mct() end)
+    if not ok or not mct then return t end
+    pcall(function()
+        local mod = mct:get_mod_by_key("derpy_iron_court")
+        if not mod then return end
+        -- TYPE-CHECKED, NOT NIL-CHECKED. MCT hands back whatever the option
+        -- holds, and a mis-registered option answers the wrong shape.
+        local function read(key)
+            local opt = mod:get_option_by_key(key)
+            if not opt then return nil end
+            local v = opt:get_finalized_setting()
+            if type(v) == type(IC.TUNE_DEFAULTS[key]) then return v end
+            return nil
+        end
+        local preset = "default"
+        local popt = mod:get_option_by_key("preset")
+        local pv = popt and popt:get_finalized_setting()
+        if type(pv) == "string" and pv ~= "" then preset = pv end
+        -- THE SWITCHES ON EVERY DIFFICULTY, the numbers under Custom only.
+        for _, key in ipairs(IC.TUNE_ORDER) do
+            local custom_number = type(IC.TUNE_DEFAULTS[key]) == "number"
+                and preset == IC.PRESET_CUSTOM
+            if type(IC.TUNE_DEFAULTS[key]) == "boolean" or custom_number then
+                local v = read(key)
+                if v ~= nil then t[key] = v end
+            end
+        end
+        for key, v in pairs(IC.PRESETS[preset] or {}) do t[key] = v end
+    end)
+    -- cm:random_number(max, min) with min above max is no roll at all.
+    if t.rivals_min > t.rivals_max then t.rivals_min = t.rivals_max end
+    return t
+end
+
+function IC.pack_tune(t)
+    local parts = {}
+    for i = 1, #IC.TUNE_ORDER do
+        local key = IC.TUNE_ORDER[i]
+        local v = t[key]
+        -- A KEY THE TABLE DOES NOT HOLD IS ITS DEFAULT, NEVER 0: for a switch
+        -- 0 is OFF, and a table built before the key existed is exactly what an
+        -- older save hands this.
+        if v == nil then v = IC.TUNE_DEFAULTS[key] end
+        if v == true then v = 1 elseif v == false then v = 0 end
+        parts[i] = tostring(v)
+    end
+    return table.concat(parts, "|")
+end
+
+function IC.unpack_tune(packed)
+    local t, i = {}, 1
+    for k, v in pairs(IC.TUNE_DEFAULTS) do t[k] = v end
+    -- EVERY FIELD, EMPTY ONES INCLUDED: `[^|]+` steps over an empty field and
+    -- slides every later value onto the key before it.
+    for chunk in string.gmatch((packed or "") .. "|", "([^|]*)|") do
+        local key = IC.TUNE_ORDER[i]
+        local n = tonumber(chunk)
+        -- AN UNREADABLE FIELD STAYS ON ITS DEFAULT - a switch included, which
+        -- must not read as off - and a field past the end is a later build's.
+        if key and n ~= nil then
+            if type(IC.TUNE_DEFAULTS[key]) == "boolean" then
+                t[key] = n ~= 0
+            else
+                t[key] = n
+            end
+        end
+        i = i + 1
+    end
+    return t
+end
+
+function IC.apply_tune(t)
+    for i = 1, #IC.TUNE_ORDER do
+        local key = IC.TUNE_ORDER[i]
+        if t[key] ~= nil then IC.TUNE[key] = t[key] end
+    end
+    -- THE ONE COPY TAKEN AT LOAD: the parties file copies this line into the
+    -- two intrigue moves, so it is written through to them here.
+    for _, move in ipairs(IC.PARTY_MOVES or {}) do
+        if move.key == "discredit" or move.key == "rumour" then
+            move.line = IC.TUNE.party_intrigue_line
+        end
+    end
+end
+
+-- THE SETTINGS, FROZEN INTO THE SAVE ONCE. First thing at every first tick. A
+-- save holding derpy_ic_tuned plays on it; one without (a new campaign, or a
+-- save from before this build) reads MCT now and keeps the answer for good -
+-- all but IC.LIVE_TUNE, which follows MCT from then on.
+-- MCT has already read the player's choices by then, in its own LoadingGame
+-- callback (groovy_mct.pack, registry/main.lua, Registry:load).
+function IC.freeze_tune()
+    local packed = cm:get_saved_value("derpy_ic_tuned")
+    local t
+    if type(packed) == "string" and packed ~= "" then
+        t = IC.unpack_tune(packed)
+    else
+        t = IC.read_mct_or_defaults()
+        cm:set_saved_value("derpy_ic_tuned", IC.pack_tune(t))
+    end
+    IC.apply_tune(t)
+    IC.refresh_live_tune()
+    return t
+end
+
+-- THE SWITCHES A PLAYER MAY FLIP IN A RUNNING CAMPAIGN (author, 2026-09-25).
+-- Each one's off path settles what it left running - open business settles,
+-- the secession and split countdowns and the pressure mark are cleared - so a
+-- flip strands nothing, and one turned back on starts again with its warning.
+-- NOT ai_courts: off, it leaves the other courts' office bundles on their men.
+-- The difficulty and every number stay frozen. The MCT page names the same six.
+IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",
+                "all_cards", "detailed_log"}
+
+-- READ AT EVERY LOAD AND ON MCT'S Finalize, never in multiplayer, where each
+-- machine's MCT is its own. A change goes into the frozen copy too, so the save
+-- keeps it if MCT is removed.
+function IC.refresh_live_tune()
+    if IC.is_mp() then return false end
+    local ok, mct = pcall(function() return get_mct and get_mct() end)
+    if not ok or not mct then return false end
+    local off = {}
+    local changed = false
+    pcall(function()
+        local mod = mct:get_mod_by_key("derpy_iron_court")
+        if not mod then return end
+        for _, key in ipairs(IC.LIVE_TUNE) do
+            local opt = mod:get_option_by_key(key)
+            local v = opt and opt:get_finalized_setting()
+            if type(v) == "boolean" and v ~= IC.TUNE[key] then
+                IC.TUNE[key] = v
+                off[key] = not v
+                changed = true
+            end
+        end
+    end)
+    if not changed then return false end
+    cm:set_saved_value("derpy_ic_tuned", IC.pack_tune(IC.TUNE))
+    -- A COUNTDOWN SWITCHED OFF ENDS NOW, not at the next turn: the panel reads
+    -- every one. With its switch off, each call below only clears.
+    if off.secession or off.pressure or off.crown_split then
+        for faction_key in pairs(IC.state) do
+            if off.secession then IC.tick_secession(faction_key) end
+            if off.pressure then IC.tick_pressure(faction_key) end
+            if off.crown_split then IC.splinter(faction_key) end
+            IC.save(faction_key)
+        end
+    end
+    return true
+end
 
 IC.AMBITION_ORDER = {"cautious", "steady", "ambitious"}
 IC.AMBITION = {
@@ -512,6 +771,7 @@ local function new_court()
         prov     = {},   -- [province key] = loyalty, 0-100
         standing = {},   -- [character cqi] = influence he holds
         ambition = {},   -- [character cqi] = ambition slug
+        last     = {},   -- [office slug] = {cqi, turn his term ended}
         log      = {},
     }
 end
@@ -579,6 +839,15 @@ IC.EVENTS = {
     party_demand       = {2619, true, true},
     party_demand_refused = {2620, true, true},
     party_offer        = {2621, true, true},
+    term_soon          = {2622, true, true},
+}
+
+-- ROUTINE NEWS: a card the all_cards setting can silence. Every one of these is
+-- written to the court's log where it is raised, so off loses nothing; the
+-- warnings, the player's own results, demands and offers are not on it.
+IC.ROUTINE_EVENTS = {
+    office_lost = true, party_joined = true, snub = true, party_feud = true,
+    party_feud_end = true, dissolved = true, party_plot_dropped = true,
 }
 
 IC.feed_queue = {}
@@ -587,6 +856,10 @@ IC.feed_held = false
 IC.FEED_QUEUE_MAX = 10
 
 function IC.hold_feed(on)
+    -- NOT IN MULTIPLAYER. The panel is open on one machine and not the other,
+    -- so a hold would raise the model's event calls at two different times.
+    -- The cards show when they are raised, behind the panel or not.
+    if IC.is_mp() then return 0 end
     IC.feed_held = on and true or false
     if not IC.feed_held then return IC.flush_feed() end
     return 0
@@ -606,6 +879,7 @@ function IC.feed(faction_key, slug, secondary)
     local ev = IC.EVENTS[slug]
     if not ev then return false end
     if not IC.is_human(faction_key) then return false end
+    if IC.TUNE.all_cards == false and IC.ROUTINE_EVENTS[slug] then return false end
     -- Hold cards raised behind the open panel until the player can see them.
     if IC.feed_held then
         if #IC.feed_queue < IC.FEED_QUEUE_MAX then
@@ -778,7 +1052,10 @@ function IC.pack(faction_key)
             e.turn or 0, e.kind or "-", e.slug or "-", e.key or "-",
             tostring(e.n or 0))
     end
-    local prov, ambition = {}, {}
+    local prov, ambition, last = {}, {}, {}
+    for office_slug, e in pairs(court.last or {}) do
+        last[#last + 1] = string.format("%s,%d,%d", office_slug, e.cqi, e.turn)
+    end
     for province, n in pairs(court.prov or {}) do
         prov[#prov + 1] = province .. "," .. tostring(n)
     end
@@ -789,7 +1066,8 @@ function IC.pack(faction_key)
     end
     return join({join(houses, ";"), join(offices, ";"), join(govs, ";"),
                  join(terms, ";"), join(standing, ";"),
-                 join(logged, ";"), join(prov, ";"), join(ambition, ";")}, "|")
+                 join(logged, ";"), join(prov, ";"), join(ambition, ";"),
+                 court.rolled and "1" or "", join(last, ";")}, "|")
 end
 
 local function split(text, sep)
@@ -889,6 +1167,16 @@ function IC.unpack(faction_key, packed)
         local cqi, slug = tonumber(bits[1]), bits[2]
         if cqi and IC.AMBITION[slug or ""] then court.ambition[cqi] = slug end
     end
+    -- Field 9 is optional: a save from before it is marked by court_rolled.
+    court.rolled = (fields[9] == "1") or nil
+    -- Field 10 is optional too: a save from before it has no seat to wait for.
+    for _, entry in ipairs(split(fields[10] or "", ";")) do
+        local bits = split(entry, ",")
+        local cqi, ended = tonumber(bits[2]), tonumber(bits[3])
+        if bits[1] and cqi and ended then
+            court.last[bits[1]] = {cqi = cqi, turn = ended}
+        end
+    end
     IC.state[faction_key] = court
     return court
 end
@@ -941,6 +1229,14 @@ function IC.is_chd(faction)
     return faction:subculture() == IC.CHD_SUBCULTURE
 end
 
+-- A CHAOS DWARF FACTION WHOSE COURT THIS CAMPAIGN RUNS. With the ai_courts
+-- setting off, a player's only: an AI court is never rolled, ticked or fed.
+function IC.runs_court(faction)
+    if not IC.is_chd(faction) then return false end
+    if IC.TUNE.ai_courts then return true end
+    return IC.is_human(faction:name())
+end
+
 function IC.present_houses(faction_key)
     local court = IC.court(faction_key)
     local out = {}
@@ -964,12 +1260,19 @@ function IC.is_party(slug)
     return false
 end
 
+-- ONCE ROLLED, ALWAYS ROLLED. A court whose last rival is purged or secedes
+-- rules alone (author, 2026-09-25); without the marker it looked unrolled and
+-- the next turn rolled a whole new court. A save from before the marker is
+-- marked the first time it is seen with a rival, which is before it can lose
+-- its last one.
 function IC.court_rolled(faction_key)
     local court = IC.court(faction_key)
+    if court.rolled then return true end
     local n = 0
     for slug in pairs(court.houses) do
         if IC.is_party(slug) then n = n + 1 end
     end
+    if n > 1 then court.rolled = true end
     return n > 1
 end
 
@@ -1237,7 +1540,9 @@ function IC.ensure_leaders(faction_key)
                 -- turn, and one log line per party is enough to see it.
                 house.stored = true
                 if ok then made = made + 1 end
-                IC.say("IRON COURT: " .. tostring(slug) .. " in " .. faction_key
+                -- A LORD THAT COULD NOT BE MADE is a failure; one waiting is not.
+                local log = ok and IC.say or IC.warn
+                log("IRON COURT: " .. tostring(slug) .. " in " .. faction_key
                        .. " has no leader - " .. (ok and ("a " .. subtype
                        .. " waits in the lord pool") or ("no lord made: " .. tostring(err))))
             end
@@ -1623,30 +1928,60 @@ function IC.can_appoint(faction_key, office_slug, cqi)
         local has = IC.standing(faction_key, cqi)
         if has < need then return false, "standing", need - has end
     end
+    local wait = IC.renew_wait(faction_key, office_slug, cqi)
+    if wait > 0 then return false, "renew", wait end
     return true
 end
 
+-- What a seat weighs for the party that holds it. Taking the seat adds this and
+-- every way of losing it takes the same back: it once added the claimed
+-- party's double and took back the single, and each term leaked the difference.
+function IC.office_weight(office_slug, slug)
+    local office = IC.office_by_slug(office_slug)
+    local gain = IC.TUNE.weight_per_office
+    if office and slug == office.affinity then
+        gain = gain * IC.TUNE.weight_affinity_mult
+    end
+    return gain
+end
+
+-- The man whose term in this seat ended last, until someone else takes it.
+function IC.is_renewal(faction_key, office_slug, cqi)
+    local last = IC.court(faction_key).last[office_slug]
+    return last ~= nil and last.cqi == cqi
+end
+
+-- Turns before he may take the seat back; 0 when he may, or is not its last man.
+function IC.renew_wait(faction_key, office_slug, cqi)
+    if not IC.is_renewal(faction_key, office_slug, cqi) then return 0 end
+    local last = IC.court(faction_key).last[office_slug]
+    return math.max(0, last.turn + IC.TUNE.renew_wait - cm:model():turn_number())
+end
+
 function IC.appoint(faction_key, office_slug, cqi)
-    local ok, why = IC.can_appoint(faction_key, office_slug, cqi)
-    if not ok then return false, why end
+    local ok, why, spare = IC.can_appoint(faction_key, office_slug, cqi)
+    if not ok then return false, why, spare end
 
     local court = IC.court(faction_key)
     local office = IC.office_by_slug(office_slug)
     local character = IC.character_by_cqi(faction_key, cqi)
+    local renewal = IC.is_renewal(faction_key, office_slug, cqi)
 
     IC.dismiss(faction_key, office_slug, true)
 
+    court.last[office_slug] = nil
     court.offices[office_slug] = cqi
     court.terms[office_slug] = cm:model():turn_number() + IC.TUNE.term_turns
     cm:force_add_trait(cm:char_lookup_str(character), IC.office_trait(office_slug), true)
 
     local slug = IC.house_of_character(character, faction_key)
     if slug and court.houses[slug] then
-        local gain = IC.TUNE.weight_per_office
-        if slug == office.affinity then gain = gain * IC.TUNE.weight_affinity_mult end
-        court.houses[slug].weight = court.houses[slug].weight + gain
+        court.houses[slug].weight = court.houses[slug].weight
+            + IC.office_weight(office_slug, slug)
     end
-    IC.move_loyalty(faction_key, slug, IC.TUNE.loyalty_appointed)
+    if not renewal then
+        IC.move_loyalty(faction_key, slug, IC.TUNE.loyalty_appointed)
+    end
     if slug ~= office.affinity then
         IC.move_loyalty(faction_key, office.affinity, IC.TUNE.loyalty_snubbed)
     end
@@ -1669,7 +2004,7 @@ function IC.dismiss(faction_key, office_slug, quiet)
     court.offices[office_slug] = nil
     if slug and court.houses[slug] then
         court.houses[slug].weight = math.max(1,
-            court.houses[slug].weight - IC.TUNE.weight_per_office)
+            court.houses[slug].weight - IC.office_weight(office_slug, slug))
     end
     if not quiet then
         IC.move_loyalty(faction_key, slug, IC.TUNE.loyalty_dismissed)
@@ -1994,6 +2329,7 @@ function IC.expire_terms(faction_key)
         -- An expired term is not a dismissal and does not anger the holder's party.
         IC.dismiss(faction_key, done[i].slug, true)
         court.terms[done[i].slug] = nil
+        court.last[done[i].slug] = {cqi = done[i].cqi, turn = turn}
         IC.log(faction_key, "term", slug, done[i].slug, 0)
     end
     if #done > 0 then
@@ -2001,6 +2337,32 @@ function IC.expire_terms(faction_key)
                 #done == 1 and IC.office_title_key(done[1].slug) or nil)
     end
     return #done
+end
+
+-- The seats whose terms end at the next turn start, in IC.OFFICES' order.
+function IC.terms_ending(faction_key)
+    local court = IC.court(faction_key)
+    local turn = cm:model():turn_number()
+    local out = {}
+    for i = 1, #IC.OFFICES do
+        local slug = IC.OFFICES[i].slug
+        local ends = court.offices[slug] and court.terms[slug]
+        if ends and ends - turn == 1 then out[#out + 1] = slug end
+    end
+    return out
+end
+
+-- A TERM THAT ENDS NEXT TURN, said this turn (author, 2026-09-25): the seat
+-- empties at the next turn start whatever the player does, and its man cannot
+-- take it straight back. One card for all of them; it names the seat when there
+-- is only one.
+function IC.warn_terms(faction_key)
+    if not IC.is_human(faction_key) then return 0 end
+    local ending = IC.terms_ending(faction_key)
+    if #ending == 0 then return 0 end
+    IC.feed(faction_key, "term_soon",
+            #ending == 1 and IC.office_title_key(ending[1]) or nil)
+    return #ending
 end
 
 function IC.term_left(faction_key, office_slug)
@@ -2202,7 +2564,8 @@ function IC.tick_pressure(faction_key)
     -- the seats filling from turn 1, forge left on turn 11 and legion on turn
     -- 17, both at 100 loyalty, because a pressed house secedes whatever it
     -- thinks of you.
-    if not IC.is_human(faction_key) then
+    -- AND NOBODY'S AT ALL with the pressure setting off.
+    if not IC.TUNE.pressure or not IC.is_human(faction_key) then
         for _slug, house in pairs(court.houses) do house.pressed = nil end
         return 0
     end
@@ -2515,7 +2878,7 @@ function IC.rebel_force(rebels, region_key, x, y, general, crown, kit)
             crown == true, true, false)
     end)
     if not ok then
-        IC.say("IRON COURT: the rebel army did not spawn - " .. tostring(err))
+        IC.warn("IRON COURT: the rebel army did not spawn - " .. tostring(err))
     end
     return ok
 end
@@ -2618,7 +2981,12 @@ function IC.secede(faction_key, slug)
         end
     end
 
-    if rebels and flying then
+    -- JOINING A RISING ALREADY RUNNING KEEPS ITS NAME. With the pool full a
+    -- fifth party joins one of the four, and renaming it after the newcomer
+    -- took the name the first party rose under off the map and out of the save.
+    -- A woken faction, or one that never rose under a party, takes the name.
+    local risen = rebels and cm:get_saved_value("derpy_ic_risen_" .. rebels)
+    if rebels and flying and (waking or not risen or risen == "") then
         steps[#steps + 1] = function()
             IC.rebel_rename(rebels, flying)
             IC.say("IRON COURT: " .. tostring(rebels) .. " now flies as "
@@ -2712,6 +3080,12 @@ end
 function IC.splinter(faction_key)
     local court = IC.court(faction_key)
     local crown = court.houses[IC.CROWN]
+    -- THE crown_split SETTING OFF: the Crown never splits, and gives no notice.
+    -- A count already running stops, or the card reads SPLITS for good.
+    if not IC.TUNE.crown_split then
+        if crown then crown.split = 0 end
+        return nil
+    end
     if not crown then return nil end
     local backed = {}
     local faction = real_faction(faction_key)
@@ -2779,6 +3153,12 @@ end
 
 function IC.tick_secession(faction_key)
     local court = IC.court(faction_key)
+    -- THE secession SETTING OFF: no countdown runs, so nothing is warned and
+    -- nobody leaves. A clock already running from before is stopped.
+    if not IC.TUNE.secession then
+        for _slug, house in pairs(court.houses) do house.clock = 0 end
+        return {}
+    end
     local own = IC.CROWN
     local warned = {}
     -- Collect first because mutating a table during pairs() traversal is undefined.
@@ -2855,8 +3235,13 @@ function IC.is_human(faction_key)
     return false
 end
 
-function IC.ai_fill_offices(faction_key)
-    if IC.is_human(faction_key) then return 0 end
+-- WHO WOULD TAKE EACH EMPTY SEAT, seating nobody: the AI's turn and the
+-- player's Fill button both read it (author, 2026-09-25), so a player's fill
+-- never snubs a party the AI's would not. Best man first, highest seat first.
+-- Planning without appointing picks the same men appointing as it went did:
+-- nothing IC.can_appoint asks depends on another appointment, and `used` is
+-- one post per man.
+function IC.fill_plan(faction_key)
     local court = IC.court(faction_key)
     local pool = {}
     for _, cand in ipairs(IC.candidates(faction_key)) do
@@ -2868,7 +3253,7 @@ function IC.ai_fill_offices(faction_key)
         if sa ~= sb then return sa > sb end
         return a.cqi < b.cqi
     end)
-    local used, seated = {}, 0
+    local used, plan = {}, {}
     for i = 1, #IC.OFFICES do
         local office = IC.OFFICES[i]
         if not court.offices[office.slug] then
@@ -2888,9 +3273,9 @@ function IC.ai_fill_offices(faction_key)
                     local cqi = pool[j].cqi
                     local affine = pool[j].slug == office.affinity
                     if not used[cqi] and ((pass == 1) == affine)
-                            and IC.appoint(faction_key, office.slug, cqi) then
+                            and IC.can_appoint(faction_key, office.slug, cqi) then
                         used[cqi] = true
-                        seated = seated + 1
+                        plan[#plan + 1] = {slug = office.slug, cqi = cqi}
                         done = true
                         break
                     end
@@ -2899,7 +3284,23 @@ function IC.ai_fill_offices(faction_key)
             end
         end
     end
+    return plan
+end
+
+-- The plan, seated. Returns how many.
+function IC.fill_offices(faction_key)
+    local plan, seated = IC.fill_plan(faction_key), 0
+    for i = 1, #plan do
+        if IC.appoint(faction_key, plan[i].slug, plan[i].cqi) then
+            seated = seated + 1
+        end
+    end
     return seated
+end
+
+function IC.ai_fill_offices(faction_key)
+    if IC.is_human(faction_key) then return 0 end
+    return IC.fill_offices(faction_key)
 end
 
 -- The other half of the AI's court. Offices need standing an AI lord in the
@@ -3424,9 +3825,12 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
     local cqi = tonumber(target)
     local against = IC.house_of_cqi(faction_key, cqi)
 
+    -- THE ODDS BEFORE THE PRICE: plot_chance asks can_plot, which refuses a man
+    -- who can no longer afford the move, and a nil chance never rolls - so read
+    -- after paying, a man holding under twice the price could not fail.
+    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)
     IC.add_standing(faction_key, actor_cqi, -cost)
 
-    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)
     if chance and cm:random_number(100, 1) > chance then
         if against then
             IC.move_loyalty(faction_key, against, -IC.TUNE.plot_fail_loyalty)
@@ -3585,6 +3989,8 @@ end
 
 function IC.turn(faction_key)
     IC.load(faction_key)
+    -- BEFORE ANYTHING THIS TURN MOVES LOYALTY. See IC.party_placate.
+    if IC.party_placate then IC.party_placate(faction_key) end
     -- Roll the court before backgrounds, as IC.seed does, or an AI faction's
     -- first turn deals every starting man to the Crown and every rival party
     -- is born empty. Only the player's court went through IC.seed.
@@ -3596,6 +4002,7 @@ function IC.turn(faction_key)
     IC.tick_provinces(faction_key)
     IC.income(faction_key)
     IC.expire_terms(faction_key)
+    IC.warn_terms(faction_key)
     IC.enforce_bars(faction_key)
     IC.ai_fill_offices(faction_key)
     IC.ai_fill_governors(faction_key)
@@ -3608,7 +4015,16 @@ function IC.turn(faction_key)
     IC.apply_control_bundle(faction_key)
     IC.tick_pressure(faction_key)
     if not IC.feed_held then IC.flush_feed() end
-    if IC.party_turn then IC.party_turn(faction_key) end
+    if IC.party_turn then
+        -- CAUGHT AND SAID. One error in the parties' turn used to skip the
+        -- secession clocks, the Crown's split and the save below for the
+        -- whole court (found 2026-09-25). The harness fails on any such line.
+        local ok, err = pcall(IC.party_turn, faction_key)
+        if not ok then
+            IC.warn("IRON COURT: the parties' turn failed in " .. faction_key
+                   .. ": " .. tostring(err))
+        end
+    end
     local warned = IC.tick_secession(faction_key)
     IC.splinter(faction_key)
     IC.save(faction_key)
@@ -3639,6 +4055,7 @@ function IC.roll_court(faction_key)
         IC.name_party(faction_key, slug)
         IC.roll_party_traits(faction_key, slug)
     end
+    IC.court(faction_key).rolled = true
     IC.save(faction_key)
     return true
 end
@@ -3928,17 +4345,188 @@ function IC.stamp_incoming(faction_key, slug, attempts, before)
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- MULTIPLAYER. A change to the campaign made on one machine and not the others
+-- is a desync, so nothing the panel does changes the model straight off a click.
+-- It goes through IC.mp_send, which in multiplayer broadcasts with
+-- CampaignUI.TriggerCampaignScriptEvent. CA delivers the UITrigger to every
+-- machine in one order, and IC.mp_receive runs the same op on all of them. The
+-- Great Guilds' transport, copied so this mod depends on no other.
+--
+-- SINGLE PLAYER RUNS THE SAME OPS, called at once instead of broadcast, so every
+-- op is exercised by ordinary play and only the round trip is not.
+--
+-- NO OP RELOADS THE COURT. The first tick loads every human court on every
+-- machine, and IC.load replaces the court from the save, which would drop
+-- anything this turn has not saved yet.
+--
+-- NOT YET TRIED IN A TWO-PLAYER CAMPAIGN.
+IC.MP_TAG = "ic1"
+-- The only committed ceiling on a trigger string: MCT's MultiplayerCommunicator.
+IC.MP_MAX = 100
+IC.MP_OPS = {}
+
+-- CQI -> HUMAN FACTION. Only a human can send one of these.
+function IC.faction_by_cqi(cqi)
+    if not cqi then return nil end
+    local found = nil
+    pcall(function()
+        local humans = cm:get_human_factions()
+        for i = 1, #humans do
+            local f = cm:get_faction(humans[i])
+            if f and not f:is_null_interface() and f:command_queue_index() == cqi then
+                found = humans[i]
+                return
+            end
+        end
+    end)
+    return found
+end
+
+-- True when the op ran (single player) or went out (multiplayer); false when
+-- it was refused, so the panel knows whether an answer is coming.
+function IC.mp_send(faction_key, op, arg)
+    if not faction_key or not IC.MP_OPS[op] then
+        IC.warn("IRON COURT: action " .. tostring(op) .. " for "
+                .. tostring(faction_key) .. " not sent")
+        return false
+    end
+    arg = tostring(arg or "")
+    if not IC.is_mp() then
+        IC.MP_OPS[op](faction_key, arg)
+        return true
+    end
+    local id = IC.MP_TAG .. "|" .. op .. "|" .. arg
+    -- REFUSE, NEVER FALL BACK. Applied here instead, the change would reach this
+    -- machine only - the fault this section exists to prevent.
+    if #id > IC.MP_MAX then
+        IC.warn("IRON COURT: " .. op .. " is " .. #id .. " characters, over "
+                .. IC.MP_MAX .. " - not sent")
+        return false
+    end
+    local cqi = nil
+    pcall(function()
+        local f = cm:get_faction(faction_key)
+        if f and not f:is_null_interface() then cqi = f:command_queue_index() end
+    end)
+    if not cqi then
+        IC.warn("IRON COURT: no command queue index for " .. tostring(faction_key)
+                .. " - " .. op .. " not sent")
+        return false
+    end
+    local ok, err = pcall(function() CampaignUI.TriggerCampaignScriptEvent(cqi, id) end)
+    if not ok then IC.warn("IRON COURT: " .. op .. " not sent: " .. tostring(err)) end
+    return ok
+end
+
+-- THE RECEIVING END. Returns the faction it acted for, and nil for anything not
+-- ours: every other mod's UITrigger comes through the same event, silently.
+function IC.mp_receive(id, cqi)
+    if type(id) ~= "string" then return nil end
+    local op, arg = string.match(id, "^" .. IC.MP_TAG .. "|([^|]*)|(.*)$")
+    if not op then return nil end
+    local fn = IC.MP_OPS[op]
+    if not fn then
+        IC.warn("IRON COURT: unknown action " .. op .. " received")
+        return nil
+    end
+    local faction_key = IC.faction_by_cqi(cqi)
+    if not faction_key then
+        IC.warn("IRON COURT: " .. op .. " from unknown faction cqi " .. tostring(cqi))
+        return nil
+    end
+    fn(faction_key, arg)
+    return faction_key
+end
+
+-- The argument's `|`-separated fields, an empty one kept as "".
+local function fields(arg)
+    local out = {}
+    for piece in string.gmatch((arg or "") .. "|", "([^|]*)|") do out[#out + 1] = piece end
+    return out
+end
+
+-- AND THE ANSWER, to whoever asked. The panel sets IC.after_op; the model never
+-- names the panel. Returns what the model said.
+local function answer(faction_key, op, arg, done, why, spare)
+    if IC.after_op then IC.after_op(faction_key, op, arg, done, why, spare) end
+    return done, why, spare
+end
+
+-- A number crosses the wire as its decimal string and comes back through
+-- tonumber. A plot's target stays the string the panel passes, and an empty
+-- one is nil, as the panel passes it when a plot has no target.
+IC.MP_OPS.appoint = function(fk, arg)          -- office|cqi
+    local f = fields(arg)
+    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], tonumber(f[2])))
+end
+IC.MP_OPS.dismiss = function(fk, arg)          -- office
+    return answer(fk, "dismiss", arg, IC.dismiss(fk, fields(arg)[1]))
+end
+IC.MP_OPS.gov = function(fk, arg)              -- province|cqi
+    local f = fields(arg)
+    return answer(fk, "gov", arg, IC.assign_governor(fk, f[1], tonumber(f[2])))
+end
+IC.MP_OPS.ungov = function(fk, arg)            -- province
+    return answer(fk, "ungov", arg, IC.release_governor(fk, fields(arg)[1]))
+end
+IC.MP_OPS.plot = function(fk, arg)             -- plot|actor cqi|target
+    local f = fields(arg)
+    local target = f[3]
+    if target == "" then target = nil end
+    return answer(fk, "plot", arg, IC.plot(fk, f[1], tonumber(f[2]), target))
+end
+IC.MP_OPS.favour = function(fk, arg)           -- favour|party
+    local f = fields(arg)
+    return answer(fk, "favour", arg, IC.favour(fk, f[1], f[2]))
+end
+IC.MP_OPS.hire = function(fk, arg)             -- office|index
+    local f = fields(arg)
+    return answer(fk, "hire", arg, IC.hire(fk, f[1], tonumber(f[2])))
+end
+IC.MP_OPS.grant = function(fk, arg)
+    return answer(fk, "grant", arg, IC.grant_demand(fk))
+end
+IC.MP_OPS.refuse = function(fk, arg)
+    return answer(fk, "refuse", arg, IC.refuse_demand(fk))
+end
+IC.MP_OPS.accept = function(fk, arg)           -- party
+    return answer(fk, "accept", arg, IC.accept_offer(fk, fields(arg)[1]))
+end
+IC.MP_OPS.decline = function(fk, arg)          -- party
+    return answer(fk, "decline", arg, IC.decline_offer(fk, fields(arg)[1]))
+end
+IC.MP_OPS.fill = function(fk, arg)             -- nothing: the plan is re-read here
+    local n = IC.fill_offices(fk)
+    return answer(fk, "fill", arg, n > 0, n > 0 and nil or "no fill", n)
+end
+
 function IC.register()
+    -- THE MULTIPLAYER TRANSPORT'S RECEIVING END - see IC.mp_send. Registered and
+    -- silent in single player, where nothing is ever broadcast.
+    core:add_listener("ic_mp", "UITrigger", true, function(context)
+        local ok, err = pcall(function()
+            IC.mp_receive(context:trigger(), context:faction_cqi())
+        end)
+        if not ok then IC.warn("IRON COURT: UITrigger failed: " .. tostring(err)) end
+    end, true)
+
+    -- THE PLAYER PRESSED Finalize IN MCT: the live switches follow it now.
+    core:add_listener("ic_live_tune", "MctFinalized", true, function()
+        local ok, err = pcall(IC.refresh_live_tune)
+        if not ok then IC.warn("IRON COURT: live settings failed: " .. tostring(err)) end
+    end, true)
+
     core:add_listener("ic_turn", "FactionTurnStart", true, function(context)
         local faction = context:faction()
-        if not IC.is_chd(faction) then return end
+        if not IC.runs_court(faction) then return end
         IC.turn(faction:name())
     end, true)
 
     core:add_listener("ic_confed", "FactionJoinsConfederation", true, function(context)
         local host = context:confederation()
         local joined = context:faction()
-        if not IC.is_chd(host) then return end
+        if not IC.runs_court(host) then return end
         local slug = IC.origin_for_faction(joined:name())
         if not slug then return end
         local host_key = host:name()
@@ -3973,7 +4561,7 @@ function IC.register()
         if not character:won_battle() then return end
         local faction = character:faction()
         if not faction or faction:is_null_interface() then return end
-        if not IC.is_chd(faction) then return end
+        if not IC.runs_court(faction) then return end
         local battle = context:pending_battle()
         if not battle or battle:is_null_interface() then return end
         local result = battle:attacker_battle_result()
@@ -3994,7 +4582,7 @@ function IC.register()
         if not character or character:is_null_interface() then return end
         local faction = character:faction()
         if not faction or faction:is_null_interface() then return end
-        if not IC.is_chd(faction) then return end
+        if not IC.runs_court(faction) then return end
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)
     end, true)
@@ -4004,7 +4592,7 @@ function IC.register()
         if not character or character:is_null_interface() then return end
         local faction = character:faction()
         if not faction or faction:is_null_interface() then return end
-        if not IC.is_chd(faction) then return end
+        if not IC.runs_court(faction) then return end
         local gained = context:ranks_gained() or 1
         IC.add_standing(faction:name(), character:command_queue_index(),
                         gained * IC.TUNE.rank_influence)
@@ -4015,7 +4603,7 @@ function IC.register()
         if not character or character:is_null_interface() then return end
         if character:is_alive() ~= false then return end
         local faction = character:faction()
-        if not IC.is_chd(faction) then return end
+        if not IC.runs_court(faction) then return end
         local faction_key = faction:name()
         local cqi = character:command_queue_index()
         local court = IC.court(faction_key)
@@ -4023,9 +4611,13 @@ function IC.register()
             if holder == cqi then
                 local slug = IC.house_of_character(character, faction_key)
                 court.offices[office_slug] = nil
+                -- AND ITS TERM: expire_terms walks held offices only, so a
+                -- dead man's term was never cleared out of the save.
+                court.terms[office_slug] = nil
                 if slug and court.houses[slug] then
                     court.houses[slug].weight = math.max(1,
-                        court.houses[slug].weight - IC.TUNE.weight_per_office)
+                        court.houses[slug].weight
+                        - IC.office_weight(office_slug, slug))
                 end
             end
         end
@@ -4046,7 +4638,11 @@ function IC.register()
     end, true)
 end
 
-cm:add_first_tick_callback(function()
+-- THE MODEL'S FIRST TICK, named so the harness can drive it: the harness's cm
+-- keeps only the last first-tick callback added, which is the panel's.
+function IC.first_tick()
+    -- FIRST: a new campaign rolls the player's court below, on these numbers.
+    IC.freeze_tune()
     IC.register()
     IC.rebel_rename_all()
     local human = cm:get_human_factions()
@@ -4066,4 +4662,6 @@ cm:add_first_tick_callback(function()
             IC.ensure_leaders(human[i])
         end
     end
-end)
+end
+
+cm:add_first_tick_callback(function() IC.first_tick() end)
