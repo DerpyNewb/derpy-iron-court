@@ -5,6 +5,46 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-27 - build 5B0F8999
+
+Deployed 2026-09-27. MD5 `5B0F8999BEEB2FEF03DA6087FA8C41D5`, 9,195,929 bytes. It gathers the
+builds in `data/` since D4CC1CE1 (86E7E611, 77344618, 9C190A43, 81506DDF, 1260D08A,
+E9D6E2F0, 6B33E464, 50342536); the detail is in
+`docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md` sections 14-19, and the living
+courts design and plan are in `docs/design/` and `docs/plans/`.
+
+- **The AI's courts act.** Their rival parties scheme, feud and make demands too, three AI
+  courts a round in a fixed rotation so both machines of a multiplayer game agree. An AI
+  ruler answers a demand at once and sends a gift to a party counting down, if the treasury
+  allows. Offers and overseers' wages stay the player's.
+- **News from other courts.** The Record tab lists what happens in the courts of Chaos Dwarf
+  factions you have met, and a card with a camera button shows where one has split.
+- **Sabotage and withholding.** A feuding party can switch off an office its enemy holds for
+  three turns; an angry party can stop its men's offices working until it calms down or you
+  Secure its loyalty. The office card says so in red and names who did it.
+- **Settle a feud** on the Petitions tab: Back Them or Make Peace.
+- **An overseer's bonus grows with his rank:** +1 public order per five ranks, +1% income
+  per two, in his province. The bonus now also comes off a province when he leaves it; it
+  used to stay.
+- **A confederated court brings its loyalty,** weighted by its parties' weight and held to
+  25-75.
+- **Rebel armies are Chaos Dwarf armies.** A party that leaves with no lord of its own no
+  longer rises as a copy of the ruler's stack. The host is rolled role by role - line,
+  missile troops, hobgoblin screen, cavalry, beasts, war machines - with the units and
+  weights of CA's Will of Hashut crisis, no more than two of one unit. A lord who leaves
+  brings his own army, filled out the same way. Every other Chaos Dwarf faction now thinks
+  less of the rebels too.
+- **Parties are dealt evenly,** and a party of yours with no leader gets a lord on the map
+  once.
+- **A refused party waits five turns** before it demands again.
+- **The panel wears the Hell-Forge's art,** with the Hell-Forge's title bar on each section
+  and embers on every held office.
+- **Send a Gift once per party per turn.** The victim list names why a man cannot be chosen
+  in plain words, with the full reason in its tooltip, instead of reading Yours for all.
+- Fixed: a province taken by a seceding party kept its old governor until the next turn.
+- Built and then cut the same day: Chaos Dwarf vassals as a party of their own. The game has
+  a vassal tab; a save that has one loses it on its next turn.
+
 ## 2026-09-25 - build D4CC1CE1
 
 Deployed 2026-09-25, the last of several builds that day after 272C876B. MD5

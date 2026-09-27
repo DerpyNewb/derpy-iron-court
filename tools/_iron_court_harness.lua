@@ -16,6 +16,10 @@ local saved = {}
 local province_edicts = {}
 local applied = {}          -- bundle key -> count of live applications
 local province_applied = {}
+-- Every custom bundle applied to a province: base key -> {effects, region, duration}.
+local custom_applied = {}
+-- Every province bundle removed, as "bundle@region".
+local province_removed = {}
 local traits_added = {}
 -- Every cm:show_message_event the model raised, in order.
 local shown = {}
@@ -185,6 +189,10 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
             return c._subtype or "wh3_dlc23_chd_overseer"
         end,
         won_battle = function() return c._won == true end,
+        -- A LORD RECRUIT RANK SOURCE: Astragoth's Infernal Lord is a skill,
+        -- and it reaches every lord his faction recruits.
+        has_skill = function(_, key) return c._skills[key] == true end,
+        _skills = {},
         _rank = rank,
         _traits = {},
         _dead = false,
@@ -241,6 +249,16 @@ local function make_faction(name, subculture, characters, provinces)
                 num_items = function() return #characters end,
                 item_at = function(_, i) return characters[i + 1] end,
             }
+        end,
+        -- THE FACTIONS IT HAS MET: f._met, a list of keys the check sets.
+        factions_met = function()
+            local out = {}
+            for _, key in ipairs(f._met or {}) do
+                out[#out + 1] = {is_null_interface = function() return false end,
+                                 name = function() return key end}
+            end
+            return {num_items = function() return #out end,
+                    item_at = function(_, i) return out[i + 1] end}
         end,
         -- EVERY ARMY, AND THE GARRISONS TOO. CA documents this as "all military
         -- forces in this faction" and it means it: a faction reading 15 forces
@@ -306,6 +324,29 @@ local function make_faction(name, subculture, characters, provinces)
                         -- not tell them apart would hide a mix-up between them.
                         name = function() return "region_" .. key end,
                         get_active_edict_key = function() return province_edicts[key] or "" end,
+                        -- WHAT STANDS IN IT, off f._built[province]: a list of
+                        -- building LEVEL keys, which is what building():name()
+                        -- answers. An empty slot is in the list too.
+                        slot_list = function()
+                            local slots = {}
+                            for _, b in ipairs((f._built or {})[key] or {}) do
+                                slots[#slots + 1] = {
+                                    has_building = function() return b ~= "" end,
+                                    building = function()
+                                        return {name = function() return b end}
+                                    end,
+                                }
+                            end
+                            slots[#slots + 1] = {has_building = function() return false end}
+                            return {
+                                num_items = function() return #slots end,
+                                item_at = function(_, i) return slots[i + 1] end,
+                            }
+                        end,
+                        -- A BUNDLE HELD BY THE REGION, off f._region_bundles[province].
+                        has_effect_bundle = function(_, b)
+                            return ((f._region_bundles or {})[key] or {})[b] == true
+                        end,
                         province = function()
                             return {
                                 is_null_interface = function() return false end,
@@ -350,6 +391,12 @@ local function make_faction(name, subculture, characters, provinces)
         faction_leader = function()
             return f._leader or {is_null_interface = function() return true end}
         end,
+        -- TWO MORE LORD RECRUIT RANK SOURCES, both documented on the faction.
+        has_technology = function(_, key) return f._techs[key] == true end,
+        has_effect_bundle = function(_, key) return f._bundles[key] == true end,
+        is_dead = function() return f._dead == true end,
+        _techs = {},
+        _bundles = {},
         _characters = characters,
         _provinces = provinces,
         _gold = 0,
@@ -424,6 +471,11 @@ rebellions = {}
 forces = {}
 -- Every time something asked CA's WRAPPER for an army instead of the engine.
 wrapper_refusals = {}
+-- Every party leader the wrapper put on the map, the event feed switched off
+-- and on around it, and every such army still waiting to land.
+fielded = {}
+feed_log = {}
+pending_forces = {}
 -- Which dormant factions an army has woken, and every war forced.
 rebel_alive = {}
 wars = {}
@@ -565,10 +617,47 @@ cm = {
     -- never passes - script_log_170926_1819 at 197.4s. The shipped code goes
     -- round it through cm.game_interface, and this stub is here so that a build
     -- which goes back to the wrapper is a build that raises no army at all.
-    create_force_with_general = function(_self, faction_key, ...)
-        wrapper_refusals[#wrapper_refusals + 1] = tostring(faction_key)
-        error("create_force_with_general() called but supplied faction ["
-              .. tostring(faction_key) .. "] could not be found", 0)
+    --
+    -- A FACTION ON THE MAP IS FOUND, which is how a party leader is put in the
+    -- field: the wrapper makes the general, CharacterCreated fires for him
+    -- (ic_born, which deals him a background of its own), and only then does
+    -- ScriptedForceCreated hand his cqi to the callback. That order is the
+    -- worst case for the caller, so the stub keeps it. cm._force_async holds
+    -- the callback back, as a spawn that has not landed yet.
+    create_force_with_general = function(_self, faction_key, units, region_key,
+                                         x, y, ctype, subtype, _fore, _clan,
+                                         _fam, _other, leader, callback)
+        local f = factions[faction_key]
+        if not f then
+            wrapper_refusals[#wrapper_refusals + 1] = tostring(faction_key)
+            error("create_force_with_general() called but supplied faction ["
+                  .. tostring(faction_key) .. "] could not be found", 0)
+        end
+        feed_log[#feed_log + 1] = "spawn"
+        fielded[#fielded + 1] = {faction = faction_key, units = units,
+                                 region = region_key, x = x, y = y,
+                                 ctype = ctype, subtype = subtype, leader = leader}
+        -- BOTH EVENTS ARRIVE AFTER THIS CALL RETURNS in the game, so a spawn
+        -- held back holds back the man as well as the callback.
+        local land = function()
+            local born = cm._spawn_into(f)
+            born._force, born._subtype = true, subtype
+            local fire = core.listeners["ic_born"]
+            if fire then fire({character = function() return born end}) end
+            if callback then callback(born:command_queue_index()) end
+        end
+        if cm._force_async then pending_forces[#pending_forces + 1] = land else land() end
+    end,
+    -- -1, -1 WHEN THERE IS NOWHERE, which is what CA documents.
+    find_valid_spawn_location_for_character_from_settlement = function(_self, fk, rk,
+                                                                        sea, same, dist)
+        if cm._no_spawn_point then return -1, -1 end
+        return 10, 20
+    end,
+    -- IN ORDER WITH THE SPAWN, so a check can see the feed shut before it and
+    -- opened after it.
+    disable_event_feed_events = function(_self, off, category, sub, event)
+        feed_log[#feed_log + 1] = (off and "off:" or "on:") .. tostring(category)
     end,
     -- KILLS LIKE THE GAME DOES, not just by recording the call: he leaves the
     -- faction's character list and CharacterConvalescedOrKilled fires, which is
@@ -715,6 +804,13 @@ cm = {
                              primary = primary, secondary = secondary,
                              persistent = persistent, index = index}
     end,
+    show_message_event_located = function(_, faction, title, primary, secondary,
+                                          x, y, persistent, index)
+        assert(type(x) == "number" and type(y) == "number", "located takes x, y")
+        shown[#shown + 1] = {faction = faction, title = title, primary = primary,
+                             secondary = secondary, x = x, y = y,
+                             persistent = persistent, index = index}
+    end,
     add_first_tick_callback = function(_, fn) cm._first_tick = fn end,
     char_lookup_str = function(_, c) return "cqi:" .. c:command_queue_index() end,
     force_add_trait = function(_, lookup, trait)
@@ -741,9 +837,43 @@ cm = {
         applied[bundle] = (applied[bundle] or 0) + 1
     end,
     remove_effect_bundle = function(_, bundle) applied[bundle] = nil end,
+    -- A PROVINCE BUNDLE COMES OFF A PROVINCE, by region; recorded as
+    -- "bundle@region key".
+    remove_effect_bundle_from_faction_province = function(_, bundle, region)
+        assert(type(bundle) == "string", "a bundle key")
+        assert(type(region) == "table" and region.name, "a region interface")
+        province_removed[#province_removed + 1] = bundle .. "@" .. region:name()
+    end,
     apply_effect_bundle_to_faction_province = function(_, bundle, _region, turns)
         assert(turns == -1, "indefinite must be -1")
         province_applied[bundle] = (province_applied[bundle] or 0) + 1
+    end,
+    -- CA's own note (corruption_swing.lua) says is_null_interface is broken on a
+    -- custom bundle, so the stub has none: calling it is a failure here too.
+    create_new_custom_effect_bundle = function(_, base)
+        local b = {key = base, effects = {}}
+        b.scopes = {}
+        b.add_effect = function(self, key, scope, value)
+            assert(type(scope) == "string", "add_effect takes a scope")
+            self.scopes[key] = scope
+            self.effects[key] = (self.effects[key] or 0) + value
+            return true
+        end
+        b.set_effect_value_by_key = function(self, key, value)
+            self.effects[key] = value
+            return true
+        end
+        b.set_duration = function(self, n) self.duration = n end
+        return b
+    end,
+    -- ALSO COUNTED IN province_applied, so every check that counts the base
+    -- governor bundle still counts it now that it is built at runtime.
+    apply_custom_effect_bundle_to_faction_province = function(_, bundle, region)
+        assert(type(bundle) == "table" and bundle.effects, "a custom bundle")
+        custom_applied[bundle.key] = {effects = bundle.effects, region = region,
+                                      duration = bundle.duration,
+                                      scopes = bundle.scopes}
+        province_applied[bundle.key] = (province_applied[bundle.key] or 0) + 1
     end,
     callback = function(_, fn, delay)
         deferred[#deferred + 1] = delay or 0
@@ -5827,6 +5957,72 @@ check("the action bar sits centred under the grid, and steps aside for the pager
     ICUI.scroll.court = 0
 end)
 
+check("a title plate hugs its words, centred in its cell; the banner keeps its corner", function()
+    -- (author, 2026-09-26: "why is it all stretched to the corners? the title is
+    -- even not fitted properly"). The plate was the cell: 926px of bar with the
+    -- arrows at the far corners and the words lost in the middle.
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.sel, ICUI.pick = nil, nil
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local px = panel.x + ICUI.OX
+        for _, key in ipairs({"ic_col_left", "ic_col_right", "ic_title"}) do
+            local c = panel.children[key]
+            local cell = ICUI.PANEL_XY[key]
+            local cap = key == "ic_title" and ICUI.TITLE_CAP or ICUI.HEADING_CAP
+            local words = c:TextDimensionsForText(c.text)
+            assert(c.w < cell[3], key .. " still fills its " .. cell[3] .. "px cell")
+            assert(c.w >= words + 2 * cap, key .. " is " .. c.w
+                .. "px, too narrow for its words between two caps")
+            local left, right = c.x - (px + cell[1]), (px + cell[1] + cell[3]) - (c.x + c.w)
+            if key == "ic_title" then
+                assert(left == 0, "the banner left the panel's corner by " .. left)
+            else
+                assert(math.abs(left - right) <= 1, key .. " sits " .. left .. "px from its"
+                    .. " cell's left and " .. right .. "px from its right")
+            end
+        end
+    end)
+end)
+
+check("a held seat carries embers on its own card, and an empty one none", function()
+    -- (author, 2026-09-26: "active seats should also have the background have
+    -- effects, similar to the commission mod"). The stub makes an EMPTY child, so
+    -- this reaches the fire's root and not the emitter inside it; the particles
+    -- themselves are the game's to show.
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.sel, ICUI.pick = nil, nil
+    local seat = IC.OFFICES[1].slug
+    IC.court(F).offices[seat] = 1
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local held = panel.children[ICUI.CARD .. "_1"]
+        local empty = panel.children[ICUI.CARD .. "_2"]
+        local fire = held.children[ICUI.FIRE]
+        assert(fire and fire.visible ~= false, "the held seat has no embers")
+        assert(fire.x == held.x and fire.y == held.y,
+            "the embers sit at " .. tostring(fire.x) .. "," .. tostring(fire.y)
+            .. ", not on their card at " .. tostring(held.x) .. "," .. tostring(held.y))
+        assert(not empty.children[ICUI.FIRE], "an empty seat was given embers")
+        -- CARDS ARE RECYCLED: the seat empties and the same card draws it.
+        IC.court(F).offices[seat] = nil
+        ICUI.refresh()
+        assert(fire.visible == false, "the embers stayed on a seat nobody holds")
+    end)
+end)
+
 check("the action bar acts on the chosen rival, and on nothing else", function()
     -- PROVOKE, SECURE LOYALTY AND PURGE under the cards (author, 2026-09-24).
     -- A bar drawn for no choice or for your own house would offer three buttons
@@ -5966,6 +6162,43 @@ check("Send a Gift buys the chosen party loyalty, and is refused when it is full
     end)
     ICUI.sel = nil
     ICUI.notice = nil
+end)
+
+check("one gift per party per turn, and the save remembers it", function()
+    -- ONCE A TURN, PER PARTY (author, 2026-09-27: "send a gift should only be
+    -- once per turn, per party"). Without it a full treasury buys a party from
+    -- 55 to 100 in one sitting, which makes loyalty a price and not a relation.
+    IC.state = {}
+    turn = 3
+    local faction = make_faction(F, IC.CHD_SUBCULTURE,
+                                 {make_character(1, ANY_SEAT, "forge")}, {})
+    faction._gold = 100000
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    IC.court(F).houses.forge.loyalty = 50
+    IC.court(F).houses.chain.loyalty = 50
+    assert(IC.favour(F, "gift", "forge"), "the first gift was refused")
+    treasury_calls = {}
+    local ok, why = IC.favour(F, "gift", "forge")
+    assert(not ok and why == "given",
+        "a second gift this turn was " .. (ok and "accepted" or tostring(why)))
+    assert(#treasury_calls == 0, "a refused second gift was paid for")
+    assert(IC.court(F).houses.forge.loyalty == 50 + IC.TUNE.favour_gift_loyalty,
+        "the second gift moved loyalty to " .. IC.court(F).houses.forge.loyalty)
+    assert(IC.favour(F, "gift", "chain"), "a gift to ANOTHER party was refused")
+    assert(IC.can_favour(F, "secure", "forge"), "the gift also barred the oath")
+    -- A RELOAD MID-TURN does not hand the gift back.
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    ok, why = IC.can_favour(F, "gift", "forge")
+    assert(not ok and why == "given", "after a reload the gift reads "
+        .. (ok and "open" or tostring(why)))
+    turn = 4
+    assert(IC.can_favour(F, "gift", "forge"), "next turn the gift is still barred")
+    assert(ICUI.reason_text("given") ~= ICUI.reason_text("no such code"),
+        "the refusal has no sentence of its own")
 end)
 
 check("Secure Loyalty the court cannot pay for is drawn red, and says why", function()
@@ -10325,6 +10558,297 @@ check("a party with no leader takes an idle Crown lord before one is made", func
     cm.force_add_trait_to_character_details = nil
 end)
 
+-- THE DEAL (author, 2026-09-25): "how did one party get 7 members while the
+-- other party gets none?" Every man who was not a lord was an independent roll
+-- among the seated parties, and a Conclave start rolled the Chain six times in
+-- six. The default roll here is the lowest answer, which is that start exactly:
+-- every man to the first party on the list.
+local function members_by_party(men)
+    local count = {}
+    for _, m in ipairs(men) do
+        local slug = IC.house_of_character(m, F)
+        if slug then count[slug] = (count[slug] or 0) + 1 end
+    end
+    return count
+end
+
+check("a new court deals its men evenly, the Crown included", function()
+    IC.state = {}
+    factions = {}
+    rng(nil)
+    -- A LEGEND, the Crown's by right, then one lord, three garrison commanders
+    -- and three heroes: the Conclave's first turn in miniature.
+    local men = {make_character(300, ANY_SEAT, IC.CROWN, nil, true)}
+    for i = 1, 7 do
+        local m = make_character(300 + i, ANY_SEAT, nil)
+        if i > 1 then m._agent = (i <= 4) and "colonel" or "champion" end
+        men[#men + 1] = m
+    end
+    make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    local seated = {IC.CROWN, "forge", "chain", "ledger"}
+    for _, slug in ipairs(seated) do IC.add_house(F, slug) end
+    IC.stamp_court(F)
+    local count = members_by_party(men)
+    for _, slug in ipairs(seated) do
+        assert(count[slug] == 2, slug .. " was dealt " .. tostring(count[slug])
+            .. " of 8 men, not 2")
+        assert(slug == IC.CROWN or IC.party_leader(F, slug),
+            slug .. " was left with nobody to speak for it")
+    end
+end)
+
+check("a lord, then a garrison commander, leads a party with nobody to speak for it",
+function()
+    -- LISTED OUT OF ORDER, the way character_list hands them over: whoever the
+    -- deal meets first must not take the one empty lead from the lord behind him.
+    IC.state = {}
+    factions = {}
+    rng(nil)
+    local hero = make_character(320, ANY_SEAT, nil)
+    hero._agent = "champion"
+    local colonel = make_character(321, ANY_SEAT, nil)
+    colonel._agent = "colonel"
+    local lord = make_character(322, ANY_SEAT, nil)
+    make_faction(F, IC.CHD_SUBCULTURE, {hero, colonel, lord}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.stamp_court(F)
+    assert(IC.house_of_character(lord, F) == "forge",
+        "the lord went to " .. tostring(IC.house_of_character(lord, F))
+        .. ", and the only party with nobody to lead it went to someone else")
+    -- AND A GARRISON COMMANDER LEADS WHAT NO LORD CAN, so a second empty party
+    -- has a voice from the first turn instead of waiting on a lord.
+    IC.state = {}
+    factions = {}
+    hero._traits, colonel._traits, lord._traits = {}, {}, {}
+    make_faction(F, IC.CHD_SUBCULTURE, {hero, colonel, lord}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    IC.stamp_court(F)
+    assert(IC.party_leader(F, "forge") and IC.party_leader(F, "chain"),
+        "two empty parties, a lord and a garrison commander, and still one "
+        .. "party has nobody to speak for it")
+    -- AND ONCE EVERY LEAD IS FILLED, a lord goes by numbers like anyone else:
+    -- the third of three goes to the empty Crown, not back to a led party.
+    IC.state = {}
+    factions = {}
+    local lords = {make_character(323, ANY_SEAT, nil), make_character(324, ANY_SEAT, nil),
+                   make_character(325, ANY_SEAT, nil)}
+    make_faction(F, IC.CHD_SUBCULTURE, lords, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    IC.stamp_court(F)
+    local count = members_by_party(lords)
+    assert(count[IC.CROWN] == 1 and count.forge == 1 and count.chain == 1,
+        "three lords were dealt crown " .. tostring(count[IC.CROWN]) .. ", forge "
+        .. tostring(count.forge) .. ", chain " .. tostring(count.chain))
+end)
+
+check("a man who joins mid-campaign goes to the party with the fewest members",
+function()
+    IC.state = {}
+    factions = {}
+    rng(nil)
+    local men = {make_character(330, ANY_SEAT, IC.CROWN), make_character(331, ANY_SEAT, IC.CROWN),
+                 make_character(332, ANY_SEAT, "forge"), make_character(333, ANY_SEAT, "forge"),
+                 make_character(334, ANY_SEAT, "chain")}
+    local new = make_character(335, ANY_SEAT, nil)
+    new._agent = "champion"
+    men[#men + 1] = new
+    make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    IC.stamp_bg(new, IC.background_for(new, F))
+    assert(IC.house_of_character(new, F) == "chain",
+        "the newcomer went to " .. tostring(IC.house_of_character(new, F))
+        .. " with 2, 2 and 1 members to choose from")
+end)
+
+-- A PARTY LEADER ON THE MAP (author, 2026-09-25): "spawn him on the map but
+-- without all the event logs that will show, the lord should also have the
+-- recruitement effects just like recruiting one newly". The pool lord was
+-- invisible until hired, so the party stayed leaderless on its card.
+check("a lord put in the field is given the recruit rank the engine would give him",
+function()
+    -- MEASURED 2026-09-25: a lord made by create_force_with_general arrives at
+    -- rank 1 whatever the faction's lord recruit rank, even under a +10 bundle.
+    IC.state = {}
+    factions = {}
+    local astragoth = make_character(360, ANY_SEAT, IC.CROWN, nil, true)
+    astragoth._skills["wh3_dlc23_skill_chd_astragoth_infernal_lord"] = true
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {astragoth}, {"p_home", "p_far"})
+    f._built = {
+        -- +2 in its own province only, and +2 everywhere.
+        p_home = {"wh3_dlc23_chd_tower_living_quaters_2", "wh3_dlc23_chd_resource_gold_3", ""},
+        -- +1 in its own province only, and +1 everywhere.
+        p_far = {"wh3_dlc23_chd_tower_living_quaters_1", "wh3_dlc23_chd_resource_gold_1"},
+    }
+    f._techs["wh3_dlc23_tech_chd_sorcery_5"] = true                         -- +2
+    f._bundles["wh3_dlc23_chd_ancestor_relic_of_grimnir_reward_a"] = true   -- +5
+    -- 2 + 2 + 1 + 2 + 5 + 3 (the skill) at home; the far quarters do not reach it.
+    local home = IC.recruit_rank(F, "region_p_home")
+    assert(home == 15, "a lord raised at home gets +" .. tostring(home) .. ", not +15")
+    local far = IC.recruit_rank(F, "region_p_far")
+    assert(far == 14, "a lord raised in the far province gets +" .. tostring(far)
+        .. ", not +14")
+    -- A BUNDLE A REGION HOLDS reaches every province all the same.
+    f._region_bundles = {p_far = {["wh3_main_minor_cult_myrmidia"] = true}}
+    assert(IC.recruit_rank(F, "region_p_home") == 18,
+        "a region's bundle did not reach the capital")
+    f._built, f._techs, f._bundles, f._region_bundles, astragoth._skills = {}, {}, {}, {}, {}
+    assert(IC.recruit_rank(F, "region_p_home") == 0, "nothing gives a rank of nothing")
+end)
+
+-- EVERY STUB A FIELD SPAWN TOUCHES, PUT BACK EVEN WHEN THE CHECK FAILS: the
+-- first run of these left cm.callback holding its callbacks, and twenty-nine
+-- secession checks further down failed with it.
+local function fielding(human, fn)
+    local pool = {n = 0}
+    local callback = cm.callback
+    cm.spawn_character_to_pool = function() pool.n = pool.n + 1; return {} end
+    cm.force_add_trait_to_character_details = function() end
+    cm.get_human_factions = function() return human and {F} or {} end
+    IC.state = {}
+    factions = {}
+    rng(nil)
+    fielded, feed_log, pending_forces, lord_levels = {}, {}, {}, {}
+    IC.register()
+    local ok, err = pcall(fn, pool)
+    cm.callback = callback
+    cm.get_human_factions = function() return {} end
+    cm.spawn_character_to_pool = nil
+    cm.force_add_trait_to_character_details = nil
+    cm._force_async, cm._no_spawn_point = nil, nil
+    turn = 1
+    if not ok then error(err, 0) end
+end
+
+check("a human party with no leader gets a lord on the map, quietly, at his recruit rank",
+function()
+    fielding(true, function(pool)
+        -- THE FEED HAS TO STILL BE SHUT WHEN THE SPAWN'S EVENTS ARRIVE, which is
+        -- after this frame: held here, a re-open done without a callback shows.
+        local later = {}
+        cm.callback = function(_self, fn, delay)
+            assert(type(delay) == "number" and delay > 0, "a re-open with no delay")
+            later[#later + 1] = fn
+        end
+        turn = 5
+        local crowned = make_character(370, ANY_SEAT, IC.CROWN, nil, true)
+        local f = make_faction(F, IC.CHD_SUBCULTURE, {crowned}, {"p_home"})
+        f._techs["wh3_dlc23_tech_chd_sorcery_5"] = true
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.add_house(F, "chain")
+        -- THE FORGE HAD ITS ONE ALREADY and lost him, so it waits in the pool -
+        -- and it comes first on the list, so the new man's own CharacterCreated
+        -- deals him to the Forge, and only the callback can put him back.
+        IC.court(F).houses.forge.fielded = 2
+        IC.ensure_leaders(F)
+
+        assert(#fielded == 1, #fielded .. " lords were put in the field, not 1")
+        local army = fielded[1]
+        assert(army.faction == F and army.units == "" and army.ctype == "general"
+            and army.region == "region_p_home" and army.leader == false,
+            "the army was not a lord alone at the capital")
+        local store = false
+        for _, k in ipairs(IC.STORE_LORDS) do store = store or k == army.subtype end
+        assert(store, tostring(army.subtype) .. " is not a lord a party may be given")
+        local man = f._characters[#f._characters]
+        assert(IC.house_of_character(man, F) == "chain",
+            "the lord in the field serves " .. tostring(IC.house_of_character(man, F)))
+        assert(IC.party_leader(F, "chain") == man:command_queue_index(),
+            "the Chain is still led by nobody")
+        assert(pool.n == 1, pool.n .. " lords went to the pool, not 1 for the Forge")
+        -- RECRUIT RANK: Sorcery 5 is +2, and the wrapper raises BY the level.
+        assert(#lord_levels == 1 and lord_levels[1].level == 2
+            and lord_levels[1].by_level == true
+            and lord_levels[1].lookup == "cqi:" .. man:command_queue_index(),
+            "the lord in the field was not raised two ranks")
+        -- QUIET: all three categories shut before the spawn and still shut after.
+        local off = {}
+        for _, e in ipairs(feed_log) do
+            local key = string.match(e, "^off:(.*)$")
+            if key then off[key] = true end
+            if e == "spawn" then break end
+        end
+        for _, key in ipairs({"wh_event_category_character", "wh_event_category_agent",
+                              "wh_event_category_traits_ancillaries"}) do
+            assert(off[key], key .. " was not shut before the lord was made")
+        end
+        assert(not string.find(feed_log[#feed_log], "^on:"),
+            "the feed was opened again in the same frame as the spawn")
+        for _, fn in ipairs(later) do fn() end
+        local open = {}
+        for _, e in ipairs(feed_log) do
+            local state, key = string.match(e, "^(o[nf]f?):(.*)$")
+            if key then open[key] = state == "on" end
+        end
+        for key, is_open in pairs(open) do assert(is_open, key .. " was left shut") end
+
+        -- ONCE PER PARTY: led now, and a second pass this turn makes nobody.
+        IC.ensure_leaders(F)
+        assert(#fielded == 1 and pool.n == 1, "a led party was given another lord")
+        -- AND IT SURVIVES A RELOAD.
+        IC.save(F)
+        IC.state = {}
+        IC.load(F)
+        assert(IC.court(F).houses.chain.fielded == 5, "the save forgot the Chain's lord")
+        -- HIS DEATH SENDS THE NEXT ONE TO THE POOL, not the field.
+        table.remove(f._characters)
+        turn = 6
+        IC.ensure_leaders(F)
+        assert(#fielded == 1, "a party that lost its lord was given a second army")
+        assert(pool.n == 2, "the Chain's second lord did not go to the pool")
+    end)
+end)
+
+check("an army still on its way is not sent twice, and nobody waits in the pool for it",
+function()
+    fielding(true, function(pool)
+        turn = 3
+        cm._force_async = true
+        make_faction(F, IC.CHD_SUBCULTURE,
+                     {make_character(380, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.ensure_leaders(F)
+        IC.ensure_leaders(F)
+        assert(#fielded == 1, #fielded .. " armies sent for one party in one turn")
+        assert(pool.n == 0, "a lord went to the pool while the army was on its way")
+        for _, land in ipairs(pending_forces) do land() end
+        assert(IC.party_leader(F, "forge"),
+            "the army landed and the Forge is still leaderless")
+    end)
+    -- NOWHERE TO STAND is the pool's, the same turn.
+    fielding(true, function(pool)
+        cm._no_spawn_point = true
+        make_faction(F, IC.CHD_SUBCULTURE,
+                     {make_character(381, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.ensure_leaders(F)
+        assert(#fielded == 0 and pool.n == 1,
+            "a party with nowhere to stand got no lord at all")
+    end)
+end)
+
+check("an AI party with no leader keeps the pool", function()
+    -- THE AI RECRUITS FROM THE POOL ITSELF, and a free army every time one of
+    -- its parties lost a leader would make it stronger for nothing.
+    fielding(false, function(pool)
+        make_faction(F, IC.CHD_SUBCULTURE,
+                     {make_character(390, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.ensure_leaders(F)
+        assert(#fielded == 0 and pool.n == 1, "an AI party was given an army")
+    end)
+end)
+
 check("the AI hands out its provinces, and spreads them", function()
     -- A PROVINCE SNUBS NOBODY and pays what a seat pays, so it is the one post
     -- the AI can hand a party at no political cost. Two provinces and two
@@ -12180,10 +12704,10 @@ function()
         -- to the move. HIMSELF and HIS KIN are still what the MODEL answers, and
         -- still what an AI court would be told; they are no longer reachable on
         -- this picker, which only ever draws for the human.
-        assert(drawn[2] == "Rival",
+        assert(drawn[2] == "Other Party",
             "the victim reads " .. tostring(drawn[2])
             .. " on the list of men who could do it to him")
-        assert(drawn[3] == "Rival",
+        assert(drawn[3] == "Other Party",
             "the victim's own kinsman reads " .. tostring(drawn[3]))
         assert(is_red(raw[2]) and is_red(raw[3]),
             "a man the click would refuse is drawn in ordinary ink")
@@ -12191,6 +12715,64 @@ function()
             assert(cqi ~= 481, "the victim is wired to carry it out on himself")
             assert(cqi ~= 482, "his kinsman is wired to carry it out")
         end
+    end)
+    cm.get_human_factions = saved
+    ICUI.pick = nil
+end)
+
+check("the victim list names the refusal it was given, not always Yours",
+function()
+    -- EVERY ROW READ YOURS (author, 2026-09-27, the Blood-Oath's list): each
+    -- refusal but "unique" was drawn as YOURS, and every party starts below the
+    -- oath's loyalty bar, so a list of rivals all said they were the player's.
+    -- PLAIN WORDS (author, same day: "what the fuck does cold mean, use easily
+    -- understandable terms"), and the whole reason on the button's tooltip.
+    IC.state = {}
+    local own = make_character(495, ANY_SEAT, "crown")
+    local rival = make_character(496, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {own, rival}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "legion")
+    IC.court(F).houses.legion.loyalty = IC.TUNE.plot_oath_min_loyalty - 1
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    -- BY PARTY: both fixture men are "Unnamed", so the name cannot tell them apart.
+    local mine_p = plain(ICUI.house_name("crown", F))
+    local theirs_p = plain(ICUI.house_name("legion", F))
+    ICUI.pick = {kind = "plot_target", plot = "oath"}
+    ICUI.scroll.pick = 0
+    -- ONE PANEL FOR ALL THREE, as in game: the row pool is recycled, so a row
+    -- that turns choosable must lose the refusal it carried a moment ago.
+    with_fake_panel(function(panel)
+        local function read()
+            ICUI.refresh()
+            local by, tips = {}, {}
+            for i = 1, ICUI.MAX_ROWS do
+                local row = panel.children[ICUI.ROW .. "_" .. i]
+                if row and row.visible then
+                    local k = plain(row.children.ic_row_b.text)
+                    by[k] = plain(row.children.ic_row_e.text)
+                    tips[k] = row.children.ic_row_e.tooltip or ""
+                end
+            end
+            return by, tips
+        end
+        local by, tips = read()
+        assert(by[mine_p] == "Your Party", "your own man reads " .. tostring(by[mine_p]))
+        assert(by[theirs_p] == "Low Loyalty",
+            "a rival below the oath's bar reads " .. tostring(by[theirs_p]))
+        assert(tips[theirs_p] == ICUI.reason_text("cold"),
+            "the refusal's tooltip reads " .. tostring(tips[theirs_p]))
+        IC.court(F).houses.legion.loyalty = IC.TUNE.plot_oath_min_loyalty
+        IC.court(F).houses.legion.oath_mine = 1
+        by, tips = read()
+        assert(by[theirs_p] == "Oath Taken",
+            "a rival already sworn reads " .. tostring(by[theirs_p]))
+        IC.court(F).houses.legion.oath_mine = nil
+        by, tips = read()
+        assert(by[theirs_p] == "Choose", "a warm rival reads " .. tostring(by[theirs_p]))
+        assert(tips[theirs_p] == "", "a row that can be chosen keeps an old refusal: "
+            .. tostring(tips[theirs_p]))
     end)
     cm.get_human_factions = saved
     ICUI.pick = nil
@@ -12710,6 +13292,12 @@ function()
         "a province at the floor stayed loyal: " .. went)
     assert(string.find(went, "region_prov_b", 1, true),
         "the seceder's own province stayed: " .. went)
+    -- AND ITS GOVERNOR GOES OFF THE LIST THE SAME TURN (seen 2026-09-27: the
+    -- Tithe took Gash Kadrak and Ghorth, a Crown man, went on governing it on
+    -- the panel). Governors are reconciled before the clocks tick, so nothing
+    -- else clears him until the next turn.
+    assert(court.govs["prov_c"] == nil,
+        "the Crown still governs prov_c, which the rebels hold")
 end)
 
 check("a secession never takes the capital", function()
@@ -14546,22 +15134,23 @@ check("a rebellion arrives as a full stack and not a raiding party", function()
     assert(IC.TUNE.rebel_units == 19,
         "an army holds twenty including its lord, so the roster is nineteen - "
         .. "rebel_units is " .. tostring(IC.TUNE.rebel_units))
-    assert(#IC.REBEL_ROSTER >= IC.TUNE.rebel_units,
-        "the roster has " .. #IC.REBEL_ROSTER .. " units and rebel_units asks "
-        .. "for " .. IC.TUNE.rebel_units .. ", so every army is short")
+    assert(#IC.REBEL_DRAFT >= IC.TUNE.rebel_units,
+        "the draft has " .. #IC.REBEL_DRAFT .. " slots and rebel_units asks "
+        .. "for " .. IC.TUNE.rebel_units .. ", so the draft wraps round")
     assert(unit_count(forces[1]) == IC.TUNE.rebel_units,
         "the army arrived with " .. unit_count(forces[1]) .. " units")
 end)
 
-check("no unit is in a rebel army twice", function()
-    -- A DUPLICATE IN THE ROSTER IS A STACK OF THE SAME THING with the count
-    -- still reading nineteen, which is the one way a short-looking army passes
-    -- the check above and still looks wrong on screen.
+check("no unit is in two roles of the rebel draft", function()
+    -- A KEY IN TWO POOLS is drawn for both roles, so the cap counts it once per
+    -- army and the army can carry four of it.
     local seen = {}
-    for i = 1, #IC.REBEL_ROSTER do
-        local key = IC.REBEL_ROSTER[i]
-        assert(not seen[key], key .. " is in the rebel roster twice")
-        seen[key] = true
+    for role, pool in pairs(IC.REBEL_POOLS) do
+        for _, u in ipairs(pool) do
+            assert(not seen[u[1]], u[1] .. " is in the " .. role .. " and the "
+                .. tostring(seen[u[1]]) .. " pools")
+            seen[u[1]] = role
+        end
     end
 end)
 
@@ -14641,24 +15230,21 @@ check("a rebellion carries what the men who left were carrying", function()
     local lord = IC.character_by_cqi(F, 121)
     lord._force = true
     lord._units = {"derpy_modded_thing_a", "derpy_modded_thing_b"}
-    for i = 1, #IC.REBEL_ROSTER do
-        assert(IC.REBEL_ROSTER[i] ~= "derpy_modded_thing_a",
-            "the fixture's modded unit is in the typed roster, so this proves "
-            .. "nothing about reading it off his army")
+    for _, pool in pairs(IC.REBEL_POOLS) do
+        for _, u in ipairs(pool) do
+            assert(u[1] ~= "derpy_modded_thing_a",
+                "the fixture's modded unit is in the draft, so this proves "
+                .. "nothing about reading it off his army")
+        end
     end
     local kit = IC.rebel_kit(F, 121)
     assert(kit[1] == "derpy_modded_thing_a" and kit[2] == "derpy_modded_thing_b",
         "the kit opened with " .. tostring(kit[1]) .. ", " .. tostring(kit[2]))
-    -- AND IT IS STILL A FULL STACK, padded with repeats of his own rather than
-    -- with vanilla infantry a modded army would look wrong beside.
+    -- AND IT IS STILL A FULL STACK - filled out off the Hashut draft since
+    -- 2026-09-27 (see "a lord who leaves brings his army, filled out into a
+    -- proper one"), no longer with repeats of his own.
     assert(#kit == IC.TUNE.rebel_units,
         "the kit holds " .. #kit .. " units, not " .. IC.TUNE.rebel_units)
-    for i = 1, #kit do
-        assert(kit[i] == "derpy_modded_thing_a"
-               or kit[i] == "derpy_modded_thing_b",
-            "slot " .. i .. " is " .. tostring(kit[i])
-            .. ", which he was not carrying")
-    end
     forces = {}
     IC.secede(F, "legion")
     assert(string.find(forces[1].units, "derpy_modded_thing_a", 1, true),
@@ -14689,11 +15275,14 @@ check("a rebellion never marches out of a garrison", function()
     -- military_force_list COUNTS GARRISONS. A faction reading 15 forces on
     -- 2026-09-17 had 3 armies and 12 garrisons, and an army built out of wall
     -- troops is not what "the men who left" means.
+    --
+    -- SINCE 2026-09-27 ONLY THE MAN WHO LEAVES is read, so the wall that can
+    -- still march out is his own: a garrison commander's force IS the garrison.
     party_of(1, 0)
     local lord = IC.character_by_cqi(F, 121)
     lord._force = true
-    lord._units = {"derpy_modded_thing_a"}
-    factions[F]._garrison_units = {"derpy_garrison_thing"}
+    lord._citizenry = true
+    lord._units = {"derpy_garrison_thing"}
     local kit = IC.rebel_kit(F, 121)
     for i = 1, #kit do
         assert(kit[i] ~= "derpy_garrison_thing",
@@ -18078,7 +18667,7 @@ local function cards_of(slug)
     return n
 end
 
-check("an AI court's parties never act", function()
+check("an AI court whose turn it is not does nothing", function()
     party_court({legion = 5})
     cm.get_human_factions = function() return {} end
     assert(IC.party_turn(F) == nil, "an AI court ran a party event")
@@ -18137,7 +18726,13 @@ check("a governor earns experience every turn, as raw points", function()
            "the grant was not " .. IC.TUNE.governor_xp .. " raw points")
     cm.get_human_factions = function() return {} end
     lord_levels = {}
-    IC.party_turn(F)
+    -- ITS TURN IN THE ROTATION (spec 2026-09-27 section 5), or this asks only
+    -- whether the rotation skipped it and the wage rule is never reached.
+    local due = IC.party_turn_due
+    IC.party_turn_due = function() return true end
+    local ok, err = pcall(IC.party_turn, F)
+    IC.party_turn_due = due
+    assert(ok, err)
     assert(#lord_levels == 0, "an AI court's governor was given experience")
 end)
 
@@ -19027,6 +19622,41 @@ check("the party turn settles a demand before it chooses", function()
     turn = 11
     IC.party_turn(F)
     assert(IC.agenda(F).demand == nil, "the party turn left a met demand live")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a refused party asks again only after its rest, and a reload keeps it", function()
+    -- Found live 2026-09-26: the Road re-demanded the Plain of Zharr for the
+    -- same man the turn after the player refused, and would every turn.
+    local rest = IC.TUNE.party_demand_rest
+    legion_demand("office", "warden")
+    local demand = act_named("demand")
+    turn = 11
+    assert(IC.refuse_demand(F), "the demand could not be refused")
+    assert(demand.can(F, "legion") == nil, "legion demanded again the turn it was refused")
+    IC.save_agenda(F)
+    IC.agenda_state = {}
+    turn = 11 + rest - 1
+    assert(demand.can(F, "legion") == nil, "legion demanded before its rest was over")
+    IC.court(F).houses["forge"].loyalty = 50
+    assert(demand.can(F, "forge") ~= nil, "legion's refusal silenced another party")
+    turn = 11 + rest
+    assert(demand.can(F, "legion") ~= nil, "legion never demanded again")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a met or void demand leaves its party free to ask again", function()
+    local demand = act_named("demand")
+    legion_demand("office", "warden")
+    assert(IC.appoint(F, "warden", 311), "the fixture could not seat him")
+    turn = 11
+    assert(IC.check_demand(F) == "met", "the seated man did not meet the demand")
+    IC.dismiss(F, "warden", true)
+    assert(demand.can(F, "legion") ~= nil, "a met demand rested its party")
+    legion_demand("office", "warden")
+    turn = 11
+    IC.settle_demand(F, "void")
+    assert(demand.can(F, "legion") ~= nil, "a void demand rested its party")
     cm.get_human_factions = function() return {} end
 end)
 
@@ -20602,7 +21232,7 @@ check("each of the twelve actions waits for its trigger, then reaches the model 
     }
     local n_ops = 0
     for _ in pairs(IC.MP_OPS) do n_ops = n_ops + 1 end
-    assert(n_ops == 12, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twelve")
+    assert(n_ops == 13, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has thirteen")
     IC.state = {}
     local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     f._cqi = 41
@@ -21687,6 +22317,709 @@ check("a seat is held for ten turns on every difficulty", function()
             assert(IC.TUNE.term_turns == 10,
                    name .. " holds a seat for " .. IC.TUNE.term_turns .. " turns")
         end)
+    end
+end)
+
+check("a stalled office pays nothing until its turn, and ends with its man", function()
+    -- A STALLED OFFICE (spec 2026-09-27 section 1): its faction-wide bonus off
+    -- until a turn, and never longer than the man it was aimed at holds it.
+    IC.state = {}
+    turn = 5
+    local man = make_character(601, ANY_SEAT, "forge")
+    local other = make_character(602, ANY_SEAT, "chain")
+    make_faction(F, IC.CHD_SUBCULTURE, {man, other}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local office = IC.OFFICES[1].slug
+    local bundle = IC.office_bundle(office)
+    IC.court(F).offices[office] = 601
+    applied = {}
+    IC.apply_office_bundles(F)
+    assert(applied[bundle], "a held office pays nothing before any stall")
+    assert(IC.stall_office(F, office, 3, "chain", "sabotage"), "the stall was refused")
+    assert(not applied[bundle], "a stalled office still pays")
+    assert(IC.stalled_for(F, office) == 3, "stalled for " .. IC.stalled_for(F, office))
+    -- A RELOAD KEEPS IT.
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    assert(IC.stalled_for(F, office) == 3, "the save forgot the stall")
+    -- ITS TURN COMES.
+    turn = 8
+    IC.apply_office_bundles(F)
+    assert(applied[bundle], "the stall outlived its turns")
+    assert(IC.court(F).stalled[office] == nil, "an ended stall stayed in the save")
+    -- A MAN OF ANOTHER PARTY IN THE SEAT ENDS IT.
+    turn = 9
+    IC.stall_office(F, office, 3, "chain", "sabotage")
+    IC.court(F).offices[office] = 602
+    IC.apply_office_bundles(F)
+    assert(IC.court(F).stalled[office] == nil,
+        "the stall outlived the man it was aimed at")
+    -- AND AN EMPTY SEAT CANNOT BE STALLED.
+    IC.court(F).offices[office] = nil
+    assert(not IC.stall_office(F, office, 3, "chain", "sabotage"),
+        "an empty seat was stalled")
+end)
+
+check("a court saved before stalls and news loads with neither", function()
+    -- REVIEW FOCUS 1: fields 11 and 12 are new; a save without them must not
+    -- shift anything or invent a stall.
+    IC.state = {}
+    turn = 5
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(611, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).offices[IC.OFFICES[1].slug] = 611
+    local packed = IC.pack(F)
+    local old = string.match(packed, "^(.*)|[^|]*|[^|]*$")
+    assert(old, "the packed court has fewer than twelve fields: " .. packed)
+    IC.state = {}
+    IC.unpack(F, old)
+    local court = IC.court(F)
+    assert(court.offices[IC.OFFICES[1].slug] == 611, "an old save lost its office")
+    assert(next(court.stalled) == nil, "an old save loaded with a stall")
+    assert(#(court.news or {}) == 0, "an old save loaded with news")
+end)
+
+check("a stalled office's card says so, and why", function()
+    IC.state = {}
+    turn = 5
+    local man = make_character(621, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 621
+    IC.stall_office(F, office, 2, "chain", "sabotage")
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local card = panel.children[ICUI.CARD .. "_1"]
+        local effect = card.children.ic_card_effect.text
+        assert(is_red(effect) and string.find(plain(effect), "Stalled - 2 turns", 1, true),
+            "the stalled card's effect reads " .. tostring(effect))
+        local tip = card.children.ic_card_button.tooltip or ""
+        assert(string.find(tip, "Sabotaged by", 1, true),
+            "the stalled card's tooltip reads " .. tip)
+    end)
+    cm.get_human_factions = saved
+end)
+
+check("a feuding party sabotages an office its enemy holds", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 10
+    local saboteur = make_character(631, ANY_SEAT, "chain")
+    local victim = make_character(632, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {saboteur, victim}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "chain")
+    IC.add_house(F, "forge")
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 632
+    IC.court(F).standing[631] = 5000
+    local target, key = IC.party_target(F, "chain", "sabotage", "forge")
+    assert(target == 632 and key == office,
+        "sabotage aimed at " .. tostring(target) .. "/" .. tostring(key))
+    assert(IC.plot_cost("sabotage") == IC.TUNE.plot_sabotage_cost,
+        "sabotage costs " .. IC.plot_cost("sabotage"))
+    local saved = cm.random_number
+    cm.random_number = function() return 1 end
+    assert(IC.party_strike(F, "chain", "sabotage", 631, 632, office), "the sabotage failed")
+    cm.random_number = saved
+    assert(IC.stalled_for(F, office) == IC.TUNE.sabotage_turns,
+        "the office is stalled for " .. IC.stalled_for(F, office))
+    local s = IC.court(F).stalled[office]
+    assert(s.by == "chain" and s.of == "forge" and s.cause == "sabotage",
+        "the stall reads " .. tostring(s.by) .. "/" .. tostring(s.of))
+    local last = IC.court(F).log[#IC.court(F).log]
+    assert(last.kind == "sabotage" and last.slug == "chain" and last.key == office,
+        "the log reads " .. tostring(last.kind))
+    -- A SECOND SABOTAGE FINDS NOTHING LEFT TO STALL.
+    assert(IC.party_target(F, "chain", "sabotage", "forge") == nil,
+        "a stalled office was aimed at twice")
+    -- AND THE FEUD MOVE OFFERS IT.
+    local a = IC.agenda(F)
+    local rec = {a = "chain", b = "forge", cause = "equal", since = turn, ends = turn + 5}
+    a.feuds.chain, a.feuds.forge = rec, rec
+    IC.court(F).stalled = {}
+    local move
+    for _, act in ipairs(IC.PARTY_ACTS) do
+        if act.key == "feud_move" then move = act.can(F, "chain") end
+    end
+    assert(move and move.move == "sabotage" and move.key == office,
+        "the feud move offers " .. tostring(move and move.move))
+end)
+
+check("an angry party withholds its men's service, and Secure Loyalty ends it", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 12
+    local man = make_character(641, ANY_SEAT, "forge")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    f._gold = 100000
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 641
+    IC.court(F).houses.forge.loyalty = IC.TUNE.withhold_line + 1
+    assert(IC.withhold_target(F, "forge") == nil, "a party above the line withholds")
+    IC.court(F).houses.forge.loyalty = IC.TUNE.withhold_line
+    local t = IC.withhold_target(F, "forge")
+    assert(t and #t.offices == 1 and t.offices[1] == office,
+        "the withholding party's offices are " .. tostring(t and #t.offices))
+    local act
+    -- ALL_ACTS: the harness keeps only build 1's acts in IC.PARTY_ACTS.
+    for _, a in ipairs(ALL_ACTS) do if a.key == "withhold" then act = a end end
+    assert(act, "there is no withhold act")
+    assert(act.motive(F, "forge", t) == IC.TUNE.withhold_motive,
+        "the motive at the line is " .. act.motive(F, "forge", t))
+    act.act(F, "forge", t)
+    local s = IC.court(F).stalled[office]
+    assert(s and s.cause == "withhold" and s.by == "forge"
+        and IC.stalled_for(F, office) == IC.TUNE.withhold_turns,
+        "the office was not withheld")
+    assert(IC.withhold_target(F, "forge") == nil, "a party withholds twice at once")
+    assert(IC.favour(F, "secure", "forge"), "Secure Loyalty was refused")
+    assert(IC.court(F).stalled[office] == nil, "Secure Loyalty left the office withheld")
+end)
+
+check("backing a side ends a feud and moves both parties", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 20
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(651, ANY_SEAT, "chain")}, {})
+    f._gold = 100000
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "chain")
+    IC.add_house(F, "forge")
+    IC.court(F).houses.chain.loyalty = 50
+    IC.court(F).houses.forge.loyalty = 50
+    local a = IC.agenda(F)
+    local rec = {a = "chain", b = "forge", cause = "equal", since = 18, ends = 30}
+    a.feuds.chain, a.feuds.forge = rec, rec
+    assert(IC.arbitrate(F, "chain", "back"), "backing the Chain was refused")
+    assert(IC.court(F).houses.chain.loyalty == 50 + IC.TUNE.arbit_side_loyalty,
+        "the backed party sits at " .. IC.court(F).houses.chain.loyalty)
+    assert(IC.court(F).houses.forge.loyalty == 50 - IC.TUNE.arbit_side_loyalty,
+        "the other party sits at " .. IC.court(F).houses.forge.loyalty)
+    assert(not a.feuds.chain and not a.feuds.forge, "the feud did not end")
+    assert(a.calm.chain == turn + IC.TUNE.party_feud_rest, "no rest after the feud")
+    local ok, why = IC.arbitrate(F, "chain", "back")
+    assert(not ok and why == "no feud", "a settled feud was settled again: " .. tostring(why))
+end)
+
+check("making peace costs gold, pleases both, and is refused when poor", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 20
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(652, ANY_SEAT, "chain")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "chain")
+    IC.add_house(F, "forge")
+    IC.court(F).houses.chain.loyalty = 50
+    IC.court(F).houses.forge.loyalty = 50
+    local a = IC.agenda(F)
+    local rec = {a = "chain", b = "forge", cause = "equal", since = 18, ends = 30}
+    a.feuds.chain, a.feuds.forge = rec, rec
+    f._gold = 0
+    treasury_calls = {}
+    local ok, why, short = IC.arbitrate(F, "forge", "peace")
+    assert(not ok and why == "gold" and short == IC.favour_cost("gift"),
+        "a poor court made peace: " .. tostring(why))
+    assert(#treasury_calls == 0, "a refused peace was paid for")
+    f._gold = 100000
+    assert(IC.arbitrate(F, "forge", "peace"), "peace was refused")
+    assert(treasury_calls[1].amount == -IC.favour_cost("gift"),
+        "peace cost " .. tostring(treasury_calls[1] and treasury_calls[1].amount))
+    assert(IC.court(F).houses.chain.loyalty == 50 + IC.TUNE.arbit_peace_loyalty
+        and IC.court(F).houses.forge.loyalty == 50 + IC.TUNE.arbit_peace_loyalty,
+        "peace did not please both")
+    assert(not a.feuds.chain, "peace did not end the feud")
+end)
+
+check("a feud is on the Petitions tab, one row per side, and the click sends arbit", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 20
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(653, ANY_SEAT, "chain")}, {})
+    f._gold = 100000
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "chain")
+    IC.add_house(F, "forge")
+    local a = IC.agenda(F)
+    local rec = {a = "chain", b = "forge", cause = "equal", since = 18, ends = 30}
+    a.feuds.chain, a.feuds.forge = rec, rec
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    local sent = {}
+    local saved_send = ICUI.send
+    ICUI.send = function(faction, op, arg) sent[#sent + 1] = op .. ":" .. tostring(arg) end
+    with_fake_panel(function(panel)
+        ICUI.view = "petitions"
+        ICUI.refresh()
+        local rows = {}
+        for i = 1, ICUI.MAX_ROWS do
+            local row = panel.children[ICUI.ROW .. "_" .. i]
+            if row and row.visible and ICUI.petition_rows[i]
+                    and ICUI.petition_rows[i].kind == "feud" then
+                rows[#rows + 1] = i
+                assert(plain(row.children.ic_row_e.text) == "Back Them",
+                    "a feud row's first button reads " .. row.children.ic_row_e.text)
+                assert(plain(row.children.ic_row_f.text) == "Make Peace",
+                    "a feud row's second button reads " .. row.children.ic_row_f.text)
+            end
+        end
+        assert(#rows == 2, #rows .. " feud rows, not one per side")
+        -- THE SAME FAKE CLICK the transport check uses: the row index stubbed.
+        local saved_idx = ICUI.clicked_index
+        ICUI.clicked_index = function() return rows[1] end
+        ICUI.scroll.petitions = 0
+        ICUI.on_petition_click({component = {}}, true)
+        ICUI.clicked_index = saved_idx
+    end)
+    ICUI.send = saved_send
+    cm.get_human_factions = saved
+    assert(string.find(sent[1] or "", "^arbit:[a-z]+|back$"),
+        "the Back Them click sent " .. tostring(sent[1]))
+end)
+
+check("AI courts take their party turn in rotation, the same way every time", function()
+    -- REVIEW FOCUS 2: deterministic, so both machines agree.
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {"wh3_dlc23_chd_conclave"} end
+    local ai = {}
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= "wh3_dlc23_chd_conclave" then ai[#ai + 1] = key end
+    end
+    local period = math.ceil(#ai / IC.TUNE.ai_party_courts)
+    local seen = {}
+    for t = 1, period do
+        turn = t
+        local due = 0
+        for _, key in ipairs(ai) do
+            if IC.party_turn_due(key) then
+                due = due + 1
+                seen[key] = (seen[key] or 0) + 1
+            end
+        end
+        assert(due >= 1 and due <= IC.TUNE.ai_party_courts,
+            due .. " AI courts took a party turn on turn " .. t)
+    end
+    for _, key in ipairs(ai) do
+        assert(seen[key] == 1, key .. " took " .. tostring(seen[key])
+            .. " party turns in one round of " .. period)
+    end
+    assert(IC.party_turn_due("wh3_dlc23_chd_conclave"), "a human court was rotated")
+    local keep = IC.TUNE.ai_party_courts
+    IC.TUNE.ai_party_courts = 0
+    assert(not IC.party_turn_due(ai[1]), "an AI court acted with the rotation off")
+    IC.TUNE.ai_party_courts = keep
+    cm.get_human_factions = saved
+end)
+
+check("an AI ruler answers a demand at once, and issues no mission", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 30
+    missions_issued = {}
+    local man = make_character(661, 40, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).standing[661] = 100000
+    IC.court(F).houses.forge.loyalty = IC.TUNE.ai_grant_line - 1
+    local t = IC.demand_target(F, "forge")
+    assert(t, "the fixture has nothing to demand")
+    assert(IC.issue_demand(F, "forge", t), "the demand was not issued")
+    assert(#missions_issued == 0, "an AI court was issued a mission")
+    assert(IC.agenda(F).demand == nil, "an AI demand was left open")
+    local granted = (t.kind == "office" and IC.court(F).offices[t.key] == 661)
+        or (t.kind == "gov" and IC.court(F).govs[t.key] == 661)
+    assert(granted, "a party below the line was refused")
+    -- ABOVE THE LINE, REFUSED, AND IT RESTS.
+    IC.state = {}
+    IC.agenda_state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(662, 40, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).standing[662] = 100000
+    IC.court(F).houses.forge.loyalty = IC.TUNE.ai_grant_line
+    t = IC.demand_target(F, "forge")
+    IC.issue_demand(F, "forge", t)
+    assert(IC.court(F).houses.forge.loyalty
+        == IC.TUNE.ai_grant_line - IC.TUNE.party_demand_refused,
+        "the refused party sits at " .. IC.court(F).houses.forge.loyalty)
+    assert(IC.agenda(F).rest.forge == turn + IC.TUNE.party_demand_rest,
+        "a refused AI party does not rest")
+end)
+
+check("an AI ruler secures a party counting down, and does nothing when poor", function()
+    -- REVIEW FOCUS 5.
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 30
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(671, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    IC.court(F).houses.forge.loyalty = 20
+    IC.court(F).houses.forge.clock = 3
+    IC.court(F).houses.chain.loyalty = 10       -- lower, but not counting down
+    f._gold = 0
+    treasury_calls = {}
+    assert(IC.ai_placate(F) == nil, "a poor AI ruler bought something")
+    assert(#treasury_calls == 0, "a poor AI ruler moved the treasury")
+    f._gold = 100000
+    assert(IC.ai_placate(F) == "secure", "a rich AI ruler did not secure the party")
+    assert(IC.protected_for(F, "forge") > 0, "the party is not sworn")
+    assert(IC.court(F).houses.chain.protected == nil, "the wrong party was sworn")
+end)
+
+check("offers stay a human court's", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 30
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(681, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).houses.forge.loyalty = 100
+    for _, act in ipairs(ALL_ACTS) do
+        if act.key == "offer" then
+            assert(act.can(F, "forge") == nil, "an AI party made an offer")
+        end
+    end
+end)
+
+check("AI court news reaches the humans who have met it, and nobody else", function()
+    IC.state = {}
+    turn = 40
+    local H, H2 = "wh3_dlc23_chd_conclave", "wh3_dlc23_chd_astragoth"
+    local h = make_faction(H, IC.CHD_SUBCULTURE, {}, {})
+    local h2 = make_faction(H2, IC.CHD_SUBCULTURE, {}, {})
+    h._met = {F}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {H, H2} end
+    assert(IC.news(F, "feud", "forge", "chain") == 1, "the news did not reach one human")
+    local n = IC.court(H).news[1]
+    assert(n and n.kind == "feud" and n.faction == F and n.turn == 40,
+        "the news reads " .. tostring(n and n.kind))
+    assert(#(IC.court(H2).news or {}) == 0, "a human who never met them heard")
+    assert(IC.news(H, "feud", "forge", "chain") == 0, "a human court made news")
+    -- KEPT TO news_max, AND SAVED.
+    for i = 1, IC.TUNE.news_max + 5 do IC.news(F, "feud", "forge", "chain") end
+    assert(#IC.court(H).news == IC.TUNE.news_max, #IC.court(H).news .. " news kept")
+    IC.save(H)
+    IC.state = {}
+    IC.load(H)
+    assert(#IC.court(H).news == IC.TUNE.news_max, "the save lost the news")
+    cm.get_human_factions = saved
+end)
+
+check("the Log tab draws news with the other faction's name", function()
+    -- THE PANEL DRAWS THE LOCAL FACTION, which the stub fixes as F, so the
+    -- news is F's and comes from another court.
+    IC.state = {}
+    turn = 40
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).news = {{turn = 39, kind = "secede", faction = "cr_chd_house_of_khorakk",
+                         a = "Circle of the Tithe", b = "-"}}
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    with_fake_panel(function(panel)
+        ICUI.view = "log"
+        ICUI.refresh()
+        local found = false
+        for i = 1, ICUI.MAX_ROWS do
+            local row = panel.children[ICUI.ROW .. "_" .. i]
+            if row and row.visible then
+                local text = plain(row.children.ic_row_b.text or "")
+                if string.find(text, "Circle of the Tithe broke away", 1, true) then
+                    found = true
+                end
+            end
+        end
+        assert(found, "the Log tab does not draw the news")
+    end)
+    cm.get_human_factions = saved
+end)
+
+check("an AI court's secession raises a located card for a human who met it", function()
+    local court = seceding_court()
+    local H = "wh3_dlc23_chd_conclave"
+    local h = make_faction(H, IC.CHD_SUBCULTURE, {}, {})
+    h._met = {F}
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {H} end
+    shown = {}
+    court.prov["prov_b"] = 80
+    court.prov["prov_c"] = 80
+    IC.secede(F, "legion")
+    local card
+    for _, s in ipairs(shown) do
+        if s.faction == H and string.find(s.title, "realm_secede", 1, true) then card = s end
+    end
+    assert(card and card.x and card.y, "no located card reached the human")
+    assert(IC.court(H).news[#IC.court(H).news].kind == "secede", "no secession news")
+    cm.get_human_factions = saved
+end)
+
+check("a governor's bonus grows with his rank", function()
+    assert(select(1, IC.gov_rank_bonus(0)) == 0, "rank 0 gives order")
+    local order, income = IC.gov_rank_bonus(40)
+    assert(order == 8 and income == 20, "rank 40 gives " .. order .. "/" .. income)
+    order, income = IC.gov_rank_bonus(9)
+    assert(order == 1 and income == 4, "rank 9 gives " .. order .. "/" .. income)
+    custom_applied = {}
+    local man = make_character(691, 12, "forge")
+    local region = {is_null_interface = function() return false end,
+                    name = function() return "region_prov_b" end}
+    IC.apply_gov_base(man, region)
+    local got = custom_applied[IC.gov_bundle_base()]
+    assert(got, "the governor's bundle was not built at runtime")
+    assert(got.region == region, "the bundle went to another region")
+    assert(got.duration == 0, "the bundle is not permanent: " .. tostring(got.duration))
+    assert(got.effects[IC.GOV_ORDER_EFFECT] == IC.GOV_BASE_ORDER + 2,
+        "rank 12 order is " .. tostring(got.effects[IC.GOV_ORDER_EFFECT]))
+    assert(got.effects[IC.GOV_INCOME_EFFECT] == 6,
+        "rank 12 income is " .. tostring(got.effects[IC.GOV_INCOME_EFFECT]))
+end)
+
+check("a confederated court arrives as loyal as its own parties were", function()
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 50
+    local J = "cr_chd_house_of_khorakk"
+    make_faction(J, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(J, IC.CROWN)
+    IC.add_house(J, "forge")
+    IC.court(J).houses[IC.CROWN].weight, IC.court(J).houses[IC.CROWN].loyalty = 30, 90
+    IC.court(J).houses.forge.weight, IC.court(J).houses.forge.loyalty = 10, 10
+    IC.save(J)
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    -- (30*90 + 10*10) / 40 = 70
+    assert(IC.inherited_loyalty(F, J) == 70, "inherited " .. tostring(IC.inherited_loyalty(F, J)))
+    IC.court(J).houses[IC.CROWN].loyalty = 100
+    IC.court(J).houses.forge.loyalty = 100
+    assert(IC.inherited_loyalty(F, J) == 75, "the clamp did not hold at 75")
+    IC.forget_court(J)
+    assert(next(IC.court(J).houses) == nil, "the absorbed court was kept")
+    assert(IC.inherited_loyalty(F, J) == nil, "a forgotten court still has loyalty")
+end)
+
+check("through the listener, the absorbed court's loyalty is the new party's", function()
+    -- THE WIRING, not the arithmetic: the loyalty is read in the handler, before
+    -- the absorbed court is forgotten, and carried across the poll's retries to
+    -- the seat the arrivals take.
+    IC.state = {}
+    IC.agenda_state = {}
+    factions = {}
+    turn = 50
+    local J = "wh3_dlc23_chd_zhatan"
+    local men = {}
+    local host = make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    local joined = make_faction(J, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(J, IC.CROWN)
+    IC.court(J).houses[IC.CROWN].weight, IC.court(J).houses[IC.CROWN].loyalty = 20, 30
+    IC.save(J)
+    IC.register()
+    local polls = {}
+    local was_callback = cm.callback
+    cm.callback = function(_self, fn, _delay) polls[#polls + 1] = fn end
+    local ok, err = pcall(function()
+        core.listeners["ic_confed"]({
+            confederation = function() return host end,
+            faction = function() return joined end,
+        })
+        assert(next(IC.court(J).houses) == nil, "the absorbed court was kept")
+        men[1] = make_character(832, ANY_SEAT, nil, nil)
+        assert(#polls > 0, "the poll was never scheduled")
+        polls[#polls]()
+        local house = IC.court(F).houses["zhatan"]
+        assert(house, "their bloc took no seat")
+        assert(house.loyalty == 30, "the bloc arrived at " .. tostring(house.loyalty)
+            .. " and not the 30 its own court had")
+    end)
+    cm.callback = was_callback
+    assert(ok, err)
+end)
+
+check("every other Chaos Dwarf faction thinks less of the rebels, by less", function()
+    local court = seceding_court()
+    local O = "cr_chd_house_of_baal"
+    make_faction(O, IC.CHD_SUBCULTURE, {}, {})
+    bonuses = {}
+    court.prov["prov_b"] = 80
+    court.prov["prov_c"] = 80
+    IC.secede(F, "legion")
+    local to_other, to_parent = 0, 0
+    for _, b in ipairs(bonuses) do
+        if b.b == O then to_other = to_other + 1 end
+        if b.b == F then to_parent = to_parent + 1 end
+    end
+    assert(to_other >= 1 and to_other <= IC.TUNE.rebel_relation_others_max,
+        "another Chaos Dwarf faction soured " .. to_other .. " step(s)")
+    assert(to_parent > to_other, "the faction they left soured no more than a bystander")
+end)
+
+check("a governor's income is scoped to his province, not the whole realm", function()
+    -- REVIEW 2026-09-27: every vanilla payload applied to ONE province uses a
+    -- province_to_* scope for this effect; faction_to_region_own is what the
+    -- realm-wide bundles use.
+    custom_applied = {}
+    local man = make_character(692, 12, "forge")
+    local region = {is_null_interface = function() return false end,
+                    name = function() return "region_prov_b" end}
+    IC.apply_gov_base(man, region)
+    local got = custom_applied[IC.gov_bundle_base()]
+    local scope = got and got.scopes[IC.GOV_INCOME_EFFECT]
+    assert(scope and string.find(scope, "^province_to_"),
+        "the income effect is scoped " .. tostring(scope))
+end)
+
+check("a governor who leaves takes his bundle off the province", function()
+    -- REVIEW 2026-09-27: the bundle goes on per PROVINCE and came off with the
+    -- faction call, so a province kept its last governor's bonus for ever.
+    IC.state = {}
+    factions = {}
+    province_removed = {}
+    local gov = make_character(693, ANY_SEAT, "crown", "prov_a")
+    make_faction(F, IC.CHD_SUBCULTURE, {gov}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    endow(F)
+    IC.assign_governor(F, "prov_a", 693)
+    province_removed = {}
+    IC.release_governor(F, "prov_a")
+    local off = false
+    for _, r in ipairs(province_removed) do
+        if r == IC.gov_bundle_base() .. "@region_prov_a" then off = true end
+    end
+    assert(off, "the base bundle stayed on the province: "
+        .. table.concat(province_removed, " "))
+end)
+
+check("a vassal is no party of its master's court - the game has a vassal tab", function()
+    -- AUTHOR 2026-09-27: "cut vassal creating parties for the main faction, they
+    -- have their own vassal tab". Build 6B33E464 made one; this one does not,
+    -- and a save from it loses the party on its next turn.
+    IC.state = {}
+    IC.agenda_state = {}
+    factions = {}
+    local V = "cr_chd_house_of_baal"
+    make_faction(V, IC.CHD_SUBCULTURE, {}, {})
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    core.listeners["ic_vassal"] = nil
+    IC.register()
+    assert(core.listeners["ic_vassal"] == nil, "swearing vassalage still makes a party")
+    assert(IC.reconcile_vassals == nil, "each turn still turns vassals into parties")
+    -- THE OLD SAVE: a house carrying the vassal's key in field 19.
+    local slug = IC.origin_for_faction(V)
+    IC.add_house(F, slug)
+    local packed = string.gsub(IC.pack(F), "(" .. slug .. ",[^;|]*)", "%1," .. V, 1)
+    IC.state = {}
+    IC.unpack(F, packed)
+    IC.reconcile_houses(F)
+    assert(not IC.court(F).houses[slug], "a vassal party from an old save stayed")
+    for _, s in ipairs(IC.present_houses(F)) do
+        assert(s ~= slug, "the old vassal party is still drawn")
+    end
+end)
+
+-- THE ROLE A KEY WAS DRAWN FOR, read back off IC.REBEL_POOLS.
+local function rebel_role_of(key)
+    for role, pool in pairs(IC.REBEL_POOLS) do
+        for _, u in ipairs(pool) do
+            if u[1] == key then return role end
+        end
+    end
+    return nil
+end
+
+check("a rising with nobody leaving is a Hashut army, not a copy of yours", function()
+    -- REPORTED 2026-09-27: "why do rebel party faction copy the leader's units?"
+    -- No lord left, so the kit walked the faction's own armies and the first of
+    -- them was the leader's. The author: "the composition of the army should be
+    -- proper and logical, maybe base it on one of the crisis events of hashut".
+    party_of(1, 0)
+    local lord = IC.character_by_cqi(F, 121)
+    lord._force = true
+    lord._units = {"derpy_leaders_own_a", "derpy_leaders_own_b"}
+    rng(nil)
+    local kit = IC.rebel_kit(F, nil)
+    assert(#kit == IC.TUNE.rebel_units, "the army holds " .. #kit .. " units")
+    local roles = {}
+    for i = 1, #kit do
+        assert(kit[i] ~= "derpy_leaders_own_a" and kit[i] ~= "derpy_leaders_own_b",
+            "slot " .. i .. " was copied off the player's army")
+        local role = rebel_role_of(kit[i])
+        assert(role, "slot " .. i .. " is " .. tostring(kit[i])
+            .. ", which no role of the Hashut army lists")
+        roles[role] = (roles[role] or 0) + 1
+    end
+    -- THE SHAPE IS THE DRAFT'S: a line, missiles, a screen, horse, beasts, guns.
+    local want = {}
+    for i = 1, IC.TUNE.rebel_units do
+        local role = IC.REBEL_DRAFT[(i - 1) % #IC.REBEL_DRAFT + 1]
+        want[role] = (want[role] or 0) + 1
+    end
+    for role, n in pairs(want) do
+        assert((roles[role] or 0) == n, role .. ": " .. tostring(roles[role])
+            .. " unit(s), the draft asks " .. n)
+    end
+end)
+
+check("a rebel army is rolled, and never fields more than two of one unit", function()
+    -- THE LOWEST ROLL EVERY TIME is the harness's default; the highest is the
+    -- other end. Two different armies out of two different dice is what "rolled"
+    -- means, and the cap is what keeps either from being six of one thing.
+    party_of(1, 0)
+    rng(nil)
+    local low = IC.rebel_kit(F, nil)
+    local high_rolls = {}
+    for i = 1, 200 do high_rolls[i] = 1000 end
+    rng(high_rolls)
+    local high = IC.rebel_kit(F, nil)
+    rng(nil)
+    assert(table.concat(low, ",") ~= table.concat(high, ","),
+        "the lowest and the highest dice made the same army")
+    for _, kit in ipairs({low, high}) do
+        local seen = {}
+        for i = 1, #kit do
+            seen[kit[i]] = (seen[kit[i]] or 0) + 1
+            assert(seen[kit[i]] <= IC.REBEL_UNIT_CAP,
+                kit[i] .. " is in one rebel army " .. seen[kit[i]] .. " times")
+        end
+    end
+end)
+
+check("a lord who leaves brings his army, filled out into a proper one", function()
+    -- HIS OWN UNITS FIRST, modded or not - that is how a unit mod reaches the
+    -- rebels. The rest is the Hashut draft, not his stack again in order.
+    party_of(1, 0)
+    local lord = IC.character_by_cqi(F, 121)
+    lord._force = true
+    lord._units = {"derpy_modded_thing_a", "derpy_modded_thing_b"}
+    rng(nil)
+    local kit = IC.rebel_kit(F, 121)
+    assert(kit[1] == "derpy_modded_thing_a" and kit[2] == "derpy_modded_thing_b",
+        "the kit opened with " .. tostring(kit[1]) .. ", " .. tostring(kit[2]))
+    assert(#kit == IC.TUNE.rebel_units, "the army holds " .. #kit .. " units")
+    for i = 3, #kit do
+        assert(rebel_role_of(kit[i]), "slot " .. i .. " is " .. tostring(kit[i])
+            .. " - padded with his own stack again, or with nothing")
     end
 end)
 

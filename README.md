@@ -62,7 +62,9 @@ their own.
   fills every empty seat by the court's own rules, listing its choices before you click.
 - **Overseers.** Any of your men can govern a province. A lord leading an army governs only
   while he stands in it. Overseers gain experience every turn, and a party whose overseer
-  runs a province under the Military Doctrine commandment gains loyalty.
+  runs a province under the Military Doctrine commandment gains loyalty. An overseer's
+  bonus grows with his rank: +1 public order per five ranks and +1% income per two, on
+  top of the base, in his province only.
 - **Loyalty.** Each party's loyalty, 0 to 100, moves every turn with its seats, its
   provinces, its traits and its leader's. Battles its men win raise it; a member's death, a
   dismissal and a snub lower it. The loyalty tooltip lists every term.
@@ -70,7 +72,11 @@ their own.
   with loyalty at 20 or less starts a five-turn countdown, with a warning card at the start and again three turns
   out. At zero it goes at once. It takes provinces (never your capital), up to three of its
   lords as generals and two of its heroes, and goes to war with you under its own name and
-  one of four rebel banners. A party with no men and no province dissolves instead.
+  one of four rebel banners. A lord who leaves brings his own army; the rest of the host is
+  rolled from the roles of a Chaos Dwarf army (line, missile troops, a hobgoblin screen,
+  cavalry, beasts, war machines) with the units and weights of CA's Will of Hashut crisis.
+  Every other Chaos Dwarf faction thinks less of the rebels. A party with no men and no
+  province dissolves instead.
 - **Pressure.** While the Crown holds under 10% of the court, the strongest rival may be
   pushed onto that countdown whatever its loyalty. If the Crown's own loyalty falls to 25,
   your own men split off into a new party after a three-turn warning.
@@ -79,20 +85,28 @@ their own.
   paid from the acting man's influence and each can fail; a failed move against a party
   costs loyalty with it.
 - **The party bar.** Choose a rival's card and four buttons act on that party: Provoke and
-  Purge the House (moves aimed at its leader), Send a Gift (600 gold, +2 loyalty) and Secure
-  Loyalty (2,500 gold, no countdown for five turns). A button the court will not allow is
+  Purge the House (moves aimed at its leader), Send a Gift (600 gold, +2 loyalty, once per
+  party per turn) and Secure Loyalty (2,500 gold, no countdown for five turns). A button the court will not allow is
   red and says why.
 - **The rivals act on their own.** In your court, one party does one thing a turn. It
   schemes against you (rumours and discredit, then unseating your men or recalling your
   overseers, then murder; the serious moves are warned a turn ahead), feuds with another
   party, demands an office or a province for one of its men as a five-turn mission, or
-  offers gold, backing, calm or troops when it is content.
+  offers gold, backing, calm or troops when it is content. A feuding party can sabotage an
+  office its enemy holds, switching its bonus off for three turns, and an angry party can
+  withhold its men's service, so the offices they hold give nothing until it calms down or
+  you Secure its loyalty. The office card says so in red and names who did it.
 - **Petitions.** The live demand and every offer, each with Accept and Refuse. Accepting a
-  demand seats the man in the post he asked for.
+  demand seats the man in the post he asked for. Feuds between your parties are listed too:
+  Back Them takes one side, Make Peace pays to calm both.
 - **The AI has courts too.** Every Chaos Dwarf faction runs the same offices, overseers,
-  loyalty and secession, so an AI Chaos Dwarf empire can split into a war on the map. The
-  scheming rivals, the overseers' experience, the pressure and the event cards are the
-  player's only.
+  loyalty and secession, so an AI Chaos Dwarf empire can split into a war on the map. Its
+  rival parties scheme, feud and make demands as well, three AI courts a round in a fixed
+  rotation, and its ruler answers demands at once and sends gifts to a party that is
+  counting down. The Record tab reports what happens in the courts of Chaos Dwarf factions
+  you have met, and a card with a camera button shows where a rival court has split.
+- **Confederation.** A confederated Chaos Dwarf faction joins your court as a party, as
+  loyal as its own court was (held between 25 and 75).
 
 The panel opens from a round button on the top resource strip, beside the buttons of The
 Great Guilds and the Zharr Exchange when those mods are present. It has six tabs: Court,

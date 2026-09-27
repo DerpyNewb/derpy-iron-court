@@ -171,8 +171,13 @@ def _state(c, name, sguid, entries, target):
                 out += '\t\t\t\t\t\t\tdockpoint="%s"\n' % dock
             if lay.get("colour"):
                 out += '\t\t\t\t\t\t\tcolour="%s"\n' % lay["colour"]
-            m = float(lay.get("margin", 0))
-            out += '\t\t\t\t\t\t\tmargin="%.2f,%.2f,%.2f,%.2f"/>\n' % (m, m, m, m)
+            # A TUPLE IS (vertical, horizontal): CA's own skull-capped tab writes
+            # "0,65,0,65" - caps on the ends, the bar stretched between them. Only
+            # ever symmetric here, because no CA file says which of the two
+            # horizontal values is the left one.
+            m = lay.get("margin", 0)
+            v, hz = (float(m[0]), float(m[1])) if isinstance(m, tuple) else (float(m), float(m))
+            out += '\t\t\t\t\t\t\tmargin="%.2f,%.2f,%.2f,%.2f"/>\n' % (v, hz, v, hz)
         out += "\t\t\t\t\t</imagemetrics>\n"
 
     if target:

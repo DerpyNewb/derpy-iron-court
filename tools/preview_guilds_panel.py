@@ -207,7 +207,7 @@ def _shown(name, tab):
         return tab in (1, 4, 5, 6)
     if name in ("gg_bar_track", "gg_rep_bar"):
         return tab == 1
-    if name.startswith("gg_gtab_") or name == "gg_gsel":
+    if name.startswith("gg_gtab_") or name in ("gg_gsel", "gg_gbar"):
         return tab in (1, 4)
     if name.startswith("gg_lf_"):
         return tab == 6
@@ -221,7 +221,9 @@ def _setup(guild=None, tag="", size=None):
     from types import SimpleNamespace
     model, rendering = _studio()
     G = _gen()
-    n_art, missing = extract_art()
+    # Plus what the Lua paints that no file names: the open tab's plate.
+    n_art, missing = extract_art(extra=[G.TAB_PLATE % s for s in G.TAB_STATES]
+                                 + [G.CARD_HEAT, G.CARD_RIM])
     ground = None
     if guild:
         ground = Path(os.path.join(OURS, "derpy_gg_bg", guild + tag + ".png"))
@@ -237,8 +239,13 @@ def _setup(guild=None, tag="", size=None):
             named[(kind, c.get("id", c.tag))] = c
     canvas = Image.new("RGBA", size or (G.PANEL_W, G.PANEL_H), (0, 0, 0, 255))
 
-    def paste(kind, name, x, y, w=None, h=None, swap=None):
-        """`swap` maps an imagepath to the one the Lua puts there with SetImagePath."""
+    def paste(kind, name, x, y, w=None, h=None, swap=None, crop=None, by_index=None):
+        """`swap` maps an imagepath to the one the Lua puts there with SetImagePath.
+
+        `crop` keeps only the left `crop` pixels of each layer - the reputation fill, which
+        the Lua narrows at runtime to the fraction earned. `by_index` maps an image INDEX
+        to a path, which is how SetImagePath addresses it - the lit card's two glows ship
+        as the same blank, so a path swap cannot tell them apart."""
         doc, comp = docs[kind], named.get((kind, name))
         if comp is None:
             return
@@ -252,11 +259,12 @@ def _setup(guild=None, tag="", size=None):
         metrics = st.child("imagemetrics") if st is not None else None
         if metrics is None:
             return
-        for n in metrics.children:
+        for idx, n in enumerate(metrics.children):
             p = images.get(n.get("componentimage"))
             if not p:
                 continue
             p = (swap or {}).get(p, p)
+            p = (by_index or {}).get(idx, p)
             asset = Path(os.path.join(UI, os.path.relpath(p, "ui").replace("/", os.sep)))
             if ground is not None and p == G.PANEL_ART:
                 asset = ground
@@ -270,8 +278,12 @@ def _setup(guild=None, tag="", size=None):
             iw = int(model.number(n.get("width"), w or 0)) or (w or 1)
             ih = int(model.number(n.get("height"), h or 0)) or (h or 1)
             ox, oy = model.pair(n.get("offset"), (0, 0))
-            canvas.alpha_composite(rendering.raster(asset, iw, ih, n),
-                                   (int(x + ox), int(y + oy)))
+            img = rendering.raster(asset, iw, ih, n)
+            if crop is not None:
+                if crop <= 0:
+                    continue
+                img = img.crop((0, 0, min(crop, img.width), img.height))
+            canvas.alpha_composite(img, (int(x + ox), int(y + oy)))
 
     def icon(guild_key, x, y, w, h):
         """The glyph the Lua paints per guild with SetImagePath."""
@@ -323,15 +335,23 @@ def _setup(guild=None, tag="", size=None):
                            cell=cell, font=font, L=L, n_art=n_art, missing=missing)
 
 
-def _frame(P, tab):
+def _frame(P, tab, guild="brass"):
     """The ground, every panel part this tab shows, the title and the tab strip."""
     G = P.G
     P.paste("panel", "derpy_gg_panel", 0, 0, G.PANEL_W, G.PANEL_H)
+    open_tab = G.TABS[TAB_SLOT[tab]]
     for name, (x, y, w, h) in sorted(G.PANEL_LAYOUT.items()):
         # The bar is narrowed to the fraction earned and the marker moved to the page,
         # both at runtime; their callers draw them.
         if _shown(name, tab) and name not in ("gg_rep_bar", "gg_gsel"):
-            P.paste("panel", name, x, y, w, h)
+            swap = None
+            # What the Lua repaints: the open tab's plate, and the header's glyph.
+            if name == open_tab:
+                swap = {G.TAB_PLATE % "active": G.TAB_PLATE % "selected"}
+            elif name == "gg_rank_mark":
+                swap = {G.RANK_ICON_LAYERS[-1]["path"]:
+                        "ui/campaign ui/derpy_gg_icons/%s.png" % guild}
+            P.paste("panel", name, x, y, w, h, swap=swap)
     # Centred in gg_title's own box at its own size, read off the generator.
     tx, ty, tw, th = G.PANEL_LAYOUT["gg_title"]
     title = "The Great Guilds"
@@ -344,6 +364,15 @@ def _frame(P, tab):
     if _shown("gg_prev", tab):
         P.cell(G.PANEL_LAYOUT["gg_prev"], P.L("prev"), 14, "center")
         P.cell(G.PANEL_LAYOUT["gg_next"], P.L("next"), 14, "center")
+
+
+def rank_box(G):
+    """gg_rank_line as its text sits: RANK_TX in from the left (cell() adds 6 of it), and
+    lifted by RANK_TY's bottom padding onto the header bar's dark band."""
+    x, y, w, h = G.PANEL_LAYOUT["gg_rank_line"]
+    tx = float(G.RANK_TX.split(",")[0]) - 6
+    pad = float(G.RANK_TY.split(",")[1])
+    return (x + tx, y, w - tx, h - pad)
 
 
 def _save(P, name, path=None):
@@ -364,9 +393,9 @@ def render(path=None, guild=None, tag=""):
     from PIL import Image, ImageDraw
     P = _setup(guild, tag)
     G, GEN, draw = P.G, P.GEN, P.draw
-    _frame(P, 2)
-    draw.text((24, 110), "Hover a row for the full table.   Rivals last turn: 0 services "
-                         "bought, 0 demands paid, 0 patrons afield", fill=PALE)
+    _frame(P, 2, guild or "brass")
+    P.cell(rank_box(G), "The Leaderboard   Rivals last turn: 0 services bought, 0 demands "
+                        "paid, 0 patrons afield")
 
     low = GEN.FLAVOURS[tag]["ranks"][0]          # the flavour's own lowest rank
     RL = G.ROW_LAYOUT
@@ -430,17 +459,23 @@ def _wrap(P, text, box_w, size=12, max_lines=2):
     return lines
 
 
-def _card(P, x, y, guild_key, name, desc, cost, button):
-    """One card the way GGUI.fill_card writes it: plate, glyph and six cells."""
+def _card(P, x, y, guild_key, name, desc, cost, button, lit=False):
+    """One card the way GGUI.fill_card writes it: plate, glyph and six cells. `lit` is a
+    running service, lit the way GGUI.light_card lights it."""
     G = P.G
     CL = G.CARD_LAYOUT
-    P.paste("card", "derpy_gg_card", x, y, G.CARD_W, G.CARD_H)
-    ix, iy, iw, ih = CL["card_icon"]
-    P.icon(guild_key, x + ix, y + iy, iw, ih)
+    glow = {G.CARD_HEAT_INDEX: G.CARD_HEAT, G.CARD_RIM_INDEX: G.CARD_RIM} if lit else None
+    P.paste("card", "derpy_gg_card", x, y, G.CARD_W, G.CARD_H, by_index=glow)
 
     def at(n):
         cx, cy, cw, ch = CL[n]
         return (x + cx, y + cy, cw, ch)
+    # The holder, and the guild's glyph where the Lua paints it (GGUI.CARD_ICON_INDEX).
+    P.paste("card", "card_icon", *at("card_icon"),
+            swap={G.CARD_ICON_LAYERS[G.CARD_ICON]["path"]:
+                  "ui/campaign ui/derpy_gg_icons/%s.png" % guild_key})
+    if cost:
+        P.paste("card", "card_cost", *at("card_cost"))
     if button:
         P.paste("card", "card_buy", *at("card_buy"))
         P.cell(at("card_buy"), button, 12, "center")
@@ -457,32 +492,33 @@ def render_guilds(path=None, tag="", guild="khanate", rep=340, favour=240):
     """
     P = _setup(guild, tag)
     G, GEN, F, L = P.G, P.GEN, P.F, P.L
-    _frame(P, 1)
+    _frame(P, 1, guild)
     order = list(GEN.GUILDS)                     # GGUI.GUILD_ORDER is the same six
     page = order.index(guild) + 1
 
     thr = GEN.RANK_THRESHOLDS
     rank = max(i for i in range(len(thr)) if rep >= thr[i])
     nxt = thr[min(rank + 1, len(thr) - 1)]
-    P.cell(G.PANEL_LAYOUT["gg_rank_line"], "%s   %s   %s %d / %d" % (
+    P.cell(rank_box(G), "%s   %s   %s %d / %d" % (
         F["guilds"][guild], F["ranks"][rank], L("reputation"), rep, nxt))
     # NARROWED AT RUNTIME to the fraction earned (the Lua resizes it), so it is drawn
-    # here as the flat tint it is: its image metric would draw it at full width.
+    # here cropped to that fraction: its image metric would draw it at full width.
     bx, by, bw, bh = G.PANEL_LAYOUT["gg_rep_bar"]
-    tint = G.REP_BAR_LAYERS[0]["colour"]
-    P.draw.rectangle([bx, by, bx + int(bw * rep / nxt) - 1, by + bh - 1],
-                     fill=tuple(int(tint[i:i + 2], 16) for i in (1, 3, 5, 7)))
+    P.paste("panel", "gg_rep_bar", bx, by, bw, bh, crop=int(bw * rep / nxt))
 
     mine = [s for s in GEN.SERVICES if s["guild"] == guild]
     for i, s in enumerate(mine[:3]):
         cx, cy = G.PANEL_LAYOUT["gg_card_%d" % (i + 1)][:2]
         name = F["services"][s["key"]]
-        state = ("pick", "confirm", "rank")[i]
+        # The middle card is a service IN EFFECT - bought, still running, on cooldown - and
+        # lit the way GGUI.light_card lights it. Knife in the Dark on the Khanate's page.
+        state = ("pick", "running", "rank")[i]
         if state == "pick":
             name += "  [[col:red]]" + L("needs_target_short") + "[[/col]]"
             button = L("pick_button")
-        elif state == "confirm":
-            button = "[[col:yellow]]" + L("confirm") + "[[/col]]"
+        elif state == "running":
+            name += "  7t"
+            button = L("buy")
         else:
             name += ("  [[col:red]]" + L("needs") + " " + F["ranks"][s["rank"] - 1]
                      + "[[/col]]")
@@ -490,7 +526,8 @@ def render_guilds(path=None, tag="", guild="khanate", rep=340, favour=240):
         # What the card reads: GGUI.loc_service_desc, up to its first "||".
         blurb = L("service_desc_" + s["key"]).split("||")[0]
         desc_w = G.CARD_LAYOUT["card_desc_1"][2] - 6
-        _card(P, cx, cy, guild, name, _wrap(P, blurb, desc_w), str(s["cost"]), button)
+        _card(P, cx, cy, guild, name, _wrap(P, blurb, desc_w), str(s["cost"]), button,
+              lit=(state == "running"))
 
     P.cell(G.PANEL_LAYOUT["gg_earned"], "%s +14 (%s 8, %s 6)   %s +9" % (
         L("earned_now"), L("src_missions"), L("src_bounties"), L("earned_last")))
@@ -515,8 +552,8 @@ def render_log(path=None, tag="", guild="brass"):
     """The Log tab with its four filters, All active, over a page of mixed entries."""
     P = _setup(guild, tag)
     G, F, L = P.G, P.F, P.L
-    _frame(P, 6)
-    P.cell(G.PANEL_LAYOUT["gg_rank_line"], "%s   1 %s 3" % (L("hdr_log"), L("help_of")))
+    _frame(P, 6, guild)
+    P.cell(rank_box(G), "%s   1 %s 3" % (L("hdr_log"), L("help_of")))
     for f in ("all", "mine", "rivals", "ranks"):
         lbl = L("lf_" + f)
         if f == "all":
@@ -573,6 +610,49 @@ def render_pick(path=None, tag="", service="raise_ziggurat"):
     lines = _wrap(P, L(hint), G.CARD_LAYOUT["card_desc_1"][2] - 6)
     _card(P, 20, 20, s["guild"], F["services"][service], lines, "", L("cancel"))
     return _save(P, "gg_pick%s.png" % tag, path), lines
+
+
+def render_bounties(path=None, tag=""):
+    """The Bounties tab with the three card shapes v2 added, each at its hardest: a
+    new-war capture naming the longest demo faction, a building request the player is
+    short of favour for (red Take), and a taken sabotage counting up (1/2).
+
+    Returns the path and every card line wider than its cell, so "does it fit" is a
+    measured answer and not a look at the picture.
+    """
+    P = _setup("brass", tag)
+    G, GEN, L = P.G, P.GEN, P.L
+    _frame(P, 3, "brass")
+    enemy = max(DEMO_FACTIONS, key=len)
+    band, pays, rep = L("bounty_routine"), L("bounty_pays"), L("reputation")
+
+    def pay(gold, reps, left=None, taken=False):
+        s = "%s   %s %dg   %d %s" % (band, pays, gold, reps, rep)
+        if taken:
+            return "[[col:yellow]]" + L("bounty_taken") + "[[/col]]   " + s
+        return s + "   %d %s" % (left, L("bounty_turns"))
+    stake_short = L("bounty_stake_short").replace("%n", "60").replace("%m", "40")
+    cards = [
+        ("brass", GEN.BOUNTIES["brass"][1],
+         ["Karak Azgal  [[col:red]]%s %s[[/col]]" % (L("bounty_war"), enemy),
+          pay(6000, 450, 5)], "20", L("take")),
+        ("brass", GEN.BOUNTY_TEXT["job_build"][0],
+         ["%s: %s" % (L("bounty_obj_build"), "Gunnery School"), pay(2500, 180, 4)],
+         "60", "[[col:red]]" + L("take") + "[[/col]]"),
+        ("daemonsmiths", GEN.BOUNTY_TEXT["hero_sabotage"][0],
+         ["%s: Karak Azgal  (%s)  (1/2)" % (L("bounty_obj_sabotage"), enemy),
+          pay(1200, 90, taken=True)], "", ""),
+    ]
+    over = []
+    for i, (g, name, desc, cost, button) in enumerate(cards):
+        cx, cy = G.PANEL_LAYOUT["gg_card_%d" % (i + 1)][:2]
+        _card(P, cx, cy, g, name, desc, cost, button)
+        for n, line in enumerate(desc):
+            w = P.width(re.sub(r"\[\[/?col[^\]]*\]\]", "", line), 12)
+            if w > G.CARD_LAYOUT["card_desc_%d" % (n + 1)][2] - 6:
+                over.append("card %d line %d is %dpx: %s" % (i + 1, n + 1, w, line))
+    P.cell(G.PANEL_LAYOUT["gg_footer"], "%s: 40   (%s)" % (L("favour"), stake_short))
+    return _save(P, "gg_bounties%s.png" % tag, path), over
 
 
 def selftest():
@@ -653,6 +733,10 @@ if __name__ == "__main__":
               % (out, n_art, shown, total))
         print("wrote %s" % render_guilds(tag=tag))
         print("wrote %s" % render_log(tag=tag))
+        bounties, over = render_bounties(tag=tag)
+        print("wrote %s" % bounties)
+        for o in over:
+            print("  TOO WIDE: " + o)
         pick, lines = render_pick(tag=tag)
         print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
               % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...") else ""))

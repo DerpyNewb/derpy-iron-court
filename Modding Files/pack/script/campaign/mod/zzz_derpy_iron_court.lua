@@ -125,27 +125,64 @@ IC.REBEL_GENERALS = {
     ["wh3_dlc23_chd_sorcerer_prophet_hashut"] = true,
     ["wh3_dlc23_chd_sorcerer_prophet_metal"] = true,
 }
-IC.REBEL_ROSTER = {
-    "wh3_dlc23_chd_inf_infernal_ironsworn",
-    "wh3_dlc23_chd_inf_infernal_guard",
-    "wh3_dlc23_chd_inf_infernal_guard_great_weapons",
-    "wh3_dlc23_chd_inf_chaos_dwarf_warriors_great_weapons",
-    "wh3_dlc23_chd_inf_chaos_dwarf_warriors",
-    "wh3_dlc23_chd_inf_hobgoblin_cutthroats",
-    "wh3_dlc23_chd_inf_hobgoblin_sneaky_gits",
-    "wh3_dlc23_chd_inf_infernal_guard_fireglaives",
-    "wh3_dlc23_chd_inf_chaos_dwarf_blunderbusses",
-    "wh3_dlc23_chd_inf_hobgoblin_archers",
-    "wh3_dlc23_chd_cav_bull_centaurs_greatweapons",
-    "wh3_dlc23_chd_cav_bull_centaurs_axe",
-    "wh3_dlc23_chd_cav_hobgoblin_wolf_raiders_spears",
-    "wh3_dlc23_chd_mon_kdaai_fireborn",
-    "wh3_dlc23_chd_mon_great_taurus",
-    "wh3_dlc23_chd_veh_iron_daemon",
-    "wh3_dlc23_chd_veh_deathshrieker_rocket_launcher",
-    "wh3_dlc23_chd_veh_magma_cannon",
-    "wh3_main_chd_art_hobgob_bolt_thrower",
+-- A REBEL ARMY IS A HASHUT ARMY (author, 2026-09-27: "the composition of the
+-- army should be proper and logical, maybe base it on one of the crisis events
+-- of hashut"). The keys and their weights are CA's own Will of Hashut crisis
+-- (campaign/main_warhammer/crisis/crisis_will_of_hashut.lua, unit_list); that
+-- crisis rolls all nineteen from one bag, so an army can come out all
+-- hobgoblins. Here each slot is rolled from its ROLE, in the order the draft
+-- lists them, so the first N slots are a balanced army for any N - which is what
+-- fills out a lord who left with half a stack. The crisis fields only one war
+-- machine (the Dreadquake Iron Daemon); the other four are the Tower's own,
+-- weighted like it. gen_iron_court --check holds every key to main_units.
+IC.REBEL_POOLS = {
+    line = {
+        {"wh3_dlc23_chd_inf_chaos_dwarf_warriors", 8},
+        {"wh3_dlc23_chd_inf_chaos_dwarf_warriors_great_weapons", 6},
+        {"wh3_dlc23_chd_inf_infernal_guard", 4},
+        {"wh3_dlc23_chd_inf_infernal_guard_great_weapons", 4},
+        {"wh3_dlc23_chd_inf_infernal_ironsworn", 3},
+    },
+    missile = {
+        {"wh3_dlc23_chd_inf_chaos_dwarf_blunderbusses", 5},
+        {"wh3_dlc23_chd_inf_infernal_guard_fireglaives", 4},
+        {"wh3_dlc23_chd_inf_hobgoblin_archers", 6},
+    },
+    screen = {
+        {"wh3_dlc23_chd_inf_hobgoblin_cutthroats", 6},
+        {"wh3_dlc23_chd_inf_hobgoblin_sneaky_gits", 6},
+    },
+    cavalry = {
+        {"wh3_dlc23_chd_cav_hobgoblin_wolf_raiders_spears", 5},
+        {"wh3_dlc23_chd_cav_hobgoblin_wolf_raiders_bows", 5},
+        {"wh3_dlc23_chd_cav_bull_centaurs_axe", 3},
+        {"wh3_dlc23_chd_cav_bull_centaurs_dual_axe", 3},
+        {"wh3_dlc23_chd_cav_bull_centaurs_greatweapons", 3},
+    },
+    monster = {
+        {"wh3_dlc23_chd_mon_great_taurus", 3},
+        {"wh3_dlc23_chd_mon_bale_taurus", 2},
+        {"wh3_dlc23_chd_mon_lammasu", 2},
+        {"wh3_dlc23_chd_mon_kdaai_fireborn", 3},
+        {"wh3_dlc23_chd_mon_kdaai_destroyer", 2},
+    },
+    war_machine = {
+        {"wh3_dlc23_chd_veh_iron_daemon_1dreadquake", 2},
+        {"wh3_dlc23_chd_veh_magma_cannon", 2},
+        {"wh3_dlc23_chd_veh_deathshrieker_rocket_launcher", 2},
+        {"wh3_dlc23_chd_veh_dreadquake_mortar", 2},
+        {"wh3_main_chd_art_hobgob_bolt_thrower", 2},
+    },
 }
+-- Nineteen slots: six of line, four missile, three horse, two each of screen,
+-- beasts and guns. Interleaved so any prefix of it is a balanced army.
+IC.REBEL_DRAFT = {
+    "line", "missile", "line", "cavalry", "line", "monster", "missile",
+    "war_machine", "line", "screen", "cavalry", "line", "missile", "monster",
+    "war_machine", "line", "cavalry", "missile", "screen",
+}
+-- No more than this many of one unit from the draft.
+IC.REBEL_UNIT_CAP = 2
 
 -- CA's `out` is a callable table, not a function. Keep the call isolated from turns.
 -- IC.warn is a FAILURE and is always written. IC.say is the routine log, and the
@@ -374,6 +411,24 @@ IC.TUNE = {
 
     favour_gift_cost     = 600,
     favour_gift_loyalty  = 2,
+    -- WITHHOLD (spec 2026-09-27 section 3): a party at or below the line stops
+    -- its officers working, every office it holds, for a few turns.
+    withhold_line        = 30,
+    withhold_motive      = 40,
+    withhold_turns       = 3,
+    -- SETTLE A FEUD (spec 2026-09-27 section 4).
+    arbit_side_loyalty   = 10,
+    arbit_peace_loyalty  = 3,
+    -- AI COURTS ACT (spec 2026-09-27 section 5): this many take a party turn
+    -- per round, in rotation; an AI ruler grants a demand below the line.
+    ai_party_courts      = 3,
+    ai_grant_line        = 50,
+    -- NEWS OF AI COURTS kept per human court (spec section 6).
+    news_max             = 30,
+    -- A GOVERNOR'S RANK (spec section 7): +1 order per this many ranks, +1%
+    -- income per that many.
+    gov_rank_order_per   = 5,
+    gov_rank_income_per  = 2,
     favour_secure_cost   = 2500,
     favour_secure_turns  = 5,
 
@@ -400,6 +455,11 @@ IC.TUNE = {
     plot_chance_discredit = 60,
     plot_chance_rumour    = 75,
     plot_chance_murder    = 40,
+    -- A PARTY MOVE ONLY (spec 2026-09-27 section 2): a feuding party switches
+    -- off an office its enemy holds.
+    plot_sabotage_cost    = 200,
+    plot_chance_sabotage  = 50,
+    sabotage_turns        = 3,
     plot_chance_per_10    = 1,
     plot_chance_min       = 5,
     plot_chance_max       = 95,
@@ -494,6 +554,9 @@ IC.TUNE = {
     rebel_relation      = -70,
     rebel_relation_step = -6,
     rebel_relation_max  = 30,
+    -- EVERY OTHER CHAOS DWARF FACTION sours on rebels too, by at most this many
+    -- steps (spec 2026-09-27 section 8).
+    rebel_relation_others_max = 2,
     loyalty_warn        = 35,
     warn_turns          = 3,
     splinter_loyalty    = 25,
@@ -773,6 +836,8 @@ local function new_court()
         ambition = {},   -- [character cqi] = ambition slug
         last     = {},   -- [office slug] = {cqi, turn his term ended}
         log      = {},
+        stalled  = {},   -- [office slug] = {ends, of, by, cause} (spec 2026-09-27)
+        news     = {},   -- {turn, kind, faction, a, b}, newest last
     }
 end
 
@@ -799,6 +864,8 @@ IC.LOG_KINDS = {
     party_recall = true, feud = true, feud_end = true,
     demand = true, demand_met = true, demand_refused = true, demand_void = true,
     offer = true, offer_taken = true,
+    -- Living courts (spec 2026-09-27).
+    sabotage = true, withhold = true, arbit_side = true, arbit_peace = true,
 }
 
 function IC.log(faction_key, kind, slug, key, n)
@@ -840,7 +907,14 @@ IC.EVENTS = {
     party_demand_refused = {2620, true, true},
     party_offer        = {2621, true, true},
     term_soon          = {2622, true, true},
+    party_sabotage     = {2623, true, true},
+    party_withhold     = {2624, true, true},
+    realm_secede       = {2625, false, true},
 }
+
+-- RAISED WITH cm:show_message_event_located; the record type must agree with
+-- the call (tools/build_director.py measured a mismatch drawing nothing).
+IC.LOCATED_EVENTS = {realm_secede = true}
 
 -- ROUTINE NEWS: a card the all_cards setting can silence. Every one of these is
 -- written to the court's log where it is raised, so off loses nothing; the
@@ -1022,14 +1096,16 @@ function IC.pack(faction_key)
     local houses, offices, govs, terms = {}, {}, {}, {}
     for slug, h in pairs(court.houses) do
         houses[#houses + 1] = string.format(
-            "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
+            "%s,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d",
             slug, h.weight, h.loyalty, h.clock or 0, h.head or 0, h.tail or 0,
             h.confed and 1 or 0, h.pressed and 1 or 0, h.protected or 0,
             h.t1 or 0, h.t2 or 0,
             h.oath_mine or 0, h.oath_theirs or 0,
             h.snubbed and 1 or 0,
             h.split or 0,
-            h.stored and 1 or 0)
+            h.stored and 1 or 0,
+            h.fielded or 0,
+            h.gifted or 0)
     end
     for slug, cqi in pairs(court.offices) do
         offices[#offices + 1] = slug .. "," .. tostring(cqi)
@@ -1064,10 +1140,28 @@ function IC.pack(faction_key)
             ambition[#ambition + 1] = tostring(cqi) .. "," .. slug
         end
     end
+    local stalled = {}
+    for office_slug, s in pairs(court.stalled or {}) do
+        stalled[#stalled + 1] = string.format("%s,%d,%s,%s,%s", office_slug,
+            s.ends, s.of, s.by or "-", s.cause or "-")
+    end
+    table.sort(stalled)
+    -- NEWS TEXT IS A PARTY'S NAME OR A KEY; the separators are taken out so a
+    -- name can never split a field.
+    local function clean(text)
+        return (string.gsub(tostring(text or "-"), "[|;,]", " "))
+    end
+    local news = {}
+    for i = 1, #(court.news or {}) do
+        local n = court.news[i]
+        news[#news + 1] = string.format("%d,%s,%s,%s,%s", n.turn or 0,
+            clean(n.kind), clean(n.faction), clean(n.a), clean(n.b))
+    end
     return join({join(houses, ";"), join(offices, ";"), join(govs, ";"),
                  join(terms, ";"), join(standing, ";"),
                  join(logged, ";"), join(prov, ";"), join(ambition, ";"),
-                 court.rolled and "1" or "", join(last, ";")}, "|")
+                 court.rolled and "1" or "", join(last, ";"),
+                 join(stalled, ";"), join(news, ";")}, "|")
 end
 
 local function split(text, sep)
@@ -1109,6 +1203,10 @@ function IC.unpack(faction_key, packed)
                 snubbed = (tonumber(bits[14]) == 1),
                 -- Older fifteen-field saves have made no lord in store.
                 stored = (tonumber(bits[16]) == 1) or nil,
+                -- The turn a leader was put in the field; older saves put none.
+                fielded = (tonumber(bits[17]) or 0) > 0 and tonumber(bits[17]) or nil,
+                -- The turn of the last gift; older saves have sent none.
+                gifted = (tonumber(bits[18]) or 0) > 0 and tonumber(bits[18]) or nil,
             }
             if court.houses[bits[1]].protected == 0 then
                 court.houses[bits[1]].protected = nil
@@ -1175,6 +1273,23 @@ function IC.unpack(faction_key, packed)
         local cqi, ended = tonumber(bits[2]), tonumber(bits[3])
         if bits[1] and cqi and ended then
             court.last[bits[1]] = {cqi = cqi, turn = ended}
+        end
+    end
+    -- Fields 11 and 12 are optional: a save from before them has no stalled
+    -- office and no news (spec 2026-09-27).
+    for _, entry in ipairs(split(fields[11] or "", ";")) do
+        local b = split(entry, ",")
+        if #b >= 5 then
+            court.stalled[b[1]] = {ends = tonumber(b[2]) or 0, of = b[3],
+                                   by = b[4] ~= "-" and b[4] or nil,
+                                   cause = b[5] ~= "-" and b[5] or nil}
+        end
+    end
+    for _, entry in ipairs(split(fields[12] or "", ";")) do
+        local b = split(entry, ",")
+        if #b >= 5 then
+            court.news[#court.news + 1] = {turn = tonumber(b[1]) or 0,
+                kind = b[2], faction = b[3], a = b[4], b = b[5]}
         end
     end
     IC.state[faction_key] = court
@@ -1390,15 +1505,59 @@ function IC.house_of_cqi(faction_key, cqi)
                                  faction_key)
 end
 
-function IC.roll_background(faction_key)
+-- THE DEAL (author, 2026-09-25: "how did one party get 7 members while the
+-- other party gets none?"). A man goes to the seated party with the FEWEST
+-- members, ties rolled. It was one independent roll per man, and a Conclave
+-- start rolled the Chain for all six men who were not lords.
+--
+-- ONE TALLY PER PASS: counted once off the traits, then kept by hand as men
+-- are dealt, so a pass never waits on has_trait to answer a trait it has only
+-- just added. Filled on first use, so a turn with nobody new counts nothing.
+function IC.fill_tally(tally, faction_key)
+    if tally.count then return tally end
+    tally.count, tally.led = {}, {}
+    local seated = IC.present_houses(faction_key)
+    for i = 1, #seated do
+        local slug = seated[i]
+        if IC.BACKGROUNDS[slug] then
+            tally.count[slug] = 0
+            tally.led[slug] = IC.party_leader(faction_key, slug) ~= nil
+        end
+    end
+    local faction = real_faction(faction_key)
+    if not faction then return tally end
+    local list = faction:character_list()
+    for i = 0, list:num_items() - 1 do
+        local slug = IC.house_of_character(list:item_at(i), faction_key)
+        if slug and tally.count[slug] then tally.count[slug] = tally.count[slug] + 1 end
+    end
+    return tally
+end
+
+-- The party in `pool` with the fewest members, ties rolled.
+function IC.fewest(pool, tally)
+    local least, best = nil, {}
+    for i = 1, #pool do
+        local n = tally.count[pool[i]] or 0
+        if not least or n < least then
+            least, best = n, {pool[i]}
+        elseif n == least then
+            best[#best + 1] = pool[i]
+        end
+    end
+    if #best == 0 then return nil end
+    return best[cm:random_number(#best, 1)]
+end
+
+function IC.roll_background(faction_key, tally)
+    tally = IC.fill_tally(tally or {}, faction_key)
     local seated = IC.present_houses(faction_key)
     local pool = {}
     for i = 1, #seated do
         if IC.BACKGROUNDS[seated[i]] then pool[#pool + 1] = seated[i] end
     end
     if #pool == 0 then pool = {IC.CROWN} end
-    local party = pool[cm:random_number(#pool, 1)]
-    local list = IC.BACKGROUNDS[party]
+    local list = IC.BACKGROUNDS[IC.fewest(pool, tally)]
     if not list or #list == 0 then return nil end
     return list[cm:random_number(#list, 1)]
 end
@@ -1416,38 +1575,50 @@ function IC.origin_for(character)
     return IC.roll_origin()
 end
 
-function IC.background_for(character, faction_key)
+function IC.background_for(character, faction_key, tally)
     local fixed = IC.fixed_history(character)
     if fixed and fixed.bg then return fixed.bg end
-    -- Already stamped: stamp_bg would refuse anyway, and the leader test below
-    -- walks the whole court.
+    -- Already stamped: stamp_bg would refuse anyway, and the tally below walks
+    -- the whole court.
     if IC.bg_of_character(character) then return nil end
-    local led = IC.leaderless_bg(character, faction_key)
-    if led then return led end
-    return IC.roll_background(faction_key)
+    tally = IC.fill_tally(tally or {}, faction_key)
+    local bg = IC.leaderless_bg(character, faction_key, tally)
+               or IC.roll_background(faction_key, tally)
+    local party = bg and IC.PARTY_OF_BG[bg]
+    if party and tally.count[party] then
+        tally.count[party] = tally.count[party] + 1
+        if IC.can_lead(character) then tally.led[party] = true end
+    end
+    return bg
 end
 
--- A PARTY ALWAYS HAS A LEADER (author, 2026-09-23). A lord who could speak for a
--- house goes to one that has nobody to speak for it before anywhere else; a
--- dealt-evenly background left most rivals leaderless at campaign start.
-function IC.leaderless_bg(character, faction_key)
-    if not faction_key or not IC.is_lordly(character) or IC.is_legend(character) then
-        return nil
-    end
+-- WHO CAN SPEAK FOR A PARTY: a lord, or a garrison commander (IC.party_colonel)
+-- - never a legend, who is the Crown's whatever his trade, and never a greenskin.
+function IC.can_lead(character)
+    if not (IC.is_lordly(character) or IC.is_colonel(character)) then return false end
+    if IC.is_legend(character) then return false end
     local key
     pcall(function() key = character:character_subtype_key() end)
-    if key and IC.NOT_DWARF[key] then return nil end
+    return not (key and IC.NOT_DWARF[key])
+end
+
+-- A PARTY ALWAYS HAS A LEADER (author, 2026-09-23). A man who could speak for a
+-- house goes to one that has nobody to speak for it before anywhere else; a
+-- dealt-evenly background left most rivals leaderless at campaign start. A
+-- garrison commander too since 2026-09-25, dealt after the lords (stamp_court).
+function IC.leaderless_bg(character, faction_key, tally)
+    if not faction_key or not IC.can_lead(character) then return nil end
+    tally = IC.fill_tally(tally or {}, faction_key)
     local pool = {}
     local seated = IC.present_houses(faction_key)
     for i = 1, #seated do
         local slug = seated[i]
-        if slug ~= IC.CROWN and IC.BACKGROUNDS[slug]
-                and not IC.party_leader(faction_key, slug) then
+        if slug ~= IC.CROWN and IC.BACKGROUNDS[slug] and not tally.led[slug] then
             pool[#pool + 1] = slug
         end
     end
     if #pool == 0 then return nil end
-    local list = IC.BACKGROUNDS[pool[cm:random_number(#pool, 1)]]
+    local list = IC.BACKGROUNDS[IC.fewest(pool, tally)]
     return list[cm:random_number(#list, 1)]
 end
 
@@ -1500,14 +1671,17 @@ end
 
 -- A PARTY ALWAYS HAS A LEADER. First an idle Crown lord moves over - the
 -- author's "repair on load", which is what makes an existing save's leaderless
--- parties led at once. Where there is none, a lord is made in the recruitment
--- pool already carrying the party's background, and leads it once recruited.
+-- parties led at once. Where there is none, a player's party gets a lord put in
+-- the field (IC.field_leader), once per party; after that, and for the AI
+-- always, a lord is made in the recruitment pool already carrying the party's
+-- background, and leads it once recruited.
 -- A freshly pooled lord is not in character_list, so `stored` is what stops one
 -- being made every turn; it clears as soon as the party has a leader.
 -- ponytail: one stored lord per party at a time; one left unrecruited when the
 -- party finds a leader elsewhere stays in the pool.
 function IC.ensure_leaders(faction_key)
     local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
     local made = 0
     -- Men already moved this pass, in case the engine answers has_trait late.
     local taken = {}
@@ -1527,6 +1701,12 @@ function IC.ensure_leaders(faction_key)
                 house.stored = nil
                 IC.say("IRON COURT: " .. slug .. " in " .. faction_key .. " had no leader - "
                        .. "cqi " .. man:command_queue_index() .. " moved over from the Crown")
+            elseif house.fielded == now then
+                -- HIS ARMY IS ON ITS WAY: the spawn lands after this frame.
+            elseif not house.fielded and IC.is_human(faction_key)
+                    and IC.field_leader(faction_key, slug) then
+                house.fielded = now
+                made = made + 1
             elseif not house.stored then
                 local subtype = IC.STORE_LORDS[cm:random_number(#IC.STORE_LORDS, 1)]
                 local list = IC.BACKGROUNDS[slug]
@@ -1551,6 +1731,285 @@ function IC.ensure_leaders(faction_key)
     IC.save(faction_key)
     return made
 end
+
+-- A LEADER PUT IN THE FIELD (author, 2026-09-25: "spawn him on the map but
+-- without all the event logs that will show, the lord should also have the
+-- recruitement effects just like recruiting one newly"). A lord alone at the
+-- capital, in his party's trade and at the rank a lord hired there would have,
+-- with the character, agent and trait messages held back - the way CA puts
+-- down a Mortarch. The pool lord it replaces was invisible until hired, so the
+-- party read as leaderless on its card.
+--
+-- True when the army was asked for. It lands after this frame, when the
+-- wrapper's ScriptedForceCreated hands back his cqi - AFTER his own
+-- CharacterCreated, whose ic_born deals him a background of its own, which is
+-- why the callback puts the party's back rather than trusting the deal.
+IC.QUIET_FEED = {"wh_event_category_character", "wh_event_category_agent",
+                 "wh_event_category_traits_ancillaries"}
+
+function IC.field_leader(faction_key, slug)
+    local region = IC.hire_region(real_faction(faction_key))
+    if not region then return false end
+    local region_key = region:name()
+    local x, y = cm:find_valid_spawn_location_for_character_from_settlement(
+        faction_key, region_key, false, true, 5)
+    if not x or x < 0 then return false end
+    local subtype = IC.STORE_LORDS[cm:random_number(#IC.STORE_LORDS, 1)]
+    local list = IC.BACKGROUNDS[slug]
+    local bg = list[cm:random_number(#list, 1)]
+    local okr, rank = pcall(IC.recruit_rank, faction_key, region_key)
+    if not okr then
+        IC.warn("IRON COURT: no recruit rank read for " .. faction_key .. ": " .. tostring(rank))
+        rank = 0
+    end
+    for i = 1, #IC.QUIET_FEED do
+        cm:disable_event_feed_events(true, IC.QUIET_FEED[i], "", "")
+    end
+    local ok, err = pcall(function()
+        cm:create_force_with_general(faction_key, "", region_key, x, y, "general",
+            subtype, "", "", "", "", false, function(cqi)
+                local done, why = pcall(function()
+                    local man = IC.character_by_cqi(faction_key, cqi)
+                    if not man then return end
+                    local lookup = cm:char_lookup_str(man)
+                    local old = IC.bg_of_character(man)
+                    if old ~= bg then
+                        if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end
+                        cm:force_add_trait(lookup, "derpy_ic_bg_" .. bg, false)
+                    end
+                    -- BY, NOT TO: CA's wrapper calls level_up_agent_rank.
+                    if rank > 0 then cm:add_agent_experience(lookup, rank, true) end
+                    IC.say("IRON COURT: " .. slug .. " in " .. faction_key .. " had no leader - a "
+                           .. subtype .. " takes the field at " .. region_key
+                           .. ", " .. rank .. " ranks up")
+                end)
+                if not done then IC.warn("IRON COURT: leader for " .. slug .. ": " .. tostring(why)) end
+            end)
+    end)
+    -- AFTER THIS FRAME, which is when the spawn's own messages arrive.
+    cm:callback(function()
+        for i = 1, #IC.QUIET_FEED do
+            cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")
+        end
+    end, 1)
+    if not ok then
+        IC.warn("IRON COURT: no leader put in the field for " .. slug .. ": " .. tostring(err))
+    end
+    return ok
+end
+
+-- LORD RECRUIT RANK, which the engine gives a lord hired from the pool and not
+-- one made by script: measured 2026-09-25, rank 1 under a +10 bundle. The sum of
+-- IC.RECRUIT_RANK at `region_key`. A "province" source counts only where he is
+-- raised; a building counts once for every one standing, the way separate
+-- buildings' effects add up; a bundle counts on the faction or on any region.
+function IC.recruit_rank(faction_key, region_key)
+    local faction = real_faction(faction_key)
+    if not faction then return 0 end
+    local by = {}
+    for i = 1, #IC.RECRUIT_RANK do
+        local kind, key, n, reach = unpack(IC.RECRUIT_RANK[i])
+        by[kind] = by[kind] or {}
+        by[kind][key] = by[kind][key] or {faction = 0, province = 0}
+        by[kind][key][reach] = by[kind][key][reach] + n
+    end
+    local total = 0
+    for key, row in pairs(by.technology or {}) do
+        if faction:has_technology(key) then total = total + row.faction + row.province end
+    end
+    for key, row in pairs(by.bundle or {}) do
+        if faction:has_effect_bundle(key) then total = total + row.faction + row.province end
+    end
+    local men = faction:character_list()
+    for i = 0, men:num_items() - 1 do
+        local man = men:item_at(i)
+        for key, row in pairs(by.skill or {}) do
+            if man:has_skill(key) then total = total + row.faction + row.province end
+        end
+    end
+    local regions = faction:region_list()
+    local here
+    for i = 0, regions:num_items() - 1 do
+        if regions:item_at(i):name() == region_key then
+            here = regions:item_at(i):province_name()
+        end
+    end
+    for i = 0, regions:num_items() - 1 do
+        local region = regions:item_at(i)
+        local local_ok = here ~= nil and region:province_name() == here
+        local function count(row)
+            total = total + row.faction + (local_ok and row.province or 0)
+        end
+        for key, row in pairs(by.bundle or {}) do
+            if region:has_effect_bundle(key) then count(row) end
+        end
+        local slots = region:slot_list()
+        for j = 0, slots:num_items() - 1 do
+            local slot = slots:item_at(j)
+            if slot:has_building() then
+                local row = (by.building or {})[slot:building():name()]
+                if row then count(row) end
+            end
+        end
+    end
+    return total
+end
+
+-- EVERY SOURCE IN CA'S DB, as {kind, key, ranks, reach}. Written and held
+-- against db.pack by gen_iron_court.check_recruit_rank - never edit by hand.
+IC.RECRUIT_RANK = {
+    {"building", "wh2_dlc09_tmb_estate_1", 1, "faction"},
+    {"building", "wh2_dlc11_foreign_infamy_1", 1, "faction"},
+    {"building", "wh2_dlc11_vampirecoast_port_3", 1, "faction"},
+    {"building", "wh2_main_def_coldones_2", 1, "faction"},
+    {"building", "wh2_main_hef_dragons_1", 1, "faction"},
+    {"building", "wh2_main_hef_dragons_2", 2, "faction"},
+    {"building", "wh2_main_skv_temple_1", 1, "faction"},
+    {"building", "wh2_main_special_altar_of_ultimate_darkness", 1, "faction"},
+    {"building", "wh2_main_special_altar_of_ultimate_darkness_vmp", 1, "faction"},
+    {"building", "wh2_main_special_altdorf_imperial_palace", 2, "faction"},
+    {"building", "wh2_main_special_castle_drachenfels_2", 2, "faction"},
+    {"building", "wh2_main_special_castle_drachenfels_nag_2", 2, "faction"},
+    {"building", "wh2_main_special_chamber_of_visions", 1, "faction"},
+    {"building", "wh2_main_special_clar_karond_lairs_other", 2, "faction"},
+    {"building", "wh2_main_special_dorks_rock", 2, "faction"},
+    {"building", "wh2_main_special_everqueen_court", 1, "faction"},
+    {"building", "wh2_main_special_everqueen_court_def", 1, "faction"},
+    {"building", "wh2_main_special_everqueen_court_hef", 1, "faction"},
+    {"building", "wh2_main_special_hexoatl_stellar_pyramids", 2, "faction"},
+    {"building", "wh2_main_special_hexoatl_stellar_pyramids_other", 1, "faction"},
+    {"building", "wh2_main_special_mousillon_merovech", 1, "faction"},
+    {"building", "wh2_main_special_naggarond_witch_king_def", 2, "faction"},
+    {"building", "wh2_main_special_naggarond_witch_king_hef", 2, "faction"},
+    {"building", "wh2_main_special_phoenix_king_court", 2, "faction"},
+    {"building", "wh2_main_special_pyramid_of_nagash_other", 3, "faction"},
+    {"building", "wh2_main_special_pyramid_of_nagash_vmp", 3, "faction"},
+    {"building", "wh2_main_special_shrine_of_asuryan_1_other", 1, "faction"},
+    {"building", "wh2_main_special_skavenblight_council13", 2, "faction"},
+    {"building", "wh2_main_special_skeggi_hall", 2, "faction"},
+    {"building", "wh3_dlc20_woc_dark_fortress_knights_3", 1, "province"},
+    {"building", "wh3_dlc23_chd_resource_gold_1", 1, "faction"},
+    {"building", "wh3_dlc23_chd_resource_gold_2", 1, "faction"},
+    {"building", "wh3_dlc23_chd_resource_gold_3", 2, "faction"},
+    {"building", "wh3_dlc23_chd_tower_living_quaters_1", 1, "province"},
+    {"building", "wh3_dlc23_chd_tower_living_quaters_2", 2, "province"},
+    {"building", "wh3_dlc23_chd_tower_living_quaters_3", 2, "province"},
+    {"building", "wh3_dlc23_chd_tower_living_quaters_4", 2, "faction"},
+    {"building", "wh3_dlc24_special_celestial_palace_other", 2, "faction"},
+    {"building", "wh3_dlc24_special_the_palace_of_scrolls", 2, "faction"},
+    {"building", "wh3_dlc25_special_ancestors_hall_1", 1, "faction"},
+    {"building", "wh3_dlc26_special_bone_nose_idols_1", 3, "faction"},
+    {"building", "wh3_dlc27_hef_special_chamber_of_the_phoenix_crown", 5, "faction"},
+    {"building", "wh3_dlc27_sla_dec_palace_characters_1", 5, "province"},
+    {"building", "wh3_dlc27_sla_dec_palace_characters_2", 7, "province"},
+    {"building", "wh3_dlc27_sla_dec_palace_characters_3", 10, "province"},
+    {"building", "wh3_dlc27_special_skeggi_hall_0", 1, "faction"},
+    {"building", "wh3_dlc29_special_altar_of_ultimate_darkness_nag", 1, "faction"},
+    {"building", "wh3_dlc29_special_hexoatl_stellar_pyramids_skv", 1, "faction"},
+    {"building", "wh3_dlc29_special_pyramid_of_nagash_nag_2", 1, "faction"},
+    {"building", "wh3_dlc29_special_pyramid_of_nagash_nag_3", 2, "faction"},
+    {"building", "wh3_main_kho_infra_champion_1", 1, "province"},
+    {"building", "wh3_main_kho_infra_champion_2", 2, "province"},
+    {"building", "wh3_main_minor_cult_myrmidia_1", 3, "faction"},
+    {"building", "wh3_main_ogr_camp_monster_1", 1, "faction"},
+    {"building", "wh3_main_ogr_camp_monster_2", 2, "faction"},
+    {"building", "wh3_main_ogr_camp_monster_3", 3, "faction"},
+    {"building", "wh3_main_special_celestial_palace", 2, "faction"},
+    {"building", "wh3_main_special_ksl_erengrad_2_1", 2, "province"},
+    {"building", "wh3_main_special_ksl_erengrad_2_2", 3, "province"},
+    {"building", "wh3_main_special_ksl_erengrad_2_3", 4, "province"},
+    {"building", "wh3_main_special_ksl_praag_3_1", 2, "province"},
+    {"building", "wh3_main_special_ksl_praag_3_2", 3, "province"},
+    {"building", "wh3_main_special_ksl_praag_3_3", 4, "province"},
+    {"building", "wh_dlc06_grn_boss_3_skarsnik", 2, "faction"},
+    {"building", "wh_dlc06_grn_eight_peaks_1", 1, "faction"},
+    {"building", "wh_dlc06_grn_eight_peaks_2", 2, "faction"},
+    {"building", "wh_dlc06_grn_eight_peaks_3", 4, "faction"},
+    {"building", "wh_main_brt_worship_3", 1, "faction"},
+    {"building", "wh_main_dwf_resource_gold_4", 1, "faction"},
+    {"building", "wh_main_dwf_workshop_3", 1, "faction"},
+    {"building", "wh_main_grn_boss_3", 2, "faction"},
+    {"building", "wh_main_horde_chaos_weapons_1", 2, "province"},
+    {"building", "wh_main_horde_chaos_weapons_2", 4, "province"},
+    {"building", "wh_main_nor_worship_2", 1, "province"},
+    {"building", "wh_main_nor_worship_3", 1, "faction"},
+    {"building", "wh_main_special_bokha_palace", 2, "faction"},
+    {"building", "wh_main_special_high_king_throne_hall", 2, "faction"},
+    {"bundle", "wh2_dlc09_payload_dilemma_scaly_sacrifice_second", 5, "faction"},
+    {"bundle", "wh2_dlc09_ritual_tmb_tahoth", 3, "faction"},
+    {"bundle", "wh2_dlc11_minister_cst_first_mate", 3, "faction"},
+    {"bundle", "wh2_dlc13_victory_wulfhart", 5, "faction"},
+    {"bundle", "wh2_main_faction_boost_reward_level1_lizardmen", 2, "faction"},
+    {"bundle", "wh2_main_faction_boost_reward_level2_lizardmen", 4, "faction"},
+    {"bundle", "wh2_main_faction_boost_reward_level3_lizardmen", 6, "faction"},
+    {"bundle", "wh2_main_queek_karak_owned_true", 2, "faction"},
+    {"bundle", "wh3_dlc20_payload_eye_of_the_gods_character_recruit", 10, "faction"},
+    {"bundle", "wh3_dlc23_chd_ancestor_relic_of_grimnir_reward_a", 5, "faction"},
+    {"bundle", "wh3_dlc24_ritual_cth_mos_balance_faction_gain_doctrine_war", 10, "faction"},
+    {"bundle", "wh3_dlc25_dwf_ritual_lord_hero_recruit_rank", 5, "faction"},
+    {"bundle", "wh3_dlc26_golgfag_contracts_reward_12", 3, "faction"},
+    {"bundle", "wh3_dlc26_payload_skarr_bloodwrath_2", 3, "faction"},
+    {"bundle", "wh3_dlc27_dechala_ritual_palace_4", 5, "faction"},
+    {"bundle", "wh3_dlc29_ie_victory_conditions_characters_recruit_rank_bundle", 10, "faction"},
+    {"bundle", "wh3_dlc29_ie_victory_conditions_lord_recruit_rank_bundle", 10, "faction"},
+    {"bundle", "wh3_dlc29_payload_great_mausoleum_discovered", 3, "faction"},
+    {"bundle", "wh3_main_bundle_belakor_banished", 14, "faction"},
+    {"bundle", "wh3_main_bundle_dae_undivided_02", 3, "faction"},
+    {"bundle", "wh3_main_ie_victory_objective_chaos_long", 10, "faction"},
+    {"bundle", "wh3_main_minor_cult_myrmidia", 3, "faction"},
+    {"bundle", "wh3_main_time_of_legends_capital_buffs", 4, "faction"},
+    {"bundle", "wh3_main_time_of_legends_kislev_buffs", 2, "faction"},
+    {"bundle", "wh3_main_tzeentch_realm_dilemma_reward_5", 9, "faction"},
+    {"bundle", "wh_dlc05_UI_bundle_oak_of_ages_mp_2", 2, "faction"},
+    {"bundle", "wh_dlc05_UI_bundle_oak_of_ages_mp_3", 3, "faction"},
+    {"bundle", "wh_dlc05_UI_bundle_oak_of_ages_mp_4", 4, "faction"},
+    {"bundle", "wh_dlc05_UI_bundle_oak_of_ages_mp_5", 5, "faction"},
+    {"bundle", "wh_dlc06_bundle_eight_peaks_recapture", 5, "faction"},
+    {"bundle", "wh_dlc07_bretonnia_chivalry_bar_401_600", 1, "faction"},
+    {"bundle", "wh_dlc07_bretonnia_chivalry_bar_601_800", 3, "faction"},
+    {"bundle", "wh_dlc07_bretonnia_chivalry_bar_801_1000", 5, "faction"},
+    {"skill", "wh2_dlc09_skill_tmb_liche_priest_incantation_of_preservation", 1, "faction"},
+    {"skill", "wh2_dlc11_skill_cst_lokhir_unique_5", 3, "faction"},
+    {"skill", "wh2_dlc11_skill_cst_noctilus_unique_0", 2, "faction"},
+    {"skill", "wh2_dlc14_skill_skv_snikch_contract_loopholes", 3, "faction"},
+    {"skill", "wh2_dlc16_wef_ariel_campaign_2", 3, "faction"},
+    {"skill", "wh2_main_skill_def_malekith_warleader_3", 2, "faction"},
+    {"skill", "wh2_main_skill_innate_hef_noble_campaign_7_conscientious", 2, "faction"},
+    {"skill", "wh3_dlc23_skill_chd_astragoth_infernal_lord", 3, "faction"},
+    {"skill", "wh3_dlc27_skill_innate_hef_noble_campaign_7_conscientious_affinity", 2, "faction"},
+    {"skill", "wh3_main_skill_ogr_greasus_unique_overtyrant", 3, "faction"},
+    {"skill", "wh_dlc08_skill_chs_lord_unique_archaon_0", 3, "faction"},
+    {"skill", "wh_dlc08_skill_emp_lord_unique_karl_0", 3, "faction"},
+    {"technology", "tech_dlc14_brt_heroic_duties", 5, "faction"},
+    {"technology", "tech_grn_end_5_2", 5, "faction"},
+    {"technology", "wh2_dlc11_tech_cst_command_03", 5, "faction"},
+    {"technology", "wh2_dlc13_tech_emp_economy_3_a", 3, "faction"},
+    {"technology", "wh2_main_tech_def_3_3_1", 2, "faction"},
+    {"technology", "wh2_main_tech_hef_2_03", 2, "faction"},
+    {"technology", "wh2_main_tech_hef_5_03", 2, "faction"},
+    {"technology", "wh2_main_tech_lzd_1_1", 4, "faction"},
+    {"technology", "wh2_main_tech_lzd_1_7", 2, "faction"},
+    {"technology", "wh2_main_tech_skv_7_1", 2, "faction"},
+    {"technology", "wh3_cp1_tech_cth_33_bhashiva", 3, "faction"},
+    {"technology", "wh3_dlc20_chs_und_shared_corruption", 3, "faction"},
+    {"technology", "wh3_dlc23_tech_chd_sorcery_5", 2, "faction"},
+    {"technology", "wh3_dlc27_tech_hef_aislinn_5_03", 2, "faction"},
+    {"technology", "wh3_dlc27_tech_nor_cam_leaders", 3, "faction"},
+    {"technology", "wh3_dlc27_tech_nor_cul_slaanesh", 5, "faction"},
+    {"technology", "wh3_dlc29_chs_nur_glottkin_character_rank", 3, "faction"},
+    {"technology", "wh3_main_tech_cth_33", 3, "faction"},
+    {"technology", "wh3_main_tech_kho_2_3", 2, "faction"},
+    {"technology", "wh3_main_tech_ksl_2_07", 2, "faction"},
+    {"technology", "wh3_main_tech_ksl_3_10_prologue", 1, "faction"},
+    {"technology", "wh3_main_tech_nur_growth_28", 3, "faction"},
+    {"technology", "wh3_main_tech_ogr_0_3_0", 2, "faction"},
+    {"technology", "wh3_main_tech_sla_5_1", 3, "faction"},
+    {"technology", "wh3_main_tech_tze_1_2", 3, "faction"},
+    {"technology", "wh3_main_tech_tze_4_5", 3, "faction"},
+    {"technology", "wh_dlc05_tech_1_hoeth", 2, "faction"},
+    {"technology", "wh_dlc08_tech_nor_nw_07", 5, "faction"},
+    {"technology", "wh_main_tech_dwf_civ_1_3", 3, "faction"},
+}
 
 function IC.correct_history(character)
     local want = IC.fixed_history(character)
@@ -1602,6 +2061,7 @@ function IC.stamp_court(faction_key, attempts)
         return 0
     end
     local stamped = 0
+    local men = {}
     for i = 0, list:num_items() - 1 do
         local character = list:item_at(i)
         if character and not character:is_null_interface() then
@@ -1612,13 +2072,26 @@ function IC.stamp_court(faction_key, attempts)
             if IC.stamp_origin(character, IC.origin_for(character)) then
                 stamped = stamped + 1
             end
-            if IC.stamp_bg(character,
-                           IC.background_for(character, faction_key)) then
-                stamped = stamped + 1
-            end
             if IC.stamp_ambition(faction_key, character) then
                 stamped = stamped + 1
             end
+            men[#men + 1] = {man = character, at = i,
+                             first = IC.is_lordly(character) and 1
+                                     or (IC.is_colonel(character) and 2 or 3)}
+        end
+    end
+    -- LORDS, THEN GARRISON COMMANDERS, THEN EVERYONE ELSE: an empty lead goes to
+    -- the best man for it, whatever order character_list hands them over in.
+    table.sort(men, function(a, b)
+        if a.first ~= b.first then return a.first < b.first end
+        return a.at < b.at
+    end)
+    local tally = {}
+    for i = 1, #men do
+        local character = men[i].man
+        if IC.stamp_bg(character,
+                       IC.background_for(character, faction_key, tally)) then
+            stamped = stamped + 1
         end
     end
     return stamped
@@ -1806,22 +2279,29 @@ function IC.hire_cost()
     return IC.TUNE.hire_standing
 end
 
-function IC.hire_settlement(faction)
+-- The capital, else the first region with a settlement: where a hired officer
+-- or a party leader put in the field turns up.
+function IC.hire_region(faction)
     if not faction or faction:is_null_interface() then return nil end
     local home = faction:home_region()
     if home and not home:is_null_interface() then
         local at = home:settlement()
-        if at and not at:is_null_interface() then return at end
+        if at and not at:is_null_interface() then return home end
     end
     local regions = faction:region_list()
     for i = 0, regions:num_items() - 1 do
         local region = regions:item_at(i)
         if region and not region:is_null_interface() then
             local at = region:settlement()
-            if at and not at:is_null_interface() then return at end
+            if at and not at:is_null_interface() then return region end
         end
     end
     return nil
+end
+
+function IC.hire_settlement(faction)
+    local region = IC.hire_region(faction)
+    return region and region:settlement() or nil
 end
 
 function IC.can_hire(faction_key, office_slug, index)
@@ -2019,11 +2499,14 @@ end
 
 function IC.apply_office_bundles(faction_key)
     local court = IC.court(faction_key)
+    -- A STALL ENDS HERE TOO, so every call that seats or unseats a man - they
+    -- all end in this function - ends a stall aimed at the man who left.
+    IC.end_stalls(faction_key)
     for i = 1, #IC.OFFICES do
         local slug = IC.OFFICES[i].slug
         cm:remove_effect_bundle(IC.office_bundle(slug), faction_key)
         cm:remove_effect_bundle(IC.vacancy_bundle(slug), faction_key)
-        if court.offices[slug] then
+        if court.offices[slug] and not court.stalled[slug] then
             cm:apply_effect_bundle(IC.office_bundle(slug), faction_key, -1)
         end
     end
@@ -2037,6 +2520,47 @@ end
 
 function IC.gov_bundle_base()      return "derpy_ic_gov_base" end
 function IC.gov_bundle_house(slug) return "derpy_ic_gov_house_" .. slug end
+
+-- THE GOVERNOR'S BASE BUNDLE, BUILT AT RUNTIME so it grows with his rank (spec
+-- 2026-09-27 section 7). The two effect keys are the ones tools/gen_iron_court.py
+-- ships as E_ORDER and E_GDP_PROVINCE, and GOV_BASE_ORDER is GOVERNOR_BASE's
+-- order value; gen_iron_court --check holds all four to the generator. The income
+-- is PROVINCE-scoped: every vanilla payload put on one province (the Eshin
+-- steal-money action, the Glottkin marks) scopes this effect province_to_*, and
+-- faction_to_region_own is what the realm-wide bundles use.
+IC.GOV_BASE_ORDER = 2
+IC.GOV_ORDER_EFFECT = "wh_main_effect_public_order_faction"
+IC.GOV_INCOME_EFFECT = "wh_main_effect_economy_gdp_mod_all"
+IC.GOV_INCOME_SCOPE = "province_to_region_own"
+
+function IC.gov_rank_bonus(rank)
+    rank = math.max(0, tonumber(rank) or 0)
+    return math.floor(rank / IC.TUNE.gov_rank_order_per),
+           math.floor(rank / IC.TUNE.gov_rank_income_per)
+end
+
+function IC.apply_gov_base(character, region)
+    local rank = 0
+    pcall(function() rank = character:rank() end)
+    local order, income = IC.gov_rank_bonus(rank)
+    local ok = pcall(function()
+        local b = cm:create_new_custom_effect_bundle(IC.gov_bundle_base())
+        -- NOT is_null_interface: CA's own corruption_swing.lua says that call
+        -- is broken on a custom bundle, and a pcall that always fails would
+        -- ship the plain bundle forever without a word.
+        if not b then error("no custom bundle") end
+        b:set_duration(0)
+        b:set_effect_value_by_key(IC.GOV_ORDER_EFFECT, IC.GOV_BASE_ORDER + order)
+        if income > 0 then
+            b:add_effect(IC.GOV_INCOME_EFFECT, IC.GOV_INCOME_SCOPE, income)
+        end
+        cm:apply_custom_effect_bundle_to_faction_province(b, region)
+    end)
+    -- THE PLAIN BUNDLE IF THE RUNTIME ONE FAILED: a governor still governs.
+    if not ok then
+        cm:apply_effect_bundle_to_faction_province(IC.gov_bundle_base(), region, -1)
+    end
+end
 
 local function province_of_character(character)
     if not character or character:is_null_interface() then return nil end
@@ -2240,16 +2764,36 @@ function IC.apply_governor_bundles(faction_key)
     local court = IC.court(faction_key)
     IC.refresh_gov_weight(faction_key)
 
-    for i = 1, #IC.PARTIES do
-        cm:remove_effect_bundle(IC.gov_bundle_house(IC.PARTIES[i]), faction_key)
-    end
-    cm:remove_effect_bundle(IC.gov_bundle_base(), faction_key)
+    -- OFF EVERY PROVINCE FIRST. The bundles go on per province, so they come off
+    -- per province - the faction call this used to make never touched them, and
+    -- a province kept its last governor's bonus for ever (review 2026-09-27).
+    -- One region per province is enough: CA removes from "the portion of the
+    -- province owned by the owner of the specified region".
+    pcall(function()
+        local faction = real_faction(faction_key)
+        if not faction then return end
+        local list = faction:region_list()
+        local seen = {}
+        for i = 0, list:num_items() - 1 do
+            local region = list:item_at(i)
+            local province = region and not region:is_null_interface()
+                             and region:province_name()
+            if province and not seen[province] then
+                seen[province] = true
+                cm:remove_effect_bundle_from_faction_province(IC.gov_bundle_base(), region)
+                for j = 1, #IC.PARTIES do
+                    cm:remove_effect_bundle_from_faction_province(
+                        IC.gov_bundle_house(IC.PARTIES[j]), region)
+                end
+            end
+        end
+    end)
 
     for province_key, cqi in pairs(court.govs) do
         local character = IC.character_by_cqi(faction_key, cqi)
         local province, region = province_of_character(character)
         if province and province:key() == province_key and region then
-            cm:apply_effect_bundle_to_faction_province(IC.gov_bundle_base(), region, -1)
+            IC.apply_gov_base(character, region)
             local slug = IC.house_of_character(character, faction_key)
             if slug and IC.BACKGROUNDS[slug] then
                 cm:apply_effect_bundle_to_faction_province(
@@ -2708,6 +3252,9 @@ function IC.rebel_kit(faction_key, cqi)
             end
         end
     end
+    -- HIS OWN ARMY FIRST, modded units and all: that is how a unit mod reaches
+    -- the rebels. NOT the faction's other armies - with nobody leaving, the
+    -- first of those was the ruler's own stack, copied (reported 2026-09-27).
     local man = nil
     if cqi then man = IC.character_by_cqi(faction_key, cqi) end
     if man then
@@ -2715,26 +3262,44 @@ function IC.rebel_kit(faction_key, cqi)
         pcall(function() force = man:military_force() end)
         take(force)
     end
-    local faction = real_faction(faction_key)
-    if faction then
-        local forces = nil
-        pcall(function() forces = faction:military_force_list() end)
-        if forces then
-            for i = 0, forces:num_items() - 1 do
-                take(forces:item_at(i))
+    -- THE REST IS THE HASHUT DRAFT, not his stack again in order.
+    local extra = IC.rebel_draw(want - #kit)
+    for i = 1, #extra do kit[#kit + 1] = extra[i] end
+    return kit
+end
+
+-- COUNT UNITS OFF THE DRAFT: slot i is rolled from IC.REBEL_DRAFT[i]'s pool by
+-- its weight, skipping a unit already drawn IC.REBEL_UNIT_CAP times. The dice are
+-- cm:random_number, so both machines of a multiplayer game roll the same army.
+function IC.rebel_draw(count)
+    local out, used = {}, {}
+    for i = 1, math.max(0, count or 0) do
+        local role = IC.REBEL_DRAFT[(i - 1) % #IC.REBEL_DRAFT + 1]
+        local pool = IC.REBEL_POOLS[role] or {}
+        local open, total = {}, 0
+        for _, u in ipairs(pool) do
+            if (used[u[1]] or 0) < IC.REBEL_UNIT_CAP then
+                open[#open + 1] = u
+                total = total + u[2]
+            end
+        end
+        if #open == 0 then
+            open = pool
+            for _, u in ipairs(pool) do total = total + u[2] end
+        end
+        if total > 0 then
+            local roll = cm:random_number(total)
+            for _, u in ipairs(open) do
+                roll = roll - u[2]
+                if roll <= 0 then
+                    out[#out + 1] = u[1]
+                    used[u[1]] = (used[u[1]] or 0) + 1
+                    break
+                end
             end
         end
     end
-    local at = 1
-    while #kit > 0 and #kit < want do
-        kit[#kit + 1] = kit[at]
-        at = at + 1
-    end
-    for i = 1, #IC.REBEL_ROSTER do
-        if #kit >= want then break end
-        kit[#kit + 1] = IC.REBEL_ROSTER[i]
-    end
-    return kit
+    return out
 end
 
 function IC.rebel_rank(faction_key, cqi)
@@ -2799,14 +3364,14 @@ function IC.rebel_muster(rebels, before, level)
     return done
 end
 
-function IC.rebel_sour(rebels, other)
+function IC.rebel_sour(rebels, other, max_steps)
     if not rebels or not other or rebels == other then return 0 end
     local a, b
     pcall(function() a = cm:get_faction(rebels) end)
     pcall(function() b = cm:get_faction(other) end)
     if not a or a == false or not b or b == false then return 0 end
     local n = 0
-    while n < IC.TUNE.rebel_relation_max do
+    while n < (max_steps or IC.TUNE.rebel_relation_max) do
         local now
         pcall(function() now = a:diplomatic_standing_with(b) end)
         if now and now <= IC.TUNE.rebel_relation then break end
@@ -2817,6 +3382,23 @@ function IC.rebel_sour(rebels, other)
         n = n + 1
     end
     return n
+end
+
+-- EVERY LIVING CHAOS DWARF FACTION, in key order, off IC.ORIGINS - the court's
+-- own list of the Tower's houses.
+function IC.chd_factions()
+    local out = {}
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        -- ONE BAD INTERFACE MUST NOT STOP THE SECESSION this runs inside.
+        local ok, live = pcall(function()
+            local f = key and real_faction(key)
+            return f and IC.is_chd(f) and not f:is_dead()
+        end)
+        if ok and live then out[#out + 1] = key end
+    end
+    table.sort(out)
+    return out
 end
 
 function IC.rebel_sour_all(rebels, faction_key)
@@ -2831,6 +3413,13 @@ function IC.rebel_sour_all(rebels, faction_key)
         if key and not seen[key] then
             seen[key] = true
             total = total + IC.rebel_sour(rebels, key)
+        end
+    end
+    -- AND EVERY OTHER CHAOS DWARF FACTION, by less (spec 2026-09-27 section 8).
+    for _, key in ipairs(IC.chd_factions()) do
+        if not seen[key] and key ~= rebels then
+            seen[key] = true
+            total = total + IC.rebel_sour(rebels, key, IC.TUNE.rebel_relation_others_max)
         end
     end
     return total
@@ -2864,9 +3453,7 @@ function IC.rebel_force(rebels, region_key, x, y, general, crown, kit)
             units[i] = kit[i]
         end
     else
-        for i = 1, math.min(IC.TUNE.rebel_units, #IC.REBEL_ROSTER) do
-            units[i] = IC.REBEL_ROSTER[i]
-        end
+        units = IC.rebel_draw(IC.TUNE.rebel_units)
     end
     IC.rebel_serial = (IC.rebel_serial or 0) + 1
     local ok, err = pcall(function()
@@ -2938,6 +3525,17 @@ function IC.secede(faction_key, slug)
                 kit = IC.rebel_kit(faction_key, defectors[i]),
                 rank = IC.rebel_rank(faction_key, defectors[i]),
                 region = name, x = x, y = y}
+        end
+    end
+
+    -- NEWS FOR EVERYONE WHO HAS MET THEM, and a card that shows where.
+    if not IC.is_human(faction_key) and IC.news(faction_key, "secede", slug) > 0 then
+        local okh, human = pcall(function() return cm:get_human_factions() end)
+        for i = 1, (okh and human) and #human or 0 do
+            if IC.has_met(human[i], faction_key) and risings[1] then
+                IC.raise_feed_located(human[i], "realm_secede",
+                                      risings[1].x, risings[1].y)
+            end
         end
     end
 
@@ -3066,6 +3664,11 @@ function IC.secede(faction_key, slug)
                .. " under "
                .. tostring(risings[1] and risings[1].general.subtype)
                .. " (was cqi " .. tostring(risings[1] and risings[1].cqi) .. ")")
+        -- THE GROUND HAS MOVED, so the governors are read again now: the turn
+        -- reconciled them before the clocks ticked, and a Crown man governing
+        -- a province the rebels just took stayed on the list for a turn.
+        IC.reconcile_governors(faction_key)
+        IC.apply_governor_bundles(faction_key)
         IC.log(faction_key, "secede", slug, nil, lost)
         IC.feed(faction_key, "secede_done")
         IC.save(faction_key)
@@ -3139,6 +3742,7 @@ function IC.splinter(faction_key)
     crown.weight = math.max(1, (crown.weight or 0) - IC.TUNE.splinter_weight)
     IC.move_loyalty(faction_key, IC.CROWN, IC.TUNE.loyalty_start - keep)
     IC.log(faction_key, "splinter", slug, nil, house.weight)
+    IC.news(faction_key, "splinter", slug)
     IC.feed(faction_key, "splinter")
     IC.save(faction_key)
     return slug
@@ -3219,6 +3823,7 @@ function IC.nothing_to_take(faction_key, slug)
 end
 
 function IC.dissolve(faction_key, slug)
+    IC.news(faction_key, "dissolve", slug)
     IC.log(faction_key, "dissolve", slug, nil, 0)
     IC.remove_house(faction_key, slug)
     IC.feed(faction_key, "dissolved")
@@ -3581,6 +4186,11 @@ function IC.can_favour(faction_key, key, slug)
     if key == "gift" and (house.loyalty or 0) >= 100 then
         return false, "content"
     end
+    -- ONE GIFT PER PARTY PER TURN (author, 2026-09-27). Otherwise a full
+    -- treasury buys a party from its start to 100 in one sitting.
+    if key == "gift" and house.gifted == cm:model():turn_number() then
+        return false, "given"
+    end
     if key == "secure" then
         local left = IC.protected_for(faction_key, slug)
         if left > 0 then return false, "sworn", left end
@@ -3601,10 +4211,18 @@ function IC.favour(faction_key, key, slug)
 
     if key == "gift" then
         IC.move_loyalty(faction_key, slug, IC.TUNE.favour_gift_loyalty)
+        house.gifted = cm:model():turn_number()
     elseif key == "secure" then
         house.protected = cm:model():turn_number() + IC.TUNE.favour_secure_turns
         house.clock = 0
         house.pressed = nil
+        -- AND THEIR OFFICERS GO BACK TO WORK (spec 2026-09-27 section 3).
+        for office_slug, s in pairs(court.stalled or {}) do
+            if s.by == slug and s.cause == "withhold" then
+                court.stalled[office_slug] = nil
+            end
+        end
+        IC.apply_office_bundles(faction_key)
     end
 
     IC.log(faction_key, key, slug, nil, cost)
@@ -3621,7 +4239,8 @@ end
 
 function IC.plot_cost(key)
     local plot = IC.plot_by_key(key)
-    if not plot then return 0 end
+    -- A PARTY-ONLY MOVE has no IC.PLOTS row; its price is on the tune.
+    if not plot then return IC.TUNE["plot_" .. tostring(key) .. "_cost"] or 0 end
     return IC.TUNE[plot.cost] or 0
 end
 
@@ -4241,6 +4860,120 @@ function IC.leader_trait(faction_key, slug)
     return IC.LEADER_TRAITS[(cqi % #IC.LEADER_TRAITS) + 1]
 end
 
+-- AN OFFICE WHOSE BONUS IS SWITCHED OFF until a turn (spec 2026-09-27, section
+-- 1). `of` is the party whose man holds it, `by` the party that did it. It ends
+-- at its turn or the moment the seat stops being `of`'s, whichever is first.
+function IC.stall_office(faction_key, office_slug, turns, by, cause)
+    local court = IC.court(faction_key)
+    local cqi = court.offices[office_slug or ""]
+    if not cqi then return false end
+    local of = IC.house_of_cqi(faction_key, cqi)
+    if not of then return false end
+    court.stalled[office_slug] = {ends = cm:model():turn_number() + turns,
+                                  of = of, by = by, cause = cause}
+    IC.apply_office_bundles(faction_key)
+    IC.save(faction_key)
+    return true
+end
+
+function IC.stalled_for(faction_key, office_slug)
+    local s = IC.court(faction_key).stalled[office_slug or ""]
+    if not s then return 0 end
+    return math.max(0, s.ends - cm:model():turn_number())
+end
+
+function IC.end_stalls(faction_key)
+    local court = IC.court(faction_key)
+    court.stalled = court.stalled or {}
+    local now = cm:model():turn_number()
+    local gone = {}
+    for office_slug, s in pairs(court.stalled) do
+        local cqi = court.offices[office_slug]
+        if now >= s.ends or not cqi
+                or IC.house_of_cqi(faction_key, cqi) ~= s.of then
+            gone[#gone + 1] = office_slug
+        end
+    end
+    for i = 1, #gone do court.stalled[gone[i]] = nil end
+    return #gone
+end
+
+-- HAS THIS FACTION MET THAT ONE. faction:factions_met() is CA's own list.
+function IC.has_met(a_key, b_key)
+    local faction = real_faction(a_key)
+    if not faction then return false end
+    local met = false
+    pcall(function()
+        local list = faction:factions_met()
+        for i = 0, list:num_items() - 1 do
+            if list:item_at(i):name() == b_key then met = true; return end
+        end
+    end)
+    return met
+end
+
+-- NEWS OF AN AI COURT, for every human who has met it (spec 2026-09-27
+-- section 6). A PARTY'S NAME, NOT A LOC CALL: the name is the rolled string,
+-- read now because a seceded party's is gone afterwards; the faction stays a
+-- key and the panel names it at draw time.
+function IC.news(source_key, kind, a, b)
+    if not source_key or IC.is_human(source_key) then return 0 end
+    local ok, human = pcall(function() return cm:get_human_factions() end)
+    if not ok or not human then return 0 end
+    local a_name = a and (IC.party_name(source_key, a) or a) or "-"
+    local b_name = b and (IC.party_name(source_key, b) or b) or "-"
+    local told = 0
+    for i = 1, #human do
+        if IC.has_met(human[i], source_key) then
+            local court = IC.court(human[i])
+            court.news = court.news or {}
+            court.news[#court.news + 1] = {turn = cm:model():turn_number(),
+                kind = kind, faction = source_key, a = a_name, b = b_name}
+            while #court.news > IC.TUNE.news_max do table.remove(court.news, 1) end
+            IC.save(human[i])
+            told = told + 1
+        end
+    end
+    return told
+end
+
+function IC.raise_feed_located(faction_key, slug, x, y)
+    local ev = IC.EVENTS[slug]
+    if not ev or not x or not y then return false end
+    local key = "derpy_ic_event_" .. slug
+    pcall(function()
+        cm:show_message_event_located(faction_key,
+            "event_feed_strings_text_" .. key .. "_title",
+            "event_feed_strings_text_" .. key .. "_primary",
+            "event_feed_strings_text_" .. key .. "_secondary",
+            x, y, ev[2], ev[1])
+    end)
+    return true
+end
+
+-- WHAT A CONFEDERATED COURT BRINGS (spec 2026-09-27 section 8): its parties'
+-- loyalty, weighted by their weight and held to 25..75; nil when it had no
+-- court.
+function IC.inherited_loyalty(host_key, joined_key)
+    if not IC.state[joined_key] then IC.load(joined_key) end
+    local total, sum = 0, 0
+    for _, h in pairs(IC.court(joined_key).houses) do
+        local w = math.max(0, h.weight or 0)
+        total = total + w
+        sum = sum + w * (h.loyalty or IC.TUNE.loyalty_start)
+    end
+    if total <= 0 then return nil end
+    return math.max(25, math.min(75, math.floor(sum / total + 0.5)))
+end
+
+-- AND THEN IT IS GONE: its countdowns, feuds, plot and demand go with it.
+function IC.forget_court(faction_key)
+    IC.state[faction_key] = nil
+    if IC.agenda_state then IC.agenda_state[faction_key] = nil end
+    cm:set_saved_value("derpy_ic_" .. faction_key, "")
+    cm:set_saved_value("derpy_ic_agenda_" .. faction_key, "")
+end
+
 function IC.party_name(faction_key, slug)
     local house = IC.court(faction_key).houses[slug]
     if not house or not house.head or not house.tail then return nil end
@@ -4315,13 +5048,14 @@ function IC.seed(faction_key)
     IC.save(faction_key)
 end
 
-function IC.stamp_incoming(faction_key, slug, attempts, before)
+function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
     attempts = attempts or 0
     local faction = real_faction(faction_key)
     if not faction then return end
     local list = faction:character_list()
     before = before or {}
     local stamped = 0
+    local tally = {}
     for i = 0, list:num_items() - 1 do
         local man = list:item_at(i)
         if man and not man:is_null_interface()
@@ -4330,17 +5064,17 @@ function IC.stamp_incoming(faction_key, slug, attempts, before)
         if IC.stamp_origin(man, fixed and fixed.origin or slug) then
             stamped = stamped + 1
         end
-        IC.stamp_bg(man, IC.background_for(man, faction_key))
+        IC.stamp_bg(man, IC.background_for(man, faction_key, tally))
         end
     end
-    if stamped > 0 and IC.add_house(faction_key, slug, true) then
+    if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then
         IC.log(faction_key, "join", slug, nil, stamped)
         IC.feed(faction_key, "party_joined")
         IC.save(faction_key)
     end
     if stamped == 0 and attempts < 6 then
         cm:callback(function()
-            IC.stamp_incoming(faction_key, slug, attempts + 1, before)
+            IC.stamp_incoming(faction_key, slug, attempts + 1, before, loyalty)
         end, 3)
     end
 end
@@ -4496,6 +5230,10 @@ end
 IC.MP_OPS.decline = function(fk, arg)          -- party
     return answer(fk, "decline", arg, IC.decline_offer(fk, fields(arg)[1]))
 end
+IC.MP_OPS.arbit = function(fk, arg)            -- party|back, or party|peace
+    local f = fields(arg)
+    return answer(fk, "arbit", arg, IC.arbitrate(fk, f[1], f[2]))
+end
 IC.MP_OPS.fill = function(fk, arg)             -- nothing: the plan is re-read here
     local n = IC.fill_offices(fk)
     return answer(fk, "fill", arg, n > 0, n > 0 and nil or "no fill", n)
@@ -4538,7 +5276,10 @@ function IC.register()
                 before[man:command_queue_index()] = true
             end
         end
-        IC.stamp_incoming(host_key, slug, 0, before)
+        -- READ BEFORE IT IS FORGOTTEN (spec 2026-09-27 section 8).
+        local loyalty = IC.inherited_loyalty(host_key, joined:name())
+        IC.forget_court(joined:name())
+        IC.stamp_incoming(host_key, slug, 0, before, loyalty)
     end, true)
 
 

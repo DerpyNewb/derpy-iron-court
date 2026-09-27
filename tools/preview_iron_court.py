@@ -405,7 +405,7 @@ DEMO_TRAITS = {
 # recolouring its text, and the selected art is named only in the Lua - it appears
 # in no .twui.xml, so the extractor has to be told about it or the lit tab draws
 # exactly like the four unlit ones.
-TAB_SELECTED = "ui/skins/default/button_square_medium_text_selected.png"
+TAB_SELECTED = "ui/derpy_ic/chd_tab_selected.png"
 
 # HOW MUCH WIDER THE GAME'S FACE IS THAN PIL'S, measured off a screenshot of the
 # shipped panel rather than guessed. The game split "The League of the Ninth
@@ -1017,7 +1017,16 @@ def render(path=None, view="court", box_w=1920):
         # RIGHT TOO, since the party card's state word is right-aligned.
         tx = (x + (w - width) / 2 if halign == "Center"
               else x + w - width if halign == "Right" else x)
-        ty = y + max(0, (h - px) // 2)
+        # textyoffset is (top, bottom) padding: the engine centres the line in
+        # what is left of the box, so a plate's lift shows here as it does there.
+        st = doc.state(comp) if comp is not None else None
+        tc = st.child("component_text") if st is not None else None
+        top, bot = model.pair(tc.get("textyoffset") if tc is not None else None, (0, 0))
+        # CENTRED ON THE GLYPHS' MIDDLE (anchor "lm"), not on PIL's line box, which
+        # sits them ~5px low: measured against the 2026-09-26 in-game shot, where the
+        # column title's letters centre on their cell.
+        mid = y + top + (h - top - bot) / 2
+        ty = mid - px / 2
         for kind, body, tint in parts:
             if kind == "img":
                 art = _asset(body)
@@ -1026,7 +1035,8 @@ def render(path=None, view="court", box_w=1920):
                         rendering.raster(art, px, px, _PlainMetrics()), (int(tx), int(ty)))
                 tx += px
                 continue
-            draw.text((tx, ty), body, fill=(RED_INK if tint == "red" else colour), font=f)
+            draw.text((tx, mid), body, fill=(RED_INK if tint == "red" else colour), font=f,
+                      anchor="lm")
             tx += draw.textlength(body, font=f)
 
     # ---- the panel, then the tab's own furniture -------------------------
@@ -1184,6 +1194,15 @@ def render(path=None, view="court", box_w=1920):
                                "ic_hsort_d", "ic_hsort_e"), start=1):
         if _i not in _cols or not (_heads or [""] * 5)[_i - 1]:
             hidden.add(_key)
+    # THE MOVE GROUPS' HEADINGS ARE THE INTRIGUE TAB'S ALONE: ICUI.refresh shows
+    # each ic_plotcat_N only when view == "intrigue". Harmless to draw while
+    # they were bare text left blank; on a plate (2026-09-26) they drew four
+    # empty bars across the pie. Read off the Lua's own condition.
+    if not re.search(r'show\(comp\("ic_plotcat_" \.\. i, panel\), view == "intrigue"\)', ui):
+        raise SystemExit("ICUI.refresh no longer shows ic_plotcat_N on intrigue "
+                         "alone - re-read it before trusting this picture")
+    if view != "intrigue":
+        hidden |= set(k for k in G.PANEL_LAYOUT if k.startswith("ic_plotcat_"))
     if view != "court":
         hidden |= set(lua_words(ui, "ICUI.COLUMN_KEYS"))
         hidden |= set(lua_words(ui, "ICUI.LEADER_KEYS"))
@@ -1241,7 +1260,10 @@ def render(path=None, view="court", box_w=1920):
     # "ic_control", so the plate went on top of the lines it frames - the
     # preview drawing a fault that is not in the file.
     for name in sorted(G.PANEL_LAYOUT, key=G._panel_order):
-        if name.startswith(("ic_wedge_", "ic_barc_", "ic_barp_", "ic_div_", "ic_hdr_")):
+        # ic_plotcat_ TOO: the intrigue block below draws them, fitted to their
+        # words. Drawn here as well, the full-width plate showed behind the fitted one.
+        if name.startswith(("ic_wedge_", "ic_barc_", "ic_barp_", "ic_div_", "ic_hdr_",
+                            "ic_plotcat_")):
             continue
         if name in ("ic_dial_box", "ic_dial_rim") or name in hidden:
             continue
@@ -1272,6 +1294,10 @@ def render(path=None, view="court", box_w=1920):
             x += int(round(_HSORT_GAP * 2
                            + measure(panel, named[("panel", "ic_hdr_" + name[-1])],
                                      _cap)))
+        # A FITTED PLATE is sized to its words, as ICUI.fit_plate sizes it.
+        if name in G.FIT_PLATES and STRINGS.get(name):
+            x, w = G.fit_plate(name, x, w, measure(panel, named[("panel", name)],
+                                                   STRINGS[name]))
         lit = {0: TAB_SELECTED} if name == "ic_tab_" + _lit_tab else None
         paste(panel, named[("panel", name)], x, y, w, h, repaint=lit)
         s = STRINGS.get(name)
@@ -1581,6 +1607,8 @@ def render(path=None, view="court", box_w=1920):
         for col, (_key, title) in enumerate(cats):
             hx, hy, hw, hh = G.PANEL_LAYOUT["ic_plotcat_%d" % (col + 1)]
             hc = named[("panel", "ic_plotcat_%d" % (col + 1))]
+            hx, hw = G.fit_plate("ic_plotcat_%d" % (col + 1), hx, hw,
+                                 measure(panel, hc, title.upper()))
             paste(panel, hc, hx, hy, hw, hh)
             text(panel, hc, title.upper(), hx, hy, hw, hh)
 

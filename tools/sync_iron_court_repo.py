@@ -54,6 +54,7 @@ _DOCS = [
     ("docs/superpowers/specs/2026-09-23-iron-court-rival-party-ai-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-24-iron-court-ui-scale-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-25-iron-court-mct-multiplayer-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-09-27-iron-court-living-courts-design.md", "docs/design/"),
     ("docs/IRON_COURT_VS_ROME2.md", "docs/design/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-ambition.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-edict-loyalty.md", "docs/plans/"),
@@ -61,6 +62,7 @@ _DOCS = [
     ("docs/superpowers/plans/2026-09-23-iron-court-rival-party-ai-build2.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-24-iron-court-ui-scale.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-25-iron-court-mct-multiplayer.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-09-27-iron-court-living-courts.md", "docs/plans/"),
 ] + [("docs/sessions/" + n, "docs/history/") for n in [
     "HANDOFF_20260911_IRON_COURT_DESIGN.md",
     "HANDOFF_20260914_IRON_COURT_SAVE_BUG_AND_FONT_PASS.md",
@@ -89,6 +91,7 @@ def manifest(root=ROOT):
          for n in ("panel", "card", "row", "party", "plot") for c in ("", "_compact")] + [
         _UI + "derpy_ic_opener.twui.xml",
         _UI + "derpy_ic_standing.twui.xml",
+        _UI + "derpy_ic_fire.twui.xml",
     ] + _tsvs(root) + ["tools/" + n for n in (
         "_iron_court_harness.lua",
         "gen_iron_court.py",

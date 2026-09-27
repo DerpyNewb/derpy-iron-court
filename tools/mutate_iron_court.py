@@ -1527,17 +1527,21 @@ end"""),
      """        if citizenry then return end""",
      """        local _ = citizenry"""),
 
-    # THE STACK PADDED OUT OF THE TYPED ROSTER. It is right there, it is checked
-    # against main_units on every build, and it fills the army - and it throws
-    # away the whole point: a lord who walked out of a modded army arrives with
-    # his own two units and seventeen of vanilla's.
-    #
-    # THIS REPLACES A MUTANT THAT COULD NOT FAIL. It aimed at `local had = #kit`,
-    # and the runner proved that line dead - the table grows as it is read, so a
-    # remembered length and a wrap-around decide nothing. The line is gone.
-    ("a modded army padded out with vanilla infantry", M,
-     """        kit[#kit + 1] = kit[at]""",
-     """        kit[#kit + 1] = IC.REBEL_ROSTER[at]"""),
+    # ---- the Hashut draft (2026-09-27) --------------------------------------
+    # The typed roster and the pad-with-his-own-stack loop are gone: a rising is
+    # his own army, if he brought one, filled out off IC.REBEL_DRAFT.
+    ("every slot of a rebel army rolled for the first role", M,
+     """        local role = IC.REBEL_DRAFT[(i - 1) % #IC.REBEL_DRAFT + 1]""",
+     """        local role = IC.REBEL_DRAFT[1]"""),
+    ("the two-of-a-kind cap never applied", M,
+     """            if (used[u[1]] or 0) < IC.REBEL_UNIT_CAP then""",
+     """            if true then"""),
+    ("the dice ignored and the first unit of each role taken", M,
+     """                roll = roll - u[2]""",
+     """                roll = roll - total"""),
+    ("a lord's short army left short", M,
+     """    local extra = IC.rebel_draw(want - #kit)""",
+     """    local extra = {}"""),
 
     # ---- what he is worth -------------------------------------------------
     # THE FLAT NUMBER BACK. This is what shipped for an hour and it reads as the
@@ -1556,7 +1560,7 @@ end"""),
     # the attitude it has to cross starts wherever the pair happens to be.
     ("a rebellion soured once and hoped for the best", M,
      """    local n = 0
-    while n < IC.TUNE.rebel_relation_max do
+    while n < (max_steps or IC.TUNE.rebel_relation_max) do
         local now
         pcall(function() now = a:diplomatic_standing_with(b) end)
         if now and now <= IC.TUNE.rebel_relation then break end
@@ -1648,8 +1652,8 @@ end"""),
     # ordinary case untouched at exactly the count it needed, and it is the only
     # mutant the stale-read check sees on its own.
     ("the souring cap off by one", M,
-     """    while n < IC.TUNE.rebel_relation_max do""",
-     """    while n <= IC.TUNE.rebel_relation_max do"""),
+     """    while n < (max_steps or IC.TUNE.rebel_relation_max) do""",
+     """    while n <= (max_steps or IC.TUNE.rebel_relation_max) do"""),
 
     ("a disloyalty warning that misses the turn a party lands on the line", M,
      """       and house.loyalty <= IC.TUNE.loyalty_warn then""",
@@ -2061,8 +2065,135 @@ end"""),
 
     # LORDS DEALT EVENLY AGAIN, the rule that left most rivals leaderless.
     ("a lord dealt anywhere while a party has nobody to lead it", M,
-     """    local led = IC.leaderless_bg(character, faction_key)
-    if led then return led end""",
+     """    local bg = IC.leaderless_bg(character, faction_key, tally)
+               or IC.roll_background(faction_key, tally)""",
+     """    local bg = IC.roll_background(faction_key, tally)"""),
+
+    # ---- the deal (author, 2026-09-25: "how did one party get 7 members
+    # while the other party gets none?") --------------------------------------
+    # ONE INDEPENDENT ROLL PER MAN, which is how it shipped: a Conclave start
+    # rolled the Chain for all six men who were not lords.
+    ("deal: every man rolled at random again", M,
+     """    local list = IC.BACKGROUNDS[IC.fewest(pool, tally)]
+    if not list or #list == 0 then return nil end""",
+     """    local list = IC.BACKGROUNDS[pool[cm:random_number(#pool, 1)]]
+    if not list or #list == 0 then return nil end"""),
+
+    # THE TALLY READ ONCE AND NEVER KEPT, so every man in a pass sees the counts
+    # from before it and they all go to the same party.
+    ("deal: the tally not kept as men are dealt", M,
+     """        tally.count[party] = tally.count[party] + 1
+        if IC.can_lead(character) then tally.led[party] = true end""",
+     """        if IC.can_lead(character) then tally.led[party] = true end"""),
+
+    # A LEAD FILLED THIS PASS LEFT OPEN, so the lords keep coming to the
+    # parties that already have one.
+    ("deal: a lead filled this pass left open", M,
+     """        if IC.can_lead(character) then tally.led[party] = true end""",
+     """"""),
+
+    # GARRISON COMMANDERS LEFT OUT, which is how the party leader fallback
+    # could name one and the deal never gave any party one to name.
+    ("deal: a garrison commander never sent to an empty lead", M,
+     """    if not (IC.is_lordly(character) or IC.is_colonel(character)) then return false end""",
+     """    if not IC.is_lordly(character) then return false end"""),
+
+    # CHARACTER_LIST ORDER, so a garrison commander listed first takes the one
+    # empty lead from the lord behind him.
+    ("deal: whoever comes first on the list dealt first", M,
+     """        if a.first ~= b.first then return a.first < b.first end""",
+     """"""),
+
+    # ---- a leader put in the field (author, 2026-09-25) --------------------
+    # THE AI GIVEN ARMIES, which recruits from the pool itself.
+    ("field: an AI party given an army", M,
+     """            elseif not house.fielded and IC.is_human(faction_key)
+                    and IC.field_leader(faction_key, slug) then""",
+     """            elseif not house.fielded
+                    and IC.field_leader(faction_key, slug) then"""),
+
+    # A FREE ARMY EVERY TIME A PARTY LOSES ITS LEADER.
+    ("field: a second army for a party that lost its first", M,
+     """            elseif not house.fielded and IC.is_human(faction_key)""",
+     """            elseif IC.is_human(faction_key)"""),
+
+    # THE ARMY ON ITS WAY NOT WAITED FOR, so the same turn's next pass puts a
+    # second lord in the pool for a party that is about to be led.
+    ("field: a lord pooled while the army is on its way", M,
+     """            elseif house.fielded == now then
+                -- HIS ARMY IS ON ITS WAY: the spawn lands after this frame.
+""",
+     """"""),
+
+    # -1, -1 TAKEN FOR A PLACE.
+    ("field: nowhere to stand taken for somewhere", M,
+     """    if not x or x < 0 then return false end""",
+     """    if not x then return false end"""),
+
+    # THE FEED OPENED IN THE SAME FRAME, before the spawn's messages arrive.
+    ("field: the feed opened again at once", M,
+     """    cm:callback(function()
+        for i = 1, #IC.QUIET_FEED do
+            cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")
+        end
+    end, 1)""",
+     """    for i = 1, #IC.QUIET_FEED do
+        cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")
+    end"""),
+
+    # AND NEVER OPENED AGAIN, which swallows every character message after.
+    ("field: the feed left shut", M,
+     """            cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")""",
+     """"""),
+
+    ("field: the agent messages left on", M,
+     """IC.QUIET_FEED = {"wh_event_category_character", "wh_event_category_agent",""",
+     """IC.QUIET_FEED = {"wh_event_category_character","""),
+
+    # THE DEAL TRUSTED: his own CharacterCreated deals him to whatever party
+    # is empty first, which need not be the one he was made for.
+    ("field: the lord left in whatever party his birth dealt him", M,
+     """                    if old ~= bg then""",
+     """                    if not old then"""),
+
+    ("field: the lord left at rank 1", M,
+     """                    if rank > 0 then cm:add_agent_experience(lookup, rank, true) end""",
+     """"""),
+
+    # TO, NOT BY: the wrapper calls level_up_agent_rank.
+    ("field: the lord raised one rank too many", M,
+     """                    if rank > 0 then cm:add_agent_experience(lookup, rank, true) end""",
+     """                    if rank > 0 then cm:add_agent_experience(lookup, rank + 1, true) end"""),
+
+    ("field: the save forgetting the army", M,
+     """            h.fielded or 0,
+            h.gifted or 0)""",
+     """            0,
+            h.gifted or 0)"""),
+
+    # ---- lord recruit rank -------------------------------------------------
+    ("rank: a province's own source counted everywhere", M,
+     """        local local_ok = here ~= nil and region:province_name() == here""",
+     """        local local_ok = true"""),
+
+    ("rank: a factionwide building counted only at home", M,
+     """            total = total + row.faction + (local_ok and row.province or 0)""",
+     """            total = total + (local_ok and (row.faction + row.province) or 0)"""),
+
+    ("rank: a bundle a region holds ignored", M,
+     """            if region:has_effect_bundle(key) then count(row) end""",
+     """"""),
+
+    ("rank: skills ignored", M,
+     """            if man:has_skill(key) then total = total + row.faction + row.province end""",
+     """"""),
+
+    ("rank: technology ignored", M,
+     """        if faction:has_technology(key) then total = total + row.faction + row.province end""",
+     """"""),
+
+    ("rank: a faction's bundle ignored", M,
+     """        if faction:has_effect_bundle(key) then total = total + row.faction + row.province end""",
      """"""),
 
     # A LORD IN STORE MADE EVERY TURN. A pooled lord is invisible to
@@ -2121,7 +2252,14 @@ end"""),
     # THE OLD TRADE LEFT ON HIM: two background traits, and whichever is read
     # first decides his party.
     ("a moved lord keeping his old trade too", M,
-     """                if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end""",
+     """                if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end
+                cm:force_add_trait(lookup, "derpy_ic_bg_" .. list[cm:random_number(#list, 1)], false)""",
+     """                cm:force_add_trait(lookup, "derpy_ic_bg_" .. list[cm:random_number(#list, 1)], false)"""),
+
+    # AND THE LORD PUT IN THE FIELD KEEPING THE TRADE HIS BIRTH DEALT HIM: the
+    # Forge comes before the Chain in IC.PARTIES, so he reads as the Forge's.
+    ("field: the lord keeping the trade his birth dealt him too", M,
+     """                        if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end""",
      """"""),
 
     # NO LAST RESORT: a court of legends leaves its parties faceless.
@@ -2166,9 +2304,9 @@ end"""),
     # THE FLAG NOT SAVED: a lord in store is made again on every load.
     ("the lord in store forgotten by the save", M,
      """            h.split or 0,
-            h.stored and 1 or 0)""",
+            h.stored and 1 or 0,""",
      """            h.split or 0,
-            0)"""),
+            0,"""),
 
     # The governor spread sorted once instead of per province, so two idle men
     # of one party take two provinces and a party with one man takes none.
@@ -2220,9 +2358,12 @@ end"""),
     ("the parties given no turn", M,
      "        local ok, err = pcall(IC.party_turn, faction_key)\n",
      "        local ok, err = true, nil\n"),
-    ("an AI court's parties acting", P,
-     "    if not IC.is_human(faction_key) then return nil end\n    IC.governor_xp",
-     "    IC.governor_xp"),
+    # AI COURTS ACT since 2026-09-27 (spec section 5), so the old mutant here -
+    # the human-only gate removed - is the shipped behaviour now. What stays
+    # human-only is the governors' wages.
+    ("an AI court paying its governors' wages", P,
+     "    if human then IC.governor_xp(faction_key) end",
+     "    IC.governor_xp(faction_key)"),
     ("two events in one turn", P,
      "        chosen.act.act(faction_key, chosen.slug, chosen.target)",
      "        for i = 1, #picks do picks[i].act.act(faction_key, picks[i].slug, picks[i].target) end"),
@@ -2367,9 +2508,34 @@ end"""),
      """        if loyalty < T.party_demand_low or loyalty > T.party_demand_high + 1 then"""),
 
     ("the one-live-demand guard removed", P,
-     """        if IC.agenda(faction_key).demand then return nil end
-        return IC.demand_target(faction_key, slug)""",
-     """        return IC.demand_target(faction_key, slug)"""),
+     """        if a.demand then return nil end""",
+     """"""),
+
+    ("a refused party demanding again the next turn", P,
+     """        if (a.rest[slug] or 0) > cm:model():turn_number() then return nil end""",
+     """"""),
+
+    ("a refused party resting one turn too long", P,
+     """        if (a.rest[slug] or 0) > cm:model():turn_number() then return nil end""",
+     """        if (a.rest[slug] or 0) >= cm:model():turn_number() then return nil end"""),
+
+    ("a refusal that rests nobody", P,
+     """        a.rest[d.slug] = cm:model():turn_number() + T.party_demand_rest""",
+     """"""),
+
+    ("a met or void demand resting its party too", P,
+     """    if outcome == "refused" then
+        a.rest[d.slug]""",
+     """    if true then
+        a.rest[d.slug]"""),
+
+    ("a refusal's rest forgotten by the save", P,
+     """        .. table.concat(offers, ";") .. "|" .. table.concat(rest, ";"))""",
+     """        .. table.concat(offers, ";"))"""),
+
+    ("a refusal's rest not read back from the save", P,
+     """            if #b >= 2 then a.rest[b[1]] = tonumber(b[2]) end""",
+     """"""),
 
     ("claimed offices searched after other offices", P,
      """    for _, list in ipairs({claimed, other}) do""",
@@ -2439,8 +2605,8 @@ end"""),
      """"""),
 
     ("an ended demand mission closed again", P,
-     """    if not ended then""",
-     """    if true then"""),
+     """    if not ended and IC.is_human(faction_key) then""",
+     """    if IC.is_human(faction_key) then"""),
 
     ("the demand listener settling any mission key", P,
      """        if key ~= IC.DEMAND_KEYS.office and key ~= IC.DEMAND_KEYS.gov then
@@ -2573,8 +2739,8 @@ end"""),
      """            local may = false"""),
 
     ("ACCEPT on an offer routed to decline_offer", U,
-     '        op = yes and "accept" or "decline"',
-     '        op = yes and "decline" or "decline"'),
+     '        op, arg = (yes and "accept" or "decline"), p.slug',
+     '        op, arg = (yes and "decline" or "decline"), p.slug'),
 
     ("the warned move not leading the Intrigue alert", U,
      """    local plot_line = ICUI.plot_alert(faction)
@@ -2589,9 +2755,11 @@ end"""),
      """    if outcome == "met" then
         IC.move_loyalty(faction_key, d.slug, T.party_demand_met)
         IC.log(faction_key, "demand_met", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
         IC.log(faction_key, "demand_void", d.slug, d.key, 0)
@@ -2599,9 +2767,11 @@ end"""),
      """    if outcome == "met" then
         IC.move_loyalty(faction_key, d.slug, T.party_demand_met)
         IC.log(faction_key, "demand_met", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
         IC.log(faction_key, "demand_void", d.slug, d.key, 0)
@@ -2609,8 +2779,8 @@ end"""),
     IC.feed(faction_key, "party_demand_refused")"""),
 
     ("REFUSE on an offer routed to accept_offer", U,
-     '        op = yes and "accept" or "decline"',
-     '        op = yes and "accept" or "accept"'),
+     '        op, arg = (yes and "accept" or "decline"), p.slug',
+     '        op, arg = (yes and "accept" or "accept"), p.slug'),
 
     ("the lapsed reason dropped from reason_text", U,
      """    elseif why == "lapsed" then
@@ -3104,8 +3274,8 @@ end"""),
      "    court.offices[office_slug] = cqi\n",
      "    court.offices[office_slug] = cqi\n"),
     ("office: the renewal wait never saved", M,
-     "                 court.rolled and \"1\" or \"\", join(last, \";\")}, \"|\")",
-     "                 court.rolled and \"1\" or \"\", \"\"}, \"|\")"),
+     "                 court.rolled and \"1\" or \"\", join(last, \";\"),",
+     "                 court.rolled and \"1\" or \"\", \"\","),
     ("office: the renewal wait never read back", M,
      "            court.last[bits[1]] = {cqi = cqi, turn = ended}\n",
      "\n"),
@@ -3234,6 +3404,37 @@ end"""),
             local empty = true""",
      """            local court = IC.court(human[i])
             local empty = true"""),
+    # ---- living courts (2026-09-27) ---------------------------------------
+    ("a stalled office still paying", M,
+     """        if court.offices[slug] and not court.stalled[slug] then""",
+     """        if court.offices[slug] then"""),
+    ("a stall outliving the man it was aimed at", M,
+     """                or IC.house_of_cqi(faction_key, cqi) ~= s.of then""",
+     """                or false then"""),
+    ("withholding above the line", P,
+     """    if (house.loyalty or 0) > T.withhold_line then return nil end""",
+     """    if (house.loyalty or 0) > 100 then return nil end"""),
+    ("a settled feud that never ends", P,
+     """    a.feuds[rec.a], a.feuds[rec.b] = nil, nil
+    a.calm[rec.a] = now + T.party_feud_rest""",
+     """    a.calm[rec.a] = now + T.party_feud_rest"""),
+    ("every AI court acting every turn", P,
+     """    return (cm:model():turn_number() + at) % period == 0""",
+     """    return true"""),
+    ("news for humans who never met them", M,
+     """        if IC.has_met(human[i], source_key) then
+            local court = IC.court(human[i])""",
+     """        if true then
+            local court = IC.court(human[i])"""),
+    ("a governor's rank giving nothing", M,
+     """    return math.floor(rank / IC.TUNE.gov_rank_order_per),""",
+     """    return 0 * math.floor(rank / IC.TUNE.gov_rank_order_per),"""),
+    ("bystanders not minding rebels", M,
+     """        if not seen[key] and key ~= rebels then""",
+     """        if false then"""),
+    ("a confederated court arriving at the default loyalty", M,
+     """    if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then""",
+     """    if stamped > 0 and IC.add_house(faction_key, slug, true) then"""),
 ]
 
 

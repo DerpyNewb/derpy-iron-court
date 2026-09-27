@@ -28,6 +28,7 @@ MANIFEST = [(p, p) for p in [
     _MOD + "zzz_derpy_guilds.lua",
     _MOD + "zzz_derpy_guilds_ai.lua",
     _MOD + "zzz_derpy_guilds_ui.lua",
+    _MOD + "zzz_derpy_guilds_bounty_data.lua",
     "Modding Files/pack/script/mct/settings/derpy_great_guilds.lua",
     _UI + "derpy_gg_panel.twui.xml",
     _UI + "derpy_gg_card.twui.xml",
@@ -40,6 +41,8 @@ MANIFEST = [(p, p) for p in [
     # it goes into the public repo - the user's call, 2026-09-23. It ships in the pack only.
     "Modding Files/source/great_guilds",
     "tools/_guilds_harness.lua",
+    "tools/_guilds_bounty_harness.lua",
+    "tools/mutate_guilds.py",
     "tools/gen_great_guilds.py",
     "tools/gen_guilds_ui.py",
     "tools/gen_guilds_emitter.py",
@@ -95,6 +98,12 @@ MANIFEST = [(p, p) for p in [
      "docs/history/HANDOFF_20260925_GUILDS_MP_MCT.md"),
     ("docs/sessions/HANDOFF_20260925_GUILDS_QOL.md",
      "docs/history/HANDOFF_20260925_GUILDS_QOL.md"),
+    ("docs/superpowers/specs/2026-09-27-great-guilds-bounties-v2-design.md",
+     "docs/design/2026-09-27-great-guilds-bounties-v2-design.md"),
+    ("docs/superpowers/plans/2026-09-27-great-guilds-bounties-v2.md",
+     "docs/plans/2026-09-27-great-guilds-bounties-v2.md"),
+    ("docs/sessions/HANDOFF_20260927_GUILDS_BOUNTIES_V2.md",
+     "docs/history/HANDOFF_20260927_GUILDS_BOUNTIES_V2.md"),
 ]
 
 

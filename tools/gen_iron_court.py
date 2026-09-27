@@ -47,6 +47,10 @@ E_ORDER = ("wh_main_effect_public_order_faction",
            "faction_to_province_own", True)
 E_GDP = ("wh_main_effect_economy_gdp_mod_all",
          "faction_to_region_own", True)
+# THE SAME EFFECT ON ONE PROVINCE: the governor's runtime bundle adds it (spec
+# 2026-09-27 section 7). Vanilla's province payloads scope it province_to_*.
+E_GDP_PROVINCE = ("wh_main_effect_economy_gdp_mod_all",
+                  "province_to_region_own", True)
 E_GROWTH = ("wh_main_effect_province_growth_events",
             "faction_to_province_own", True)
 E_UPKEEP = ("wh_main_effect_force_all_campaign_upkeep",
@@ -945,7 +949,28 @@ EVENTS = [
      "stand empty. He cannot take the same seat straight back, so decide now "
      "who follows him.",
      "TERMS END"),
+    ("party_sabotage", True, "chd/army_morale_down", "Negative",
+     "An Office Sabotaged",
+     "A party feuding with yours has sabotaged one of your offices. Its bonus is "
+     "lost for a few turns; the Offices tab shows which seat and for how long.",
+     "SABOTAGE"),
+    ("party_withhold", True, "chd/army_morale_down", "Negative",
+     "A Party Withholds Its Service",
+     "A party whose loyalty has fallen low has told its officers to stop working "
+     "for you. Every office its men hold gives no bonus for a few turns. Secure "
+     "their loyalty and they return to work at once.",
+     "WITHHELD"),
+    ("realm_secede", False, "chd/army_morale_down", "Negative",
+     "A Rival Court Splits",
+     "A party in another Chaos Dwarf court has broken away and risen in "
+     "rebellion. Your court log names them; the camera button shows where.",
+     "REBELLION"),
 ]
+
+# RAISED WITH cm:show_message_event_located. The record type must agree with the
+# call - a plain record raised through the located call draws nothing (measured
+# for the director, tools/build_director.py). Mirrors IC.LOCATED_EVENTS.
+LOCATED_EVENTS = {"realm_secede"}
 
 # THE DEMAND MISSIONS. Issued from Lua as a mission string (IC.demand_string);
 # the string route still needs a missions row per key. Field for field the
@@ -1296,7 +1321,8 @@ def build():
         # off the first row's keys, so a dict built in a convenient order writes
         # a header CA's definition does not match.
         mine = {
-            "event": ("scripted_persistent_event" if persistent
+            "event": ("scripted_transient_located_event" if slug in LOCATED_EVENTS
+                      else "scripted_persistent_event" if persistent
                       else "scripted_transient_event"),
             "group": group_id,
             "image": image,
@@ -1600,16 +1626,23 @@ def check_rebel_heroes():
     return out
 
 def _lua_rebel_roster():
-    """IC.REBEL_ROSTER and IC.TUNE.rebel_units, read out of the shipped Lua."""
+    """IC.REBEL_POOLS (role -> unit keys), IC.REBEL_DRAFT (the roles in slot
+    order) and IC.TUNE.rebel_units, read out of the shipped Lua."""
     path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "Modding Files", "pack", "script", "campaign", "mod",
         "zzz_derpy_iron_court.lua")
     src = io.open(path, encoding="utf-8").read()
-    block = re.search(r"IC\.REBEL_ROSTER = \{(.*?)\n\}", src, re.S)
-    units = re.findall(r'"([^"]+)"', block.group(1)) if block else []
+    pools = {}
+    block = re.search(r"IC\.REBEL_POOLS = \{(.*?)\n\}", src, re.S)
+    if block:
+        for role, body in re.findall(r"(\w+) = \{(.*?)\n    \},",
+                                     block.group(1), re.S):
+            pools[role] = re.findall(r'\{"([^"]+)", (\d+)\}', body)
+    draft = re.search(r"IC\.REBEL_DRAFT = \{(.*?)\n\}", src, re.S)
+    roles = re.findall(r'"(\w+)"', draft.group(1)) if draft else []
     want = re.search(r"rebel_units\s*=\s*(\d+)", src)
-    return units, (int(want.group(1)) if want else None)
+    return pools, roles, (int(want.group(1)) if want else None)
 
 
 # An army's twenty slots include the general it is created with.
@@ -1618,14 +1651,25 @@ ARMY_SLOTS = 20
 
 def check_rebel_roster():
     out = []
-    units, want = _lua_rebel_roster()
-    if not units:
-        return ["IC.REBEL_ROSTER not found in zzz_derpy_iron_court.lua"]
-    seen = set()
-    for key in units:
-        if key in seen:
-            out.append("IC.REBEL_ROSTER lists %s twice" % key)
-        seen.add(key)
+    pools, roles, want = _lua_rebel_roster()
+    if not pools:
+        return ["IC.REBEL_POOLS not found in zzz_derpy_iron_court.lua"]
+    if not roles:
+        return ["IC.REBEL_DRAFT not found in zzz_derpy_iron_court.lua"]
+    seen = {}
+    for role, units in pools.items():
+        if not units:
+            out.append("IC.REBEL_POOLS.%s lists no unit" % role)
+        for key, weight in units:
+            if key in seen:
+                out.append("%s is in both the %s and %s pools"
+                           % (key, seen[key], role))
+            seen[key] = role
+            if int(weight) <= 0:
+                out.append("%s has weight %s in the %s pool" % (key, weight, role))
+    for role in roles:
+        if role not in pools:
+            out.append("IC.REBEL_DRAFT names %s, which has no pool" % role)
     table = _cache_table("main_units")
     if table is None:
         out.append("main_units not cached - run "
@@ -1634,16 +1678,16 @@ def check_rebel_roster():
         fields, rows = table
         ui = fields.index("unit")
         known = set(r[ui] for r in rows)
-        for key in units:
+        for key in seen:
             if key not in known:
-                out.append("IC.REBEL_ROSTER lists %s, which is not in "
+                out.append("IC.REBEL_POOLS lists %s, which is not in "
                            "main_units" % key)
     if want is None:
         out.append("IC.TUNE.rebel_units not found")
     else:
-        if want > len(units):
-            out.append("IC.TUNE.rebel_units is %d and the roster holds %d, so "
-                       "every rebel army is short" % (want, len(units)))
+        if want > len(roles):
+            out.append("IC.TUNE.rebel_units is %d and the draft holds %d slots"
+                       % (want, len(roles)))
         if want > ARMY_SLOTS - 1:
             out.append("IC.TUNE.rebel_units is %d - an army holds %d including "
                        "its lord, so the roster is %d"
@@ -1790,6 +1834,113 @@ def check_demand_keys():
                            % (table, list(built.keys()), fields))
     return out
 
+
+# LORD RECRUIT RANK. A lord made by create_force_with_general arrives at rank 1
+# whatever the faction's lord recruit rank - measured 2026-09-25, under a +10
+# bundle - so a party leader put in the field is raised by IC.recruit_rank off
+# IC.RECRUIT_RANK. That table is EVERY source in CA's DB, with no race filter: a
+# Chaos Dwarf can hold a captured landmark's `_other` variant, and the slot walk
+# costs the same whatever the table holds. Derived here so a patch that moves a
+# source fails the build, never the campaign.
+RANK_EFFECTS = ("wh_main_faction_xp_increase_generals",
+                "wh2_main_effect_agent_recruitment_xp_all_agents_and_lords",
+                "wh3_dlc25_faction_xp_increase_heroes_generals")
+# NOT WHERE A LORD IS RECRUITED: a force or army already raised, a foreign
+# building, a preview. The `_hidden` twin of each effect is left out by name -
+# it carries the same number to the force and would count every source twice.
+RANK_SKIP = ("force", "army", "foreign", "non_functional")
+# Reaches only the province it stands in; every other scope reaches them all.
+RANK_LOCAL = ("building_to_province_own", "province_to_province_own",
+              "province_to_province_own_unseen")
+RANK_SOURCES = (("building_effects_junction_tables", "building", "effect", "building"),
+                ("technology_effects_junction_tables", "technology", "effect",
+                 "technology"),
+                ("character_skill_level_to_effects_junctions_tables",
+                 "character_skill_key", "effect_key", "skill"),
+                ("effect_bundles_to_effects_junctions_tables", "effect_bundle_key",
+                 "effect_key", "bundle"))
+
+
+def recruit_rank_rows():
+    """[(kind, key, ranks, reach)], sorted, exactly as IC.RECRUIT_RANK holds them."""
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from read_vanilla_db import load, DB_PACK
+    total = {}
+    for table, key_col, effect_col, kind in RANK_SOURCES:
+        for _path, _version, rows in load(DB_PACK, table):
+            for r in rows:
+                scope = r["effect_scope"]
+                if r[effect_col] not in RANK_EFFECTS or any(s in scope for s in RANK_SKIP):
+                    continue
+                # A skill's later levels would need its level read off the man.
+                if kind == "skill" and r["level"] != 1:
+                    continue
+                # A CONDITION THE SCRIPT CANNOT TEST (corruption at 50, a Dechala
+                # ritual): 10 building rows as of 9.0, none of them Chaos Dwarf.
+                if r.get("context_requirement"):
+                    continue
+                reach = "province" if scope in RANK_LOCAL else "faction"
+                at = (kind, r[key_col], reach)
+                total[at] = total.get(at, 0) + r["value"]
+    return sorted((kind, key, int(round(n)), reach)
+                  for (kind, key, reach), n in total.items() if n > 0)
+
+
+def recruit_rank_lua(rows):
+    return "IC.RECRUIT_RANK = {\n%s}\n" % "".join(
+        '    {"%s", "%s", %d, "%s"},\n' % row for row in rows)
+
+
+def _lua_recruit_rank():
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Modding Files", "pack", "script", "campaign", "mod",
+        "zzz_derpy_iron_court.lua")
+    src = io.open(path, encoding="utf-8").read()
+    block = re.search(r"IC\.RECRUIT_RANK = \{\n(.*?)\n\}", src, re.S)
+    if not block:
+        return None
+    return [(k, key, int(n), reach) for k, key, n, reach in re.findall(
+        r'\{"(\w+)", "([^"]+)", (\d+), "(\w+)"\}', block.group(1))]
+
+
+def check_gov_rank_constants():
+    """IC.GOV_* in the Lua must be what this generator ships (spec 2026-09-27
+    section 7): the governor's base bundle is rebuilt at runtime from them."""
+    lua = io.open(os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Modding Files", "pack", "script", "campaign", "mod",
+        "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+    out = []
+    want = {"IC.GOV_BASE_ORDER":
+                str([v for e, v, _ in GOVERNOR_BASE if e is E_ORDER][0]),
+            "IC.GOV_ORDER_EFFECT": '"%s"' % E_ORDER[0],
+            "IC.GOV_INCOME_EFFECT": '"%s"' % E_GDP_PROVINCE[0],
+            "IC.GOV_INCOME_SCOPE": '"%s"' % E_GDP_PROVINCE[1]}
+    for name, value in want.items():
+        m = re.search(r"^%s = (.+)$" % re.escape(name), lua, re.M)
+        if not m or m.group(1).strip() != value:
+            out.append("%s is %s in the Lua, %s here"
+                       % (name, m and m.group(1), value))
+    return out
+
+
+def check_recruit_rank():
+    have = _lua_recruit_rank()
+    if have is None:
+        return ["IC.RECRUIT_RANK not found in zzz_derpy_iron_court.lua"]
+    want = recruit_rank_rows()
+    if not want:
+        return ["CA's DB read back no lord recruit rank source - the check cannot run"]
+    out = []
+    for row in sorted(set(want) - set(have)):
+        out.append("IC.RECRUIT_RANK is missing %s, which CA's DB has" % (row,))
+    for row in sorted(set(have) - set(want)):
+        out.append("IC.RECRUIT_RANK has %s, which CA's DB does not" % (row,))
+    if out:
+        out.append("paste this over IC.RECRUIT_RANK:\n" + recruit_rank_lua(want))
+    return out
+
 # TABLES WHOSE CACHED DEFINITION IS KNOWN TO BE WIDER THAN THEIR ROWS, and what
 # covers them instead. RPFM patches a definition's unused fields without removing
 # them, so a name-to-value zip of the dump misaligns after the first such field.
@@ -1815,6 +1966,8 @@ def check():
     out.extend(check_rebel_roster())
     out.extend(check_factions())
     out.extend(check_demand_keys())
+    out.extend(check_recruit_rank())
+    out.extend(check_gov_rank_constants())
 
     # 1. Effect keys must exist in vanilla, and the declared is_positive_value_good
     #    must match. A wrong sign flag silently inverts a reward into a penalty.
@@ -2209,11 +2362,31 @@ def check():
             # 16d. ONLY THE TWO TYPES CA USES WITH THE PLAIN CALL. The located
             #      variants are for cm:show_message_event_located; none of CA's
             #      ten plain-call indices resolves to one.
+            #      EXCEPT LOCATED_EVENTS, which are raised with the located
+            #      call and must carry the located type - and only they may.
+            located = {event_key(s) + "_group" for s in LOCATED_EVENTS}
             for row in tables["event_feed_message_events"]:
                 if row["event"] not in ("scripted_persistent_event",
-                                        "scripted_transient_event"):
+                                        "scripted_transient_event",
+                                        "scripted_transient_located_event"):
                     out.append("%s is not one of the two types CA raises with "
                                "the plain cm:show_message_event" % row["event"])
+                elif ((row["event"] == "scripted_transient_located_event")
+                        != (row["group"] in located)):
+                    out.append("%s is %s, and it is %sraised with the located call"
+                               % (row["group"], row["event"],
+                                  "" if row["group"] in located else "not "))
+            # 16d2. THE LUA RAISES THE SAME SET with the located call.
+            lua = io.open(os.path.join(
+                os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                "Modding Files", "pack", "script", "campaign", "mod",
+                "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+            block = re.search(r"IC\.LOCATED_EVENTS = \{([^}]*)\}", lua)
+            lua_located = (set(re.findall(r"(\w+)\s*=\s*true", block.group(1)))
+                           if block else set())
+            if lua_located != LOCATED_EVENTS:
+                out.append("IC.LOCATED_EVENTS is %s in the Lua, %s here"
+                           % (sorted(lua_located), sorted(LOCATED_EVENTS)))
 
         # 16e. The index must be above every vanilla one, or it collides with a
         #      record that already exists and draws CA's message instead of ours.

@@ -263,7 +263,7 @@
 				<component_image
 					this="IC300007-D003-4000-B000000000000007"
 					uniqueguid="IC300007-D003-4000-B000000000000007"
-					imagepath="ui/skins/default/panel_back_border.png"/>
+					imagepath="ui/derpy_ic/chd_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -288,8 +288,7 @@
 							offset="0.00,0.00"
 							width="926"
 							height="258"
-							tile="true"
-							margin="30.00,30.00,30.00,30.00"/>
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -309,7 +308,7 @@
 				<component_image
 					this="IC30000A-D003-4000-B00000000000000A"
 					uniqueguid="IC30000A-D003-4000-B00000000000000A"
-					imagepath="ui/skins/default/panel_back_border.png"/>
+					imagepath="ui/derpy_ic/chd_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -334,8 +333,7 @@
 							offset="0.00,0.00"
 							width="926"
 							height="473"
-							tile="true"
-							margin="30.00,30.00,30.00,30.00"/>
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -862,18 +860,34 @@
 			uniqueguid="IC300022-D000-4000-B000000000000022"
 			currentstate="IC300023-D000-4000-B000000000000023"
 			defaultstate="IC300023-D000-4000-B000000000000023">
+			<componentimages>
+				<component_image
+					this="IC300022-D001-4000-B000000000000022"
+					uniqueguid="IC300022-D001-4000-B000000000000022"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC300023-D000-4000-B000000000000023"
 					name="standard"
 					width="926"
-					height="26"
+					height="44"
 					uniqueguid="IC300023-D000-4000-B000000000000023">
+					<imagemetrics>
+						<image
+							this="IC300022-D002-4000-B000000000000022"
+							uniqueguid="IC300022-D002-4000-B000000000000022"
+							componentimage="IC300022-D001-4000-B000000000000022"
+							offset="0.00,0.00"
+							width="926"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
 						texthalign="Center"
 						textvalign="Center"
 						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="18"
 						font_m_colour="#FFF8D7FF"
@@ -889,18 +903,34 @@
 			uniqueguid="IC300025-D000-4000-B000000000000025"
 			currentstate="IC300026-D000-4000-B000000000000026"
 			defaultstate="IC300026-D000-4000-B000000000000026">
+			<componentimages>
+				<component_image
+					this="IC300025-D001-4000-B000000000000025"
+					uniqueguid="IC300025-D001-4000-B000000000000025"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC300026-D000-4000-B000000000000026"
 					name="standard"
 					width="926"
-					height="26"
+					height="44"
 					uniqueguid="IC300026-D000-4000-B000000000000026">
+					<imagemetrics>
+						<image
+							this="IC300025-D002-4000-B000000000000025"
+							uniqueguid="IC300025-D002-4000-B000000000000025"
+							componentimage="IC300025-D001-4000-B000000000000025"
+							offset="0.00,0.00"
+							width="926"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
 						texthalign="Center"
 						textvalign="Center"
 						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="18"
 						font_m_colour="#FFF8D7FF"
@@ -1089,7 +1119,7 @@
 					this="IC30003B-D000-4000-B00000000000003B"
 					name="standard"
 					width="4"
-					height="900"
+					height="908"
 					uniqueguid="IC30003B-D000-4000-B00000000000003B">
 					<imagemetrics>
 						<image
@@ -1098,7 +1128,7 @@
 							componentimage="IC30003A-D001-4000-B00000000000003A"
 							offset="0.00,0.00"
 							width="4"
-							height="900"
+							height="908"
 							colour="#6A5A3CFF"
 							margin="0.00,0.00,0.00,0.00"/>
 					</imagemetrics>
@@ -1667,7 +1697,7 @@
 				<component_image
 					this="IC30005E-D001-4000-B00000000000005E"
 					uniqueguid="IC30005E-D001-4000-B00000000000005E"
-					imagepath="ui/skins/default/frame_text.png"/>
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/sub_title.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -1684,7 +1714,7 @@
 							offset="0.00,0.00"
 							width="300"
 							height="26"
-							margin="4.00,4.00,4.00,4.00"/>
+							margin="6.00,6.00,6.00,6.00"/>
 					</imagemetrics>
 					<component_text
 						texthalign="Center"
@@ -2166,18 +2196,34 @@
 			uniqueguid="IC300082-D000-4000-B000000000000082"
 			currentstate="IC300083-D000-4000-B000000000000083"
 			defaultstate="IC300083-D000-4000-B000000000000083">
+			<componentimages>
+				<component_image
+					this="IC300082-D001-4000-B000000000000082"
+					uniqueguid="IC300082-D001-4000-B000000000000082"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC300083-D000-4000-B000000000000083"
 					name="standard"
 					width="459"
-					height="24"
+					height="44"
 					uniqueguid="IC300083-D000-4000-B000000000000083">
+					<imagemetrics>
+						<image
+							this="IC300082-D002-4000-B000000000000082"
+							uniqueguid="IC300082-D002-4000-B000000000000082"
+							componentimage="IC300082-D001-4000-B000000000000082"
+							offset="0.00,0.00"
+							width="459"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
-						textxoffset="6.00,0.00"
-						textyoffset="4.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="20"
 						font_m_colour="#FFF8D7FF"
@@ -2193,18 +2239,34 @@
 			uniqueguid="IC300085-D000-4000-B000000000000085"
 			currentstate="IC300086-D000-4000-B000000000000086"
 			defaultstate="IC300086-D000-4000-B000000000000086">
+			<componentimages>
+				<component_image
+					this="IC300085-D001-4000-B000000000000085"
+					uniqueguid="IC300085-D001-4000-B000000000000085"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC300086-D000-4000-B000000000000086"
 					name="standard"
 					width="459"
-					height="24"
+					height="44"
 					uniqueguid="IC300086-D000-4000-B000000000000086">
+					<imagemetrics>
+						<image
+							this="IC300085-D002-4000-B000000000000085"
+							uniqueguid="IC300085-D002-4000-B000000000000085"
+							componentimage="IC300085-D001-4000-B000000000000085"
+							offset="0.00,0.00"
+							width="459"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
-						textxoffset="6.00,0.00"
-						textyoffset="4.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="20"
 						font_m_colour="#FFF8D7FF"
@@ -2220,18 +2282,34 @@
 			uniqueguid="IC300088-D000-4000-B000000000000088"
 			currentstate="IC300089-D000-4000-B000000000000089"
 			defaultstate="IC300089-D000-4000-B000000000000089">
+			<componentimages>
+				<component_image
+					this="IC300088-D001-4000-B000000000000088"
+					uniqueguid="IC300088-D001-4000-B000000000000088"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC300089-D000-4000-B000000000000089"
 					name="standard"
 					width="459"
-					height="24"
+					height="44"
 					uniqueguid="IC300089-D000-4000-B000000000000089">
+					<imagemetrics>
+						<image
+							this="IC300088-D002-4000-B000000000000088"
+							uniqueguid="IC300088-D002-4000-B000000000000088"
+							componentimage="IC300088-D001-4000-B000000000000088"
+							offset="0.00,0.00"
+							width="459"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
-						textxoffset="6.00,0.00"
-						textyoffset="4.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="20"
 						font_m_colour="#FFF8D7FF"
@@ -2247,18 +2325,34 @@
 			uniqueguid="IC30008B-D000-4000-B00000000000008B"
 			currentstate="IC30008C-D000-4000-B00000000000008C"
 			defaultstate="IC30008C-D000-4000-B00000000000008C">
+			<componentimages>
+				<component_image
+					this="IC30008B-D001-4000-B00000000000008B"
+					uniqueguid="IC30008B-D001-4000-B00000000000008B"
+					imagepath="ui/derpy_ic/chd_heading.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC30008C-D000-4000-B00000000000008C"
 					name="standard"
 					width="459"
-					height="24"
+					height="44"
 					uniqueguid="IC30008C-D000-4000-B00000000000008C">
+					<imagemetrics>
+						<image
+							this="IC30008B-D002-4000-B00000000000008B"
+							uniqueguid="IC30008B-D002-4000-B00000000000008B"
+							componentimage="IC30008B-D001-4000-B00000000000008B"
+							offset="0.00,0.00"
+							width="459"
+							height="44"
+							margin="0.00,34.00,0.00,34.00"/>
+					</imagemetrics>
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
-						textxoffset="6.00,0.00"
-						textyoffset="4.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="20"
 						font_m_colour="#FFF8D7FF"
@@ -2279,17 +2373,17 @@
 				<component_image
 					this="IC30008E-D001-4000-B00000000000008E"
 					uniqueguid="IC30008E-D001-4000-B00000000000008E"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC30008E-D003-4000-B00000000000008E"
 					uniqueguid="IC30008E-D003-4000-B00000000000008E"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC30008F-D000-4000-B00000000000008F"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC30008F-D000-4000-B00000000000008F">
@@ -2298,10 +2392,10 @@
 							this="IC30008E-D002-4000-B00000000000008E"
 							uniqueguid="IC30008E-D002-4000-B00000000000008E"
 							componentimage="IC30008E-D001-4000-B00000000000008E"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2321,7 +2415,7 @@
 				<hover
 					this="IC300090-D000-4000-B000000000000090"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300090-D000-4000-B000000000000090">
@@ -2330,10 +2424,10 @@
 							this="IC30008E-D004-4000-B00000000000008E"
 							uniqueguid="IC30008E-D004-4000-B00000000000008E"
 							componentimage="IC30008E-D003-4000-B00000000000008E"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2365,17 +2459,17 @@
 				<component_image
 					this="IC300091-D001-4000-B000000000000091"
 					uniqueguid="IC300091-D001-4000-B000000000000091"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC300091-D003-4000-B000000000000091"
 					uniqueguid="IC300091-D003-4000-B000000000000091"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC300092-D000-4000-B000000000000092"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300092-D000-4000-B000000000000092">
@@ -2384,10 +2478,10 @@
 							this="IC300091-D002-4000-B000000000000091"
 							uniqueguid="IC300091-D002-4000-B000000000000091"
 							componentimage="IC300091-D001-4000-B000000000000091"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2407,7 +2501,7 @@
 				<hover
 					this="IC300093-D000-4000-B000000000000093"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300093-D000-4000-B000000000000093">
@@ -2416,10 +2510,10 @@
 							this="IC300091-D004-4000-B000000000000091"
 							uniqueguid="IC300091-D004-4000-B000000000000091"
 							componentimage="IC300091-D003-4000-B000000000000091"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2451,17 +2545,17 @@
 				<component_image
 					this="IC300094-D001-4000-B000000000000094"
 					uniqueguid="IC300094-D001-4000-B000000000000094"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC300094-D003-4000-B000000000000094"
 					uniqueguid="IC300094-D003-4000-B000000000000094"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC300095-D000-4000-B000000000000095"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300095-D000-4000-B000000000000095">
@@ -2470,10 +2564,10 @@
 							this="IC300094-D002-4000-B000000000000094"
 							uniqueguid="IC300094-D002-4000-B000000000000094"
 							componentimage="IC300094-D001-4000-B000000000000094"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2493,7 +2587,7 @@
 				<hover
 					this="IC300096-D000-4000-B000000000000096"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300096-D000-4000-B000000000000096">
@@ -2502,10 +2596,10 @@
 							this="IC300094-D004-4000-B000000000000094"
 							uniqueguid="IC300094-D004-4000-B000000000000094"
 							componentimage="IC300094-D003-4000-B000000000000094"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2537,17 +2631,17 @@
 				<component_image
 					this="IC300097-D001-4000-B000000000000097"
 					uniqueguid="IC300097-D001-4000-B000000000000097"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC300097-D003-4000-B000000000000097"
 					uniqueguid="IC300097-D003-4000-B000000000000097"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC300098-D000-4000-B000000000000098"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300098-D000-4000-B000000000000098">
@@ -2556,10 +2650,10 @@
 							this="IC300097-D002-4000-B000000000000097"
 							uniqueguid="IC300097-D002-4000-B000000000000097"
 							componentimage="IC300097-D001-4000-B000000000000097"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2579,7 +2673,7 @@
 				<hover
 					this="IC300099-D000-4000-B000000000000099"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC300099-D000-4000-B000000000000099">
@@ -2588,10 +2682,10 @@
 							this="IC300097-D004-4000-B000000000000097"
 							uniqueguid="IC300097-D004-4000-B000000000000097"
 							componentimage="IC300097-D003-4000-B000000000000097"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2623,17 +2717,17 @@
 				<component_image
 					this="IC30009A-D001-4000-B00000000000009A"
 					uniqueguid="IC30009A-D001-4000-B00000000000009A"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC30009A-D003-4000-B00000000000009A"
 					uniqueguid="IC30009A-D003-4000-B00000000000009A"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC30009B-D000-4000-B00000000000009B"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC30009B-D000-4000-B00000000000009B">
@@ -2642,10 +2736,10 @@
 							this="IC30009A-D002-4000-B00000000000009A"
 							uniqueguid="IC30009A-D002-4000-B00000000000009A"
 							componentimage="IC30009A-D001-4000-B00000000000009A"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2665,7 +2759,7 @@
 				<hover
 					this="IC30009C-D000-4000-B00000000000009C"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC30009C-D000-4000-B00000000000009C">
@@ -2674,10 +2768,10 @@
 							this="IC30009A-D004-4000-B00000000000009A"
 							uniqueguid="IC30009A-D004-4000-B00000000000009A"
 							componentimage="IC30009A-D003-4000-B00000000000009A"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2709,17 +2803,17 @@
 				<component_image
 					this="IC30009D-D001-4000-B00000000000009D"
 					uniqueguid="IC30009D-D001-4000-B00000000000009D"
-					imagepath="ui/skins/default/button_square_medium_text_active.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
 				<component_image
 					this="IC30009D-D003-4000-B00000000000009D"
 					uniqueguid="IC30009D-D003-4000-B00000000000009D"
-					imagepath="ui/skins/default/button_square_medium_text_hover.png"/>
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC30009E-D000-4000-B00000000000009E"
 					name="standard"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC30009E-D000-4000-B00000000000009E">
@@ -2728,10 +2822,10 @@
 							this="IC30009D-D002-4000-B00000000000009D"
 							uniqueguid="IC30009D-D002-4000-B00000000000009D"
 							componentimage="IC30009D-D001-4000-B00000000000009D"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2751,7 +2845,7 @@
 				<hover
 					this="IC30009F-D000-4000-B00000000000009F"
 					name="hover"
-					width="150"
+					width="240"
 					height="32"
 					interactive="true"
 					uniqueguid="IC30009F-D000-4000-B00000000000009F">
@@ -2760,10 +2854,10 @@
 							this="IC30009D-D004-4000-B00000000000009D"
 							uniqueguid="IC30009D-D004-4000-B00000000000009D"
 							componentimage="IC30009D-D003-4000-B00000000000009D"
-							offset="0.00,-3.00"
-							width="150"
-							height="49"
-							margin="8.00,8.00,8.00,8.00"/>
+							offset="0.00,0.00"
+							width="240"
+							height="32"
+							margin="0.00,40.00,0.00,40.00"/>
 					</imagemetrics>
 					<transitionmap>
 						<transition
@@ -2790,18 +2884,34 @@
 			uniqueguid="IC3000A0-D000-4000-B0000000000000A0"
 			currentstate="IC3000A1-D000-4000-B0000000000000A1"
 			defaultstate="IC3000A1-D000-4000-B0000000000000A1">
+			<componentimages>
+				<component_image
+					this="IC3000A0-D001-4000-B0000000000000A0"
+					uniqueguid="IC3000A0-D001-4000-B0000000000000A0"
+					imagepath="ui/derpy_ic/chd_title.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC3000A1-D000-4000-B0000000000000A1"
 					name="standard"
-					width="520"
-					height="36"
+					width="600"
+					height="56"
 					uniqueguid="IC3000A1-D000-4000-B0000000000000A1">
+					<imagemetrics>
+						<image
+							this="IC3000A0-D002-4000-B0000000000000A0"
+							uniqueguid="IC3000A0-D002-4000-B0000000000000A0"
+							componentimage="IC3000A0-D001-4000-B0000000000000A0"
+							offset="0.00,0.00"
+							width="600"
+							height="56"
+							margin="0.00,111.00,0.00,111.00"/>
+					</imagemetrics>
 					<component_text
-						texthalign="Left"
+						texthalign="Center"
 						textvalign="Center"
-						textxoffset="6.00,0.00"
-						textyoffset="4.00,0.00"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="24"
 						font_m_colour="#FFF8D7FF"

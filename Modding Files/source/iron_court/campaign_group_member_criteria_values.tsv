@@ -23,3 +23,6 @@ derpy_ic_event_party_demand	2619
 derpy_ic_event_party_demand_refused	2620
 derpy_ic_event_party_offer	2621
 derpy_ic_event_term_soon	2622
+derpy_ic_event_party_sabotage	2623
+derpy_ic_event_party_withhold	2624
+derpy_ic_event_realm_secede	2625

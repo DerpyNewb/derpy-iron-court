@@ -50,7 +50,7 @@
 				<component_image
 					this="IC440004-D003-4000-B000000000000004"
 					uniqueguid="IC440004-D003-4000-B000000000000004"
-					imagepath="ui/skins/default/panel_back_border.png"/>
+					imagepath="ui/derpy_ic/chd_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -75,8 +75,7 @@
 							offset="0.00,0.00"
 							width="383"
 							height="147"
-							tile="true"
-							margin="30.00,30.00,30.00,30.00"/>
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>

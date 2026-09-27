@@ -21,6 +21,7 @@ T.party_demand_high     = 74   -- ...to this one
 T.party_demand_met      = 12   -- on top of loyalty_appointed
 T.party_demand_refused  = 10
 T.party_demand_turns    = 5
+T.party_demand_rest     = 5    -- turns a refused party waits to demand again
 T.party_offer_line      = 75   -- offers at or above this loyalty
 T.party_offer_turns     = 3
 T.party_offer_envy      = 3    -- every OTHER rival party, when one is accepted
@@ -47,10 +48,11 @@ end
 -- is who held the post when it was made (0 for nobody).
 -- offers[slug] = {kind, n, target, ends}. A target is a cqi or a party slug and
 -- reads back from a save as a string.
+-- rest[slug] = the turn a party refused a demand may make another.
 function IC.agenda(faction_key)
     local a = IC.agenda_state[faction_key]
     if a then return a end
-    a = {plot = nil, feuds = {}, calm = {}, demand = nil, offers = {}}
+    a = {plot = nil, feuds = {}, calm = {}, demand = nil, offers = {}, rest = {}}
     local packed = cm:get_saved_value("derpy_ic_agenda_" .. faction_key)
     if packed and packed ~= "" then
         local parts = {}
@@ -92,6 +94,10 @@ function IC.agenda(faction_key)
                                   ends = tonumber(o[5]) or 0}
             end
         end
+        for _, entry in ipairs(split(parts[6] or "", ";")) do
+            local b = split(entry, ",")
+            if #b >= 2 then a.rest[b[1]] = tonumber(b[2]) end
+        end
     end
     IC.agenda_state[faction_key] = a
     return a
@@ -121,18 +127,22 @@ function IC.save_agenda(faction_key)
         demand = string.format("%s,%s,%d,%s,%d,%d", d.slug, d.kind, d.cqi,
                                d.key, d.was or 0, d.ends)
     end
-    local offers = {}
+    local offers, rest = {}, {}
     for slug, o in pairs(a.offers) do
         offers[#offers + 1] = string.format("%s,%s,%d,%s,%d", slug, o.kind, o.n,
             o.target ~= nil and tostring(o.target) or "-", o.ends)
     end
+    for slug, n in pairs(a.rest) do
+        rest[#rest + 1] = slug .. "," .. tostring(n)
+    end
     table.sort(feuds)
     table.sort(calm)
     table.sort(offers)
+    table.sort(rest)
     cm:set_saved_value("derpy_ic_agenda_" .. faction_key,
         plot .. "|" .. table.concat(feuds, ";") .. "|"
         .. table.concat(calm, ";") .. "|" .. demand .. "|"
-        .. table.concat(offers, ";"))
+        .. table.concat(offers, ";") .. "|" .. table.concat(rest, ";"))
 end
 
 -- Each entry: {key, can(fk, slug) -> target|nil, motive(fk, slug, target) -> int,
@@ -229,6 +239,18 @@ function IC.party_target(faction_key, slug, move, enemy)
     elseif move == "recall" then
         if enemy ~= IC.CROWN then return nil end
         return crown_governor(faction_key)
+    elseif move == "sabotage" then
+        -- AN OFFICE THE ENEMY'S MAN HOLDS and nobody has stalled yet.
+        local court = IC.court(faction_key)
+        for i = 1, #IC.OFFICES do
+            local office_slug = IC.OFFICES[i].slug
+            local cqi = court.offices[office_slug]
+            if cqi and not (court.stalled or {})[office_slug]
+                    and IC.house_of_cqi(faction_key, cqi) == enemy then
+                return cqi, office_slug
+            end
+        end
+        return nil
     elseif move == "murder" then
         local ruler = IC.faction_leader_cqi(faction_key)
         local cqi = richest(faction_key, enemy, function(man, c)
@@ -275,9 +297,16 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
         IC.apply_office_bundles(faction_key)
     elseif move == "recall" then
         IC.release_governor(faction_key, key)
+    elseif move == "sabotage" then
+        IC.stall_office(faction_key, key, T.sabotage_turns, slug, "sabotage")
     elseif move == "murder" then
         local victim = IC.character_by_cqi(faction_key, target)
         if victim then cm:kill_character(cm:char_lookup_str(victim), false) end
+    end
+    if move == "sabotage" then
+        IC.log(faction_key, "sabotage", slug, key, cost)
+        if at_crown then IC.feed(faction_key, "party_sabotage") end
+        return true
     end
     local kind = (move == "unseat" or move == "recall")
                  and ("party_" .. move) or move
@@ -285,6 +314,7 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     if at_crown then IC.feed(faction_key, "party_plot_ok") end
     if move == "murder" and not at_crown then
         IC.feed(faction_key, "party_feud_murder")
+        IC.news(faction_key, "murder", victim_house, slug)
     end
     return true
 end
@@ -411,7 +441,8 @@ function IC.feud_target(faction_key, slug)
         if office.affinity == slug and cqi then
             local holder = IC.house_of_cqi(faction_key, cqi)
             if holder and holder ~= slug and holder ~= IC.CROWN
-                    and court.houses[holder] and free(holder) then
+                    and court.houses[holder]
+                    and free(holder) then
                 return {with = holder, cause = "seat", key = office.slug}
             end
         end
@@ -440,6 +471,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
         local a = IC.agenda(faction_key)
         a.feuds[slug], a.feuds[t.with] = rec, rec
         IC.log(faction_key, "feud", slug, t.with, 0)
+        IC.news(faction_key, "feud", slug, t.with)
         IC.feed(faction_key, "party_feud")
     end,
 }
@@ -452,15 +484,15 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
         local enemy = rec.a == slug and rec.b or rec.a
         local actor, purse = IC.party_plotter(faction_key, slug)
         if not actor then return nil end
-        local order = {"discredit", "rumour"}
+        local order = {"sabotage", "discredit", "rumour"}
         if cm:model():turn_number() - rec.since >= T.party_feud_murder_age then
-            order = {"murder", "discredit", "rumour"}
+            order = {"murder", "sabotage", "discredit", "rumour"}
         end
         for _, move in ipairs(order) do
             if purse >= IC.plot_cost(move) then
-                local target = IC.party_target(faction_key, slug, move, enemy)
+                local target, key = IC.party_target(faction_key, slug, move, enemy)
                 if target then
-                    return {move = move, actor = actor, target = target}
+                    return {move = move, actor = actor, target = target, key = key}
                 end
             end
         end
@@ -468,8 +500,81 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     end,
     motive = function() return T.party_feud_motive end,
     act = function(faction_key, slug, t)
-        IC.party_strike(faction_key, slug, t.move, t.actor, t.target, nil,
+        IC.party_strike(faction_key, slug, t.move, t.actor, t.target, t.key,
                         t.move == "murder" and T.party_murder_odds_div or nil)
+    end,
+}
+
+-- SETTLE A FEUD (spec 2026-09-27 section 4). "back" sides with `slug`;
+-- "peace" pays a gift's price and pleases both. Either ends the feud with the
+-- same rest a feud that ran its course gets.
+function IC.can_arbitrate(faction_key, slug, side)
+    local rec = IC.agenda(faction_key).feuds[slug or ""]
+    if not rec then return false, "no feud" end
+    if side == "peace" then
+        local cost = IC.favour_cost("gift")
+        local gold = IC.treasury(faction_key)
+        if gold < cost then return false, "gold", cost - gold end
+        return true
+    end
+    if side ~= "back" then return false, "no feud" end
+    return true
+end
+
+function IC.arbitrate(faction_key, slug, side)
+    local ok, why, spare = IC.can_arbitrate(faction_key, slug, side)
+    if not ok then return false, why, spare end
+    local a = IC.agenda(faction_key)
+    local rec = a.feuds[slug]
+    local other = rec.a == slug and rec.b or rec.a
+    if side == "back" then
+        IC.move_loyalty(faction_key, slug, T.arbit_side_loyalty)
+        IC.move_loyalty(faction_key, other, -T.arbit_side_loyalty)
+        IC.log(faction_key, "arbit_side", slug, other, 0)
+    else
+        local cost = IC.favour_cost("gift")
+        cm:treasury_mod(faction_key, -cost)
+        IC.move_loyalty(faction_key, slug, T.arbit_peace_loyalty)
+        IC.move_loyalty(faction_key, other, T.arbit_peace_loyalty)
+        IC.log(faction_key, "arbit_peace", slug, other, cost)
+    end
+    local now = cm:model():turn_number()
+    a.feuds[rec.a], a.feuds[rec.b] = nil, nil
+    a.calm[rec.a] = now + T.party_feud_rest
+    a.calm[rec.b] = now + T.party_feud_rest
+    IC.save_agenda(faction_key)
+    IC.save(faction_key)
+    return true
+end
+
+-- WITHHOLD (spec 2026-09-27 section 3). A party at or below the line stops its
+-- officers working: every office it holds loses its bonus for a few turns.
+function IC.withhold_target(faction_key, slug)
+    local court = IC.court(faction_key)
+    local house = court.houses[slug]
+    if not house then return nil end
+    if (house.loyalty or 0) > T.withhold_line then return nil end
+    local offices = IC.offices_of_house(faction_key, slug)
+    if #offices == 0 then return nil end
+    for _, office_slug in ipairs(offices) do
+        if (court.stalled or {})[office_slug] then return nil end
+    end
+    return {offices = offices}
+end
+
+IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
+    key = "withhold",
+    can = function(faction_key, slug) return IC.withhold_target(faction_key, slug) end,
+    motive = function(faction_key, slug, _t)
+        local loyalty = IC.court(faction_key).houses[slug].loyalty or 0
+        return T.withhold_motive + math.max(0, T.withhold_line - loyalty)
+    end,
+    act = function(faction_key, slug, t)
+        for _, office_slug in ipairs(t.offices) do
+            IC.stall_office(faction_key, office_slug, T.withhold_turns, slug, "withhold")
+        end
+        IC.log(faction_key, "withhold", slug, nil, #t.offices)
+        IC.feed(faction_key, "party_withhold")
     end,
 }
 
@@ -607,6 +712,19 @@ function IC.issue_demand(faction_key, slug, t)
     -- Saved before the engine call: a mission can raise its own events from
     -- inside the call that creates it.
     IC.save_agenda(faction_key)
+    -- AN AI RULER ANSWERS AT ONCE (spec 2026-09-27 section 5): no mission, a
+    -- grant below ai_grant_line when the grant is possible, else a refusal
+    -- with the refusal's full cost.
+    if not IC.is_human(faction_key) then
+        IC.log(faction_key, "demand", slug, t.key, 0)
+        local house = IC.court(faction_key).houses[slug]
+        if house and (house.loyalty or 0) < T.ai_grant_line
+                and IC.can_grant_demand(faction_key) then
+            IC.grant_demand(faction_key)
+        end
+        if IC.agenda(faction_key).demand then IC.refuse_demand(faction_key) end
+        return true
+    end
     local ok, err = pcall(function()
         cm:trigger_custom_mission_from_string(faction_key,
                                               IC.demand_string(t.kind))
@@ -634,7 +752,9 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
         if loyalty < T.party_demand_low or loyalty > T.party_demand_high then
             return nil
         end
-        if IC.agenda(faction_key).demand then return nil end
+        local a = IC.agenda(faction_key)
+        if a.demand then return nil end
+        if (a.rest[slug] or 0) > cm:model():turn_number() then return nil end
         return IC.demand_target(faction_key, slug)
     end,
     motive = function(faction_key, slug, _t)
@@ -687,19 +807,26 @@ function IC.settle_demand(faction_key, outcome, ended)
     local d = a.demand
     if not d then return false end
     a.demand = nil
+    -- A REFUSED PARTY WAITS before it asks again; nothing else stopped it
+    -- re-demanding the same post every turn (found live 2026-09-26).
+    if outcome == "refused" then
+        a.rest[d.slug] = cm:model():turn_number() + T.party_demand_rest
+    end
     IC.save_agenda(faction_key)
     local mission = IC.DEMAND_KEYS[d.kind]
     if outcome == "met" then
         IC.move_loyalty(faction_key, d.slug, T.party_demand_met)
         IC.log(faction_key, "demand_met", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
+        IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
         IC.log(faction_key, "demand_void", d.slug, d.key, 0)
     end
-    if not ended then
+    if not ended and IC.is_human(faction_key) then
         pcall(function()
             if outcome == "void" then
                 cm:cancel_custom_mission(faction_key, mission)
@@ -927,6 +1054,8 @@ end
 IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     key = "offer",
     can = function(faction_key, slug)
+        -- A HUMAN COURT'S ONLY (spec 2026-09-27 section 5).
+        if not IC.is_human(faction_key) then return nil end
         local house = IC.court(faction_key).houses[slug]
         if not house or (house.loyalty or 0) < T.party_offer_line then
             return nil
@@ -1026,9 +1155,53 @@ function IC.expire_offers(faction_key)
     return gone
 end
 
+-- WHICH AI COURTS TAKE A PARTY TURN THIS ROUND (spec 2026-09-27 section 5).
+-- The feud scoring is the expensive part, so ai_party_courts courts act per
+-- round, in the fixed order of IC.ORIGINS' faction keys: deterministic, so
+-- both machines of a multiplayer game agree. A human court always acts.
+function IC.party_turn_due(faction_key)
+    if IC.is_human(faction_key) then return true end
+    local per = T.ai_party_courts or 0
+    if per <= 0 then return false end
+    local keys = {}
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and not IC.is_human(key) then keys[#keys + 1] = key end
+    end
+    table.sort(keys)
+    local at = 0
+    for i = 1, #keys do if keys[i] == faction_key then at = i end end
+    local period = math.max(1, math.ceil(#keys / per))
+    return (cm:model():turn_number() + at) % period == 0
+end
+
+-- THE AI RULER KEEPS A PARTY FROM LEAVING: the lowest-loyalty party whose
+-- countdown runs gets Secure Loyalty, or failing that a Gift, from the AI's
+-- own treasury through IC.favour - so every rule a player meets holds for it.
+function IC.ai_placate(faction_key)
+    local court = IC.court(faction_key)
+    local worst, low
+    for _, slug in ipairs(IC.present_houses(faction_key)) do
+        local house = court.houses[slug]
+        if slug ~= IC.CROWN and house and (house.clock or 0) > 0
+                and (not worst or (house.loyalty or 0) < low) then
+            worst, low = slug, house.loyalty or 0
+        end
+    end
+    if not worst then return nil end
+    for _, key in ipairs({"secure", "gift"}) do
+        if IC.can_favour(faction_key, key, worst) then
+            IC.favour(faction_key, key, worst)
+            return key
+        end
+    end
+    return nil
+end
+
 function IC.party_turn(faction_key)
-    if not IC.is_human(faction_key) then return nil end
-    IC.governor_xp(faction_key)
+    if not IC.party_turn_due(faction_key) then return nil end
+    local human = IC.is_human(faction_key)
+    if human then IC.governor_xp(faction_key) end
     IC.end_feuds(faction_key)
     IC.check_demand(faction_key)
     IC.expire_offers(faction_key)
@@ -1079,6 +1252,7 @@ function IC.party_turn(faction_key)
         chosen.act.act(faction_key, chosen.slug, chosen.target)
         done = chosen.act.key
     end
+    if not human then IC.ai_placate(faction_key) end
     IC.save_agenda(faction_key)
     IC.save(faction_key)
     return done

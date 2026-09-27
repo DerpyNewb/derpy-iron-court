@@ -91,6 +91,7 @@ GUID_PREFIXES = {
     # the office card has none to spare: twui text never wraps, so more lines
     # means more components. See PLOT_LAYOUT.
     "derpy_ic_plot.twui.xml":   "IC36",
+    "derpy_ic_fire.twui.xml":   "IC37",
     # IC40-IC44 - THE COMPACT COPIES, the same components one CA font size
     # down for a box under 1920. Their own prefixes: a copy that reused its
     # base file's would collide with it GUID for GUID.
@@ -171,7 +172,9 @@ PANEL_LAYOUT = {
     # FAR LEFT, and named for the god the court answers to. The middle of the
     # top strip is the pie's column now, and a panel's own name belongs where a
     # reader starts rather than over the thing it is naming.
-    "ic_title": (18, 12, 520, 36),
+    # ON THE CHAOS DWARF TITLE BANNER (2026-09-26), whose arrow ends take 165px
+    # a side - so 600 wide, which leaves the name 270 between them.
+    "ic_title": (18, 4, 600, 56),
     # TOP RIGHT and 48px, where a close button belongs and where the cursor
     # goes looking for it. It was 22px at the top left: wrong corner, and
     # under half the size of any round button CA ships.
@@ -187,19 +190,21 @@ PANEL_LAYOUT = {
     # right-aligned instead: it belongs to the list below it rather than to the
     # tabs beside it, and the panel's other two right-hand cells - ic_close and
     # ic_influence - already set that edge.
-    "ic_tab_court": (18, 62, 150, 32),
-    "ic_tab_offices": (172, 62, 150, 32),
-    "ic_tab_govs": (326, 62, 150, 32),
-    "ic_tab_intrigue": (480, 62, 150, 32),
+    # 240 WIDE since they wear CA's skull-capped tab (2026-09-26): its caps
+    # take 45px a side, so a 150 tab left "Governors" 60px of bar.
+    "ic_tab_court": (18, 62, 240, 32),
+    "ic_tab_offices": (262, 62, 240, 32),
+    "ic_tab_govs": (506, 62, 240, 32),
+    "ic_tab_intrigue": (750, 62, 240, 32),
     # WHAT THE PARTIES ASK OF YOU, on a tab of its own (author, 2026-09-24).
     # Offers were answered from a party's favour list and demands from nowhere
     # at all - the player had to find the seat and fill it by hand.
-    "ic_tab_petitions": (634, 62, 150, 32),
+    "ic_tab_petitions": (994, 62, 240, 32),
     # The RECORD, on its own tab, and LAST (author, 2026-09-24): it is the one
     # tab with nothing to act on. It shared the Intrigue list with the live
     # secession clocks, and a page of history pushed the one thing a player
     # can still act on off the screen.
-    "ic_tab_log": (788, 62, 150, 32),
+    "ic_tab_log": (1238, 62, 240, 32),
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
@@ -277,7 +282,9 @@ PANEL_LAYOUT = {
 # all four still use the full width - so every component declared here is
 # court-only and the dispatcher hides it elsewhere, exactly as it already does
 # for the dial.
-COL_TOP = 110                          # clear of the tabs, which end at 94
+# THE TITLE PLATE'S HEIGHT - see HEADER_LAYERS. Here because the columns use it.
+HEADING_H = 44
+COL_TOP = 102                          # clear of the tabs, which end at 94
 # THE DIVIDER LIVES IN THE GUTTER, so the gutter has to be wider than it: a
 # rule drawn in a 4px gap has no air on either side and reads as a seam.
 COL_GUTTER = 32
@@ -285,8 +292,9 @@ DIVIDER_W = 4
 COL_W = (CONTENT_W - COL_GUTTER) // 2
 COL_L_X = 18
 COL_R_X = COL_L_X + COL_W + COL_GUTTER
-COL_HDR_H = 26
-COL_BODY_Y = COL_TOP + COL_HDR_H + 10
+COL_HDR_H = HEADING_H
+# NO GAP: the plate's lower spikes are the gap, and they end where the body starts.
+COL_BODY_Y = COL_TOP + COL_HDR_H
 # WHERE BOTH COLUMNS STOP: the alert bar is full width and sits under them, so
 # neither column may reach it.
 COL_BOTTOM = PANEL_LAYOUT["ic_alert"][1] - 8
@@ -730,8 +738,9 @@ PLOT_DEPTH = max(PLOT_COUNTS)
 # THE HEADER STRIP IS THE CATEGORY NAMES. It sits where the row list's headers
 # sat, so nothing else on the panel moved to make room for it.
 PLOTS_X = CARDS_X
-PLOTS_HDR_Y = ROWS_Y
-PLOTS_HDR_H = 24
+# 20 ABOVE THE ROWS, so the taller plate costs the cards nothing.
+PLOTS_HDR_Y = ROWS_Y - 20
+PLOTS_HDR_H = HEADING_H
 PLOTS_Y = PLOTS_HDR_Y + PLOTS_HDR_H + 10
 # BOTH DERIVED. Four columns of the content width, and whatever height the
 # deepest column leaves between the first card and the pager.
@@ -1128,14 +1137,21 @@ CARD_LAYERS = [
     # 256x256 panel_back_border.png: the corner runs 27px in from the left and
     # 28 down from the top, so an 18 slice halves the corner and stretches the
     # offcut along the rails. Corners that do not meet their own edges.
-    {"path": "ui/skins/default/panel_back_border.png",
-     "offset": (0, 0), "dw": 0, "dh": 0, "margin": 30, "tile": True, "dock": None},
+    #
+    # THE CHAOS DWARF FRAME SINCE 2026-09-26 (author: "use more of the chaos
+    # dwarf ui borders and elements"): the Hell-Forge's own name holder, a
+    # bronze rim round a dark field, trimmed out of CA's 144x51
+    # cap_group_name_holder.png to its 114x51 alpha box (CHD_CUTS). STRETCHED:
+    # its field is not flat, and a tiled one repeats. It was CA's generic
+    # panel_back_border.png at margin 30, tiled.
+    {"path": "ui/derpy_ic/chd_frame.png",
+     "offset": (0, 0), "dw": 0, "dh": 0, "margin": 8, "dock": None},
 ]
-# The smallest 9-slice margin that keeps panel_back_border.png corner whole,
-# measured off the source rather than picked. Check 18 holds every use of that
-# texture to it.
-BORDER_TEXTURE = "ui/skins/default/panel_back_border.png"
-BORDER_CORNER = 28
+# The smallest 9-slice margin that keeps the frame's rim and its rounded
+# corners whole, measured off the trimmed source: the bronze is 3px and the
+# corners round off inside 6. Check 18 holds every use of that texture to it.
+BORDER_TEXTURE = "ui/derpy_ic/chd_frame.png"   # literal: PLATE_DIR is below
+BORDER_CORNER = 6
 
 # The smallest 9-slice margin each CA texture can take, MEASURED off the
 # source rather than chosen. Below it the slice cuts an edge feature and then
@@ -1151,16 +1167,38 @@ BORDER_CORNER = 28
 # inside a thin gold rule, 27px tall at native size, which is the counter's own
 # height, so it draws near 1:1. Its text is centred and kept SEATS_PAD clear of
 # each end, and check 20g measures it there.
-SEATS_FRAME = "ui/skins/default/frame_text.png"
+# THE HELL-FORGE'S OWN SUBTITLE PLATE SINCE 2026-09-26, the same idea in the
+# race's bronze: dlc23_chd_hell_forge/sub_title.png, 113x30, a 3px rim round a
+# near-black field whose corners round off by 6.
+SEATS_FRAME = "ui/skins/default/dlc23_chd_hell_forge/sub_title.png"
 SEATS_PAD = 10
 SEATS_LAYERS = [{"path": SEATS_FRAME, "offset": (0, 0), "dw": 0, "dh": 0,
-                 "margin": 4, "dock": None}]
+                 "margin": 6, "dock": None}]
+
+# THE TITLES SIT ON THE HELL-FORGE'S SECTION TITLE (author, 2026-09-26:
+# "parties of the court and control of the court doesnt have any background").
+# side_panel_title.png, the spiked bar with arrow ends, SHRUNK to HEADING_H by
+# cut_chd_art rather than squashed by the engine: its dark field is rows 17-66
+# of 90, so at 44px the field is 24px and a 20px heading sits INSIDE it.
+#
+# NOT sub_title, which this was for one build: a 3px rim round a field as dark
+# as the backdrop reads as an outline, and in a 24px cell the 20px text covered
+# both rims, so every heading looked struck through (author: "it looks poorly
+# implemented"). And NOT on every heading: the list's column headings and the
+# sentence under the tabs stay bare - a plate per table column, or one 1884px
+# wide under a sentence, is a row of boxes, not a title.
+HEADING_ART = "ui/derpy_ic/chd_heading.png"
+# The arrow and its bracket end at column 68 of 90 rows: 68 * 44 / 90, rounded up.
+HEADING_CAP = 34
+HEADING_TY = "0.00,4.00"
+HEADER_LAYERS = [{"path": HEADING_ART, "offset": (0, 0), "dw": 0, "dh": 0,
+                  "margin": (0, HEADING_CAP), "dock": None}]
 
 TEXTURE_MIN_MARGIN = {
     BORDER_TEXTURE: BORDER_CORNER,
     "ui/skins/default/panel_back_tile.png": 4,
-    # 183x27: a 2px gold rule, a 2px near-black band inside it, then the field.
-    SEATS_FRAME: 4,
+    # 113x30: a 3px bronze rim with corners that round off by 6.
+    SEATS_FRAME: 6,
 }
 
 # CA textures whose 9-slice CENTRE is one flat colour, measured off the source.
@@ -2267,10 +2305,66 @@ def art_paths():
     # the next --write and would never reach the pack at all: a blank square
     # behind the whole panel, with nothing in the log.
     out.add(PANEL_BG)
+    # CA's Chaos Dwarf art, trimmed: cut from the game, not rasterised. See CHD_CUTS.
+    out.update(CHD_CUTS)
+    # The commission's ember sprite, copied: see FIRE_FILE.
+    out.add(EMBER_SPRITE)
     for slug in wedge_colours():
         for i in range(DIAL_SLICES):
             out.add(wedge_path(i, slug))
     return out
+
+
+# CA'S CHAOS DWARF ART, TRIMMED TO ITS OWN ALPHA BOX (2026-09-26). our path ->
+# (CA's path in ui2.pack, crop box). Each box is the art's alpha > 8 bounding
+# box, measured, so a trimmed picture fills its component exactly and no layer
+# has to be larger than its box. The selected tab loses the glow under its bar;
+# the bar itself is the whole of the picture that says "this one".
+CHD_CUTS = {
+    PLATE_DIR + "/chd_tab_active.png": ("ui/skins/default/tab_square_large_text_active.png", (1, 7, 354, 45)),
+    PLATE_DIR + "/chd_tab_hover.png": ("ui/skins/default/tab_square_large_text_hover.png", (1, 7, 354, 45)),
+    PLATE_DIR + "/chd_tab_selected.png": ("ui/skins/default/tab_square_large_text_selected.png", (1, 7, 354, 45)),
+    PLATE_DIR + "/chd_tab_selected_hover.png": ("ui/skins/default/tab_square_large_text_selected_hover.png",
+                                 (1, 7, 354, 45)),
+    PLATE_DIR + "/chd_title.png": ("ui/skins/wh3_dlc23_chd_chaos_dwarfs/panel_title.png", (54, 3, 491, 59)),
+    BORDER_TEXTURE: ("ui/skins/default/dlc23_chd_hell_forge/cap_group_name_holder.png",
+                     (15, 0, 129, 51)),
+    # THE THIRD VALUE SHRINKS IT to that height, aspect kept: see HEADING_H.
+    HEADING_ART: ("ui/skins/default/dlc23_chd_hell_forge/side_panel_title.png",
+                  (0, 0, 454, 90), HEADING_H),
+}
+
+
+def cut_chd_art(quiet=False):
+    """Write every CHD_CUTS picture that is missing or differs. Needs the game."""
+    import io as _io
+    import read_pack_index as RPI
+    from read_vanilla_loc import _decompress
+    from PIL import Image
+    pack = os.path.join(GAME_DATA, "ui2.pack")
+    if not os.path.isfile(pack):
+        if not quiet:
+            print("  (no game install at %s - Chaos Dwarf art not cut)" % GAME_DATA)
+        return []
+    written = []
+    for ours, (theirs, box, *height) in sorted(CHD_CUTS.items()):
+        data = None
+        for path, comp, blob in RPI.read(pack, theirs):
+            if path == theirs:
+                data = _decompress(blob) if comp else blob
+        assert data and data[:4] == b"\x89PNG", "%s is not in ui2.pack" % theirs
+        img = Image.open(_io.BytesIO(data)).convert("RGBA").crop(box)
+        if height:
+            img = img.resize((round(img.width * height[0] / img.height), height[0]),
+                             Image.LANCZOS)
+        disk = os.path.join(ROOT, "Modding Files", "pack", *ours.split("/"))
+        buf = _io.BytesIO()
+        img.save(buf, "PNG")
+        if not os.path.isfile(disk) or open(disk, "rb").read() != buf.getvalue():
+            os.makedirs(os.path.dirname(disk), exist_ok=True)
+            open(disk, "wb").write(buf.getvalue())
+            written.append(disk)
+    return written
 
 
 def build_plates():
@@ -2487,6 +2581,67 @@ def plate(h, state):
 TAB_H = PANEL_LAYOUT["ic_tab_court"][3]
 BTN_LAYERS = plate(TAB_H, "active")
 BTN_HOVER = plate(TAB_H, "hover")
+
+# THE TABS WEAR CA'S SKULL-CAPPED TAB (author, 2026-09-26: "use more of the
+# chaos dwarf ui borders and elements", pointing at the Hell-Forge's Armoury
+# tab), and the panel's name sits on the Chaos Dwarf title banner.
+#
+# TRIMMED COPIES, NOT CA'S FILES. tab_square_large_text_*.png is 354x103 with
+# the bar in rows 8-43 and the selected glow under it; fitted to a 32px tab
+# that needs a layer larger than its box, and a runtime component's layers are
+# sized to the box - preview_iron_court draws them that way, and the engine
+# resizes them with it. Trimmed to the art's own alpha box, each picture fills
+# its component exactly, with no offset for anything to disagree about. See
+# CHD_CUTS; cut_chd_art() makes them from the installed packs.
+TAB_ART = PLATE_DIR + "/chd_tab_%s.png"
+# THE CAPS, MEASURED ON THE TRIMMED ART: the skull and its bronze bezel end at
+# column 38 and the bar's rounded end at 45. CA slices this art at 65
+# ("0,65,0,65" in hellforge_panel_main.twui.xml), which is generous on a 334px
+# tab and left "Petitions" 72px of a 200px tab at 1600 - 40 keeps the whole
+# skull in the corner, and a label clears the rounded end at 46.
+TAB_CAP = 40
+TAB_TEXT_INSET = 46
+
+
+def tab_plate(state):
+    return [{"path": TAB_ART % state, "offset": (0, 0), "dw": 0, "dh": 0,
+             "margin": (0, TAB_CAP), "dock": None}]
+
+
+TAB_LAYERS = tab_plate("active")
+assert all(TAB_ART % st in CHD_CUTS for st in ("active", "hover", "selected", "selected_hover"))
+TAB_HOVER = tab_plate("hover")
+
+# The race skin's panel_title.png, 544x59, trimmed to 437x56. Its arrow ends
+# are CA's margin of 165 ("0,165,0,165" in the same file), less the 54 columns
+# the trim takes off.
+TITLE_ART = PLATE_DIR + "/chd_title.png"
+TITLE_CAP = 111
+# THE BANNER'S FIELD IS ROWS 12-40 OF 56, so it is drawn at 56 - squashed to 44
+# the field was 22px and the game's 24px title ran over both rims - and the
+# words are lifted 2px onto the field's middle (row 26, not the box's 28).
+TITLE_TY = "0.00,4.00"
+
+# A PLATE HUGS ITS WORDS (author, 2026-09-26, on the column titles: "why is it all
+# stretched to the corners?"). The cell is the most room a plate may take, not its
+# size: ICUI.fit_plate shrinks each of these to its text's width plus a cap and
+# PLATE_GAP either side, measured by the engine, and centres it in the cell - or,
+# for the banner, keeps its left end where the panel's corner is. fit_plate() is
+# that rule once, for the preview; the Lua is the other copy.
+PLATE_GAP = 14
+FIT_PLATES = {"ic_title": (TITLE_CAP, True), "ic_col_left": (HEADING_CAP, False),
+              "ic_col_right": (HEADING_CAP, False)}
+for _i in range(PLOT_COLS):
+    FIT_PLATES["ic_plotcat_%d" % (_i + 1)] = (HEADING_CAP, False)
+
+
+def fit_plate(name, x, w, text_w):
+    """(x, w) of a FIT_PLATES cell once its plate is sized to text_w."""
+    cap, left = FIT_PLATES[name]
+    want = min(w, int(-(-text_w // 1)) + 2 * (cap + PLATE_GAP))
+    return (x if left else x + (w - want) // 2), want
+TITLE_LAYERS = [{"path": TITLE_ART, "offset": (0, 0), "dw": 0, "dh": 0,
+                 "margin": (0, TITLE_CAP), "dock": None}]
 
 LABEL_TX, LABEL_TY = "6.00,0.00", "4.00,0.00"
 
@@ -2771,8 +2926,17 @@ def _panel():
         elif name in ("ic_col_left", "ic_col_right"):
             # CENTRED OVER ITS OWN COLUMN, which is what makes the two columns
             # read as two columns rather than as one wide tab with a rule in it.
-            panel.add(EU.C(name, w, h, **dict(TAB_TEXT, size=COL_HDR_FONT[0],
-                                              fontcat=COL_HDR_FONT[1])))
+            # ON A PLATE since 2026-09-26: see HEADER_LAYERS. HEADING_TY lifts
+            # the words onto the field, which sits 2px above the art's middle.
+            panel.add(EU.C(name, w, h, layers=HEADER_LAYERS,
+                           **dict(TAB_TEXT, size=COL_HDR_FONT[0],
+                                  fontcat=COL_HDR_FONT[1], ty=HEADING_TY)))
+        elif name.startswith("ic_plotcat_"):
+            # THE MOVE GROUPS, on the same plate and centred on it like the
+            # column titles: a left-aligned word would sit on the arrow.
+            panel.add(EU.C(name, w, h, layers=HEADER_LAYERS, align="Center",
+                           valign="Center", tx="0.00,0.00", ty=HEADING_TY,
+                           **style(name)))
         elif name.startswith("ic_barp_"):
             # A PICTURE-FREE TEXT CELL, centred on its own box: it is placed on
             # its party's ray every draw, so the text has to sit in the middle
@@ -2848,7 +3012,13 @@ def _panel():
             # list when clicked but is drawn as a caption is a control nobody
             # finds - the same fault in reverse as a dead button drawn live.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=BTN_LAYERS, hover=BTN_HOVER, **TAB_TEXT))
+                           layers=TAB_LAYERS, hover=TAB_HOVER, **TAB_TEXT))
+        elif name == "ic_title":
+            # ON ITS BANNER, and centred there: the banner's middle is the only
+            # part of it with room for a word. See TITLE_ART.
+            panel.add(EU.C(name, w, h, layers=TITLE_LAYERS, align="Center",
+                           valign="Center", tx="0.00,0.00", ty=TITLE_TY,
+                           **style(name)))
         elif name == "ic_influence":
             # ON ITS OWN PLATE, centred. See SEATS_FRAME.
             panel.add(EU.C(name, w, h, layers=SEATS_LAYERS, align="Center",
@@ -3067,6 +3237,10 @@ LAYOUT_TABLES = {
     "derpy_ic_opener.twui.xml": {"derpy_ic_opener": (0, 0, OPENER_W, OPENER_H)},
     "derpy_ic_standing.twui.xml": {
         "derpy_ic_standing": (0, 0, STANDING_W, STANDING_H)},
+    # PLACED BY ICUI.card_fire, not by a layout table: the emitter is MoveTo'd
+    # to its card's bottom edge on every draw. Named here so check 7 knows it.
+    "derpy_ic_fire.twui.xml": {"derpy_ic_fire": (0, 0, 0, 0), "embers": (0, 0, 0, 0),
+                               "template_particle": (0, 0, 0, 0)},
 }
 
 
@@ -3140,6 +3314,11 @@ COMPACT_OVERRIDES = {
     "ic_hsort_e": (7, 0, 0, 0),
 }
 
+# How far above a card's bottom edge the embers start (see
+# FIRE_FILE). Here, not with it, because the scale pass below runs first. ICUI.FIRE_LIFT is the
+# same number; import_iron_court compares the two at every box width.
+FIRE_LIFT = 10
+
 SCALED_SCALARS = [
     "PANEL_W", "PANEL_H", "CONTENT_W", "ROWS_X", "ROWS_Y", "ROW_PITCH", "HDR_GAP",
     "HDR_Y", "COL_TOP", "COL_GUTTER", "DIVIDER_W", "COL_W", "COL_L_X", "COL_R_X",
@@ -3155,7 +3334,7 @@ SCALED_SCALARS = [
     "PLOT_PAD", "PLOT_INNER_W", "PLOT_ICON_PX", "PLOT_FOOT_PAD", "PARTY_GAP_X",
     "PARTY_GAP_Y", "PARTY_W", "PARTIES_X", "PARTIES_Y", "PARTY_H", "PARTY_BAND",
     "_PIW", "_PB", "_PPW", "_PPH", "_PTX", "_PTW", "_PLW", "_PRX", "_PRW", "_PSW",
-    "ACT_GAP",
+    "ACT_GAP", "FIRE_LIFT",
 ]
 SCALED_PAIRS = ["PORT_BOX", "CREST_BOX"]
 SCALED_BOXES = ["PIE_BOX", "RIM_BOX", "DIAL_BOX", "COURT_SECTION_XY"]
@@ -3186,6 +3365,10 @@ NOT_GEOMETRY = [
     "RIM_BOTTOM", "RIM_EDGE_A", "RIM_SHADOW", "RIM_W", "RIM_SS", "EMBER",
     "EMBER_DEPTH", "DIV_W", "DIV_EDGE_A", "DIV_SS", "PLATE_INDEX", "FACE_INDEX",
     "MASK_INDEX", "FACE_COLOUR_FROM", "OPENER_ICON_INSET", "CLOSE_INSET", "TAB_H",
+    "TAB_LAYERS", "TAB_HOVER", "TAB_CAP", "TAB_TEXT_INSET", "TITLE_LAYERS",
+    "TITLE_CAP", "TITLE_TY", "PLATE_GAP", "FIT_PLATES", "HEADER_LAYERS", "HEADING_ART", "HEADING_CAP", "HEADING_TY", "HEADING_H",
+    # Crop boxes in CA's source pixels, not layout.
+    "CHD_CUTS",
     "BTN_PLATE_MARGIN", "PARTY_LAYERS", "PARTY_SEL_INDEX", "SEATS_LAYERS",
     "SEATS_PAD",
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
@@ -3424,7 +3607,223 @@ def _small():
 
 def ui_file_names():
     """Every .twui.xml this generator writes, base files and compact copies."""
-    return [f for f, _b, _c in FILES] + sorted(COMPACT_FILES.values())
+    return [f for f, _b, _c in FILES] + [FIRE_FILE] + sorted(COMPACT_FILES.values())
+
+
+# FIRE ON A HELD SEAT (author, 2026-09-26: "active seats should also have the
+# background have effects, similar to the commission mod"). The commission's own
+# ember drift - derpy_chd_rite_fire.twui.xml's `embers` emitter, which the author
+# has seen running - cloned under this mod's own prefix and sprite, so the court
+# never depends on the commission pack being loaded.
+#
+# A TEMPLATE, NOT AN EU.C TREE: the emitter needs the ParticleEmitter and Particle
+# callbacks, a userproperties block and a three-frame particle_move animation, and
+# the emitter library writes none of them. Every number below is the commission's
+# except the SPREAD and the COUNT, which are sized to an office card rather than
+# its 310px icon: the embers rise along the card's whole bottom edge.
+#
+# THE PARTICLE IS NAMED template_particle AND NOTHING ELSE. The emitter resolves it
+# by that literal name; any other is a null the game dereferences on panel open,
+# with no Lua error first (memory: wh3-particle-child-must-be-template-particle).
+# check_fire() holds that.
+#
+# #RRGGBBAA, not ARGB: settled against CA's own particle_blood_red.png. And
+# interpolationtime is a DURATION per frame, so the life is 900 + 500 ms.
+EMBER_SPRITE = PLATE_DIR + "/ember.png"
+EMBER_SOURCE = os.path.join(ROOT, "Modding Files", "pack", "ui", "skins", "default",
+                            "derpy_chd_commission", "ember.png")
+FIRE_FILE = "derpy_ic_fire.twui.xml"
+FIRE_SPREAD = 300          # the emitter's width, a little inside the card's
+FIRE_PARTICLES = 40
+FIRE_SPAWN_MS = 120
+
+_FIRE_TEMPLATE = """<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="derpy: embers over a held seat on the Iron Court's offices tab. Created at runtime into each office card by ICUI.card_fire; generated by tools/gen_ic_ui.py - do not edit by hand."
+	precache_condition="">
+	<hierarchy>
+		<root this="@0">
+			<derpy_ic_fire this="@1">
+				<embers this="@2">
+					<template_particle this="@3"/>
+				</embers>
+			</derpy_ic_fire>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="@0"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="@0"
+			currentstate="@4"
+			defaultstate="@4">
+			<states>
+				<standard
+					this="@4"
+					name="standard"
+					width="@W"
+					height="@H"
+					uniqueguid="@4"/>
+			</states>
+		</root>
+		<derpy_ic_fire
+			this="@1"
+			id="derpy_ic_fire"
+			priority="50"
+			tooltipslocalised="true"
+			uniqueguid="@1"
+			currentstate="@5"
+			defaultstate="@5">
+			<states>
+				<standard
+					this="@5"
+					name="standard"
+					width="@W"
+					height="@H"
+					uniqueguid="@5"/>
+			</states>
+		</derpy_ic_fire>
+		<embers
+			this="@2"
+			id="embers"
+			priority="50"
+			tooltipslocalised="true"
+			uniqueguid="@2"
+			currentstate="@6"
+			defaultstate="@6">
+			<callbackwithcontextlist>
+				<callback_with_context callback_id="ParticleEmitter"/>
+			</callbackwithcontextlist>
+			<userproperties>
+				<property
+					name="angular_spread"
+					value="30"/>
+				<property
+					name="loops"
+					value="-1"/>
+				<property
+					name="max_speed_f"
+					value="2"/>
+				<property
+					name="min_speed_f"
+					value="1"/>
+				<property
+					name="spawn_interval"
+					value="@SPAWN"/>
+				<property
+					name="spread"
+					value="@SPREAD"/>
+				<property
+					name="total_particles"
+					value="@COUNT"/>
+			</userproperties>
+			<states>
+				<newstate
+					this="@6"
+					name="NewState"
+					uniqueguid="@6"/>
+			</states>
+		</embers>
+		<template_particle
+			this="@3"
+			id="template_particle"
+			priority="50"
+			tooltipslocalised="true"
+			uniqueguid="@3"
+			currentstate="@7"
+			defaultstate="@7">
+			<callbackwithcontextlist>
+				<callback_with_context callback_id="Particle"/>
+			</callbackwithcontextlist>
+			<componentimages>
+				<component_image
+					this="@8"
+					uniqueguid="@8"
+					imagepath="@EMBER"/>
+			</componentimages>
+			<states>
+				<newstate
+					this="@7"
+					name="NewState"
+					width="9"
+					height="9"
+					shader_name="brighten_t0"
+					uniqueguid="@7">
+					<imagemetrics>
+						<image
+							this="@9"
+							uniqueguid="@9"
+							componentimage="@8"
+							width="9"
+							height="9"/>
+					</imagemetrics>
+				</newstate>
+			</states>
+			<animations>
+				<particle_move
+					id="particle_move"
+					propagate="true">
+					<frames>
+						<frame
+							interpolationtime="0"
+							interpolationpropertymask="95"
+							targetmetrics_m_colour="#FFC46630"
+							targetmetrics_m_height="9"
+							targetmetrics_m_width="9"
+							targetmetrics_m_shadervars="1.00,0.00,0.00,0.00"/>
+						<frame
+							interpolationtime="900"
+							interpolationpropertymask="91"
+							targetmetrics_m_colour="#FF8A2EE8"
+							targetmetrics_m_height="13"
+							targetmetrics_m_width="13"
+							targetmetrics_m_offset="0.00,-40.00"
+							targetmetrics_m_rotation_angle="0.523599029"/>
+						<frame
+							interpolationtime="500"
+							interpolationpropertymask="83"
+							targetmetrics_m_colour="#8C2A0800"
+							targetmetrics_m_height="7"
+							targetmetrics_m_width="7"
+							targetmetrics_m_offset="0.00,-58.00"
+							targetmetrics_m_rotation_angle="0.523599029"/>
+					</frames>
+				</particle_move>
+			</animations>
+		</template_particle>
+	</components>
+</layout>
+"""
+
+
+def fire_xml():
+    g = GUID_PREFIXES[FIRE_FILE]
+    text = _FIRE_TEMPLATE
+    for key, value in (("@W", CARD_W), ("@H", CARD_H), ("@SPAWN", FIRE_SPAWN_MS),
+                       ("@SPREAD", FIRE_SPREAD), ("@COUNT", FIRE_PARTICLES),
+                       ("@EMBER", EMBER_SPRITE)):
+        text = text.replace(key, str(value))
+    for n in range(9, -1, -1):          # @9 before @0..., so "@1" never eats "@10"
+        text = text.replace("@%d" % n, "%s%04X-D000-4000-B%015X" % (g, n, n))
+    return text
+
+
+def check_fire(text):
+    """The emitter's two rules that crash or blank the panel in silence."""
+    out = []
+    if text.count('callback_id="ParticleEmitter"') != text.count('callback_id="Particle"'):
+        out.append("%s: every emitter needs exactly one particle" % FIRE_FILE)
+    for m in re.finditer(r'<(\w+)\s+this="[^"]+"\s+id="(\w+)"[^<]*?<callbackwithcontextlist>\s*'
+                         r'<callback_with_context callback_id="Particle"/>', text):
+        if m.group(1) != "template_particle" or m.group(2) != "template_particle":
+            out.append("%s: particle %s is not named template_particle - the emitter "
+                       "resolves a null and the game dies on panel open"
+                       % (FIRE_FILE, m.group(1)))
+    if 'callback_id="Particle"' not in text:
+        out.append("%s: no particle at all" % FIRE_FILE)
+    return out
 
 
 def build_xml():
@@ -3432,6 +3831,7 @@ def build_xml():
     for fname, builder, comment in FILES:
         root = EU.assign(builder(), GUID_PREFIXES[fname])
         out[fname] = EU.layout(root, comment)
+    out[FIRE_FILE] = fire_xml()
     # THE COMPACT COPIES are built by the copy of this module at a 1600 box,
     # whose fonts are already one size down and whose cells are already the
     # sizes a 1600x900 player gets. Only the base module writes them: a copy
@@ -3661,6 +4061,9 @@ def check():
         for guid, n in counts.items():
             if n < 2:
                 out.append("%s: GUID %s appears once, so it is half-declared" % (fname, guid))
+
+    # 1b. The ember emitter's particle rules. See check_fire.
+    out.extend(check_fire(all_files.get(FIRE_FILE, "")))
 
     # 2. The prefix is ours, and DE15 is retired.
     for fname, text in all_files.items():
@@ -3993,7 +4396,9 @@ def check():
                           ("row", ROW_LAYERS), ("tab", BTN_LAYERS),
                           ("tab hover", BTN_HOVER)):
         for layer in layers:
-            if "border" not in layer["path"]:
+            # BY PATH AS WELL AS BY NAME: the card frame is the Hell-Forge's
+            # name holder now, and its filename says nothing about borders.
+            if "border" not in layer["path"] and layer["path"] != BORDER_TEXTURE:
                 continue
             if not layer.get("margin"):
                 out.append("%s: frame %s has margin 0, so it repeats rather than "
@@ -4873,7 +5278,7 @@ def check():
                 # THE NARROWER OF ITS TWO HOMES: beside the pager it has less.
                 _box = min(PANEL_LAYOUT[_name][2],
                            ACT_PAGED.get(_name, PANEL_LAYOUT[_name])[2])
-                _w = (_box - 2 * BTN_PLATE_MARGIN if _name.startswith("ic_tab_")
+                _w = (_box - 2 * TAB_TEXT_INSET if _name.startswith("ic_tab_")
                       else usable_w(_box, _name))
                 for _t in _texts:
                     _got = _measure(_t, BODY[0])
@@ -5610,7 +6015,12 @@ def write_plates():
     imagepath resolves - so a dead file left here can bless a path that would
     draw a blank white square in game.
     """
-    written = []
+    written = cut_chd_art()
+    _ember = os.path.join(ROOT, "Modding Files", "pack", *EMBER_SPRITE.split("/"))
+    _want = open(EMBER_SOURCE, "rb").read()
+    if not os.path.isfile(_ember) or open(_ember, "rb").read() != _want:
+        open(_ember, "wb").write(_want)
+        written.append(_ember)
     for path, rows in sorted(build_plates().items()):
         disk = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
         _write_png(disk, rows)
@@ -5696,7 +6106,9 @@ def selftest_compact():
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
     assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
-    assert len(files) == len(FILES) + len(COMPACT_FILES)
+    # +1: FIRE_FILE, which holds no text and so has no compact twin.
+    assert len(files) == len(FILES) + len(COMPACT_FILES) + 1
+    assert FIRE_FILE not in COMPACT_FILES
     assert "derpy_ic_opener_compact.twui.xml" not in files
     assert "derpy_ic_standing_compact.twui.xml" not in files
     for base, compact in COMPACT_FILES.items():
@@ -5710,6 +6122,16 @@ def selftest_compact():
 def selftest():
     selftest_scale()
     selftest_compact()
+    # THE EMBER RULE FIRES. A particle named anything but template_particle is a
+    # null the emitter dereferences on panel open, so the check has to be seen
+    # catching one, and seen passing the shipped file.
+    _fire = fire_xml()
+    assert not check_fire(_fire), check_fire(_fire)
+    assert any("not named template_particle" in m for m in
+               check_fire(_fire.replace("template_particle", "ember_particle"))), \
+        "check_fire passed a particle that is not named template_particle"
+    assert check_fire(_fire.replace('callback_id="Particle"', 'callback_id="Nothing"')), \
+        "check_fire passed an emitter with no particle"
     files = build_xml()
     # DERIVED, not a literal. A pinned count is a number to bump every time a
     # file is added, which teaches nothing; what matters is that every declared
@@ -5974,16 +6396,21 @@ def selftest():
              "stretched flag")
 
     saved_name_xy = CARD_LAYOUT["ic_card_name"]
-    CARD_LAYOUT["ic_card_name"] = (saved_name_xy[0], 18) + saved_name_xy[2:]
+    # ONE INSIDE THE BAND, derived: a typed 18 stopped being inside it the day
+    # the frame became the 8px Hell-Forge holder.
+    _band = max(ly["margin"] for ly in CARD_LAYERS if ly["path"] == BORDER_TEXTURE)
+    CARD_LAYOUT["ic_card_name"] = (saved_name_xy[0], _band - 1) + saved_name_xy[2:]
     injected("a card label drawn under the card's own frame rail",
              lambda: CARD_LAYOUT.__setitem__("ic_card_name", saved_name_xy),
              "frame band")
 
     saved_margin_18 = CARD_LAYERS[1]["margin"]
-    CARD_LAYERS[1]["margin"] = 18
+    # ONE UNDER THE FLOOR, derived: a typed 18 stopped being inside the corner
+    # the day the frame became the 6px Hell-Forge rim.
+    CARD_LAYERS[1]["margin"] = BORDER_CORNER - 1
     injected("a frame 9-sliced inside its own corner ornament",
              lambda: CARD_LAYERS[1].__setitem__("margin", saved_margin_18),
-             "its own 28px edge")
+             "its own %dpx edge" % BORDER_CORNER)
 
     # The OTHER texture in the same list, and the one that shipped: a tile
     # sliced inside its own black border repeats that border across the card.

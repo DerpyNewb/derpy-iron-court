@@ -214,19 +214,19 @@ ICUI.OY = 0
 ICUI.PANEL_XY = {
     -- FAR LEFT. The panel's own name belongs where a reader starts, and the
     -- middle of the top strip is now the pie's column.
-    ic_title         = {18, 12, 520, 36},
+    ic_title         = {18, 4, 600, 56},
     -- TOP RIGHT, and 48px rather than 22. A close button at the top LEFT at
     -- half CA size is one nobody finds and nobody can hit.
     ic_close         = {1854, 12, 48, 48},
     -- Moved left so it ends at 1840 and stops short of the close button.
     ic_influence     = {1540, 20, 300, 26},
-    ic_tab_court     = {18, 62, 150, 32},
-    ic_tab_offices   = {172, 62, 150, 32},
-    ic_tab_govs      = {326, 62, 150, 32},
-    ic_tab_intrigue  = {480, 62, 150, 32},
+    ic_tab_court     = {18, 62, 240, 32},
+    ic_tab_offices   = {262, 62, 240, 32},
+    ic_tab_govs      = {506, 62, 240, 32},
+    ic_tab_intrigue  = {750, 62, 240, 32},
     -- THE RECORD LAST: the one tab with nothing to act on (author, 2026-09-24).
-    ic_tab_petitions = {634, 62, 150, 32},
-    ic_tab_log       = {788, 62, 150, 32},
+    ic_tab_petitions = {994, 62, 240, 32},
+    ic_tab_log       = {1238, 62, 240, 32},
     -- ITS HOME ON THE OTHER FOUR TABS. On the court it moves into the
     -- Crown's box, to ICUI.COURT_SECTION_XY below - the same trick the header
     -- reason a component gets two homes at all: one component, five views, and
@@ -235,9 +235,9 @@ ICUI.PANEL_XY = {
     -- THE TWO COLUMN HEADERS AND THE RULE BETWEEN THEM. The court tab is a
     -- dial and a grid of cards side by side now; these three are what say so,
     -- and they are court-only - the dispatcher hides them everywhere else.
-    ic_col_left      = {18, 110, 926, 26},
-    ic_col_right     = {976, 110, 926, 26},
-    ic_divider       = {958, 110, 4, 900},
+    ic_col_left      = {18, 102, 926, 44},
+    ic_col_right     = {976, 102, 926, 44},
+    ic_divider       = {958, 102, 4, 908},
     -- THE CROWN'S BOX, under the dial, in two halves (author, 2026-09-24).
     -- LEFT: what holding the court is worth - the share, the band it lands in,
     -- then the band's effects one to a line. RIGHT: who sits on the throne -
@@ -460,8 +460,8 @@ end
 -- row strip above the grid, so the clocks and snubs ride ic_alert instead - one
 -- line, with a count of the rest. See ICUI.draw_intrigue.
 ICUI.PLOTS_X = ICUI.CARDS_X
-ICUI.PLOTS_HDR_Y = ICUI.ROWS_Y
-ICUI.PLOTS_HDR_H = 24
+ICUI.PLOTS_HDR_Y = ICUI.ROWS_Y - 20
+ICUI.PLOTS_HDR_H = 44
 ICUI.PLOTS_Y = ICUI.PLOTS_HDR_Y + ICUI.PLOTS_HDR_H + 10
 ICUI.PLOT_COLS = #IC.PLOT_CATS
 ICUI.PLOT_COUNTS = {}
@@ -1927,11 +1927,13 @@ end
 -- writes every standard layer into <componentimages> and then every hover
 -- layer, and a tab has one of each. Both are set, or the lit tab would drop
 -- back to the unlit plate under the cursor.
+-- CA's skull-capped tab since 2026-09-26, the Hell-Forge's own; see TAB_ART in
+-- tools/gen_ic_ui.py for how it is fitted to the tab.
 ICUI.TAB_PLATE = {
-    [0] = {on  = "ui/skins/default/button_square_medium_text_selected.png",
-           off = "ui/skins/default/button_square_medium_text_active.png"},
-    [1] = {on  = "ui/skins/default/button_square_medium_text__selected_hover.png",
-           off = "ui/skins/default/button_square_medium_text_hover.png"},
+    [0] = {on  = "ui/derpy_ic/chd_tab_selected.png",
+           off = "ui/derpy_ic/chd_tab_active.png"},
+    [1] = {on  = "ui/derpy_ic/chd_tab_selected_hover.png",
+           off = "ui/derpy_ic/chd_tab_hover.png"},
 }
 
 -- ICUI.view, not ICUI.live_view(): the picker is modal, and the tab behind it
@@ -2183,6 +2185,33 @@ function ICUI.resize(c, w, h)
         -- top of the size layout() is about to give each of them.
         c:Resize(w, h, false)
     end)
+end
+
+-- A PLATE HUGS ITS WORDS (author, 2026-09-26: "why is it all stretched to the
+-- corners?"). layout() gives these cells the most room they may take; this
+-- shrinks one to its text, measured by the engine, plus the plate's cap and
+-- PLATE_GAP either side, and centres it in that room - or keeps its left end,
+-- for the banner in the panel's corner. Runs after set_text, every refresh:
+-- layout() runs once, at open, so nothing puts the full width back.
+-- A CELL NOT LAID OUT YET MEASURES ZERO; the estimate behind it is generous, so
+-- the words still land inside the plate. Must match fit_plate() in gen_ic_ui.py.
+ICUI.TITLE_CAP = 111
+ICUI.HEADING_CAP = 34
+ICUI.PLATE_GAP = 14
+ICUI.PLATE_EST = 14
+function ICUI.fit_plate(c, key, text, cap, left)
+    local xy = ICUI.PANEL_XY[key]
+    local panel = comp(ICUI.PANEL)
+    if not c or not xy or not panel then return end
+    text = tostring(text or "")
+    local got = nil
+    pcall(function() got = c:TextDimensionsForText(text) end)
+    if not got or got <= 0 then got = #text * ICUI.PLATE_EST end
+    local w = math.min(xy[3], math.ceil(got) + 2 * (cap + ICUI.PLATE_GAP))
+    local x = left and xy[1] or xy[1] + math.floor((xy[3] - w) / 2)
+    local px, py = panel:Position()
+    c:MoveTo(px + ICUI.OX + x, py + ICUI.OY + xy[2])
+    ICUI.resize(c, w, xy[4])
 end
 
 -- The plate behind a face. Must match plate_path() in tools/gen_ic_ui.py.
@@ -2544,6 +2573,12 @@ function ICUI.fill_rows(panel, lines, view)
                         -- than only when empty, because the row pool recycles.
                         if ICUI.ROW_BUTTONS[j] then
                             c:SetVisible((line[j] or "") ~= "")
+                        end
+                        -- EVERY PASS, so a recycled row loses the last one.
+                        if j == 5 then
+                            pcall(function()
+                                c:SetTooltipText(line.tip or "", "", true)
+                            end)
                         end
                     end
                 end
@@ -3523,8 +3558,11 @@ function ICUI.draw_court(panel, faction, court, px, py)
     end
 
     -- AND THE CROWN, WITH A FACE, in the block the dial leaves beside it.
-    set_text(comp("ic_col_left", panel), "Control of the Court")
-    set_text(comp("ic_col_right", panel), "Parties of the Court")
+    for key, words in pairs({ic_col_left = "Control of the Court",
+                             ic_col_right = "Parties of the Court"}) do
+        set_text(comp(key, panel), words)
+        ICUI.fit_plate(comp(key, panel), key, words, ICUI.HEADING_CAP, false)
+    end
     ICUI.draw_leader(panel, faction, court)
 
     -- WHAT THE CARDS ACTUALLY ARE is recorded further down, once the sort has
@@ -3607,6 +3645,54 @@ function ICUI.seat_reachable(faction, office_slug)
     return false
 end
 
+-- EMBERS OVER A HELD SEAT (author, 2026-09-26: "active seats should also have
+-- the background have effects, similar to the commission mod"). The
+-- commission's ember emitter, cloned into derpy_ic_fire.twui.xml by
+-- gen_ic_ui.py. Created into the card the first time it holds a man, then shown
+-- or hidden on every draw: cards are RECYCLED, and embers left on a card that
+-- has gone vacant would mark a seat nobody holds.
+--
+-- MoveTo'd, not docked: a runtime component's .twui.xml offsets place nothing,
+-- so the emitter goes to the card's bottom centre by hand, every draw - the
+-- card itself was moved by layout() since the last one.
+ICUI.FIRE = "derpy_ic_fire"
+ICUI.PATH_FIRE = "ui/campaign ui/derpy_ic_fire.twui.xml"
+ICUI.FIRE_LIFT = 10     -- how far above the card's bottom edge the embers start
+
+function ICUI.card_fire(card, lit)
+    local ok, err = pcall(function()
+        local fire = find_uicomponent(card, ICUI.FIRE)
+        if not fire then
+            if not lit then return end
+            card:CreateComponent(ICUI.FIRE, ICUI.PATH_FIRE)
+            fire = find_uicomponent(card, ICUI.FIRE)
+        end
+        if not fire or not is_uicomponent(fire) then return end
+        fire:SetVisible(lit)
+        if not lit then return end
+        local x, y = card:Position()
+        local w, h = card:Dimensions()
+        fire:MoveTo(x, y)
+        local embers = find_uicomponent(fire, "embers")
+        if embers and is_uicomponent(embers) then
+            embers:SetVisible(true)
+            embers:MoveTo(x + math.floor(w / 2), y + h - ICUI.FIRE_LIFT)
+        end
+    end)
+    if not ok then IC.warn("IRON COURT: embers on a seat failed: " .. tostring(err)) end
+end
+
+-- WHY A SEAT IS STALLED, in a sentence, for its button's tooltip.
+function ICUI.stall_reason(faction, stall)
+    if stall.cause == "withhold" then
+        return string.format("%s's men are withholding their service. Its "
+            .. "bonus is lost until they stop, or until you Secure their loyalty.",
+            ICUI.house_name(stall.by, faction))
+    end
+    return string.format("Sabotaged by %s. Its bonus is lost until the "
+        .. "damage is mended.", ICUI.house_name(stall.by, faction))
+end
+
 function ICUI.draw_offices(panel, faction, court)
     for i = 1, #ICUI.CARD_XY do
         local card = comp(ICUI.CARD .. "_" .. i, panel)
@@ -3615,6 +3701,7 @@ function ICUI.draw_offices(panel, faction, court)
             local cqi = court.offices[office.slug]
             local holder = nil
             if cqi then holder = IC.character_by_cqi(faction, cqi) end
+            ICUI.card_fire(card, cqi ~= nil)
             local bundle = IC.office_bundle(office.slug)
             local slug = cqi and IC.house_of_cqi(faction, cqi) or nil
             set_text(comp("ic_card_name", card),
@@ -3668,6 +3755,8 @@ function ICUI.draw_offices(panel, faction, court)
                                           wait, wait == 1 and "" or "s")
             end
             set_text(comp("ic_card_term", card), term_text)
+            local stall = cqi and (court.stalled or {})[office.slug] or nil
+            local stall_left = stall and IC.stalled_for(faction, office.slug) or 0
             local button = comp("ic_card_button", card)
             if button then
                 local tip = ""
@@ -3676,14 +3765,24 @@ function ICUI.draw_offices(panel, faction, court)
                         .. "may take this seat again in %d turn%s; any other man "
                         .. "may take it now.", ICUI.character_name(was), wait,
                         wait == 1 and "" or "s")
+                elseif stall and stall_left > 0 then
+                    tip = ICUI.stall_reason(faction, stall)
                 end
                 pcall(function() button:SetTooltipText(tip, "", true) end)
             end
             -- AN EMPTY SEAT COSTS NOTHING, so the cell says nothing rather
-            -- than the penalty it used to carry.
-            set_text(comp("ic_card_effect", card),
-                     cqi and loc("derpy_ic_effects_" .. bundle, "")
-                         or "Nothing while it stands empty.")
+            -- than the penalty it used to carry. A STALLED ONE says so in red:
+            -- its bonus is the thing that is not happening.
+            local effect_text
+            if stall and stall_left > 0 then
+                effect_text = ICUI.red(string.format("Stalled - %d turn%s",
+                    stall_left, stall_left == 1 and "" or "s"))
+            elseif cqi then
+                effect_text = loc("derpy_ic_effects_" .. bundle, "")
+            else
+                effect_text = "Nothing while it stands empty."
+            end
+            set_text(comp("ic_card_effect", card), effect_text)
             set_text(comp("ic_card_button", card), cqi and "Dismiss" or "Appoint")
             -- A vacant office has nobody to show, so the plate hides rather than
             -- keeping the last holder's face next to the word "Vacant".
@@ -3839,6 +3938,15 @@ function ICUI.draw_govs(panel, faction, court)
             -- AND NOTHING BEHIND THE SILHOUETTE. Without this the cell falls
             -- back to house_plate_none, which is opaque - see fill_rows.
             vacant = (cqi == nil),
+            -- WHAT HIS RANK ADDS (spec 2026-09-27 section 7).
+            tip = holder and (function()
+                local r = 0
+                pcall(function() r = holder:rank() end)
+                local o, inc = IC.gov_rank_bonus(r)
+                return string.format("At rank %d he adds +%d public order and +%d%% "
+                    .. "income to this province, on top of the governor's base "
+                    .. "bonus. Both grow as he ranks up.", r, o, inc)
+            end)() or nil,
             -- WHAT ICUI.sort_rows ORDERS ON. The province name is the CELL's
             -- text and not the key: the key is wh3_main_combi_province_gash_kadrak
             -- and sorting on it would order the list by a string nobody is shown.
@@ -4112,6 +4220,16 @@ function ICUI.intrigue_text(e)
     elseif e.kind == "feud" then
         return string.format("%s begins a feud with %s.", house,
                              ICUI.house_name(e.key))
+    elseif e.kind == "arbit_side" then
+        return string.format("You back %s in its feud with %s.", house,
+                             ICUI.house_name(e.key))
+    elseif e.kind == "arbit_peace" then
+        return string.format("You pay to end the feud between %s and %s.", house,
+                             ICUI.house_name(e.key))
+    elseif e.kind == "withhold" then
+        return string.format("%s withholds its officers' service.", house)
+    elseif e.kind == "sabotage" then
+        return string.format("%s sabotages %s.", house, ICUI.office_name(e.key))
     elseif e.kind == "feud_end" then
         return string.format("The feud between %s and %s is over.", house,
                              ICUI.house_name(e.key))
@@ -4227,8 +4345,10 @@ function ICUI.draw_intrigue(panel, faction, court)
 
     -- THE COLUMN HEADINGS, from the model's own category list.
     for col = 1, ICUI.PLOT_COLS do
-        set_text(comp("ic_plotcat_" .. col, panel),
-                 string.upper(IC.PLOT_CATS[col].name))
+        local key = "ic_plotcat_" .. col
+        local words = string.upper(IC.PLOT_CATS[col].name)
+        set_text(comp(key, panel), words)
+        ICUI.fit_plate(comp(key, panel), key, words, ICUI.HEADING_CAP, false)
     end
 
     -- THE BEST MAN YOU HAVE, once rather than per card. A move's price is paid in
@@ -4330,17 +4450,57 @@ end
 
 -- THE RECORD, on its own tab. A different question from Intrigue: not what is
 -- happening, but what has happened.
+-- A LINE OF NEWS from another court, named at draw time: a loc call from the
+-- turn handler that recorded it would be a turn-1 crash.
+function ICUI.news_text(n)
+    local who = loc("factions_screen_name_" .. tostring(n.faction), tostring(n.faction))
+    local a = (n.a and n.a ~= "-") and n.a or "a party"
+    local b = (n.b and n.b ~= "-") and n.b or "another party"
+    if n.kind == "secede" then
+        return string.format("%s: %s broke away and rose in rebellion.", who, a)
+    elseif n.kind == "dissolve" then
+        return string.format("%s: %s fell apart and left the court.", who, a)
+    elseif n.kind == "splinter" then
+        return string.format("%s: %s split from the ruler's own party.", who, a)
+    elseif n.kind == "feud" then
+        return string.format("%s: %s began a feud with %s.", who, a, b)
+    elseif n.kind == "murder" then
+        return string.format("%s: a man of %s was killed by %s.", who, a, b)
+    elseif n.kind == "demand_met" then
+        return string.format("%s: the ruler granted %s's demand.", who, a)
+    elseif n.kind == "demand_refused" then
+        return string.format("%s: the ruler refused %s's demand.", who, a)
+    end
+    return nil
+end
+
 function ICUI.draw_log(panel, faction, court)
-    local lines = {}
+    local all = {}
     local log = court.log or {}
-    -- NEWEST FIRST. Oldest-first puts the thing that just happened at the bottom
-    -- of a full page, where the player has to go looking for it.
-    for i = #log, 1, -1 do
+    for i = 1, #log do
         local text = ICUI.intrigue_text(log[i])
         if text then
-            lines[#lines + 1] = {tostring(log[i].turn or 0), text, "", "", ""}
+            all[#all + 1] = {turn = log[i].turn or 0, own = 1, at = i, text = text}
         end
     end
+    -- AND NEWS FROM THE COURTS THIS FACTION HAS MET (spec 2026-09-27 section 6).
+    local news = court.news or {}
+    for i = 1, #news do
+        local text = ICUI.news_text(news[i])
+        if text then
+            all[#all + 1] = {turn = news[i].turn or 0, own = 0, at = i, text = text}
+        end
+    end
+    -- NEWEST FIRST. Oldest-first puts the thing that just happened at the bottom
+    -- of a full page, where the player has to go looking for it. On one turn
+    -- the court's own record comes before the news.
+    table.sort(all, function(x, y)
+        if x.turn ~= y.turn then return x.turn > y.turn end
+        if x.own ~= y.own then return x.own > y.own end
+        return x.at > y.at
+    end)
+    local lines = {}
+    for i = 1, #all do lines[i] = {tostring(all[i].turn), all[i].text, "", "", ""} end
     if #lines == 0 then
         lines[1] = {"-", "The court has no record yet. Fill an office and "
                     .. "the houses will begin to take notice.", "", "", ""}
@@ -4380,6 +4540,17 @@ end
 -- COLUMN FIVE IS NAMED NOW, and it was blank for as long as it held nothing
 -- but a button. It sorts - AVAILABLE is "who will the click actually accept"
 -- - and an arrow under an empty caption is a control pointing at nothing.
+-- The victim list's refusals, keyed by IC.may_target's codes. PLAIN WORDS
+-- (author, 2026-09-27: "what the fuck does cold mean"), and short: the button is
+-- 170px and the game draws this font about 1.4x a desktop proxy's width, so none
+-- is over "No Governor". The whole sentence is the button's tooltip.
+ICUI.TARGET_REFUSAL = {
+    unique = "Too Famous", ["own party"] = "Your Party",
+    cold = "Low Loyalty", ["kin cold"] = "Low Loyalty",
+    oathed = "Oath Taken", ["no seats"] = "No Offices",
+    ["no provinces"] = "No Governor", spent = "Too Small",
+    ["crown spent"] = "No Influence", ["no house"] = "No Party",
+}
 ICUI.PICK_HEADERS = {"Character", "Party", "Rank", "Influence / Holds",
                      "Available"}
 
@@ -4390,6 +4561,8 @@ function ICUI.reason_text(why, spare)
         return string.format("The treasury is %d gold short of that.", spare or 0)
     elseif why == "content" then
         return "They could not be more content than they already are."
+    elseif why == "given" then
+        return "They have had a gift from you this turn. Send the next one next turn."
     elseif why == "sworn" then
         return string.format(
             "They are already sworn for another %d turns.", spare or 0)
@@ -4459,6 +4632,8 @@ function ICUI.reason_text(why, spare)
         return "That is your own house. Move against a rival."
     elseif why == "himself" then
         return "He will not plot against himself."
+    elseif why == "not yours" then
+        return "He belongs to another party. Only your own party's men act for you."
     elseif why == "unique" then
         return "He is too well known to have an accident."
     elseif why == "no such plot" then
@@ -4481,6 +4656,8 @@ function ICUI.reason_text(why, spare)
         -- A DEMANDED MAN WHO HAS SINCE TAKEN ANOTHER POST. One post per man is
         -- the pickers' rule, and granting the demand would break it.
         return "He already holds a post, and a man holds one at a time."
+    elseif why == "no feud" then
+        return "That feud is already over."
     elseif why == "no demand" then
         return "That demand is no longer open."
     end
@@ -4630,6 +4807,32 @@ function ICUI.draw_petitions(panel, faction, court)
             ICUI.petition_rows[#lines] = {kind = "offer", slug = slug}
         end
     end
+    -- THE FEUDS, one row per side (spec 2026-09-27 section 4): BACK THEM on
+    -- the row of the side you pick, MAKE PEACE on either.
+    for _, slug in ipairs(ICUI.court_slugs(faction)) do
+        local rec = a.feuds[slug]
+        if rec then
+            local other = rec.a == slug and rec.b or rec.a
+            local over = (rec.cause == "seat" and rec.key)
+                and ("the seat of " .. ICUI.office_name(rec.key))
+                or "which of them leads at court"
+            local can_peace = IC.can_arbitrate(faction, slug, "peace")
+            lines[#lines + 1] = {
+                ICUI.house_name(slug, faction),
+                string.format("Feuding with %s over %s",
+                              ICUI.house_name(other, faction), over),
+                "", "", "Back Them",
+                can_peace and "Make Peace" or ICUI.red("Make Peace"),
+                icon = ICUI.crest(slug), icon_kind = "crest", plate = slug,
+                tip = string.format("Back Them: +%d loyalty for them, -%d for %s. "
+                    .. "Make Peace: %d gold, +%d loyalty for both.",
+                    IC.TUNE.arbit_side_loyalty, IC.TUNE.arbit_side_loyalty,
+                    ICUI.house_name(other, faction), IC.favour_cost("gift"),
+                    IC.TUNE.arbit_peace_loyalty),
+            }
+            ICUI.petition_rows[#lines] = {kind = "feud", slug = slug}
+        end
+    end
     if #lines == 0 then
         lines[1] = {"", "No party is asking anything of you.", "", "", ""}
     end
@@ -4647,13 +4850,15 @@ function ICUI.on_petition_click(context, yes)
     local p = ICUI.petition_rows[row + (ICUI.scroll.petitions or 0)]
     if not p then return end
     -- SENT, NOT CALLED: see IC.mp_send. The answer is ICUI.ANSWERS'.
-    local op
+    local op, arg
     if p.kind == "demand" then
-        op = yes and "grant" or "refuse"
+        op, arg = (yes and "grant" or "refuse"), ""
+    elseif p.kind == "feud" then
+        op, arg = "arbit", p.slug .. "|" .. (yes and "back" or "peace")
     else
-        op = yes and "accept" or "decline"
+        op, arg = (yes and "accept" or "decline"), p.slug
     end
-    ICUI.send(faction, op, p.kind == "demand" and "" or p.slug)
+    ICUI.send(faction, op, arg)
     ICUI.refresh()
 end
 
@@ -4733,28 +4938,34 @@ function ICUI.draw_picker(panel, faction, court)
         -- refused - "himself" and "his own house". They were drawn CHOOSE, or
         -- SHORT if they happened to be poor, and did nothing when clicked.
         local may, why_not, short_by
+        -- WHY A ROW IS REFUSED, in a sentence, on its button's tooltip.
+        local tip = nil
         if targeting then
             may, why_not = IC.may_target(faction, ICUI.pick.plot, cand.cqi)
+            -- THE REFUSAL IT WAS GIVEN, in one word (author, 2026-09-27: every
+            -- row of the Blood-Oath's list read YOURS). YOURS is the Crown's own
+            -- men and nothing else; an unmapped code says No, not a wrong reason.
             if not may then
-                action = (why_not == "unique") and "Legend" or "Yours"
+                action = ICUI.TARGET_REFUSAL[why_not] or "No"
+                tip = ICUI.reason_text(why_not)
             end
         elseif plotting then
             may, why_not, short_by =
                 IC.can_plot(faction, ICUI.pick.plot, cand.cqi, ICUI.pick.key)
             if not may then
+                tip = ICUI.reason_text(why_not, short_by)
                 if why_not == "standing" then
                     action = string.format("Short %s",
                                            ICUI.cost(short_by or 0))
                 elseif why_not == "himself" then
-                    action = "Himself"
+                    action = "The Target"
                 elseif why_not == "his own house" then
-                    action = "His Kin"
+                    action = "Target's Kin"
                 elseif why_not == "not yours" then
-                    -- NOT "YOURS": the targeting branch already spends that word
-                    -- on the opposite meaning - a man of your own house you may
-                    -- not aim at. Two labels one letter apart meaning opposite
-                    -- things on the same picker is worse than either.
-                    action = "Rival"
+                    -- NOT "YOUR PARTY": the victim list spends that on the
+                    -- opposite meaning - a man of your own party you may not aim
+                    -- at. Plain words since 2026-09-27; this read RIVAL.
+                    action = "Other Party"
                 else
                     action = "No"
                 end
@@ -4825,6 +5036,7 @@ function ICUI.draw_picker(panel, faction, court)
             tostring(cand.rank),
             string.format("%d influence - %s", has, holds),
             action,
+            tip = tip,
             -- The character's own porthole, the same image the lord recruitment
             -- panel draws, falling back to the house crest when it does not
             -- resolve. CHARACTER_SCRIPT_INTERFACE has no portrait member at all -
@@ -5019,7 +5231,9 @@ function ICUI.refresh()
     -- section label, whichever tab is lit behind it.
     local view = ICUI.live_view()
 
-    set_text(comp("ic_title", panel), loc("derpy_ic_title", "Hashut's Court"))
+    local title = loc("derpy_ic_title", "Hashut's Court")
+    set_text(comp("ic_title", panel), title)
+    ICUI.fit_plate(comp("ic_title", panel), "ic_title", title, ICUI.TITLE_CAP, true)
     set_text(comp("ic_influence", panel),
              string.format("%d of %d seats filled",
                            IC.filled_offices(faction), #IC.OFFICES))
@@ -5653,6 +5867,7 @@ ICUI.ANSWERS.refuse = confirmed(false, true)
 ICUI.ANSWERS.accept = confirmed(true, false)
 ICUI.ANSWERS.decline = confirmed(false, false)
 ICUI.ANSWERS.favour = confirmed(true, false)
+ICUI.ANSWERS.arbit = confirmed(true, false)
 
 -- The four pickers.
 local function picked(op)
@@ -5938,7 +6153,7 @@ ICUI.SCALED = {
     "SHARE_H", "PORT_W", "PORT_H", "CREST_W", "CREST_H",
     "CARDS_X", "CARDS_Y", "CARD_GAP_X", "CARD_GAP_Y", "CARD_W", "CARD_H", "CONTENT_W",
     "PLOTS_X", "PLOTS_HDR_Y", "PLOTS_HDR_H", "PLOTS_Y", "PLOT_W", "PLOT_H",
-    "PLOT_PAD", "PLOT_FOOT_PAD", "PLOT_ICON_PX", "PLOT_INNER_W",
+    "PLOT_PAD", "PLOT_FOOT_PAD", "PLOT_ICON_PX", "PLOT_INNER_W", "FIRE_LIFT",
     "PARTY_GAP_X", "PARTY_GAP_Y", "PARTY_W", "PARTY_H", "PARTIES_X", "PARTIES_Y",
 }
 -- A cell by name is {x, y, w, h} and scales by its edges. A grid point is
@@ -5960,6 +6175,7 @@ ICUI.DERIVED = {
 -- past 1920; and HSORT_GAP, which mirrors the twui text inset LABEL_TX, the
 -- same at every size.
 ICUI.NOT_SCALED = {
+    "TITLE_CAP", "HEADING_CAP", "PLATE_GAP", "PLATE_EST",
     "BTN_SIZE", "BTN_GAP", "BTN_TRIES", "DIAL_SLICES", "MAX_ROWS", "MAX_HOUSES",
     "PLATE_INDEX", "FACE_INDEX", "MASK_INDEX", "OX", "OY", "PLOT_COLS",
     "PLOT_COUNTS", "PLOT_DEPTH", "PLOT_BLURB_LINES", "PARTY_COLS", "PARTY_ROWS",

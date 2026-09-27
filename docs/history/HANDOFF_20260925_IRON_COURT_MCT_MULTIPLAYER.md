@@ -5,9 +5,9 @@ planning; see its "Amended 2026-09-25" block). Plan:
 `docs/superpowers/plans/2026-09-25-iron-court-mct-multiplayer.md`. Pre-change copies of every
 edited file: `Modding Files/source/iron_court_bak_pre_mctmp_20260925/`.
 
-BUILT and deployed to `data/derpy_iron_court.pack` (8,991,481 bytes, MD5 `d4cc1ce1`, after the
+BUILT and deployed to `data/derpy_iron_court.pack` (9,163,798 bytes, MD5 `e9d6e2f0`, after the
 review fix pass in section 7, the party counts in section 8, Ruthless's pressure line and the two
-Purge fixes in section 9, the office terms in section 10, the seven QoL features in section 11, the six live switches in section 12 and the load-crash fix in section 13). Not uploaded. The pack from before this change is
+Purge fixes in section 9, the office terms in section 10, the seven QoL features in section 11, the six live switches in section 12, the load-crash fix in section 13 and the even deal and field leaders in section 14, the demand rest in section 15 and the Chaos Dwarf reskin in section 16, the heading plates and embers in section 17). Not uploaded. The pack from before this change is
 `data/derpy_iron_court.pack.bak_pre_mctmp_20260925`.
 
 ## 1. What shipped
@@ -439,3 +439,389 @@ the settings file and two harness checks changed. 649 checks, 478 mutants.
 `D4CC1CE112ABDE5256C024D538D60D8E`, the same in Modpacks. (A first build, `49C7AEB2`, went into
 Modpacks while the game was running. Packs are not byte-reproducible, so the deploy's rebuild
 has a different MD5.) Not yet loaded in game.
+
+## 14. Parties dealt evenly; a leaderless party of the player's gets a lord on the map (author: "fix and build both", 2026-09-25)
+
+**Why.** The author's Conclave start showed the Chain with 7 members and two rivals with none,
+and their own party with Ghorth alone: "how did one party get 7 members while the other party
+gets none?" Ghorth is the Crown's by fixed history, and the one lord went to an empty lead. The
+two heroes and four garrison commanders each got an independent roll among the four seated
+parties, and all six rolled the Chain (1 in 4,096). The random roll tested fair live, and three
+earlier Ghorth starts that day dealt a mix. So it was bad luck, but nothing stopped it. Before
+that, the author asked for a leaderless party's lord to be "spawn[ed] on the map but without all
+the event logs that will show, the lord should also have the recruitement effects just like
+recruiting one newly": the pool lord it replaces cannot be seen until hired, so the card read
+"no leader".
+
+**The deal** (`IC.fill_tally`, `IC.fewest`, `IC.roll_background`, `IC.background_for`,
+`IC.leaderless_bg`, `IC.can_lead`, `IC.stamp_court`):
+- Each man goes to the seated party with the fewest members, the Crown included, ties rolled.
+- A man who can lead (a lord, or since today a garrison commander; never a legend or a
+  greenskin) goes first to a party with nobody to speak for it, the fewest-member one of those.
+- `stamp_court` deals lords, then garrison commanders, then everyone else, whatever order
+  `character_list` gives. Origin and ambition are still rolled man by man in list order, so
+  their draws are unchanged.
+- One tally per pass is read off the traits once and then kept by hand, so a pass never waits
+  on `has_trait` for a trait it just added. It is filled on first use, so a turn with nobody new
+  counts nothing.
+- It applies at a new court and to every man who joins later (`ic_born`, a hire, a
+  confederation). It does not reshuffle men who already have a party: the author's current save
+  keeps its 7 / 0 / 0.
+
+**The field spawn** (`IC.field_leader`, `IC.recruit_rank`, `IC.hire_region`, `IC.ensure_leaders`):
+- A leaderless party first takes an idle Crown lord, as before. Failing that, a player's party
+  gets one lord alone at the capital, once per party per campaign. After that, and always for
+  the AI, a lord goes to the recruitment pool as before.
+- The spawn uses `cm:create_force_with_general` with an empty unit list at
+  `find_valid_spawn_location_for_character_from_settlement(..., false, true, 5)`. With nowhere
+  to stand (-1, -1), the pool gets the lord that turn.
+- It is quiet: `wh_event_category_character`, `_agent` and `_traits_ancillaries` are shut before
+  the spawn and reopened by a one-second `cm:callback`. That is CA's own pattern from the
+  Mortarch spawn (`wh3_dlc29_nag_mortarchs.lua`), since the spawn's messages arrive after the
+  frame.
+- The callback sets the party's background. The man's own `CharacterCreated` fires first, and
+  `ic_born` deals him to whichever party is empty first, which need not be his.
+- **Recruit rank.** Measured live: a script-spawned lord arrives at rank 1 even under a +10
+  lord recruit rank bundle. So the callback raises him by `IC.recruit_rank` at the capital, which
+  is the sum of `IC.RECRUIT_RANK`. That table is every source in CA's DB, 151 rows as of 9.0: 87
+  buildings, 33 bundles, 29 technologies, 12 skills.
+  - No race filter: a Chaos Dwarf can hold a captured landmark's `_other` variant, and the slot
+    walk costs the same either way.
+  - A "province" source (the Tower's living quarters 1-3) counts only in the capital's province.
+  - Every other source counts from anywhere, once per building standing.
+  - Bundles count whether the faction or a region holds them.
+  - Left out: `_hidden` twins (same value, would count twice), force/army/foreign/preview
+    scopes, skill levels above 1, and the 10 building rows gated by a `context_requirement` (none
+    of them Chaos Dwarf).
+  - Chaos Dwarf sources: gold resource +1/+1/+2 and living quarters 4 +2 (everywhere), living
+    quarters 1-3 +1/+2/+2 (their province), Sorcery 5 +2, the Grimnir relic +5, Astragoth's
+    Infernal Lord +3.
+  - `gen_iron_court.check_recruit_rank` re-derives the table from db.pack on every `--check`
+    and prints the block to paste when a patch moves a source.
+- **By, not to.** CA's `add_agent_experience(lookup, n, true)` calls `level_up_agent_rank`, so
+  it raises by n. The harness stub sets the rank to n. The older callers (hire, rebels) were
+  written for the stub, so a hired officer lands one rank over his office bar. That is harmless
+  and was left alone.
+- **Saved** as a 17th house field, `fielded` = the turn the army was asked for (0 or absent in
+  older saves). The same turn, the party waits for the army rather than pooling a lord. A later
+  turn with the party still leaderless goes to the pool. That also covers a spawn the engine
+  accepted and never delivered.
+
+**What the author's current save does on its next load.** The Ledger and the Forge are
+leaderless, with lords waiting in the pool (`stored`). The Crown has no idle lord (Ghorth is a
+legend). So each gets a lord on the map at Zharr-Naggrund on the first tick, at the rank a lord
+hired there would have. The pool lords stay in the pool; hiring one adds a second member to that party.
+
+**Checks** (656; six failed first, and the seventh passes on the old code by design):
+- "a new court deals its men evenly, the Crown included" (Crown 7 of 8 before);
+- "a lord, then a garrison commander, leads a party with nobody to speak for it";
+- "a man who joins mid-campaign goes to the party with the fewest members";
+- "a lord put in the field is given the recruit rank the engine would give him";
+- "a human party with no leader gets a lord on the map, quietly, at his recruit rank";
+- "an army still on its way is not sent twice, and nobody waits in the pool for it";
+- "an AI party with no leader keeps the pool" (passes on the old code; it guards the rule).
+
+The harness wrapper stub now finds a faction on the map, fires `ic_born` and then the
+callback, and with `cm._force_async` holds back the whole landing. The first version held back
+only the callback, and the mutant "a lord pooled while the army is on its way" survived it.
+Stubs added: `has_skill`, `has_technology`, faction and region `has_effect_bundle`,
+`slot_list`, `find_valid_spawn_location_for_character_from_settlement` and
+`disable_event_feed_events`. The stub check held them against CA's member index.
+
+**Mutants:** 26 new (`deal:`, `field:`, `rank:`), all caught. Three re-aimed: "a lord dealt
+anywhere while a party has nobody to lead it" (its anchor was the old `leaderless_bg` call)
+"the lord in store forgotten by the save" (the pack line now ends in a comma), and "a moved lord
+keeping his old trade too" (the full run reported its anchor matching twice, the second time inside
+the field callback, which now has its own mutant). Full run: 501 mutants, 0 unexplained.
+
+**Deployed** to `data/` with the game closed: 9,011,926 bytes, MD5
+`86E7E6119FE2BA8775DA6D4CD730728E`, the same in Modpacks; all four scripts read back out of the
+deployed pack byte-identical to the workspace. The previous build is
+`data/derpy_iron_court.pack.bak_pre_fairdeal_20260925`. Not yet loaded in game.
+
+## 15. A refused party waits five turns before it demands again (author: "yes do the fix of the multiple demand", 2026-09-26)
+
+**Found in the log** of the first campaign on 86E7E611 (`script_log_250926_2255.txt`,
+Conclave). On turn 1 the Road demanded the Plain of Zharr for cqi 1446 and the author refused.
+On turn 2 the Road demanded the same province for the same man again. The demand act's `can` only
+blocked while a demand was open; `settle_demand` cleared it and nothing remembered the refusal.
+A player who kept refusing lost the party 10 loyalty every turn and walked it towards secession.
+This was older code, not the new deal.
+
+**The rule.** A refusal (the REFUSE button, the turn limit, the post given to another man, or
+the engine failing the mission) sets `rest[slug]` = this turn + `T.party_demand_rest` (5). That
+party makes no demand until then. Other parties may still demand, and a met or void demand rests
+nobody. The rest is per party, not per target, so a refused party cannot switch to a different
+post the next turn either.
+
+**Saved** as a sixth `|` field of `derpy_ic_agenda_<faction>`, `slug,turn;...`, read and written
+exactly like the feud rest `calm`. Older saves have five fields and load with nobody resting. So
+the author's current save will see the Road demand once more, and after a refusal it will wait.
+
+**Checks** (658): "a refused party asks again only after its rest, and a reload keeps it"
+(failed first), and "a met or void demand leaves its party free to ask again", which passes on
+the old code; it guards against the rest over-reaching.
+
+**Mutants:** six new (the guard removed, off by one, no rest set, met and void resting too, the
+rest not saved, the rest not read back), all caught. "the one-live-demand guard removed" was
+re-aimed, because its anchor included the line the rest check now follows. Full run: 507
+mutants, 0 unexplained.
+
+**Deployed** to `data/` with the game closed: 9,012,777 bytes, MD5
+`773446188810092A83D5F68018B564D2`, the same in Modpacks; all four scripts read back out of the
+deployed pack byte-identical to the workspace. The previous build (86E7E611) is
+`data/derpy_iron_court.pack.bak_pre_demandrest_20260926`. Not yet loaded in game.
+
+## 16. The panel wears the Hell-Forge's art (author: "use more of the chaos dwarf ui borders and elements", 2026-09-26)
+
+The author pointed at the Hell-Forge panel. Its pieces live in `ui/skins/default/dlc23_chd_hell_forge/`
+and the race skin `ui/skins/wh3_dlc23_chd_chaos_dwarfs/` (ui2.pack); CA's layouts are
+`ui/campaign ui/hellforge_panel_*.twui.xml` in ui3.pack. Four swaps, no layout change except the
+tab row and the title:
+
+- **Tabs:** CA's skull-capped `tab_square_large_text_*` (the Armoury tab), 240 wide instead of
+  150, pitch 244 from x 18. `ICUI.TAB_PLATE` lights them the same way.
+- **Title:** the race skin's arrow-ended `panel_title.png`, name centred; `ic_title` is now
+  (18, 8, 600, 44).
+- **Cards** (office, party, move, the dial and Crown plates): the Hell-Forge's
+  `cap_group_name_holder.png`, a bronze rim round a dark field, at margin 8. It was
+  `panel_back_border.png` at 30.
+- **Seats counter:** the Hell-Forge's `sub_title.png`, margin 6.
+
+**Trimmed copies, not CA's files.** The tab art is 354x103 with the bar in rows 8-43 and the
+selected glow below; fitting it needed a layer bigger than its box, and the preview (like a
+resized runtime component) sizes every layer to the box, which drew the tabs 20px left and
+every card with a dark strip down one side. `CHD_CUTS` in `gen_ic_ui.py` names each piece and
+its measured alpha box; `cut_chd_art()` cuts them out of the installed ui2.pack into
+`ui/derpy_ic/chd_*.png` on every write, and `art_paths()` owns them so the pruner keeps them
+and the deploy ships them. Every layer now fills its box with no offset. These are CA art: the
+GitHub sync must keep excluding images.
+
+**Margins are measured.** The emitter now takes a `(vertical, horizontal)` margin tuple,
+symmetric only, because no CA file says which horizontal value is the left one. The tab's
+skull and bezel end at column 38 of the trimmed art and its bar rounds off by 45, so it is
+sliced at 40 and a label keeps 46 clear (CA slices at 65, which left "Petitions" 72px at
+1600 and check 20g refused it). The banner is sliced at 111, CA's 165 less the 54 columns the
+trim takes off.
+
+**Checks:** check 12 finds the frame by path as well as by "border" in its name; the
+corner self-test injects `BORDER_CORNER - 1` instead of a typed 18, which the new 6px floor
+would have let pass; the new globals are declared `NOT_GEOMETRY`, which the scale pass
+refused to build without. `--check`, `--selftest` (1789 GUIDs), the harness (658), the
+backdrop contrast check and the packing verify all pass.
+
+**Deployed** with the game closed: 9,129,242 bytes, MD5 `9C190A4334A4A5EEBBA28AC9C699776E`,
+the same in Modpacks; the four scripts, twelve layouts and six new pictures read back
+byte-identical. The previous build (77344618) is
+`data/derpy_iron_court.pack.bak_pre_chdskin_20260926`; pre-change sources are in
+`Modding Files/source/iron_court_bak_pre_chdskin_20260926/`. **Not yet seen in game:** the
+preview is TWUI Studio's approximate rasteriser, so the tab caps, the banner and the frame
+corners need a look on a real screen, at 1600 as well as 1920.
+
+## 17. Heading plates, and embers on a held seat (author, 2026-09-26: "parties of the court and control of the court doesnt have any background" / "active seats should also have the background have effects, similar to the commission mod")
+
+**Heading plates - rebuilt the same day.** The first try put every bare heading on the Hell-Forge's
+`sub_title.png` in its 22-26px cell. In game (author: "it looks poorly implemented") that read as a
+line through the words: the plate's field is as dark as the backdrop so only its 3px rim shows,
+and the 20px text covered both rims. It also plated the list's column headings and the 1884px
+sentence under the tabs. Now: only the two column titles and the four Intrigue move groups are
+plated, on the Hell-Forge's spiked `side_panel_title.png`, cut and SHRUNK to `HEADING_H` 44 by
+`cut_chd_art` (a `CHD_CUTS` entry may carry a third value, a height) into `ui/derpy_ic/chd_heading.png`,
+sliced `(0, 34)`, text centred with `HEADING_TY` lifting it onto the field (rows 17-66 of 90). Room:
+`COL_TOP` 110 -> 102 and `COL_HDR_H` 44 with no gap, so the column bodies stay at 146 (the divider
+rises 8px); `PLOTS_HDR_Y` = `ROWS_Y - 20`, so the move cards stay put. Lua `PANEL_XY` and
+`ICUI.PLOTS_HDR_*` match. **The preview now honours `textyoffset` and centres each line on the
+glyphs' middle** (PIL anchor `lm`): it had drawn text ~5px lower than the game, measured against
+the author's in-game shot of the same cell.
+
+**Embers.** A held office card carries the commission's ember drift. `derpy_ic_fire.twui.xml`
+(prefix IC37) is the commission's `embers` emitter from `derpy_chd_rite_fire.twui.xml`,
+re-emitted by `gen_ic_ui.fire_xml()` from a template with only the spread (300) and the count
+(40) changed, and its own copy of the sprite at `ui/derpy_ic/ember.png`, so the court does not
+depend on the commission pack. `ICUI.card_fire(card, lit)` creates it into the card on first
+need, MoveTo's the root to the card and the emitter to the card's bottom centre less
+`ICUI.FIRE_LIFT` (10, scaled), and hides it when the seat empties; `draw_offices` calls it
+per card, pcall-wrapped. `check_fire()` (check 1b) refuses a particle not named
+`template_particle` (a crash on panel open) and an emitter without exactly one particle.
+
+**Checks:** the harness gains "a held seat carries embers on its own card, and an empty one
+none" (659), seen failing with the call forced off. Two gen_ic_ui self-tests had gone stale
+with section 16 and are fixed: the compact-copy count now allows `FIRE_FILE` (no text, so no
+compact twin), and the frame-band injection derives `band - 1` instead of a typed 18, which
+the new 8px band no longer contained. **The embers cannot be previewed** - TWUI Studio draws no
+particles - so their look, density and the lift need a look in game.
+
+**Deployed** with the game closed: 9,149,733 bytes, MD5 `D2610F37C8DC66777BEE87DFFAC2107A`, the
+same in Modpacks; the fire layout, `ember.png`, the panel Lua and layout read back byte-identical.
+The gate refused the first try: `ICUI.FIRE_LIFT` is scaled, so `import_iron_court` wants the
+generator's own `FIRE_LIFT` (now in `SCALED_SCALARS`, defined above the scale pass). The previous
+build (9C190A43) is `data/derpy_iron_court.pack.bak_pre_embers_20260926`.
+
+**Redeployed** with the rebuilt headings: 9,159,696 bytes, MD5 `8100AB1AD3A72C87C97108E0569539BB`, the
+same in Modpacks, five files read back byte-identical. D2610F37 is
+`data/derpy_iron_court.pack.bak_pre_headings_20260926`.
+
+**Plates fitted to their words (author: "why is it all stretched to the corners? the title is even not
+fitted properly, double check your logic").** Two faults, one root: each plate was sized to its CELL.
+The column titles drew 926px of bar with the arrows at the far corners; the banner was squashed from
+its native 56px to 44, which shrank its field (rows 12-40) to 22px under a 24px title, and the title's
+`ty` was `LABEL_TY`, a 4px push DOWN. Now `ICUI.fit_plate(c, key, text, cap, left)` runs after each
+`set_text` on `ic_title`, `ic_col_left/right` and `ic_plotcat_1-4`: width = the engine's
+`TextDimensionsForText` + 2 x (cap + `PLATE_GAP` 14), capped at the cell, centred in it (the banner
+keeps its left end). Caps: `HEADING_CAP` 34, `TITLE_CAP` 111, all `NOT_SCALED`. `ic_title` is
+(18, 4, 600, 56) with `TITLE_TY` lifting the words 2px onto the field. `gen_ic_ui.fit_plate` +
+`FIT_PLATES` are the same rule for the preview; the preview also stopped drawing `ic_plotcat_*` twice
+(a full-width copy had hidden behind the fitted one). Harness check "a title plate hugs its words"
+(660), seen failing with the fit disabled. Deployed to data/ on 2026-09-27 (backup
+`derpy_iron_court.pack.bak_pre_fitplates_20260926` holds 8100AB1A): MD5 `81506DDF59EBF65024206823E3B8E91F`,
+9,161,430 bytes, the plate, the UI Lua and all 13 twui files byte-verified against source.
+
+## 18. One gift a turn, the victim list's labels, a seceded province's governor (author, 2026-09-27: "the blood oath on an anvil says mine is all \"yours\". send a gift should only be once per turn, per party. check logs for inconsistency")
+
+**Send a Gift: once per party per turn.** The log showed two gift clicks one second apart
+(354.5s, 355.5s), both taken. `IC.can_favour` now refuses a second gift to the same party in the
+same turn with `"given"` (checked after `"content"`); `IC.favour` stamps `house.gifted` with the
+turn. It is house save field 18 (`h.gifted or 0`); older saves read nil. `ICUI.reason_text("given")`
+is the button's tooltip and the click's notice. Another party, or Secure Loyalty, is not barred.
+
+**The victim list said YOURS for every refusal.** `draw_picker`'s targeting branch drew
+`"Legend"` for `"unique"` and `"Yours"` for every other code `IC.may_target` returns. Every party
+starts at 55 loyalty (`loyalty_start`) and the Blood-Oath asks 60 (`plot_oath_min_loyalty`), so
+every rival on that list was refused as `"cold"` and read YOURS. `ICUI.TARGET_REFUSAL` now maps each
+code to one word: YOURS (own party, and nothing else), COLD, SWORN, NO SEATS, NO LANDS, SPENT, NO
+PARTY, LEGEND; an unmapped code reads NO.
+
+**The log's one inconsistency: a seceded province kept its governor for a turn.** At 251.7s the
+Circle of the Tithe seceded and took Gash Kadrak, which Ghorth (a Crown man) governed.
+`IC.turn` runs `reconcile_governors` before `tick_pressure`, where secessions happen, so nothing
+cleared him until the next turn. The last step of `IC.secede` now runs `reconcile_governors` and
+`apply_governor_bundles` after the hand-over. The screenshot itself was consistent: the
+Blood-Oath is move card 7, clicked at 173.8s, before the secession, and it shows the party of 3
+the secession logged.
+
+Three checks, each seen failing first: "one gift per party per turn, and the save remembers it",
+"the victim list names the refusal it was given, not always Yours" (fails on the old line), and a
+governor assertion added to "a province that has stopped caring goes with them". Harness 662.
+Deployed to data/ on 2026-09-27 (backup `derpy_iron_court.pack.bak_pre_gift_20260927` holds
+81506DDF): MD5 `1260D08A9BE13D1DBDFC6B87E3052AFC`, 9,162,934 bytes, the three Iron Court Lua files
+byte-verified against source.
+
+**Plain words on both plot lists (author, 2026-09-27: "what the fuck does cold mean, use easily
+understandable terms").** Victim list: Your Party, Low Loyalty, Oath Taken, No Offices, No Governor,
+Too Small, No Influence, No Party, Too Famous. Actor list: Other Party (was Rival), The Target (was
+Himself), Target's Kin (was His Kin). Each refused row's button now carries `ICUI.reason_text` as its
+tooltip (`line.tip`, set every pass in `fill_rows` so a recycled row loses it), and `"not yours"`
+has a sentence of its own. Labels were kept at or under 114px measured in Segoe UI Black 18: the
+game draws `header_18` about 1.4x that ("Yours" is 51 there and about 72 on screen), and the
+button is 170px. The victim-list check now runs all three states on ONE fake panel, so the
+cleared-tooltip assertion can fail. Harness 662. Deployed to data/ on 2026-09-27 (backup `derpy_iron_court.pack.bak_pre_plainwords_20260927`
+holds 1260D08A): MD5 `E9D6E2F0C4481F3F1F48AA9652C403C7`, 9,163,798 bytes, the three Iron Court Lua
+files byte-verified against source.
+
+## 19. Living courts (author, 2026-09-27: "do all"; spec `docs/superpowers/specs/2026-09-27-iron-court-living-courts-design.md`, plan `docs/superpowers/plans/2026-09-27-iron-court-living-courts.md`)
+
+Every confirmed-missing Iron Court feature, built in eleven tasks, each check seen failing first.
+Harness 662 -> 690. Deployed to data/ on 2026-09-27 (backup `derpy_iron_court.pack.bak_pre_livingcourts_20260927`
+holds E9D6E2F0): MD5 `6B33E4642978E666B6C240D212780F39`, 9,199,754 bytes, 1,723 files, the three Lua
+files byte-verified against source. (An earlier Modpacks-only build of the same source was 182F6812.)
+
+**What was built**
+1. **Stalled offices.** `IC.stall_office` / `IC.stalled_for` / `IC.end_stalls`; court save field 11
+   (`office,ends,of,by,cause`). `IC.apply_office_bundles` ends stalls (turn reached, or the seat no
+   longer `of`'s) and skips stalled seats. The office card draws "Stalled - N turns" in red with
+   the reason as the button tooltip.
+2. **Sabotage** - a feud move only (`feud_move` order sabotage, discredit, rumour; murder first
+   once the feud is old). 200 influence, 50%, 3 turns. Card `party_sabotage` (2623).
+3. **Withhold** - a party at or under 30 loyalty with 40 motive stalls its own seats for 3 turns;
+   Secure Loyalty ends it. Card `party_withhold` (2624).
+4. **Settle a feud** on the Petitions tab: Back Them (+10 to one side) or Make Peace (+3 both,
+   costs). MP op `arbit`, arg `slug|back` or `slug|peace` (op count 13).
+5. **AI courts act.** `IC.party_turn_due` rotates over sorted `IC.ORIGINS` keys, 3 courts a round;
+   AI courts answer demands at once (grant under loyalty 50), `IC.ai_placate` gifts a party
+   counting down through `IC.can_favour` (so a poor ruler does nothing). Offers and governor
+   wages stay human-only.
+6. **News of AI courts** - `IC.news` into court save field 12 (`turn,kind,faction,a,b`, max 30),
+   only for humans who have met the source; the Log tab merges it with the court's own log. A
+   secession raises located card `realm_secede` (2625, `scripted_transient_located_event`,
+   `cm:show_message_event_located`); `gen_iron_court --check` 16d/16d2 hold the located set.
+7. **Governor rank** - the base bundle is built at runtime (`IC.apply_gov_base`,
+   `cm:create_new_custom_effect_bundle`, `set_duration(0)`): order 2 + rank/5, income +rank/2 %
+   scoped `province_to_region_own`. `check_gov_rank_constants` holds the Lua constants to the
+   generator. The Governors row tooltip gives the figures.
+8. **Confederation carries loyalty** - `IC.inherited_loyalty` (weight-weighted, clamped 25-75),
+   then `IC.forget_court` wipes the absorbed court's save; `IC.stamp_incoming` takes it as a
+   fifth parameter across its retries.
+9. **A Chaos Dwarf vassal is one party** - house save field 19 (`vassal` faction key), no men, no
+   share, weight 0, no "No seat at court" drift. `IC.reconcile_vassals` each turn plus listener
+   `ic_vassal` (`FactionBecomesVassal`, `context:vassal()`, master read off it). At the end of
+   its countdown `IC.vassal_break`: `cm:force_break_vassalage`, rebel souring, card
+   `vassal_broke` (2626). Confederated later, the vassal party becomes the confederated house
+   and keeps its loyalty.
+10. **Other Chaos Dwarf factions sour on rebels** by at most 2 steps each (`IC.chd_factions`,
+    `rebel_relation_others_max`), the parent and humans as before.
+11. Eleven new mutants plus nine re-aimed ones; every one caught.
+
+**Fixed after the final review** (each with a check that failed first): the governor income
+effect was scoped `faction_to_region_own` (realm-wide bundles' scope); the governor bundles were
+removed with the FACTION call and never came off a province - now
+`cm:remove_effect_bundle_from_faction_province` once per province (this was older than the plan,
+but the plan made the value rank-scaled); every vassal drifted -1 a turn for a seat it cannot
+hold; the `ic_vassal` listener could save an empty court over an AI master not yet loaded.
+
+**Rulings** (full text in `.superpowers/sdd/2026-09-27-iron-court-living-courts/progress.md`)
+- each task adds its own log kinds; `(court.stalled or {})` guards; checks search `ALL_ACTS`
+  because the harness narrows `IC.PARTY_ACTS`;
+- the custom-apply stub also counts into `province_applied`; no `is_null_interface` on a custom
+  bundle (CA's `corruption_swing.lua` notes it is broken);
+- a Secured vassal does not count down; `IC.chd_factions` reads each faction in a pcall;
+- the order effect keeps `faction_to_province_own` - vanilla uses `public_order_faction` only
+  with `faction_to_*` scopes;
+- **left as found:** the older `ic_dead` / `ic_rank` / `ic_took` / battle listeners can still
+  save an empty court over an AI court that has not been loaded since the save was loaded. The
+  root fix is in `IC.court`, and it changes load semantics under every check - a follow-up.
+
+**Deferred minors:** the `party_sabotage` card can never fire (feuds never involve the Crown);
+the rotation counts dead courts; a vassal breaking under a human master sends no news; news
+reaches non-Chaos-Dwarf humans; `ai_placate` skipped on plot turns and with parties off; a failed
+`force_break_vassalage` still drops the party; `ic_vassal` reads `master()` outside a pcall; a
+confederated vassal nobody stamps keeps its flag; the governor tooltip ignores an absent governor.
+
+**Needs an in-game look:** a stalled office card; a feud on the Petitions tab and both buttons; a
+Log tab news line; a governor's tooltip and the province's income/order at two ranks, and a
+province with NO governor unchanged when one ranks up; a governor leaving a province takes the
+bonus with him; a vassal party card; one AI secession card with its camera button.
+
+**Vassal parties CUT (author, 2026-09-27, on seeing one in game: "cut vassal creating parties for
+the main faction, they have their own vassal tab").** Task 9 is gone: no `ic_vassal` listener, no
+`IC.add_vassal` / `reconcile_vassals` / `vassal_break`, no house save field 19, no `vassal_broke`
+event (2626 is unused again), no Vassal card. A house a 6B33E464 save carries for a vassal loads
+without the flag and `IC.reconcile_houses` drops it on the next turn (check "a vassal is no party
+of its master's court - the game has a vassal tab"). The four fix-pass items that existed only for
+vassals went with it. Seven vassal checks removed, one added: harness 684. Deployed to data/ on
+2026-09-27 (backup `derpy_iron_court.pack.bak_pre_vassalcut_20260927` holds 6B33E464): MD5
+`5034253630317D3D81C5F9F71840D6BF`, 9,193,089 bytes, 1,723 files, the three Lua files byte-verified.
+
+**A rising is a Hashut army, not a copy of the ruler's (author, 2026-09-27: "why do rebel party
+faction copy the leader's units? i thought it will be randomly generated" / "the composition of
+the army should be proper and logical, maybe base it one of the crisis events of hashut").** The
+log (`script_log_270926_1300.txt`, 283.8s) had `0 of 0 lord(s) able to leave` and `cqi nil`: with
+nobody leaving, `IC.rebel_kit` walked the faction's own `military_force_list` and the first army
+was the ruler's, so the rebels were his stack again. `IC.REBEL_ROSTER` (a fixed list read in
+order) is gone. `IC.REBEL_POOLS` holds six roles - line, missile, screen, cavalry, monster,
+war_machine - with the keys and weights of CA's Will of Hashut crisis
+(`crisis/crisis_will_of_hashut.lua`, `unit_list`), plus four war machines the crisis leaves out
+(magma cannon, deathshrieker, dreadquake mortar, bolt thrower, weight 2). `IC.REBEL_DRAFT` is 19
+roles in an interleaved order (6 line, 4 missile, 3 cavalry, 2 screen, 2 monster, 2 war machine)
+so any first N slots are a balanced army; `IC.rebel_draw(n)` rolls each slot from its role's pool
+by weight with `cm:random_number` (multiplayer-safe), at most `IC.REBEL_UNIT_CAP` = 2 of one key.
+A departing lord still brings his own army first (the route a unit mod's units reach the rebels);
+it is now filled out off the draft instead of with repeats of his stack. CA's crisis draws all 19
+from one weighted bag, which can come out all hobgoblins - the roles are ours.
+`gen_iron_court.check_rebel_roster` now holds every pool key to `main_units`, no key in two pools,
+every draft role to a pool, and the draft to `rebel_units` (shown to report a misspelt key and an
+unknown role). Three checks added, three rewritten (the garrison check now makes the LEAVING man a
+garrison commander, since the faction walk that used to reach garrisons is gone - its mutant
+survived until then); four mutants added, one removed (padding with his own stack is no longer the
+rule). Harness 687; 45 army mutants caught. Deployed to data/ on 2026-09-27
+(backup `derpy_iron_court.pack.bak_pre_hashutdraft_20260927` holds 50342536): MD5
+`5B0F8999BEEB2FEF03DA6087FA8C41D5`, 9,195,929 bytes, 1,723 files, Lua byte-verified.

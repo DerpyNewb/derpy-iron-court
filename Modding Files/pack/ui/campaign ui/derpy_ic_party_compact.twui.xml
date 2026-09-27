@@ -58,7 +58,7 @@
 				<component_image
 					this="IC430004-D003-4000-B000000000000004"
 					uniqueguid="IC430004-D003-4000-B000000000000004"
-					imagepath="ui/skins/default/panel_back_border.png"/>
+					imagepath="ui/derpy_ic/chd_frame.png"/>
 				<component_image
 					this="IC430004-D005-4000-B000000000000004"
 					uniqueguid="IC430004-D005-4000-B000000000000004"
@@ -88,8 +88,7 @@
 							offset="0.00,0.00"
 							width="379"
 							height="222"
-							tile="true"
-							margin="30.00,30.00,30.00,30.00"/>
+							margin="8.00,8.00,8.00,8.00"/>
 						<image
 							this="IC430004-D006-4000-B000000000000004"
 							uniqueguid="IC430004-D006-4000-B000000000000004"
