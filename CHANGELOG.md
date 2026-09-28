@@ -5,6 +5,34 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-28 - build B6E69375
+
+Deployed 2026-09-28. MD5 `B6E693757B1E83F2D9A88BAC946EE3B6`, 9,381,355 bytes. It gathers the
+builds since 7B34D727 (9588EE3E, 52BCA382, 2BA85110, 4CB01AE8, A431EEF1, F29A1A11); the detail
+is in the addenda at the end of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`.
+
+- **Help page.** A gold question mark beside the court's name opens a topic list and a page:
+  parties, influence, loyalty, offices, governors, the Crown, intrigue, petitions, leaving
+  the court and settings. Its numbers are read from the campaign's own settings.
+- **Edicts need a governor.** A province with no governor has its edict buttons greyed out
+  until one is appointed, and a note beside them says so. An edict already running is not
+  cancelled; no script call can cancel one.
+- **The court button rests between turns.** Greyed and shut while other factions move, like
+  the Exchange's; ending the turn closes the court.
+- **The character panel's influence plate** sits on the Hell-Forge plate the court uses for
+  the same figure, sized to its words, and follows the character picked inside the panel.
+- **Rebels fight,** with the Chaos Dwarf endgame invasion's war plan.
+- **Recruit officers from the recruitment panel.** Hiring left the office list; a recruit
+  joins with influence by level (100 to level 5, 200 at 12, 300 at 20, 400 at 30).
+- **The Crown's block** has an icon on every line and rules between them; portrait frames
+  are thicker.
+- **Tools.** `deploy_iron_court.py` backs the live pack up, byte-compares the copy, can wait
+  for the game to close (`--wait`), ships the last build (`--deploy-only`), has a
+  `--selftest`, and refuses an unknown argument. `check_lua_api.py` flags an anchored
+  `string.find` pattern, which returns nothing at all in WH3's Lua. The harness's
+  `core:add_listener` stub now drops a listener registered without its persist flag, the way
+  the engine does; that is what let the edict lock grey only the first settlement selected.
+
 ## 2026-09-28 - build 7B34D727
 
 Deployed 2026-09-28. MD5 `7B34D7270FFCE04271B2142FB99A756F`, 9,240,059 bytes. It gathers the

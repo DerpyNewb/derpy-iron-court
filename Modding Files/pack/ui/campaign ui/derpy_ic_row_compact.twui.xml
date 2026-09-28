@@ -445,7 +445,7 @@
 				<component_image
 					this="IC42001C-D007-4000-B00000000000001C"
 					uniqueguid="IC42001C-D007-4000-B00000000000001C"
-					imagepath="ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"/>
+					imagepath="ui/derpy_ic/portrait_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -486,9 +486,9 @@
 							this="IC42001C-D008-4000-B00000000000001C"
 							uniqueguid="IC42001C-D008-4000-B00000000000001C"
 							componentimage="IC42001C-D007-4000-B00000000000001C"
-							offset="0.00,0.00"
-							width="87"
-							height="47"
+							offset="-2.00,-2.00"
+							width="91"
+							height="51"
 							colour="#FFFFFFFF"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>

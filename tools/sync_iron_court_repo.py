@@ -95,6 +95,7 @@ def manifest(root=ROOT):
          for n in ("panel", "card", "row", "party", "plot") for c in ("", "_compact")] + [
         _UI + "derpy_ic_opener.twui.xml",
         _UI + "derpy_ic_standing.twui.xml",
+        _UI + "derpy_ic_edict_note.twui.xml",
         _UI + "derpy_ic_fire.twui.xml",
         _UI + "derpy_ic_burst.twui.xml",
     ] + _tsvs(root) + ["tools/" + n for n in (

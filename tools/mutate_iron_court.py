@@ -1082,11 +1082,53 @@ end"""),
      """            ICUI.set_face(card, "ic_plot_icon", plot.icon)"""),
 
     ("a seat nobody can take drawn as though somebody could", U,
-     """    for index = 1, #IC.HIRE do
-        if IC.can_hire(faction, office_slug, index) then return true end
+     """        if not cand.busy and IC.can_appoint(faction, office_slug, cand.cqi) then
+            return true
+        end
     end
     return false""",
-     """    return true"""),
+     """        if not cand.busy and IC.can_appoint(faction, office_slug, cand.cqi) then
+            return true
+        end
+    end
+    return true"""),
+    # ---- recruits priced off the seat ladder, 2026-09-28 --------------------
+    # ---- the Crown's block says what each line is, 2026-09-28 ---------------
+    ("the share line drawn bare", U,
+     """string.format(
+             "[[img:%s]][[/img]]%d%% of the court", ICUI.COST_ICON, IC.control(faction))""",
+     """string.format(
+             "%d%% of the court", IC.control(faction))"""),
+    ("the band line drawn bare", U,
+     """string.format(
+             "[[img:%s]][[/img]]%s", ICUI.BAND_ICON, ICUI.band_name(band))""",
+     """ICUI.band_name(band)"""),
+    ("an effect line drawn bare", U,
+     """    if not (label and ICUI.FX_ICONS[label]) then return line end""",
+     """    if true then return line end"""),
+    ("the Crown's party drawn without its crest", U,
+     """    set_text(comp("ic_leader_party", panel), ICUI.crest(IC.CROWN) and string.format(""",
+     """    set_text(comp("ic_leader_party", panel), false and string.format("""),
+    ("the Crown's rules left on every tab", U,
+     """"ic_crown_box",
+                    "ic_crown_rule_l", "ic_crown_rule_r", "ic_crown_rule_v"}""",
+     """"ic_crown_box"}"""),
+    ("a recruit arrives with nothing", M,
+     """    court.standing[cqi] = IC.recruit_influence(character:rank())""",
+     """    court.standing[cqi] = 0"""),
+    ("the ladder flat between its bars", M,
+     """            return a[2] + math.floor((b[2] - a[2]) * (rank - a[1]) / (b[1] - a[1]))""",
+     """            return a[2]"""),
+    ("a second CharacterCreated resets what he earned", M,
+     """    if court.standing[cqi] ~= nil then return end
+    court.standing[cqi] = IC.recruit_influence""",
+     """    court.standing[cqi] = IC.recruit_influence"""),
+    ("a man priced into a court with no parties", M,
+     """    if not IC.court_rolled(faction_key) then return end
+    local cqi = character:command_queue_index()
+    local court = IC.court(faction_key)""",
+     """    local cqi = character:command_queue_index()
+    local court = IC.court(faction_key)"""),
 
     # ---- sorting -----------------------------------------------------------
     # THE SORT PUT SOMEWHERE EVERYTHING READS. One place for it looks like the
@@ -1384,6 +1426,248 @@ end"""),
      """                if f and f ~= false then
                     local _ = IC.TUNE.rebel_threat
                 end"""),
+
+    # ---- edicts need a governor (author, 2026-09-28) ------------------------
+    # THE GREY THAT DID NOT HOLD (2026-09-28): the state alone, which the
+    # engine moves back to "active" by itself.
+    ("an ungoverned province's edicts greyed by state alone", U,
+     """                c:SetDisabled(true)
+                ICUI.grey_look(c, true)""",
+     """                c:SetDisabled(true)"""),
+    ("a governed province's edicts left shaded grey", U,
+     """                c:SetDisabled(false)
+                ICUI.grey_look(c, false)""",
+     """                c:SetDisabled(false)"""),
+    # THE THREE WAYS THE FIRST BUILD FOUND NOTHING IN GAME.
+    ("the edict stack looked for under the layout file's spelling", U,
+     """ICUI.EDICT_STACK = {"hud_campaign", "BL_parent", "stack_incentives"}""",
+     """ICUI.EDICT_STACK = {"hud_campaign", "bl_parent", "stack_incentives"}"""),
+    ("only the edict stack's own children taken for buttons", U,
+     """                else
+                    walk(k)
+                end""",
+     """                end"""),
+    ("every child of the edict stack taken for a button", U,
+     """                if string.sub(tostring(k:Id()), 1, 7) == "button_" then""",
+     """                if true then"""),
+    ("an ungoverned province's edicts left clickable, only drawn grey", U,
+     """                if to then c:SetState(to) end
+                c:SetDisabled(true)""",
+     """                if to then c:SetState(to) end"""),
+    ("the running edict greyed into the plain inactive state", U,
+     """                   selected = "selected_inactive", down_off = "selected_inactive"}""",
+     """                   selected = "inactive", down_off = "inactive"}"""),
+    ("a governed province never given its edicts back", U,
+     """        return "live"
+    end)""",
+     """        return nil
+    end)"""),
+    ("an incomplete province's edicts lit by the court", U,
+     """            if list:item_at(i):owning_faction():name() ~= me then return nil end""",
+     """            local _ = list:item_at(i)"""),
+    ("another faction's settlement judged by this court", U,
+     """        if region:owning_faction():name() ~= me then return nil end
+        local province""",
+     """        local province"""),
+    ("buttons the engine greyed lit by the court", U,
+     """    elseif verdict == "live" and ICUI.edicts_greyed then""",
+     """    elseif verdict == "live" then"""),
+    ("asking about edicts makes a court", U,
+     """    local court = IC.state[me]
+    if not court or not IC.court_rolled(me) then return nil end""",
+     """    local court = IC.court(me)
+    if not IC.court_rolled(me) then return nil end"""),
+    ("closing the court leaves the edicts as they were", U,
+     """    ICUI.refresh_edicts()
+end""",
+     """end"""),
+    ("a selected settlement's edicts never judged", U,
+     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)""",
+     """        cm:callback(function() end, delay)"""),
+    # THE ONE THAT SHIPPED: no persist argument, and the engine drops the
+    # listener after the first settlement the player selects.
+    ("the settlement listener registered once-only", U,
+     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
+    end
+end, true)""",
+     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
+    end
+end)"""),
+    # THE REASON beside the grey buttons (author, 2026-09-28).
+    ("no note beside the grey edicts", U,
+     """    ICUI.edict_note(verdict == "grey")
+""",
+     ""),
+    ("the governor note left up on a settlement the court has no say in", U,
+     """    ICUI.edict_note(verdict == "grey")
+""",
+     """    if verdict then ICUI.edict_note(verdict == "grey") end
+"""),
+    ("the governor note made and never shown", U,
+     """        note:SetVisible(true)
+    end)
+    return note""",
+     """    end)
+    return note"""),
+    ("a second governor note made on every selection", U,
+     """    local note = comp(ICUI.EDICT_NOTE, stack)
+    if not show then""",
+     """    local note = nil
+    if not show then"""),
+    ("the governor note sized to the plate, not its words", U,
+     """    ICUI.resize(c, tw + side * 2, h)""",
+     """    ICUI.resize(c, ICUI.STANDING_W, h)"""),
+    ("the governor note back on the standing plate", U,
+     """        pcall(function() stack:CreateComponent(ICUI.EDICT_NOTE, ICUI.PATH_EDICT_NOTE) end)""",
+     """        pcall(function() stack:CreateComponent(ICUI.EDICT_NOTE, ICUI.PATH_STANDING) end)"""),
+    ("the governor note at the standing plate's height", U,
+     """        ICUI.fit_words(note, ICUI.EDICT_NOTE_TEXT, ICUI.EDICT_NOTE_H)""",
+     """        ICUI.fit_words(note, ICUI.EDICT_NOTE_TEXT, ICUI.STANDING_H)"""),
+    # "edges are too long" (author, 2026-09-28): the metric that shipped.
+    ("the governor note sized off TextDimensionsForText", U,
+     """    local tw = c:WidthOfTextLine(text)""",
+     """    local tw = c:TextDimensionsForText(text)"""),
+    ("the governor note's words left to the engine's centring", U,
+     """    c:SetTextHAlign("left")
+    c:SetTextXOffset(side, side)
+""",
+     ""),
+    # THE INFLUENCE PLATE (author, 2026-09-28: "background stretched out",
+    # "doesnt also change when changing characters").
+    ("the influence plate reads the map's selection, not the panel's man", U,
+     """    local cqi = ICUI.standing_cqi()""",
+     """    local cqi = ICUI.selected_cqi"""),
+    ("the influence plate with no fallback when the panel says nothing", U,
+     """        if cqi then return cqi end
+    end
+    return ICUI.selected_cqi""",
+     """        if cqi then return cqi end
+    end
+    return nil"""),
+    ("the influence plate not redrawn when the panel's man changes", U,
+     """        cm:callback(function() ICUI.show_standing() end, delay)""",
+     """        cm:callback(function() end, delay)"""),
+    ("the influence plate's switch listener registered once-only", U,
+     """        cm:callback(function() ICUI.show_standing() end, delay)
+    end
+end, true)""",
+     """        cm:callback(function() ICUI.show_standing() end, delay)
+    end
+end)"""),
+    ("the influence plate left at its file width", U,
+     """    pcall(ICUI.fit_words, plate, ICUI.standing_text(faction, cqi), ICUI.STANDING_H)""",
+     """    set_text(plate, ICUI.standing_text(faction, cqi))"""),
+    # "does it scale with higher or lower reso?" (author, 2026-09-28)
+    ("the governor note pinned where the stack sits at 1920x1080", U,
+     """        note:MoveTo(x + w + ICUI.EDICT_NOTE_GAP, y + math.floor((h - ICUI.EDICT_NOTE_H) / 2))""",
+     """        note:MoveTo(314, 1036)"""),
+    ("the governor note left a gap from the edict frame", U,
+     """ICUI.EDICT_NOTE_GAP = -2""",
+     """ICUI.EDICT_NOTE_GAP = 6"""),
+
+    # ---- the court button between turns (author, 2026-09-28) ---------------
+    ("the court button lit whoever's turn it is", U,
+     """    if live == nil then live = ICUI.player_turn() end""",
+     """    if live == nil then live = true end"""),
+    ("a failed turn query locks the player out of the court", U,
+     """        return cm:model():world():is_factions_turn_by_key(ICUI.player())
+    end)
+    if not ok then return true end""",
+     """        return cm:model():world():is_factions_turn_by_key(ICUI.player())
+    end)
+    if not ok then return false end"""),
+    ("the court button's pulse stopped after the grey", U,
+     """        ICUI.pulse_opener(false)
+        pcall(function() button:SetDisabled(true) end)
+        pcall(ICUI.grey_look, button, true)""",
+     """        pcall(function() button:SetDisabled(true) end)
+        pcall(ICUI.grey_look, button, true)
+        ICUI.pulse_opener(false)"""),
+    ("the court button left pulsing between turns", U,
+     """        ICUI.pulse_opener(false)
+        pcall(function() button:SetDisabled(true) end)""",
+     """        pcall(function() button:SetDisabled(true) end)"""),
+    ("the court opened by a click between turns", U,
+     """            if comp(ICUI.PANEL) or ICUI.player_turn() then ICUI.toggle() end""",
+     """            ICUI.toggle()"""),
+    ("an open court not shut by its button between turns", U,
+     """            if comp(ICUI.PANEL) or ICUI.player_turn() then ICUI.toggle() end""",
+     """            if ICUI.player_turn() then ICUI.toggle() end"""),
+    ("the court left open when the turn ends", U,
+     """    if comp(ICUI.PANEL) then pcall(ICUI.close) end
+    ICUI.gate_opener(false, false)""",
+     """    ICUI.gate_opener(false, false)"""),
+    ("the turn end greys by the model, which still calls it his turn", U,
+     """    ICUI.gate_opener(false, false)
+end, true)""",
+     """    ICUI.gate_opener(false)
+end, true)"""),
+    ("any faction's turn end greys the court button", U,
+     """    if faction:name() ~= ICUI.player() then return end
+    if comp(ICUI.PANEL) then pcall(ICUI.close) end""",
+     """    if comp(ICUI.PANEL) then pcall(ICUI.close) end"""),
+    ("the turn-end listener registered once-only", U,
+     """    ICUI.gate_opener(false, false)
+end, true)""",
+     """    ICUI.gate_opener(false, false)
+end)"""),
+
+    # ---- the help page (author, 2026-09-28) -------------------------------
+    # THE BUTTON LEFT AT THE END OF THE 600px BOX, when the plate is sized to
+    # its words and ends hundreds of pixels short of it.
+    ("the help button left where the title's box ends, not its plate", U,
+     """        help:MoveTo(px + tx + tw + h[1] - (t[1] + t[3]), py + h[2])""",
+     """        help:MoveTo(px + h[1], py + h[2])"""),
+    # A SECOND PRESS THAT ALWAYS LANDS ON THE COURT, wherever it was opened.
+    ("the help page closing onto the court and not the tab it came from", U,
+     """        ICUI.view = ICUI.help_back or "court"
+    else""",
+     """        ICUI.view = "court"
+    else"""),
+    # A NAME THE MODEL LACKS FILLED WITH NOTHING, and the sentence reads on
+    # with a hole where its number was.
+    ("a help number the model lacks filled in blank", U,
+     """        if type(v) ~= "number" then return nil end""",
+     """        if type(v) ~= "number" then return "" end"""),
+    # THE NUMBERS LEFT PLAIN, which is most of what the second pass was for.
+    ("a help number drawn in the sentence's own colour", U,
+     """        return string.format("[[col:%s]]%s[[/col]]", ICUI.SORT_LIT, tostring(v))""",
+     """        return tostring(v)"""),
+    # A TOPIC CLICK THAT CHANGES NOTHING.
+    ("a help topic click that keeps the old page", U,
+     """            ICUI.help_page = ICUI.HELP_TOPIC_INDEX[id]
+            ICUI.refresh()""",
+     """            ICUI.refresh()"""),
+    # A SHORT TOPIC DRAWN OVER THE LAST ONE'S TAIL: the spare lines kept.
+    ("a short help topic under the last topic's leftover lines", U,
+     """            show(c, lines[i] ~= nil)""",
+     """            show(c, true)"""),
+    # THE SPARE TOPIC BUTTONS SHOWN, as blank tabs at the foot of the list.
+    ("the spare help topic buttons drawn blank", U,
+     """            show(c, topic ~= nil)""",
+     """            show(c, true)"""),
+    # THE WRONG TOPIC LIT, or all of them.
+    ("every help topic lit at once", U,
+     """                pcall(function() c:SetImagePath(i == page and art.on or art.off, index) end)""",
+     """                pcall(function() c:SetImagePath(art.on, index) end)"""),
+    # THE PAGE'S CARD LEFT OVER EVERY OTHER TAB.
+    ("the help page left on screen over the other tabs", U,
+     """        show(comp(name, panel), view == "help" and not ICUI.pick)""",
+     """        show(comp(name, panel), true)"""),
+    # THE LIST ROWS LEFT UNDER THE HELP PAGE.
+    ("the last tab's list left under the help page", U,
+     """    ICUI.fill_rows(panel, {}, "help")
+    local page = ICUI.help_page""",
+     """    local page = ICUI.help_page"""),
+
+    # A RISING LEFT ON ITS SLEEPING PERSONALITY (author, 2026-09-28: "make the
+    # rebel faction aggresive"), and the same call aimed at the court it left.
+    ("a rebellion left with the personality of a sleeping faction", M,
+     """                cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)""",
+     """                local _ = IC.REBEL_PERSONALITY"""),
+    ("the court that was rebelled against made the aggressive one", M,
+     """                cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)""",
+     """                cm:force_change_cai_faction_personality(faction_key, IC.REBEL_PERSONALITY)"""),
 
     # THE WRONG FACTION OF THE TWO IN SCOPE. faction_key is the court that was
     # rebelled against, is an upvalue here, and is the argument the war
@@ -2906,8 +3190,8 @@ end"""),
      """            c:MoveTo(px + home[1], py + home[2])"""),
 
     ("an effect line kept from the band drawn before", U,
-     """        set_text(comp(key, panel), fx[i] or "")""",
-     """        if fx[i] then set_text(comp(key, panel), fx[i]) end"""),
+     """        set_text(comp(key, panel), ICUI.fx_line(fx[i]))""",
+     """        if fx[i] then set_text(comp(key, panel), ICUI.fx_line(fx[i])) end"""),
 
     ("the band's effects split on a bare comma", U,
      """"(.-), ") do""",

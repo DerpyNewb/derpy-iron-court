@@ -1,0 +1,73 @@
+<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="The Iron Court - why a province's edicts are grey, beside CA's edict stack"
+	precache_condition="">
+	<hierarchy>
+		<root this="IC390001-D000-4000-B000000000000001">
+			<derpy_ic_edict_note this="IC390004-D000-4000-B000000000000004"/>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="IC390001-D000-4000-B000000000000001"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="IC390001-D000-4000-B000000000000001"
+			currentstate="IC390002-D000-4000-B000000000000002"
+			defaultstate="IC390002-D000-4000-B000000000000002">
+			<states>
+				<standard
+					this="IC390002-D000-4000-B000000000000002"
+					name="standard"
+					width="190"
+					height="30"
+					uniqueguid="IC390002-D000-4000-B000000000000002">
+				</standard>
+			</states>
+		</root>
+		<derpy_ic_edict_note
+			this="IC390004-D000-4000-B000000000000004"
+			id="derpy_ic_edict_note"
+			tooltipslocalised="true"
+			uniqueguid="IC390004-D000-4000-B000000000000004"
+			currentstate="IC390005-D000-4000-B000000000000005"
+			defaultstate="IC390005-D000-4000-B000000000000005">
+			<componentimages>
+				<component_image
+					this="IC390004-D001-4000-B000000000000004"
+					uniqueguid="IC390004-D001-4000-B000000000000004"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/sub_title.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC390005-D000-4000-B000000000000005"
+					name="standard"
+					width="190"
+					height="30"
+					uniqueguid="IC390005-D000-4000-B000000000000005">
+					<imagemetrics>
+						<image
+							this="IC390004-D002-4000-B000000000000004"
+							uniqueguid="IC390004-D002-4000-B000000000000004"
+							componentimage="IC390004-D001-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="190"
+							height="30"
+							margin="6.00,6.00,6.00,6.00"/>
+					</imagemetrics>
+					<component_text
+						texthalign="Left"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="4.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="18"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="3"
+						fontcat_name="header_18"/>
+				</standard>
+			</states>
+		</derpy_ic_edict_note>
+	</components>
+</layout>

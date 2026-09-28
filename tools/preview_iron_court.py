@@ -847,11 +847,17 @@ def render(path=None, view="court", box_w=1920):
     # why the newline is in the pattern.
     trait_icon = re.search(r'ICUI\.TRAIT_ICON\s*=\s*"([^"]+)"',
                            ui).group(1)
+    # AND THE CROWN BLOCK'S LINE ICONS (2026-09-28), the band's and each
+    # effect's, named only in the Lua for the same reason.
+    band_icon = re.search(r'ICUI\.BAND_ICON\s*=\s*"([^"]+)"', ui).group(1)
+    fx_icons = dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"',
+                               _block(ui, "ICUI.FX_ICONS")))
     # AND THE CHOSEN CARD'S FRAME, which is CA art named only in the Lua and
     # the generator's layer list - never an imagepath in a .twui.xml.
     n_art, missing = PG.extract_art(
         PREFIX,
-        extra=DEMO_FACES + [TAB_SELECTED, cost_icon, trait_icon, G.PARTY_SELECTED]
+        extra=DEMO_FACES + [TAB_SELECTED, cost_icon, trait_icon, G.PARTY_SELECTED,
+                            band_icon] + sorted(fx_icons.values())
         + icons)
 
     def doc_of(name):
@@ -908,10 +914,16 @@ def render(path=None, view="court", box_w=1920):
                 continue
             iw = int(model.number(n.get("width"), w or 0)) or (w or 1)
             ih = int(model.number(n.get("height"), h or 0)) or (h or 1)
+            # A LAYER KEEPS ITS OWN SIZE AGAINST ITS COMPONENT'S. Forcing every
+            # layer to the cell drew the portrait frame - 2*FRAME_OUT wider than
+            # its cell, pushed out by FRAME_OUT - at the cell's size and 2px up
+            # and left, with the face poking out of its other two sides.
+            cw = model.number(st.get("width"), 0)
+            ch = model.number(st.get("height"), 0)
             if w:
-                iw = w
+                iw = w + (iw - int(cw) if cw else 0)
             if h:
-                ih = h
+                ih = h + (ih - int(ch) if ch else 0)
             ox, oy = model.pair(n.get("offset"), (0, 0))
             canvas.alpha_composite(rendering.raster(asset, iw, ih, n),
                                    (int(x + ox), int(y + oy)))
@@ -1128,11 +1140,11 @@ def render(path=None, view="court", box_w=1920):
         "ic_col_right": "Parties of the Court",
         # THE LEFT HALF OF THE CROWN'S BOX: the share, the band, then the
         # band's effects one to a line - what draw_court writes.
-        "ic_control": "%d%% of the court" % court[0][2],
-        "ic_control_band": _band[2],
+        "ic_control": "[[img:%s]][[/img]]%d%% of the court" % (cost_icon, court[0][2]),
+        "ic_control_band": "[[img:%s]][[/img]]%s" % (band_icon, _band[2]),
         "ic_leader_lbl": "The Crown",
         "ic_leader_name": DEMO_LEADERS[0],
-        "ic_leader_party": court[0][1],
+        "ic_leader_party": "[[img:%s]][[/img]]%s" % (G.sigil_path("crown"), court[0][1]),
         # HIS TRAIT AND THE PARTY'S TWO, decorated as ICUI.trait_line does -
         # the same three the Crown's card draws.
         "ic_leader_trait": "[[img:%s]][[/img]]%s" % (trait_icon, DEMO_LTRAITS[0]),
@@ -1156,7 +1168,10 @@ def render(path=None, view="court", box_w=1920):
     # into ICUI.FX_KEYS, one to a line, and blanks the rest.
     _fx = [G.IC.effect_short(e, m, i) for e, m, i in _band[4]]
     for _k, _key in enumerate(lua_words(ui, "ICUI.FX_KEYS")):
-        STRINGS[_key] = _fx[_k] if _k < len(_fx) else ""
+        _line = _fx[_k] if _k < len(_fx) else ""
+        _label = re.match(r"^(.*?)\s*[+-]\d", _line)
+        _icon = _label and fx_icons.get(_label.group(1))
+        STRINGS[_key] = ("[[img:%s]][[/img]]%s" % (_icon, _line)) if _icon else _line
     # WHAT THIS VIEW DOES NOT DRAW, off the dispatcher's OWN lists. ICUI.refresh
     # hides the two-column furniture, the Crown's block and the dial on every view
     # but the court, and a component left behind draws over the list of whatever
@@ -1723,7 +1738,7 @@ def render(path=None, view="court", box_w=1920):
         # these three. Drawing the bare name here would leave the picture the
         # author asked for invisible in the one place it gets reviewed.
         cell("ic_party_ltrait", trait_markup(ltrait))
-        cell("ic_party_nums", "%d%% of the court - %d loyalty" % (share, loyalty))
+        cell("ic_party_nums", "%d%% share - %d loyalty" % (share, loyalty))
         cell("ic_party_t1", trait_markup(DEMO_TRAITS[slug][0]))
         cell("ic_party_t2", trait_markup(DEMO_TRAITS[slug][1]))
         # THE STATE WORD, red where the panel draws it red.

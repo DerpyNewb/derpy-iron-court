@@ -484,6 +484,8 @@ wars = {}
 renames = {}
 threats = {}
 agents = {}
+-- Every AI personality forced onto a faction, key and personality.
+personalities = {}
 -- Every force healed, every unit and lord levelled, every army given its moves
 -- back and every garrison manned.
 healed = {}
@@ -587,6 +589,15 @@ cm = {
         assert(type(n) == "number" and n >= -6 and n <= 6,
             "apply_dilemma_diplomatic_bonus takes -6..+6, got " .. tostring(n))
         bonuses[#bonuses + 1] = {a = a, b = b, n = n}
+    end,
+    -- WHAT THE REBELS' AI WANTS. CA: "Force the specified faction to adopt the
+    -- specified AI personality" - both arguments KEY STRINGS, asserted because
+    -- the call directly below takes an interface.
+    force_change_cai_faction_personality = function(_self, key, personality)
+        assert(type(key) == "string" and key ~= "", "a faction key")
+        assert(type(personality) == "string" and personality ~= "",
+            "a personality key")
+        personalities[#personalities + 1] = {key = key, personality = personality}
     end,
     set_base_strategic_threat_score = function(_self, faction, score)
         assert(type(faction) == "table" and faction.is_null_interface,
@@ -932,9 +943,9 @@ cm = {
             end
         end
     end,
-    -- SYNCHRONOUS HERE, which is the fast path IC.hire takes. Set
-    -- cm._spawn_async = true to make it behave like a spawn that has not landed
-    -- yet, which is what the CharacterCreated listener is for.
+    -- SYNCHRONOUS HERE. Set cm._spawn_async = true to make it behave like a
+    -- spawn that has not landed yet, which is what the CharacterCreated
+    -- listener is for.
     spawn_agent_at_settlement = function(_, faction, settlement, agent, subtype)
         assert(faction and not faction:is_null_interface(), "a real faction")
         assert(settlement and not settlement:is_null_interface(), "a real settlement")
@@ -1013,10 +1024,22 @@ end
 -- clickable and the handler simply had no branch for them - so a harness that
 -- only calls ICUI.refresh() directly proves the dispatch works and says nothing
 -- about whether a click ever reaches it.
+-- AND DROP A ONE-SHOT the way the engine does. core:add_listener's fifth
+-- argument is "listener persists after target callback called"; without it the
+-- listener shuts down after its first call. ic_edicts shipped without it and
+-- greyed the first settlement selected and never another (seen in play,
+-- 2026-09-28) - a stub that kept every listener forever could not see that.
 core = {
     listeners = {},
-    add_listener = function(_self, name, _event, _cond, fn)
-        core.listeners[name] = fn
+    add_listener = function(_self, name, _event, _cond, fn, persist)
+        if persist == true then
+            core.listeners[name] = fn
+        else
+            core.listeners[name] = function(...)
+                core.listeners[name] = nil
+                return fn(...)
+            end
+        end
     end,
 }
 
@@ -4187,6 +4210,8 @@ check("every panel, row and card cell has a layout offset", function()
     -- bar segment per house.
     local expected = {
         "ic_title", "ic_close", "ic_influence",
+        -- THE HELP BUTTON beside the title (2026-09-28).
+        "ic_help",
         "ic_tab_court", "ic_tab_offices", "ic_tab_govs", "ic_tab_intrigue",
         "ic_tab_log",
         "ic_lbl_section",
@@ -4264,6 +4289,16 @@ check("every panel, row and card cell has a layout offset", function()
     -- THE TAB MARKERS, one per tab that can have business waiting.
     for _, name in pairs(ICUI.MARKS) do
         want[name] = true
+    end
+    -- THE HELP PAGE: its card, rule and heading, and a topic button and a line
+    -- per slot. Named from the slot count, not from ICUI.HELP_CELLS, so a cell
+    -- the Lua forgets to list still fails here.
+    for _, name in ipairs({"ic_help_box", "ic_help_rule", "ic_help_head"}) do
+        want[name] = true
+    end
+    for i = 1, ICUI.HELP_SLOTS do
+        want["ic_help_topic_" .. i] = true
+        want["ic_help_line_" .. i] = true
     end
     for name in pairs(want) do
         assert(ICUI.PANEL_XY[name], "no layout offset for " .. name)
@@ -6724,10 +6759,8 @@ check("clicking APPOINT on a vacant office opens the picker", function()
 end)
 
 check("the governors picker offers nobody to hire", function()
-    -- A HIRE IS AN OFFICE THING. IC.can_hire prices against an OFFICE slug, and
-    -- a province key is not one - so a hire row that leaked in here would be
-    -- priced against nothing. The list never offering him is what keeps that
-    -- from being reachable at all.
+    -- NO PICKER HIRES ANY MORE (2026-09-28): a new man comes from the game's
+    -- recruitment panel. This one never did, and still must not.
     IC.state = {}
     local kin = make_character(41, ANY_SEAT, "crown", "prov_a")
     make_faction(F, IC.CHD_SUBCULTURE, {kin}, {"prov_a"})
@@ -6737,10 +6770,8 @@ check("the governors picker offers nobody to hire", function()
     ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        -- COUNT THE ROWS, do not look for the word HIRE. A hire row that leaked
-        -- into this list would be priced against a PROVINCE key, which is no
-        -- office, so IC.can_hire refuses it and the row reads "NO" - present,
-        -- unclickable and invisible to an assertion about its label.
+        -- COUNT THE ROWS, do not look for the word HIRE: a stray row reads
+        -- whatever its refusal says, and an assertion about a label misses it.
         local rows = 0
         for i = 1, ICUI.MAX_ROWS do
             local row = panel.children[ICUI.ROW .. "_" .. i]
@@ -7426,135 +7457,65 @@ for _i = 1, #IC.OFFICES do
 end
 assert(BOTTOM_SEAT and SECOND_SEAT, "the bottom tier needs two seats")
 
-check("a hired officer arrives, is stamped and takes the seat", function()
-    -- The whole flow in one: pay, spawn, raise him to the bar, buy him into
-    -- your house, seat him. Every one of those is a thing that can silently not
-    -- happen and leave the player with a hero and an empty office.
+check("a lord or hero recruited mid-campaign starts with the influence his level buys", function()
+    -- HIRING IS THE RECRUITMENT PANEL'S (author, 2026-09-28: "hiring lords or
+    -- hero should be on the recruitement panel, with influence adjusted to
+    -- their level"). The scale is the SEAT LADDER: each tier's level buys that
+    -- tier's influence, evenly in between, the bottom bar below it and the top
+    -- bar above - so a new man can always afford every seat his level earns.
     IC.state = {}
-    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
-    IC.add_house(F, "crown")
-    endow(F)
-    local ok, why = IC.hire(F, BOTTOM_SEAT, 1)
-    assert(ok, "the hire was refused: " .. tostring(why))
-    local seated = IC.court(F).offices[BOTTOM_SEAT]
-    assert(seated, "nobody took the seat the hire paid for")
-    local man = IC.character_by_cqi(F, seated)
-    assert(man, "the seated cqi names no character in the faction")
-    -- HIS TRADE AND WHERE HE IS FROM, not just the party they put him in.
-    -- The crown is what house_of_character answers for a man with NO
-    -- background at all, so asserting the party alone passes just as
-    -- happily on a bought man who was never stamped with anything.
-    assert(IC.bg_of_character(man),
-        "a man the court paid for arrived with no trade")
-    assert(IC.origin_of_character(man),
-        "a man the court paid for came from nowhere")
-    assert(IC.house_of_character(man, F)
-           == IC.PARTY_OF_BG[IC.bg_of_character(man)],
-        "a man the court paid for sits with "
-        .. tostring(IC.house_of_character(man, F))
-        .. ", which is not what his trade says")
-    assert(IC.standing(F, seated) == IC.hire_cost(),
-        "a bought officer must arrive with exactly " .. IC.hire_cost()
-        .. " standing, got " .. IC.standing(F, seated))
-    local ambition = IC.ambition_slug(F, seated)
-    assert(ambition, "a man the court paid for arrived without ambition")
-    local worn = ambition_traits(man)
-    assert(#worn == 1 and worn[1] == "derpy_ic_ambition_" .. ambition)
-    assert(IC.hiring[F] == nil, "the hire is still open after it completed")
-end)
-
-check("a bought officer cannot be bought into a high seat", function()
-    -- MONEY DOES NOT SKIP THE CLIMB. He arrives standing in the lowest band
-    -- and nowhere else, so the apex has to be earned by somebody who served.
-    -- Without this the whole ladder is bypassable by hiring.
-    IC.state = {}
-    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
-    IC.add_house(F, "crown")
-    local top = IC.OFFICES[1].slug
-    assert(IC.office_influence(top) > IC.TUNE.hire_standing,
-        "this check needs an apex that asks more than a hire arrives with")
-    local ok, why = IC.hire(F, top, 1)
-    assert(not ok, "a bought officer walked straight into the apex")
-    -- THE SPAWN FIRST, because that is what the guard is for. IC.appoint's own
-    -- bar refuses the seating either way, so dropping the guard still ends in a
-    -- refusal - it just spends the player's money on a man who then cannot sit
-    -- anywhere. Asserting the reason first would hide that behind a word.
-    assert(#factions[F]._characters == 0, "a refused hire spawned a man anyway")
-    assert(IC.court(F).offices[top] == nil, "the seat was filled anyway")
-    assert(why == "too high", "refused for the wrong reason: " .. tostring(why))
-end)
-
-check("a seat still in session cannot be bought into", function()
-    -- The term is the gate on a filled seat. Hiring past it would let a player
-    -- replace a sitting officer with a bought one the turn after appointing him.
-    IC.state = {}
-    turn = 3
-    local sitting = make_character(71, ANY_SEAT, "crown")
-    make_faction(F, IC.CHD_SUBCULTURE, {sitting}, {"prov_a"})
-    IC.add_house(F, "crown")
-    endow(F)
-    assert(IC.appoint(F, BOTTOM_SEAT, 71), "the seat should have been taken")
-    local ok, why, left = IC.hire(F, BOTTOM_SEAT, 1)
-    assert(not ok, "a sitting officer was bought out of his seat")
-    assert(why == "term", "refused for the wrong reason: " .. tostring(why))
-    assert(left == IC.TUNE.term_turns,
-        "the turns remaining must come back, got " .. tostring(left))
-end)
-
-check("a faction with nowhere to put him cannot hire", function()
-    -- No settlement, no spawn. cm:spawn_agent_at_settlement takes a settlement
-    -- interface and a null one is not a refusal, it is a crash.
-    IC.state = {}
-    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
-    IC.add_house(F, "crown")
-    endow(F)
-    local ok, why = IC.hire(F, BOTTOM_SEAT, 1)
-    assert(not ok, "a landless faction hired an officer anyway")
-    assert(why == "no settlement", "refused for the wrong reason: " .. tostring(why))
-end)
-
-check("a spawn that has not landed yet is finished by the listener", function()
-    -- cm:spawn_agent_at_settlement returns nil and promises nothing about when
-    -- the character exists. IC.hire looks for him straight away; when he is not
-    -- there, CharacterCreated is the only thing that can finish the hire - and
-    -- an office that fills only when the engine happens to be synchronous is
-    -- the kind of fault that reproduces on one machine in five.
-    IC.state = {}
-    local faction = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
-    IC.add_house(F, "crown")
-    endow(F)
-    ICUI.register()
+    turn = 1
+    factions = {}
+    local faction = make_faction(F, IC.CHD_SUBCULTURE,
+                                 {make_character(1, ANY_SEAT, "forge")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
     IC.register()
-    local born_listener = core.listeners["ic_born"]
-    assert(born_listener, "IC.register must add an ic_born listener")
-
-    cm._spawn_async = true
-    local ok = IC.hire(F, SECOND_SEAT, 1)
-    cm._spawn_async = nil
-    assert(ok, "an asynchronous hire reported failure")
-    assert(IC.court(F).offices[SECOND_SEAT] == nil,
-        "the seat filled before the character existed")
-    assert(IC.hiring[F] == SECOND_SEAT,
-        "the hire was not left open for the listener")
-
+    local ladder = {}
+    for _, t in ipairs(IC.TIERS) do
+        ladder[#ladder + 1] = {IC.tier_rank(t), IC.tier_influence(t)}
+    end
+    table.sort(ladder, function(x, y) return x[1] < y[1] end)
+    assert(#ladder >= 2 and ladder[1][1] < ladder[2][1],
+        "this check needs two tiers at different levels")
+    local lo, nx, top = ladder[1], ladder[2], ladder[#ladder]
+    local mid = math.floor((lo[1] + nx[1]) / 2)
+    local want_mid = lo[2] + math.floor((nx[2] - lo[2]) * (mid - lo[1]) / (nx[1] - lo[1]))
+    assert(want_mid > lo[2] and want_mid < nx[2], "the halfway case lands on a bar")
+    for _, case in ipairs({{1, lo[2]}, {lo[1], lo[2]}, {mid, want_mid},
+                           {nx[1], nx[2]}, {top[1], top[2]}, {top[1] + 15, top[2]}}) do
+        local born = cm._spawn_into(faction)
+        born._rank = case[1]
+        core.listeners["ic_born"]({character = function() return born end})
+        local got = IC.standing(F, born:command_queue_index())
+        assert(got == case[2], "a recruit at level " .. case[1] .. " arrived with "
+            .. got .. " influence, not " .. case[2])
+    end
+    -- ONCE, AS HE ARRIVES: whatever he has earned since is his.
     local born = cm._spawn_into(faction)
-    born_listener({character = function() return born end})
-    assert(IC.court(F).offices[SECOND_SEAT] == born:command_queue_index(),
-        "the listener did not seat the man it was waiting for")
-    local ambition = IC.ambition_slug(F, born:command_queue_index())
-    assert(ambition, "the listener-seated hire arrived without ambition")
-    local worn = ambition_traits(born)
-    assert(#worn == 1 and worn[1] == "derpy_ic_ambition_" .. ambition)
-    assert(IC.hiring[F] == nil, "the hire is still open after the listener ran")
+    core.listeners["ic_born"]({character = function() return born end})
+    IC.add_standing(F, born:command_queue_index(), 7)
+    core.listeners["ic_born"]({character = function() return born end})
+    assert(IC.standing(F, born:command_queue_index()) == lo[2] + 7,
+        "a second CharacterCreated for the same man reset his influence")
 end)
 
-
-
+check("a man born into a court that is not rolled yet gets no influence from it", function()
+    IC.state = {}
+    factions = {}
+    local faction = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.register()
+    local born = cm._spawn_into(faction)
+    core.listeners["ic_born"]({character = function() return born end})
+    assert(IC.standing(F, born:command_queue_index()) == 0,
+        "a man was priced into a court with no parties yet")
+end)
 
 check("a character arriving for no reason is not seated", function()
     -- CharacterCreated fires for every birth, recruitment and spawn in the
-    -- game. Without the IC.hiring token the listener would seat the next lord
-    -- the player recruits into whichever office was last opened.
+    -- game, and none of them is an appointment: the player seats a man from
+    -- the panel, whoever recruited him.
     IC.state = {}
     local faction = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
     IC.add_house(F, "crown")
@@ -7626,10 +7587,10 @@ check("a lord born into another race's faction is left alone", function()
         "a Bretonnian was given a Chaos Dwarf birthplace")
 end)
 
-check("the office picker offers the men who do not exist yet", function()
-    -- ONE LIST. The hires sit under the real candidates, priced separately, and
-    -- the row that says HIRE has to be the row that hires - a label with no
-    -- click behind it is the dead-button bug wearing a different word.
+check("the office picker offers the court's own men and no one to hire", function()
+    -- HIRING IS THE RECRUITMENT PANEL'S (author, 2026-09-28: "remove also
+    -- hiring heroes from the assigning part"). A faction with nobody to seat
+    -- is offered nobody - not three strangers at a price.
     IC.state = {}
     make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
     IC.add_house(F, "crown")
@@ -7638,40 +7599,18 @@ check("the office picker offers the men who do not exist yet", function()
     ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local hires, priced = 0, 0
         for i = 1, ICUI.MAX_ROWS do
             local row = panel.children[ICUI.ROW .. "_" .. i]
-            if row and row.visible
-                    and plain(row.children.ic_row_e.text) == "Hire" then
-                hires = hires + 1
-                if row.children.ic_row_d.text
-                        == string.format("arrives with %s influence",
-                                         ICUI.cost(IC.hire_cost())) then
-                    priced = priced + 1
-                end
+            if row and row.visible then
+                assert(plain(row.children.ic_row_e.text or "") ~= "Hire",
+                    "row " .. i .. " still offers to hire")
+                assert(not string.find(row.children.ic_row_a.text or "", "Hire", 1, true),
+                    "row " .. i .. " still offers to hire: " .. row.children.ic_row_a.text)
             end
         end
-        assert(hires == #IC.HIRE,
-            "expected " .. #IC.HIRE .. " hireable officers, saw " .. hires)
-        assert(priced == hires, "a hire row did not show the hire price")
-        local clickable = 0
         for _, choice in pairs(ICUI.pick_rows) do
-            assert(type(choice) == "table",
-                "a hire row must carry a choice, not a cqi - there is no "
-                .. "character to point at yet")
-            clickable = clickable + 1
+            assert(type(choice) ~= "table", "a picker row still carries a hire choice")
         end
-        assert(clickable == #IC.HIRE, "a HIRE row is not wired to a click")
-
-        -- AND THE CLICK MUST HIRE. The row carries a choice rather than a cqi,
-        -- so on_pick_click has a branch of its own for it; without this the
-        -- branch could be deleted and every assertion above still passes.
-        local saved_idx = ICUI.clicked_index
-        ICUI.clicked_index = function() return 1 end
-        ICUI.on_pick_click({component = {}}, F)
-        ICUI.clicked_index = saved_idx
-        assert(IC.court(F).offices[BOTTOM_SEAT],
-            "clicking HIRE left the office empty")
     end)
     ICUI.pick = nil
 end)
@@ -11208,15 +11147,37 @@ local function with_char_panel(opts, fn)
         Dimensions = function() return 400, 600 end,
         Visible = function() return opts.panel_shown ~= false end,
     }
+    -- WHO THE PANEL SHOWS, the way CA's own prologue script reads it: the
+    -- context parent's CcoCampaignCharacter id, a CQI as a STRING. opts.shows
+    -- nil means the panel answers nothing, and the plate must fall back.
+    local context = {
+        Position = function() return 600, 300 end,
+        GetContextObjectId = function(_self, kind)
+            assert(kind == "CcoCampaignCharacter", "asked the panel for a " .. tostring(kind))
+            if opts.shows == nil then return nil end
+            return tostring(opts.shows)
+        end,
+    }
     local r = {
         Dimensions = function() return opts.sw or 1920, opts.sh or 1080 end,
         Position = function() return 0, 0 end,
         CreateComponent = function(_self, name)
             if name == ICUI.STANDING then
                 plate = {x = -1, y = -1, shown = false, text = "",
+                         w = ICUI.STANDING_W, h = ICUI.STANDING_H,
                          Position = function(self) return self.x, self.y end,
-                         Dimensions = function()
-                             return ICUI.STANDING_W, ICUI.STANDING_H end,
+                         Dimensions = function(self) return self.w, self.h end,
+                         SetCanResizeWidth = function(self, on)
+                             IC_NEED_BOOL("SetCanResizeWidth", on); self.can_w = on end,
+                         SetCanResizeHeight = function(self, on)
+                             IC_NEED_BOOL("SetCanResizeHeight", on); self.can_h = on end,
+                         Resize = function(self, w, h)
+                             assert(self.can_w and self.can_h, "Resize before SetCanResize")
+                             self.w, self.h = w, h end,
+                         WidthOfTextLine = function(_self, t) return #t * 10 end,
+                         TextDimensionsForText = function(_self, t) return #t * 12, 26 end,
+                         SetTextHAlign = function(self, a) self.align = a end,
+                         SetTextXOffset = function(self, l, r) self.pad_l, self.pad_r = l, r end,
                          MoveTo = function(self, x, y) self.x, self.y = x, y end,
                          SetVisible = function(self, on)
                              IC_NEED_BOOL("SetVisible", on); self.shown = on end,
@@ -11247,6 +11208,7 @@ local function with_char_panel(opts, fn)
             if opts.no_anchor then return false end
             return anchor
         end
+        if name == "character_context_parent" then return context end
         return false
     end
     is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
@@ -12630,10 +12592,8 @@ check("the plot picker prices every man by the plot, not by a seat", function()
         assert(actions[2] == "Short " .. ICUI.cost(30),
             "the man 30 short reads " .. tostring(actions[2])
             .. " (" .. table.concat(actions, "/") .. ")")
-        -- THE COURT, AND NOBODY ELSE. There is no man to buy for a plot, and a
-        -- hire row here would be priced against a house slug and drawn with
-        -- whatever refusal can_hire happened to give it - so counting the rows
-        -- catches it and looking for the word "HIRE" does not.
+        -- THE COURT, AND NOBODY ELSE - counting the rows catches a stray row,
+        -- and looking for a word does not.
         assert(#actions == #IC.candidates(F),
             "the plot picker drew " .. #actions .. " rows for a court of "
             .. #IC.candidates(F) .. ": " .. table.concat(actions, "/"))
@@ -16170,19 +16130,23 @@ check("the dial says in words what it says in colour", function()
         ["derpy_ic_control_name_command"] = "In Command of the Court",
         ["derpy_ic_effects_derpy_ic_control_command"] = "Control +2",
     }
+    -- THE WORDS, not the icon before them: that is the next check's.
+    local function bare(t)
+        return (string.gsub(t or "", "%[%[img:[^%]]*%]%]%[%[/img%]%]", ""))
+    end
     with_fake_panel(function(panel)
         ICUI.view = "court"
         ICUI.refresh()
         local said = panel.children.ic_control.text
         assert(string.find(said, "80", 1, true),
             "the readout does not give the share: " .. said)
-        assert(panel.children.ic_control_band.text == "An Iron Grip on the Court",
+        assert(bare(panel.children.ic_control_band.text) == "An Iron Grip on the Court",
             "the band line reads " .. panel.children.ic_control_band.text)
         -- ONE EFFECT A LINE, in the loc string's order, and the lines the band
         -- has no effect for left empty.
         local want = {"Control +6", "Income +12%", "", ""}
         for i, key in ipairs(ICUI.FX_KEYS) do
-            assert(panel.children[key].text == want[i],
+            assert(bare(panel.children[key].text) == want[i],
                 key .. " reads '" .. panel.children[key].text .. "', want '"
                 .. want[i] .. "'")
         end
@@ -16191,9 +16155,9 @@ check("the dial says in words what it says in colour", function()
         court.houses[IC.CROWN].weight = 50
         court.houses["chain"].weight = 50
         ICUI.refresh()
-        assert(panel.children.ic_control_band.text == "In Command of the Court",
+        assert(bare(panel.children.ic_control_band.text) == "In Command of the Court",
             "at 50% the band line reads " .. panel.children.ic_control_band.text)
-        assert(panel.children.ic_control_fx.text == "Control +2",
+        assert(bare(panel.children.ic_control_fx.text) == "Control +2",
             "at 50% the first effect reads " .. panel.children.ic_control_fx.text)
         assert(panel.children.ic_control_fx2.text == "",
             "the second effect line kept '" .. panel.children.ic_control_fx2.text
@@ -16778,8 +16742,8 @@ check("a seat nobody can take is drawn in red, and one somebody can is not", fun
     ICUI.pick = nil
     with_fake_panel(function(panel)
         ICUI.refresh()
-        -- THE APEX. Its bar is above what a bought officer arrives with, so
-        -- can_hire refuses it too and there is genuinely no way to fill it.
+        -- THE APEX. Nobody here clears its bar, and nobody can be bought into
+        -- it, so there is genuinely no way to fill it.
         local apex = IC.OFFICES[1].slug
         assert(not ICUI.seat_reachable(F, apex),
             "the fixture can reach the apex, so this check watches nothing")
@@ -21256,7 +21220,6 @@ check("each of the twelve actions waits for its trigger, then reaches the model 
         {"plot", "bribe|501|502", "plot", 3, {"bribe", 501, "502"}},
         {"plot", "feast|501|", "plot", 3, {"feast", 501, nil}},
         {"favour", "gift|legion", "favour", 2, {"gift", "legion"}},
-        {"hire", "warden|2", "hire", 2, {"warden", 2}},
         {"grant", "", "grant_demand", 0, {}},
         {"refuse", "", "refuse_demand", 0, {}},
         {"accept", "legion", "accept_offer", 1, {"legion"}},
@@ -21266,7 +21229,7 @@ check("each of the twelve actions waits for its trigger, then reaches the model 
     }
     local n_ops = 0
     for _ in pairs(IC.MP_OPS) do n_ops = n_ops + 1 end
-    assert(n_ops == 13, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has thirteen")
+    assert(n_ops == 12, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twelve")
     IC.state = {}
     local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     f._cqi = 41
@@ -21483,7 +21446,6 @@ check("each of the twelve panel clicks sends in multiplayer and waits for its tr
         {"accept_offer", petition("offer", true)},
         {"decline_offer", petition("offer", false)},
         {"appoint", pick({kind = "office", key = office}, 501)},
-        {"hire", pick({kind = "office", key = office}, {hire = 1})},
         {"plot", pick({kind = "plot", plot = "bribe", key = "502"}, 501)},
         {"assign_governor", pick({kind = "gov", key = "prov_a"}, 501)},
         {"dismiss", function()
@@ -23833,6 +23795,692 @@ check("the button stops pulsing once nothing is waiting", function()
     find_uicomponent, is_uicomponent = saved_find, saved_is
     IC.terms_ending = saved_ending
     assert(ok, err)
+end)
+
+check("every line of the Crown's block says what it is with an icon, and rules divide it", function()
+    -- author, 2026-09-28: "no icons or separation in the crown panel, use
+    -- lines or icons to show what they mean".
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, IC.CROWN)}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local court = IC.court(F)
+    court.houses[IC.CROWN].weight = 80
+    court.houses["forge"].weight = 20
+    -- ALL FOUR LABELS A BAND CAN SHOW, in the generator's own short words, so
+    -- a label with no icon is a bare line here and not only on some other band.
+    IC_TEST_LOC = {
+        ["derpy_ic_control_name_grip"] = "An Iron Grip on the Court",
+        ["derpy_ic_effects_derpy_ic_control_grip"] =
+            "Control +6, Building income +12%, Upkeep -15%, Growth +2",
+    }
+    local rules = {"ic_crown_rule_l", "ic_crown_rule_r", "ic_crown_rule_v"}
+    as_player(function()
+        with_fake_panel(function(panel)
+            ICUI.view = "court"
+            ICUI.refresh()
+            local function text(name)
+                local c = panel.children[name]
+                return c and c.text or ""
+            end
+            local function leads(name, path)
+                return string.find(text(name), "[[img:" .. path .. "]]", 1, true) == 1
+            end
+            assert(leads("ic_control", ICUI.COST_ICON),
+                "the share line has no influence icon: " .. text("ic_control"))
+            assert(leads("ic_control_band", ICUI.BAND_ICON),
+                "the band line has no icon: " .. text("ic_control_band"))
+            local fx = 0
+            for _, key in ipairs(ICUI.FX_KEYS) do
+                if text(key) ~= "" then
+                    fx = fx + 1
+                    assert(string.find(text(key), "[[img:ui/campaign ui/effect_bundles/", 1, true) == 1,
+                        key .. " has no effect icon: " .. text(key))
+                end
+            end
+            assert(fx == 4, "the fixture's band shows " .. fx .. " effects, not 4")
+            assert(string.find(text("ic_leader_party"), "[[img:", 1, true) == 1,
+                "the Crown's party line has no crest: " .. text("ic_leader_party"))
+            for _, key in ipairs(rules) do
+                assert(panel.children[key] and panel.children[key].visible ~= false,
+                    key .. " is not drawn on the court view")
+            end
+            ICUI.view = "offices"
+            ICUI.refresh()
+            for _, key in ipairs(rules) do
+                assert(panel.children[key].visible == false,
+                    key .. " is left on the offices view")
+            end
+        end)
+    end)
+    IC_TEST_LOC = nil
+end)
+
+check("a rebellion is run by CA's own Chaos Dwarf invader, not a sleeping faction",
+function()
+    -- THE AUTHOR, 2026-09-28: "make the rebel faction aggresive". The four
+    -- pool factions are dormant qb factions and keep whatever passive
+    -- personality their startpos gave them, so a rising sat on the provinces it
+    -- took. The personality is the only runtime lever over what the AI wants
+    -- (docs/CAMPAIGN_AI.md section 2); this is the one CA's Will of Hashut
+    -- crisis puts on its own invading Chaos Dwarfs.
+    party_of(1, 0)
+    personalities = {}
+    IC.secede(F, "legion")
+    assert(#personalities == 1, #personalities .. " personalities were forced")
+    assert(personalities[1].key == forces[1].faction,
+        "the personality went onto " .. tostring(personalities[1].key))
+    assert(personalities[1].personality == "wh3_combi_chaos_dwarf_endgame",
+        "the rebels were given " .. tostring(personalities[1].personality))
+end)
+
+check("the help button sits beside the title and opens the help page; a second press or a tab leaves it",
+function()
+    -- THE AUTHOR, 2026-09-28: "add a help button besides the hashut's court
+    -- with all the information the player needed". Beside the PLATE, which is
+    -- sized to its words, so the button moves with it rather than sitting at
+    -- the far end of the 600px box the plate may fill.
+    IC.state = {}
+    IC.add_house(F, "legion")
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.pick = nil
+        ICUI.refresh()
+        local t, h = panel.children.ic_title, panel.children.ic_help
+        assert(h, "the panel has no ic_help")
+        assert(h.visible, "the help button is hidden")
+        assert(h.x == t.x + t.w + ICUI.PANEL_XY.ic_help[1]
+            - (ICUI.PANEL_XY.ic_title[1] + ICUI.PANEL_XY.ic_title[3]),
+            "the help button is at " .. h.x .. ", the title plate ends at " .. (t.x + t.w))
+        assert(t.w < ICUI.PANEL_XY.ic_title[3],
+            "the fixture's title fills its box, so this proves nothing about the fit")
+        for _, name in ipairs(ICUI.HELP_CELLS) do
+            assert(not panel.children[name].visible, name .. " draws on the Offices tab")
+        end
+        click({string = "ic_help"})
+        assert(ICUI.view == "help", "the help button left the view on " .. ICUI.view)
+        assert(panel.children.ic_help_box.visible, "the help page's card is hidden")
+        assert(plain(panel.children.ic_help_line_1.text) ~= "", "the help page drew no first line")
+        click({string = "ic_help"})
+        assert(ICUI.view == "offices",
+            "a second press went to " .. ICUI.view .. ", not back to the tab it came from")
+        click({string = "ic_help"})
+        click({string = "ic_tab_court"})
+        assert(ICUI.view == "court", "a tab did not leave the help page")
+        for _, name in ipairs(ICUI.HELP_CELLS) do
+            assert(not panel.children[name].visible, name .. " stays on screen on the Court tab")
+        end
+    end)
+end)
+
+check("every help topic fits the page and every number in it is filled from the model",
+function()
+    assert(#ICUI.HELP > 0, "the help page has no topics")
+    assert(#ICUI.HELP <= ICUI.HELP_SLOTS,
+        #ICUI.HELP .. " topics for " .. ICUI.HELP_SLOTS .. " topic buttons")
+    local vars = ICUI.help_vars(F)
+    for _, topic in ipairs(ICUI.HELP) do
+        assert((topic.title or "") ~= "", "a help topic has no title")
+        assert(#topic.lines >= 1 and #topic.lines <= ICUI.HELP_SLOTS,
+            topic.title .. " has " .. #topic.lines .. " lines for " .. ICUI.HELP_SLOTS)
+        for _, line in ipairs(topic.lines) do
+            for key in string.gmatch(line, "{(%w[%w_]*)}") do
+                assert(type(vars[key]) == "number",
+                    topic.title .. ": {" .. key .. "} is not a number the model has")
+            end
+            local filled = plain(ICUI.help_fill(line, vars))
+            assert(not string.find(filled, "[{}]"),
+                topic.title .. " still reads " .. filled)
+        end
+    end
+    -- A TOKEN IS THE MODEL'S OWN NUMBER, not a copy of it, and it is picked out.
+    local warn = ICUI.help_fill("{loyalty_warn}", vars)
+    assert(plain(warn) == tostring(IC.TUNE.loyalty_warn), "{loyalty_warn} filled as " .. warn)
+    assert(warn ~= plain(warn), "a number on the help page is not picked out: " .. warn)
+    -- AND A NAME IT LACKS STAYS ON SCREEN AS WRITTEN, rather than a hole in
+    -- the sentence nobody can see is there.
+    assert(ICUI.help_fill("at {no_such_number} turns", vars) == "at {no_such_number} turns",
+        "a missing number filled as " .. ICUI.help_fill("at {no_such_number} turns", vars))
+end)
+
+check("clicking a help topic shows its page, lit in the list, and nothing of the court under it",
+function()
+    IC.state = {}
+    IC.add_house(F, "legion")
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    assert(#ICUI.HELP >= 2, "two topics are needed to choose between")
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.pick = nil
+        ICUI.help_page = 1
+        click({string = "ic_help"})
+        local vars = ICUI.help_vars(F)
+        local c = panel.children
+        -- ONE BUTTON PER TOPIC, named, and the spares hidden.
+        for i = 1, ICUI.HELP_SLOTS do
+            local b = c["ic_help_topic_" .. i]
+            if ICUI.HELP[i] then
+                assert(b.visible and plain(b.text) == ICUI.HELP[i].title,
+                    "topic button " .. i .. " reads " .. tostring(b.text))
+            else
+                assert(not b.visible, "spare topic button " .. i .. " draws")
+            end
+        end
+        -- THE SECOND TOPIC, chosen.
+        click({string = "ic_help_topic_2"})
+        assert(ICUI.help_page == 2, "the topic click left the page on " .. tostring(ICUI.help_page))
+        assert(plain(c.ic_help_head.text) == ICUI.HELP[2].title,
+            "the heading reads " .. tostring(c.ic_help_head.text))
+        local lines = ICUI.HELP[2].lines
+        for i = 1, ICUI.HELP_SLOTS do
+            local cell = c["ic_help_line_" .. i]
+            if lines[i] then
+                assert(cell.visible and cell.text == ICUI.help_fill(lines[i], vars),
+                    "line " .. i .. " reads " .. tostring(cell.text))
+            else
+                assert(not cell.visible, "line " .. i .. " draws under a " .. #lines .. "-line topic")
+            end
+        end
+        -- LIT LIKE A TAB: the chosen topic's plate, and only its.
+        assert(c.ic_help_topic_2.images[0] == ICUI.TAB_PLATE[0].on,
+            "the chosen topic is not lit: " .. tostring(c.ic_help_topic_2.images[0]))
+        assert(c.ic_help_topic_1.images[0] == ICUI.TAB_PLATE[0].off,
+            "an unchosen topic is lit: " .. tostring(c.ic_help_topic_1.images[0]))
+        -- NOTHING OF THE COURT OR THE LISTS UNDER IT.
+        assert(not c.ic_dial_box.visible, "the dial draws under the help page")
+        for i = 1, ICUI.PARTY_SLOTS do
+            assert(not c[ICUI.PARTY .. "_" .. i].visible, "a party card draws under the help page")
+        end
+        for i = 1, ICUI.MAX_ROWS do
+            assert(not c[ICUI.ROW .. "_" .. i].visible, "list row " .. i .. " draws under the help page")
+        end
+        assert(not c.ic_page_next.visible, "the pager draws on the help page")
+        ICUI.view = "court"
+    end)
+end)
+
+check("a province with no governor greys its edict buttons, and naming one gives them back",
+function()
+    -- THE AUTHOR, 2026-09-28: "grey out the button" for a province without a
+    -- governor, "the same effect of not having a complete province".
+    IC.state = {}
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.add_house(F, "forge")
+    IC.court(F).rolled = true
+    local function button(state)
+        return {state = state, disabled = false, shader = "normal_t0",
+                CurrentState = function(self) return self.state end,
+                SetState = function(self, s) self.state = s end,
+                SetDisabled = function(self, on)
+                    IC_NEED_BOOL("SetDisabled", on); self.disabled = on end,
+                -- THE LOOK THAT HOLDS. Seen in play on 2026-09-28: the engine
+                -- moved every greyed button back to "active" on its own while
+                -- the disabled flag stayed - so the state is not the look. A
+                -- shader set on all states is, and it is recorded here because
+                -- a stub that recorded only the flag passed a live-looking
+                -- button (memory wh3-setdisabled-draws-nothing).
+                ShaderTechniqueSet = function(self, t, all, text)
+                    assert(all == true and text == true,
+                        "the shader must cover every state and the text")
+                    self.shader = t end,
+                ShaderVarsSet = function(self, grey, alpha, _c, _d, all, text)
+                    assert(all == true and text == true,
+                        "the shader values must cover every state and the text")
+                    self.grey, self.alpha = grey, alpha end}
+    end
+    -- THE LIVE SHAPE, walked through the bridge on 2026-09-28: the running
+    -- edict's button a child of the stack, every choice two levels down in
+    -- clip_parent > stack_background, and non-button furniture beside them.
+    -- A flat list of buttons is what the first build assumed, and it greyed
+    -- nothing in game.
+    local function node(id, kids)
+        return {id = id, kids = kids or {}, Id = function(self) return self.id end,
+                ChildCount = function(self) return #self.kids end,
+                Find = function(self, i) return self.kids[i + 1] end}
+    end
+    local plain_b, chosen_b = button("active"), button("selected")
+    plain_b.id, chosen_b.id = "button_wh3_dlc23_edict_chd_armaments", "button_wh3_dlc23_edict_chd_smoke_stacks"
+    plain_b.Id, chosen_b.Id = function(self) return self.id end, function(self) return self.id end
+    plain_b.ChildCount, chosen_b.ChildCount = function() return 0 end, function() return 0 end
+    local stack = node("stack_incentives", {
+        node("clip_parent", {node("stack_background", {plain_b})}),
+        chosen_b,
+        node("stack_arrow"),
+    })
+    local owners = {F, F}
+    local function faction_named(key)
+        return {name = function() return key end,
+                is_null_interface = function() return false end}
+    end
+    local regions = {}
+    for i = 1, 2 do
+        regions[i] = {
+            is_null_interface = function() return false end,
+            owning_faction = function() return faction_named(owners[i]) end,
+            province_name = function() return "prov_ash" end,
+            province = function() return {regions = function() return {
+                num_items = function() return 2 end,
+                item_at = function(_, k) return regions[k + 1] end} end} end,
+        }
+    end
+    local saved_find, saved_root, saved_human = find_uicomponent, core.get_ui_root,
+                                                cm.get_human_factions
+    local saved_ui, saved_region = cm.get_campaign_ui_manager, cm.get_region
+    -- THE RUNTIME NAME IS BL_parent. The .twui.xml says bl_parent, and the
+    -- first build looked for that and found no stack at all.
+    find_uicomponent = function(_root, ...)
+        local path = table.concat({...}, ">")
+        return path == "hud_campaign>BL_parent>stack_incentives" and stack or false
+    end
+    core.get_ui_root = function() return {} end
+    cm.get_human_factions = function() return {F} end
+    local ok, err = pcall(function()
+        -- NO GOVERNOR: both buttons greyed, each in its own inactive state.
+        ICUI.edicts_greyed = false
+        assert(ICUI.apply_edict_lock(regions[1]) == "grey", "an ungoverned province was not greyed")
+        assert(plain_b.state == "inactive" and plain_b.disabled,
+            "the edict button reads " .. plain_b.state .. ", disabled " .. tostring(plain_b.disabled))
+        assert(plain_b.shader == "set_greyscale_t0" and plain_b.grey == 1,
+            "the edict button is not shaded grey: " .. tostring(plain_b.shader))
+        -- THE ENGINE PUTS THE STATE BACK; the grey must not go with it.
+        plain_b.state = "active"
+        assert(plain_b.shader == "set_greyscale_t0", "the grey went with the state")
+        assert(chosen_b.state == "selected_inactive" and chosen_b.disabled,
+            "the running edict's button reads " .. chosen_b.state)
+        -- A GOVERNOR IN A PROVINCE HE HOLDS WHOLE: back as they were.
+        IC.court(F).govs["prov_ash"] = 77
+        assert(ICUI.apply_edict_lock(regions[1]) == "live", "a governed province stayed locked")
+        assert(plain_b.state == "active" and not plain_b.disabled,
+            "a governed province's button reads " .. plain_b.state)
+        assert(plain_b.shader == "normal_t0", "a governed province's button stays shaded")
+        assert(chosen_b.state == "selected" and not chosen_b.disabled,
+            "the running edict's button reads " .. chosen_b.state)
+        -- THE ENGINE'S OWN LOCK IS NOT OURS TO LIFT: greyed by the court, then
+        -- a governed province somebody else holds a region of.
+        IC.court(F).govs["prov_ash"] = nil
+        ICUI.apply_edict_lock(regions[1])
+        IC.court(F).govs["prov_ash"] = 77
+        owners[2] = "wh3_main_emp_empire"
+        assert(ICUI.apply_edict_lock(regions[1]) == nil,
+            "a province not wholly held was judged by the court")
+        assert(plain_b.state == "inactive" and plain_b.disabled,
+            "an incomplete province's edict was lit: " .. plain_b.state)
+        owners[2] = F
+        -- NOT HIS SETTLEMENT: nothing touched, even in a province his court
+        -- has no governor for.
+        IC.court(F).govs["prov_ash"] = 77
+        ICUI.apply_edict_lock(regions[1])
+        assert(plain_b.state == "active", "the fixture did not relight before the step")
+        IC.court(F).govs["prov_ash"] = nil
+        owners[1] = "wh3_main_emp_empire"
+        assert(ICUI.apply_edict_lock(regions[1]) == nil, "another faction's settlement was judged")
+        assert(plain_b.state == "active" and not plain_b.disabled,
+            "another faction's settlement greyed the buttons")
+        owners[1] = F
+        IC.court(F).govs["prov_ash"] = nil
+        ICUI.apply_edict_lock(regions[1])
+        IC.court(F).govs["prov_ash"] = 77
+        -- CLOSING THE PANEL after naming a governor relights the selection.
+        cm.get_campaign_ui_manager = function()
+            return {get_selected_settlement_region = function() return "reg_ash" end}
+        end
+        cm.get_region = function(_self, key)
+            assert(key == "reg_ash", "looked up " .. tostring(key)); return regions[1] end
+        ICUI.refresh_edicts()
+        assert(plain_b.state == "active" and not plain_b.disabled,
+            "refresh_edicts did not relight a governed selection")
+        -- AND THE SELECTION LISTENER reaches it from the event's own region.
+        IC.court(F).govs["prov_ash"] = nil
+        local listener = core.listeners["ic_edicts"]
+        assert(listener, "nothing listens for SettlementSelected")
+        listener({garrison_residence = function()
+            return {region = function() return regions[1] end} end})
+        assert(plain_b.state == "inactive" and plain_b.disabled,
+            "selecting an ungoverned settlement left its edicts live")
+        -- AND THE NEXT SELECTION TOO: the listener outlives its first call.
+        plain_b.state, plain_b.disabled = "active", false
+        listener = core.listeners["ic_edicts"]
+        assert(listener, "the SettlementSelected listener died after its "
+            .. "first call - add_listener needs its persist argument")
+        listener({garrison_residence = function()
+            return {region = function() return regions[1] end} end})
+        assert(plain_b.state == "inactive" and plain_b.disabled,
+            "a second selection of an ungoverned settlement left its edicts live")
+        -- A BUTTON THE ENGINE GREYED FOR ITS OWN REASONS stays grey in a
+        -- governed province the court never touched.
+        IC.court(F).govs["prov_ash"] = 77
+        ICUI.apply_edict_lock(regions[1])
+        plain_b.state, plain_b.disabled = "inactive", false
+        ICUI.apply_edict_lock(regions[1])
+        assert(plain_b.state == "inactive",
+            "the court lit a button it never greyed: " .. plain_b.state)
+        -- NO COURT: nothing judged, and no court made by asking.
+        IC.state = {}
+        assert(ICUI.edict_verdict(regions[1]) == nil, "a faction with no court was judged")
+        assert(IC.state[F] == nil, "asking about edicts created a court")
+    end)
+    find_uicomponent, core.get_ui_root, cm.get_human_factions = saved_find, saved_root, saved_human
+    cm.get_campaign_ui_manager, cm.get_region = saved_ui, saved_region
+    ICUI.edicts_greyed = false
+    if not ok then error(err, 0) end
+end)
+
+check("ICUI.close relights the edict buttons for the settlement it closes onto", function()
+    local called = 0
+    local saved = ICUI.refresh_edicts
+    ICUI.refresh_edicts = function() called = called + 1 end
+    local ok, err = pcall(function()
+        with_fake_panel(function(_panel) ICUI.close() end)
+    end)
+    ICUI.refresh_edicts = saved
+    if not ok then error(err, 0) end
+    assert(called == 1, "closing the court refreshed the edicts " .. called .. " times")
+end)
+
+check("an ungoverned province says beside its grey edicts that it needs a governor",
+function()
+    -- THE AUTHOR, 2026-09-28: "its greyed out but no warning or feedback that
+    -- it needs a governor". The buttons' own tooltip is CA's edict layout and
+    -- ignores SetTooltipText (tried live, "still the same"), so the reason is
+    -- a note of its own, a child of the stack so it goes when the stack does.
+    IC.state = {}
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).rolled = true
+    local created = 0
+    local function note_c(name)
+        return {id = name, visible = false, x = 0, y = 0, w = 190, h = 22,
+                Id = function(self) return self.id end,
+                ChildCount = function() return 0 end,
+                Position = function(self) return self.x, self.y end,
+                Dimensions = function(self) return self.w, self.h end,
+                SetCanResizeWidth = function(_, on) IC_NEED_BOOL("SetCanResizeWidth", on) end,
+                SetCanResizeHeight = function(_, on) IC_NEED_BOOL("SetCanResizeHeight", on) end,
+                Resize = function(self, w, h) self.w, self.h = w, h end,
+                MoveTo = function(self, x, y) self.x, self.y = x, y end,
+                SetText = function(self, t) self.text = t end,
+                -- THE TWO METRICS DISAGREE, as they do in game (2026-09-28: 376
+                -- against 327 for these words). WidthOfTextLine is what draws.
+                TextDimensionsForText = function(_, t) return #t * 12, 26 end,
+                WidthOfTextLine = function(_, t) return #t * 10 end,
+                SetTextHAlign = function(self, a) self.align = a end,
+                SetTextXOffset = function(self, l, r) self.pad_l, self.pad_r = l, r end,
+                SetVisible = function(self, on)
+                    IC_NEED_BOOL("SetVisible", on); self.visible = on end}
+    end
+    local stack = {kids = {}, Id = function() return "stack_incentives" end,
+                   sx = 245, sy = 1020, sw = 71, sh = 62,
+                   ChildCount = function(self) return #self.kids end,
+                   Find = function(self, i) return self.kids[i + 1] end,
+                   Position = function(self) return self.sx, self.sy end,
+                   Dimensions = function(self) return self.sw, self.sh end}
+    stack.CreateComponent = function(self, name, path)
+        -- ITS OWN FILE on the Hell-Forge's bronze plate (author, 2026-09-28:
+        -- "the ui is not good" - the standing plate drew no backing, just
+        -- letters on the HUD's trim).
+        assert(path == "ui/campaign ui/derpy_ic_edict_note",
+            "the note is not made from its own layout: " .. tostring(path))
+        created = created + 1
+        self.kids[#self.kids + 1] = note_c(name)
+    end
+    local owner = F
+    local region = {
+        is_null_interface = function() return false end,
+        owning_faction = function() return {name = function() return owner end} end,
+        province_name = function() return "prov_ash" end,
+        province = function() return {regions = function() return {
+            num_items = function() return 1 end,
+            item_at = function() return {owning_faction = function()
+                return {name = function() return owner end} end} end} end} end,
+    }
+    local function note()
+        for _, k in ipairs(stack.kids) do
+            if k.id == ICUI.EDICT_NOTE then return k end
+        end
+    end
+    local saved_find, saved_root, saved_human, saved_is =
+        find_uicomponent, core.get_ui_root, cm.get_human_factions, is_uicomponent
+    find_uicomponent = function(parent, ...)
+        local path = table.concat({...}, ">")
+        if path == "hud_campaign>BL_parent>stack_incentives" then return stack end
+        if parent == stack and path == ICUI.EDICT_NOTE then return note() or false end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    core.get_ui_root = function() return {} end
+    cm.get_human_factions = function() return {F} end
+    local ok, err = pcall(function()
+        ICUI.edicts_greyed = false
+        assert(ICUI.apply_edict_lock(region) == "grey", "an ungoverned province was not greyed")
+        local n = note()
+        assert(n, "no note beside the grey edicts")
+        assert(n.visible == true, "the note was made and not shown")
+        assert(n.text and string.find(n.text, "governor"),
+            "the note does not say it needs a governor: " .. tostring(n.text))
+        assert(string.find(n.text, "[[img:ui/skins/default/icon_governor.png]]", 1, true) == 1,
+            "the note does not lead with CA's governor icon: " .. n.text)
+        assert(n.h == 30, "the note is " .. n.h .. "px tall, not its plate's 30")
+        -- AGAINST THE FRAME, centred on the stack. button_edicts_frame.png's
+        -- art ends at x 69 of its 71 (author, 2026-09-28: "make it closer to
+        -- the edict buttons").
+        assert(n.x == 245 + 69, "the note sits at x " .. n.x)
+        assert(n.y == 1020 + (62 - n.h) / 2, "the note sits at y " .. n.y)
+        -- ITS WORDS AND A TENTH MORE, half at each end (author: "make the text
+        -- fit with 0.1 borders"), off the width that draws - not the one
+        -- TextDimensionsForText reports, which left 50px of empty plate.
+        local words = #n.text * 10
+        local side = math.ceil(words * 0.1 / 2)
+        assert(n.w == words + side * 2,
+            "the note is " .. n.w .. "px for " .. words .. "px of words")
+        assert(n.align == "left" and n.pad_l == side and n.pad_r == side,
+            "the words are not held " .. side .. "px off each end: "
+            .. tostring(n.align) .. " " .. tostring(n.pad_l) .. "/" .. tostring(n.pad_r))
+        -- ONE NOTE, however often the lock runs.
+        ICUI.apply_edict_lock(region)
+        assert(created == 1, "the note was made " .. created .. " times")
+        -- A GOVERNOR: the note goes.
+        IC.court(F).govs["prov_ash"] = 77
+        assert(ICUI.apply_edict_lock(region) == "live")
+        assert(n.visible == false, "a governed province still says it needs a governor")
+        -- SOMEBODY ELSE'S SETTLEMENT, with the note left up from ours: it goes.
+        IC.court(F).govs["prov_ash"] = nil
+        ICUI.apply_edict_lock(region)
+        assert(n.visible == true)
+        owner = "wh3_main_emp_empire"
+        assert(ICUI.apply_edict_lock(region) == nil)
+        assert(n.visible == false, "another faction's settlement shows the governor note")
+        -- ANOTHER SCREEN (author, 2026-09-28: "does it scale with higher or
+        -- lower reso?"): the HUD puts the stack elsewhere, and a bigger UI
+        -- Scale draws it bigger. The note follows what the stack reports, not
+        -- where it sat at 1920x1080.
+        owner = F
+        stack.sx, stack.sy, stack.sw, stack.sh = 180, 790, 142, 124
+        ICUI.apply_edict_lock(region)
+        assert(n.visible == true and n.x == 180 + 142 - 2
+                and n.y == 790 + math.floor((124 - n.h) / 2),
+            "on another screen the note sits at " .. n.x .. "," .. n.y)
+        stack.sx, stack.sy, stack.sw, stack.sh = 245, 1020, 71, 62
+        -- THE ENGINE THREW THE STACK'S CHILDREN AWAY: made again.
+        owner = F
+        stack.kids = {}
+        ICUI.apply_edict_lock(region)
+        assert(note() and note().visible == true, "the note was not made again")
+    end)
+    find_uicomponent, core.get_ui_root, cm.get_human_factions, is_uicomponent =
+        saved_find, saved_root, saved_human, saved_is
+    ICUI.edicts_greyed = false
+    IC.state = {}
+    assert(ok, err)
+end)
+
+check("the court button is greyed while other factions take their turns", function()
+    -- THE AUTHOR, 2026-09-28: "buttons should be greyed out durign a turn, do
+    -- that for the iron court" - the Zharr Exchange's opener greys between
+    -- turns, and the court's stayed lit and pulsing through the whole round.
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    -- AN EMPTY SEAT, so on his turn the button has a reason to pulse.
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = nil end
+    local btn = fake_component(ICUI.BTN)
+    function btn:SetDisabled(on)
+        IC_NEED_BOOL("SetDisabled", on); self.disabled = on end
+    function btn:ShaderTechniqueSet(t, all, text)
+        assert(all == true and text == true, "the shader must cover every state and the text")
+        self.shader, self.shader_at = t, #pulses end
+    function btn:ShaderVarsSet(grey, _a, _c, _d, all, text)
+        assert(all == true and text == true, "the shader values must cover every state and the text")
+        self.grey = grey end
+    local panel_open, closed = false, 0
+    local panel = fake_component(ICUI.PANEL)
+    local mine = true
+    local function world()
+        return {is_factions_turn_by_key = function(_, key)
+            assert(key == F, "asked whose turn it is for " .. tostring(key))
+            return mine end}
+    end
+    local saved_find, saved_is, saved_model = find_uicomponent, is_uicomponent, cm.model
+    local saved_close, saved_open = ICUI.close, ICUI.open
+    find_uicomponent = function(_parent, name)
+        if name == ICUI.BTN then return btn end
+        if name == ICUI.PANEL and panel_open then return panel end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    cm.model = function()
+        return {turn_number = function() return turn end, world = world}
+    end
+    ICUI.close = function() closed = closed + 1; panel_open = false end
+    local opened = 0
+    ICUI.open = function() opened = opened + 1 end
+    local function his(key)
+        return {faction = function()
+            return {name = function() return key end,
+                    is_null_interface = function() return false end} end}
+    end
+    local ok, err = pcall(as_player, function()
+        -- HIS TURN: live and pulsing.
+        pulses = {}
+        ICUI.update_opener_tip()
+        assert(btn.disabled == false and btn.shader == "normal_t0",
+            "on his own turn the button reads disabled " .. tostring(btn.disabled)
+            .. ", shader " .. tostring(btn.shader))
+        assert(pulses[#pulses] and pulses[#pulses].on == true,
+            "on his own turn an empty seat did not pulse the button")
+        -- ANOTHER FACTION'S TURN: grey, refused, and the pulse stopped FIRST -
+        -- CA's pulse is a highlight on the state, and stopping it after the grey
+        -- could hand the button its colour back.
+        mine = false
+        pulses = {}
+        ICUI.update_opener_tip()
+        assert(btn.disabled == true and btn.shader == "set_greyscale_t0" and btn.grey == 1,
+            "between turns the button reads disabled " .. tostring(btn.disabled)
+            .. ", shader " .. tostring(btn.shader))
+        local stops = 0
+        for i, p in ipairs(pulses) do
+            if p.on then error("the button pulsed between turns") end
+            assert(i <= btn.shader_at, "the pulse was stopped after the grey went on")
+            stops = stops + 1
+        end
+        assert(stops > 0, "the pulse was never stopped between turns")
+        -- A CLICK ON IT opens nothing.
+        core.listeners["ic_click"]({string = ICUI.BTN})
+        assert(opened == 0, "the court opened between turns")
+        -- BUT AN OPEN PANEL CAN STILL BE SHUT with it.
+        panel_open = true
+        core.listeners["ic_click"]({string = ICUI.BTN})
+        assert(closed == 1 and not panel_open, "an open court could not be shut between turns")
+        -- HIS TURN ENDING: greyed and the panel closed, though the model still
+        -- calls it his turn while FactionTurnEnd runs.
+        mine = true
+        panel_open, closed = true, 0
+        btn.disabled, btn.shader = false, "normal_t0"
+        local ending = core.listeners["ic_turn_end"]
+        assert(ending, "nothing listens for the player's turn ending")
+        ending(his(F))
+        assert(closed == 1, "ending the turn left the court open")
+        assert(btn.disabled == true and btn.shader == "set_greyscale_t0",
+            "ending the turn left the button live")
+        -- SOMEBODY ELSE'S TURN ENDING touches nothing.
+        btn.disabled, btn.shader = false, "normal_t0"
+        core.listeners["ic_turn_end"](his("wh_main_emp_empire"))
+        assert(btn.disabled == false, "another faction's turn end greyed the button")
+        -- HIS NEXT TURN: lit again.
+        btn.disabled, btn.shader = true, "set_greyscale_t0"
+        core.listeners["ic_opener_tip"](his(F))
+        assert(btn.disabled == false and btn.shader == "normal_t0",
+            "his turn came round and the button stayed grey")
+        -- A QUESTION THAT THROWS leaves him his button: a probe that errors must
+        -- never be what locks a player out of the court.
+        cm.model = function()
+            return {turn_number = function() return turn end,
+                    world = function() error("no world") end}
+        end
+        ICUI.update_opener_tip()
+        assert(btn.disabled == false and btn.shader == "normal_t0",
+            "a failed turn query greyed the button")
+    end)
+    find_uicomponent, is_uicomponent, cm.model = saved_find, saved_is, saved_model
+    ICUI.close, ICUI.open = saved_close, saved_open
+    assert(ok, err)
+end)
+
+check("the influence plate follows the man the panel shows and fits its words", function()
+    -- THE AUTHOR, 2026-09-28: "the influence in the character has the
+    -- background stretched out" - CA's ROUND button underlay pulled to a bar -
+    -- and "doesnt also change when changing characters": switching men inside
+    -- the open panel left the first man's figure on it.
+    IC.state = {}
+    local a, b = make_character(310, ANY_SEAT, "crown"), make_character(311, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {a, b}, {})
+    IC.add_house(F, "crown")
+    IC.court(F).standing[310] = 137
+    IC.court(F).standing[311] = 52
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    -- SELECTED ON THE MAP: 310. SHOWN BY THE PANEL: 311. The panel wins.
+    ICUI.selected_cqi = 310
+    local opts = {shows = 311}
+    with_char_panel(opts, function(get)
+        assert(ICUI.show_standing(), "the plate refused to draw")
+        local plate = get()
+        assert(plate.text == "52 influence",
+            "the plate reads the map's selection, not the panel's man: " .. plate.text)
+        -- ITS WORDS AND A TENTH, off the width that draws, held in from each end.
+        local words = #plate.text * 10
+        local side = math.ceil(words * 0.1 / 2)
+        assert(plate.w == words + side * 2 and plate.h == ICUI.STANDING_H,
+            "the plate is " .. plate.w .. "x" .. plate.h .. " for " .. words .. "px of words")
+        assert(plate.align == "left" and plate.pad_l == side and plate.pad_r == side,
+            "the words are not held " .. side .. "px off each end")
+        -- ANOTHER MAN PICKED IN THE PANEL: the next click redraws.
+        opts.shows = 310
+        local switch = core.listeners["ic_char_switch"]
+        assert(switch, "nothing redraws the plate when the panel's man changes")
+        switch({string = "character_portrait"})
+        assert(plate.text == "137 influence",
+            "the plate kept the last man's figure: " .. plate.text)
+        -- AND BACK AGAIN: the listener outlives its first call.
+        opts.shows = 311
+        switch = core.listeners["ic_char_switch"]
+        assert(switch, "the switch listener died after its first call")
+        switch({string = "character_portrait"})
+        assert(plate.text == "52 influence", "the second switch left " .. plate.text)
+        -- A PANEL THAT ANSWERS NOTHING: the map's selection, as before.
+        opts.shows = nil
+        ICUI.selected_cqi = 311
+        ICUI.show_standing()
+        assert(plate.text == "52 influence", "with no answer from the panel it reads " .. plate.text)
+    end)
+    cm.get_human_factions = saved
+    ICUI.selected_cqi = nil
 end)
 
 check("no parties' turn failed anywhere in the run", function()

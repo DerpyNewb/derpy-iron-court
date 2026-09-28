@@ -1,7 +1,22 @@
 """Builds derpy_iron_court.pack and deploys it to the game's data folder.
 
-    py tools/deploy_iron_court.py            # build, verify, deploy
-    py tools/deploy_iron_court.py --no-copy  # build into Modpacks only
+    py tools/deploy_iron_court.py                 # build, verify, deploy
+    py tools/deploy_iron_court.py --no-copy       # build into Modpacks only
+    py tools/deploy_iron_court.py --wait          # build; if the game is up, wait
+                                                  # for it to close, then deploy
+    py tools/deploy_iron_court.py --deploy-only [--wait]   # ship the last build
+    py tools/deploy_iron_court.py --selftest
+
+THE AUTHOR'S RULE (2026-09-28): "always deploy it to data if the game is not
+running", then "automate if the game is not running then deploy it" - a build
+made while the game was up sat in Modpacks and the author played the old one.
+--wait is that automation: run it in the background and it deploys the moment
+Warhammer3 exits. Every deploy backs the live pack up first and byte-compares
+the copy.
+
+AN UNKNOWN FLAG IS REFUSED. It used to be ignored, and on 2026-09-28 a
+--selftest passed to a copy of this file that had none built and deployed the
+pack twice.
 
 Needs RPFM OPEN - the MCP server only exists while it is. The registered MCP tools
 are often absent (the server starts after Claude Code); import_house_ancillaries.call
@@ -85,7 +100,98 @@ ART = ([("Modding Files/pack/" + p, p) for p in sorted(U.art_paths())]
        + [("Modding Files/pack/" + p, p) for p in F.paths()])
 
 
+def game_running():
+    return bool(subprocess.run(
+        ["powershell", "-NoProfile", "-Command",
+         "if (Get-Process -Name Warhammer3 -ErrorAction SilentlyContinue)"
+         " { exit 1 } else { exit 0 }"]).returncode)
+
+
+def deploy(src, data_dir, wait=False, running=game_running, sleep=None,
+           poll=15):
+    """Back up the live pack, copy src over it, byte-compare. 0 on success.
+
+    THE GAME HOLDS AN OPEN HANDLE ON EVERY PACK IT LOADED, so a copy under a
+    running game fails with WinError 32 - or, where it did not, would swap a pack
+    under a live session. Without wait that is a refusal; with it, a wait.
+    """
+    import time
+    sleep = sleep or time.sleep
+    if not os.path.isdir(data_dir):
+        sys.stderr.write("game data folder not found: %s\n" % data_dir)
+        return 1
+    if running():
+        if not wait:
+            sys.stderr.write("REFUSING to deploy: Warhammer3 is running. The pack "
+                             "is built at %s - close the game and re-run, or "
+                             "pass --wait.\n" % src)
+            return 1
+        print("Warhammer3 is running; deploying when it closes")
+        sys.stdout.flush()
+        while running():
+            sleep(poll)
+        sleep(poll)     # its file handles go a moment after the process does
+    dest = os.path.join(data_dir, os.path.basename(src))
+    new = open(src, "rb").read()
+    if os.path.exists(dest):
+        if open(dest, "rb").read() == new:
+            print("already deployed: %s" % dest)
+            return 0
+        bak = "%s.bak_pre_auto_%s" % (dest, time.strftime("%Y%m%d_%H%M%S"))
+        shutil.copy2(dest, bak)
+        print("backed up the live pack to %s" % bak)
+    shutil.copy2(src, dest)
+    if open(dest, "rb").read() != new:
+        sys.stderr.write("the deployed copy differs from %s\n" % src)
+        return 1
+    print("deployed %s (%d bytes), byte-identical to the build"
+          % (dest, len(new)))
+    return 0
+
+
+def _selftest():
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmp:
+        src = os.path.join(tmp, "p.pack")
+        data = os.path.join(tmp, "data")
+        os.mkdir(data)
+        open(src, "wb").write(b"new")
+        live = os.path.join(data, "p.pack")
+        open(live, "wb").write(b"old")
+        # Running, no wait: refused, live copy untouched.
+        assert deploy(src, data, running=lambda: True) == 1
+        assert open(live, "rb").read() == b"old"
+        # Running twice then closed, with wait: waits, backs up, deploys.
+        states = [True, True, True, False]
+        slept = []
+        assert deploy(src, data, wait=True, running=lambda: states.pop(0),
+                      sleep=slept.append) == 0
+        assert len(slept) == 3, slept
+        assert open(live, "rb").read() == b"new"
+        baks = [f for f in os.listdir(data) if ".bak_pre_auto_" in f]
+        assert len(baks) == 1
+        assert open(os.path.join(data, baks[0]), "rb").read() == b"old"
+        # Same bytes again: nothing copied, no second backup.
+        assert deploy(src, data, running=lambda: False) == 0
+        assert len([f for f in os.listdir(data) if ".bak_pre_auto_" in f]) == 1
+    assert main(["--no-such-flag"]) == 2
+    print("selftest: ok")
+    return 0
+
+
+FLAGS = {"--no-copy", "--wait", "--deploy-only", "--selftest"}
+
+
 def main(argv):
+    unknown = [a for a in argv if a not in FLAGS]
+    if unknown:
+        sys.stderr.write("REFUSING: unknown argument(s) %s; known: %s\n"
+                         % (" ".join(unknown), " ".join(sorted(FLAGS))))
+        return 2
+    if "--selftest" in argv:
+        return _selftest()
+    if "--deploy-only" in argv:
+        return deploy(OUT, GAME_DATA, wait="--wait" in argv)
     # 1. Every offline gate first. Nothing is created until they all pass.
     problems = V.verify()
     for problem in problems:
@@ -174,25 +280,11 @@ def main(argv):
 
     if "--no-copy" in argv:
         return 0
-    if not os.path.isdir(GAME_DATA):
-        sys.stderr.write("game data folder not found: %s\n" % GAME_DATA)
-        return 1
-    # THE GAME HOLDS AN OPEN HANDLE ON EVERY PACK IT LOADED, so a copy over a
-    # deployed one while it is running fails with WinError 32 after the whole
-    # build has been done - and on a machine where it did not fail, it would be
-    # worse: a pack swapped under a live session. Asked here, in words, instead.
-    if subprocess.run(
-            ["powershell", "-NoProfile", "-Command",
-             "if (Get-Process -Name Warhammer3 -ErrorAction SilentlyContinue)"
-             " { exit 1 } else { exit 0 }"]).returncode:
-        sys.stderr.write("REFUSING to deploy: Warhammer3 is running. The pack "
-                         "is built at %s - close the game and re-run.\n" % OUT)
-        return 1
-    dest = os.path.join(GAME_DATA, os.path.basename(OUT))
-    shutil.copy2(OUT, dest)
-    print("deployed %s (%d bytes)" % (dest, os.path.getsize(dest)))
+    rc = deploy(OUT, GAME_DATA, wait="--wait" in argv)
+    if rc:
+        return rc
     # A pack is NOT byte-reproducible - every DB table carries a per-save GUID -
-    # so a size match is the only cheap cross-check, never an md5 of two builds.
+    # so two BUILDS never match by md5; deploy() compares the copy to its build.
     print("NOTE: a new pack in data/ is listed but UNTICKED. Enable it in the "
           "launcher or mod manager before it does anything.")
     return 0

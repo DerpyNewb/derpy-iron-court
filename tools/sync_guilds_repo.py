@@ -105,6 +105,8 @@ MANIFEST = [(p, p) for p in [
      "docs/plans/2026-09-27-great-guilds-bounties-v2.md"),
     ("docs/sessions/HANDOFF_20260927_GUILDS_BOUNTIES_V2.md",
      "docs/history/HANDOFF_20260927_GUILDS_BOUNTIES_V2.md"),
+    ("docs/sessions/HANDOFF_20260928_GUILDS_BAR_AND_REACHABLE_JOBS.md",
+     "docs/history/HANDOFF_20260928_GUILDS_BAR_AND_REACHABLE_JOBS.md"),
 ]
 
 

@@ -820,6 +820,38 @@ def _selftest():
     print("import_iron_court selftest: ok")
 
 
+def check_fx_icons(ui):
+    """ICUI.FX_ICONS against the bands' effects (2026-09-28).
+
+    The Crown's block picks an effect line's icon by the short label the line
+    starts with. A label missing from the table draws a bare line on whichever
+    band shows it, and a path other than the one CA's own effects table gives
+    that effect draws the wrong picture - neither raises anything."""
+    out = []
+    m = re.search(r"ICUI\.FX_ICONS\s*=\s*\{(.*?)\n\}", ui, re.S)
+    if not m:
+        return ["the panel Lua has no ICUI.FX_ICONS table"]
+    table = dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"', m.group(1)))
+    try:
+        import read_vanilla_cache as _V
+        icon_of = {r["effect"]: r["icon"] for r in _V.load("effects")[0]}
+    except Exception as exc:
+        return ["the vanilla effects table is unreadable, so ICUI.FX_ICONS "
+                "cannot be checked: %r" % (exc,)]
+    for band in G.CONTROL_BANDS:
+        for effect, _mag, _inv in band[4]:
+            label = G.EFFECT_SHORT.get(effect[0])
+            if label not in table:
+                out.append("band %s shows %r and ICUI.FX_ICONS has no icon for it"
+                           % (band[0], label))
+                continue
+            want = "ui/campaign ui/effect_bundles/" + icon_of.get(effect[0], "?")
+            if table[label] != want:
+                out.append("ICUI.FX_ICONS gives %r the icon %s; CA gives %s"
+                           % (label, table[label], want))
+    return out
+
+
 def verify():
     problems = G.check()
     built = G.build()
@@ -851,6 +883,10 @@ def verify():
     if os.path.isfile(MODEL_LUA):
         problems.extend(check_loyalty_writers(
             io.open(MODEL_LUA, encoding="utf-8").read()))
+
+    # 0e. EVERY EFFECT A BAND CAN SHOW HAS CA's ICON FOR IT. See check_fx_icons.
+    if os.path.isfile(UI_LUA):
+        problems.extend(check_fx_icons(io.open(UI_LUA, encoding="utf-8").read()))
 
     # 0d. THE PANEL CHANGES THE CAMPAIGN ONLY THROUGH IC.mp_send. See
     #     check_mp_routing: a direct call is a multiplayer desync nothing in
@@ -1016,41 +1052,8 @@ def verify():
                     "the lowest control band starts at %d, so a court below "
                     "that lands in no band at all" % want[-1][1])
 
-        # 2b. THE HIRE LIST IS THREE UNVALIDATED STRINGS. An agent subtype key
-        #     that does not exist does not error - cm:spawn_agent_at_settlement
-        #     takes it as a string and makes nothing, forever, with the court's
-        #     influence already spent. Both halves are checked against vanilla:
-        #     the subtype exists, and the agent type beside it is the one that
-        #     subtype actually belongs to.
-        hires = re.search(r"IC\.HIRE\s*=\s*\{(.*?)\n\}", lua, re.S)
-        if not hires:
-            problems.append("the Lua has no IC.HIRE table")
-        else:
-            pairs = re.findall(
-                r'subtype\s*=\s*"([\w]+)"\s*,\s*\n?\s*agent\s*=\s*"([\w]+)"',
-                hires.group(1))
-            try:
-                import read_vanilla_cache as _V
-                subtypes = {r["key"] for r in _V.load("agent_subtypes")[0]}
-                agents = {r["key"] for r in _V.load("agents")[0]}
-                owner = {}
-                for row in _V.load("character_skill_node_sets")[0]:
-                    owner.setdefault(row["agent_subtype_key"], row["agent_key"])
-            except Exception as exc:
-                problems.append("the vanilla agent tables are unreadable, so "
-                                "IC.HIRE cannot be checked: %r" % (exc,))
-            else:
-                for subtype, agent in pairs:
-                    if subtype not in subtypes:
-                        problems.append("IC.HIRE names agent subtype %s, which "
-                                        "is in no vanilla table" % subtype)
-                    if agent not in agents:
-                        problems.append("IC.HIRE names agent type %s, which is "
-                                        "in no vanilla table" % agent)
-                    elif subtype in owner and owner[subtype] != agent:
-                        problems.append("IC.HIRE pairs %s with agent type %s; "
-                                        "vanilla says it is a %s"
-                                        % (subtype, agent, owner[subtype]))
+        # 2b. (THE HIRE LIST, removed 2026-09-28 with the hire action: a new
+        #     man comes from the game's recruitment panel now.)
 
         # 2c. THE STANDING BANDS ARE BUILT BY CONCATENATION, so no literal in
         #     the Lua names them and check 3's grep cannot reach them. A

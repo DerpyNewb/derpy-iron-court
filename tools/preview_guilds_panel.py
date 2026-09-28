@@ -279,6 +279,11 @@ def _setup(guild=None, tag="", size=None):
             ih = int(model.number(n.get("height"), h or 0)) or (h or 1)
             ox, oy = model.pair(n.get("offset"), (0, 0))
             img = rendering.raster(asset, iw, ih, n)
+            # TWUI Studio's raster ignores both flips; the engine draws them.
+            if n.get("x_flipped") == "true":
+                img = img.transpose(Image.FLIP_LEFT_RIGHT)
+            if n.get("y_flipped") == "true":
+                img = img.transpose(Image.FLIP_TOP_BOTTOM)
             if crop is not None:
                 if crop <= 0:
                     continue

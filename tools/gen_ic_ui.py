@@ -94,6 +94,8 @@ GUID_PREFIXES = {
     "derpy_ic_fire.twui.xml":   "IC37",
     # IC38 - the claim burst, created into a card or row per claim.
     "derpy_ic_burst.twui.xml":  "IC38",
+    # IC39 - why a province's edicts are grey, beside CA's edict stack.
+    "derpy_ic_edict_note.twui.xml": "IC39",
     # IC40-IC44 - THE COMPACT COPIES, the same components one CA font size
     # down for a box under 1920. Their own prefixes: a copy that reused its
     # base file's would collide with it GUID for GUID.
@@ -181,6 +183,11 @@ PANEL_LAYOUT = {
     # goes looking for it. It was 22px at the top left: wrong corner, and
     # under half the size of any round button CA ships.
     "ic_close": (1854, 12, 48, 48),
+    # THE HELP BUTTON, beside the title (author, 2026-09-28). This is its place
+    # when the plate fills its 600px box; the panel Lua moves it to the plate's
+    # real end with the same 8px gap, because the plate is sized to its words.
+    # Vertically centred on the 56px title.
+    "ic_help": (626, 8, 48, 48),
     # RIGHT-ANCHORED: its right edge is PANEL_W - 18, so it moved with the panel
     # rather than staying at the 1600-wide x it was authored for.
     # Ends at 1840, so it no longer runs under the close button at 1854.
@@ -310,6 +317,33 @@ COL_BOTTOM = PANEL_LAYOUT["ic_alert"][1] - 8
 
 PANEL_LAYOUT["ic_col_left"] = (COL_L_X, COL_TOP, COL_W, COL_HDR_H)
 PANEL_LAYOUT["ic_col_right"] = (COL_R_X, COL_TOP, COL_W, COL_HDR_H)
+
+# THE HELP PAGE (author, 2026-09-28: "doesnt look very user friendly", then chose
+# a topic list and a page). The first build borrowed the list rows: 64px apart,
+# a portrait's height, and a pager to reach topic eight. This is its own page -
+# one card under all of it, the topics down the left in the tabs' own plates,
+# a rule, and the chosen topic's heading and lines at 34px. HELP_SLOTS topic
+# buttons and as many lines; the harness fails a topic or a line past them.
+# The card is NOT one of _panel_order's tier -1 plates: make_ic_backdrop drops a
+# cell from its contrast measurement once a tier -1 plate covers it, and this
+# card covers the header strip every list view draws bare. It sorts first among
+# its own cells by name (ic_help_box < ic_help_head < _line_ < _rule < _topic_),
+# which is what puts it under them.
+HELP_SLOTS = 12
+
+
+def help_layout():
+    """Every help-page cell and its box, at 1920. ICUI.PANEL_XY mirrors it."""
+    out = {"ic_help_box": (18, 124, 1884, 540),
+           "ic_help_rule": (352, 144, 2, 472),
+           "ic_help_head": (372, 140, 900, 44)}
+    for _i in range(HELP_SLOTS):
+        out["ic_help_topic_%d" % (_i + 1)] = (36, 144 + 40 * _i, 300, 32)
+        out["ic_help_line_%d" % (_i + 1)] = (384, 196 + 34 * _i, 1500, 28)
+    return out
+
+
+PANEL_LAYOUT.update(help_layout())
 # CENTRED IN THE GUTTER rather than at the panel's midpoint: the two columns
 # are the same width but the left one starts at 18, so the true middle of the
 # panel is not the middle of the gap between them.
@@ -529,7 +563,9 @@ _CROWN_GAP = 24
 # THE LEFT HALF IS SIZED OFF ITS WIDEST LINE: the band name, 275px at BODY, and
 # the section label, 249 at TITLE, plus the cell inset and headroom. Everything
 # else it holds is shorter, and 20g measures every line against it.
-_CROWN_LEFT_W = 316
+# 322, NOT 316 (2026-09-28): the band line wears an icon now, and at 1600x900
+# "An Iron Grip on the Court" behind it measured 260px in a 257px cell.
+_CROWN_LEFT_W = 322
 _CROWN_RIGHT_X = _CROWN_X + _CROWN_LEFT_W + _CROWN_GAP
 _CROWN_RIGHT_W = _CONTROL_W - _CROWN_LEFT_W - _CROWN_GAP
 
@@ -574,13 +610,27 @@ PANEL_LAYOUT["ic_leader_t1"] = (_LEADER_TX, _LEADER_ROW_Y + 42, _LEADER_TW, 26)
 PANEL_LAYOUT["ic_leader_t2"] = (_LEADER_TX, _LEADER_ROW_Y + 68, _LEADER_TW, 26)
 _LEADER_BOTTOM = _LEADER_ROW_Y + _PORT_H
 
+# THE CROWN'S THREE RULES (author, 2026-09-28: "no icons or separation in the
+# crown panel, use lines or icons to show what they mean"): a line under each
+# half's heading, in the 6px between the heading and the first line under it,
+# and one down the gap between the halves. The column divider's own flat fill.
+CROWN_RULE_W = 2
+PANEL_LAYOUT["ic_crown_rule_l"] = (_CROWN_X, _CROWN_Y0 + 28, _CROWN_LEFT_W, CROWN_RULE_W)
+PANEL_LAYOUT["ic_crown_rule_r"] = (_CROWN_RIGHT_X, _LEADER_Y + 28, _CROWN_RIGHT_W,
+                                   CROWN_RULE_W)
+PANEL_LAYOUT["ic_crown_rule_v"] = (_CROWN_X + _CROWN_LEFT_W
+                                   + (_CROWN_GAP - CROWN_RULE_W) // 2, _CROWN_Y0,
+                                   CROWN_RULE_W,
+                                   max(_LEFT_BOTTOM, _LEADER_BOTTOM) - _CROWN_Y0)
+
 # EVERY CELL IN THE BOX, by name, for the three checks that hold it together:
 # 16b (its column), 18 (inside the frame band) and 20b2 (no two cross). One list,
 # so a cell added to the box cannot be left out of one of them.
 CROWN_CELLS = (("ic_control", "ic_control_band") + FX_KEYS
                + ("ic_leader_lbl", "ic_leader_name", "ic_leader_party",
                   "ic_leader_port", "ic_leader_trait", "ic_leader_t1",
-                  "ic_leader_t2"))
+                  "ic_leader_t2", "ic_crown_rule_l", "ic_crown_rule_r",
+                  "ic_crown_rule_v"))
 
 # AND THE BOX IS AS TALL AS WHAT IS IN IT: the deeper of the two halves, then
 # the frame band. An empty framed box reads as a draw that failed.
@@ -1988,6 +2038,48 @@ def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX):
     return rows
 
 
+def frame_pixels():
+    """Square corners: a pixel takes the band of its NEAREST edge."""
+    rows = []
+    for y in range(FRAME_PX):
+        row = bytearray()
+        for x in range(FRAME_PX):
+            d = min(x, y, FRAME_PX - 1 - x, FRAME_PX - 1 - y)
+            row += bytearray(FRAME_BAND[d] if d < len(FRAME_BAND) else (0, 0, 0, 0))
+        rows.append(bytes(row))
+    return rows
+
+
+def check_portrait_frame(rows=None, layer=None):
+    """Opaque from its first pixel, FRAME_BRONZE px of bronze, a clear middle,
+    and drawn FRAME_OUT px past the cell - the two faults the author saw."""
+    rows = rows or frame_pixels()
+    layer = layer or FACE_LAYERS[FRAME_INDEX]
+    out = []
+    mid = 4 * (len(rows[0]) // 8)
+    col = [rows[y][4 * (len(rows[0]) // 8):4 * (len(rows[0]) // 8) + 4]
+           for y in range(len(rows))]
+    if any(rows[0][i + 3] < 255 for i in range(0, len(rows[0]), 4)) or col[0][3] < 255:
+        out.append("portrait frame: its outer edge is not opaque - the portrait "
+                   "shows round it")
+    bronze = 0
+    for px in col[1:]:
+        if px[3] == 255 and px[0] >= 90:
+            bronze += 1
+        else:
+            break
+    if bronze < FRAME_BRONZE:
+        out.append("portrait frame: %dpx of bronze, not %d" % (bronze, FRAME_BRONZE))
+    if rows[len(rows) // 2][mid + 3]:
+        out.append("portrait frame: its middle is not clear - it covers the face")
+    if (tuple(layer["offset"]) != (-FRAME_OUT, -FRAME_OUT)
+            or layer["dw"] != 2 * FRAME_OUT or layer["dh"] != 2 * FRAME_OUT):
+        out.append("portrait frame: the layer is not pushed %dpx past the cell, so "
+                   "the portrait's edge is beside the frame and not under it"
+                   % FRAME_OUT)
+    return out
+
+
 def check_seat_rim(rows=None, margin=RIM_MARGIN, px=RIM_PX):
     """The rim's corner must be as bright as its edge, and its centre empty."""
     rows = rows or seat_rim_pixels(margin, px)
@@ -2520,6 +2612,7 @@ def build_plates():
     out[MASK_NONE] = mask_pixels()
     out[RIM_ART] = seat_rim_pixels()
     out[RIM_ROW_ART] = seat_rim_pixels(RIM_ROW_MARGIN, RIM_ROW_PX)
+    out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
     return out
 
@@ -2578,14 +2671,29 @@ def masked_portraits(quiet=False):
 # Index 0 ships pointing at the vacant plate rather than at 1x1_blank_white,
 # because a cell that has never had its plate set must not flash white.
 #
-#   3  the frame (author, 2026-09-28: "add portrait borders") - CA's own
-#      Hell-Forge unit_card_frame, the thin bronze frame round every unit picture
-#      in the Hell-Forge: 1px dark line, 2px bronze, a soft inner shadow, a clear
-#      middle. Nine-sliced at FRAME_MARGIN, never swapped, on top of all three so
-#      nothing the Lua writes can cover it. NOT the card's panel_back_border,
-#      which is what "the portrait is doubled when assigned" was.
-FRAME_ART = "ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"
+#   3  the frame (author, 2026-09-28: "add portrait borders") - never swapped,
+#      on top of all three so nothing the Lua writes can cover it. NOT the
+#      card's panel_back_border, which is what "the portrait is doubled when
+#      assigned" was.
+#
+# OUR OWN ART IN CA's BRONZE, not CA's file (author, same day, of CA's
+# Hell-Forge unit_card_frame in game: "make the borders thicker, the character
+# portrait permeates thru the border"). CA's frame is 2px of bronze, and its
+# outermost pixel is TRANSPARENT and the next a near-black line at 65% - so the
+# visible bronze began 2px inside the cell, and the portrait's own outer 2px
+# showed round it. This one is opaque from its first pixel, carries 4px of
+# bronze (CA's measured 161,102,52 -> 102,57,23, lit one step brighter at the
+# outside), and is pushed FRAME_OUT px past the cell on every side so the
+# portrait's edge is under the frame and not beside it.
+FRAME_ART = "%s/portrait_frame.png" % PLATE_DIR
 FRAME_MARGIN = 8
+FRAME_OUT = 2
+FRAME_PX = 32
+# By distance in from the frame's outer edge. Past the list: clear.
+FRAME_BAND = [(26, 14, 6, 255), (190, 128, 66, 255), (161, 102, 52, 255),
+              (130, 78, 36, 255), (102, 57, 23, 255), (20, 10, 4, 255),
+              (0, 0, 0, 110), (0, 0, 0, 40)]
+FRAME_BRONZE = 4
 FACE_LAYERS = [
     {"path": plate_path(None),
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#FFFFFFFF",
@@ -2597,7 +2705,8 @@ FACE_LAYERS = [
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#FFFFFFFF",
      "dock": None},
     {"path": FRAME_ART,
-     "offset": (0, 0), "dw": 0, "dh": 0, "margin": FRAME_MARGIN,
+     "offset": (-FRAME_OUT, -FRAME_OUT), "dw": 2 * FRAME_OUT,
+     "dh": 2 * FRAME_OUT, "margin": FRAME_MARGIN,
      "colour": "#FFFFFFFF", "dock": None},
 ]
 # The Lua addresses layers by these numbers; import_iron_court.py compares them
@@ -2682,6 +2791,14 @@ def plated(icon, inset, state):
 
 CLOSE_LAYERS = plated(CLOSE_ICON, CLOSE_INSET, "active")
 CLOSE_HOVER = plated(CLOSE_ICON, CLOSE_INSET, "hover")
+
+# THE HELP BUTTON WEARS THE CLOSE BUTTON'S PLATE and CA's gold question mark.
+# The Tower of Zharr's bronze "i" came first and was a dark mark on a dark
+# plate that nobody saw (author, 2026-09-28). icon_question_mark.png is 38x38,
+# so a 6px inset draws it at 36 - near native, not stretched.
+HELP_ICON = "ui/skins/default/icon_question_mark.png"
+HELP_LAYERS = plated(HELP_ICON, 6, "active")
+HELP_HOVER = plated(HELP_ICON, 6, "hover")
 
 OPENER_HOVER = [
     {"path": PLATE % "underlay", "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0,
@@ -2769,7 +2886,10 @@ TITLE_TY = "0.00,4.00"
 # that rule once, for the preview; the Lua is the other copy.
 PLATE_GAP = 14
 FIT_PLATES = {"ic_title": (TITLE_CAP, True), "ic_col_left": (HEADING_CAP, False),
-              "ic_col_right": (HEADING_CAP, False)}
+              "ic_col_right": (HEADING_CAP, False),
+              # THE HELP TOPIC'S NAME, on the heading plate, sized to it and
+              # held to the page's left edge.
+              "ic_help_head": (HEADING_CAP, True)}
 for _i in range(PLOT_COLS):
     FIT_PLATES["ic_plotcat_%d" % (_i + 1)] = (HEADING_CAP, False)
 
@@ -3066,7 +3186,7 @@ def _panel():
             # player can hover to find out whose colour that is.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=PORT_LAYERS))
-        elif name in ("ic_col_left", "ic_col_right"):
+        elif name in ("ic_col_left", "ic_col_right", "ic_help_head"):
             # CENTRED OVER ITS OWN COLUMN, which is what makes the two columns
             # read as two columns rather than as one wide tab with a rule in it.
             # ON A PLATE since 2026-09-26: see HEADER_LAYERS. HEADING_TY lifts
@@ -3085,6 +3205,10 @@ def _panel():
             # its party's ray every draw, so the text has to sit in the middle
             # of the cell rather than at its left edge like a column does.
             panel.add(EU.C(name, w, h, **dict(TAB_TEXT)))
+        elif name == "ic_help_box":
+            # THE HELP PAGE'S CARD, the dial's own layers. Not interactive: it
+            # lies under the topic buttons and would eat their clicks.
+            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
         elif name == "ic_dial_box":
             # THE CARD'S OWN LAYERS: a tiled body and a 9-sliced frame over it,
             # which is what every other framed thing in this panel is made of.
@@ -3103,7 +3227,8 @@ def _panel():
             # leader's trait and his porthole, and an interactive plate over
             # them would eat every one of their hovers.
             panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
-        elif name == "ic_divider":
+        elif (name == "ic_divider" or name.startswith("ic_crown_rule_")
+              or name == "ic_help_rule"):
             # A FLAT FILL, not a frame texture. It is 4px wide and a 9-slice
             # needs room for two corners and a rail; at this width there is
             # nothing left to stretch, which is check 13.
@@ -3149,7 +3274,7 @@ def _panel():
             # font, and EU.C only writes a text block when one is asked for.
             panel.add(EU.C(name, w, h, interactive=True, sound=SORT_SOUND,
                            layers=SORT_LAYERS, hover=SORT_HOVER))
-        elif name.startswith("ic_tab_"):
+        elif name.startswith("ic_tab_") or name.startswith("ic_help_topic_"):
             # THE SAME TREATMENT AS A TAB, deliberately: it sits on the tab row
             # and it is a button, so it must read as one. A cell that changes the
             # list when clicked but is drawn as a caption is a control nobody
@@ -3171,6 +3296,10 @@ def _panel():
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=CLOSE_LAYERS, hover=CLOSE_HOVER,
                            tooltip="Close"))
+        elif name == "ic_help":
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=HELP_LAYERS, hover=HELP_HOVER,
+                           tooltip="How the court works"))
         elif name in ("ic_page_prev", "ic_page_next", "ic_fill") \
                 or name.startswith("ic_act_") and name != "ic_act_hint":
             # THE ACTION BAR WEARS THE PAGER'S PLATE: same row, same height,
@@ -3343,10 +3472,15 @@ def _opener():
 # the opener is built around. It is anchored by READING a CA component's settled
 # position at runtime rather than by any offset written down here, so nothing in
 # this file has to know what CA's panel looks like.
-STANDING_W, STANDING_H = 190, 22
-STANDING_LAYERS = [
-    {"path": PLATE % "underlay", "dw": 0, "dh": 0},
-]
+#
+# ON THE HELL-FORGE PLATE the court panel's own "137 influence" sits on
+# (SEATS_LAYERS), 26 tall like ic_influence: one figure, one look. It was CA's
+# ROUND button underlay pulled to 190x22 - a squashed ellipse (author,
+# 2026-09-28: "the influence in the character has the background stretched
+# out"). Text LEFT: ICUI.fit_words sizes the plate to its words at runtime and
+# holds them in with SetTextXOffset. STANDING_W is only the widest it gets.
+STANDING_W, STANDING_H = 190, 26
+STANDING_LAYERS = SEATS_LAYERS
 
 
 def _standing():
@@ -3355,8 +3489,29 @@ def _standing():
     # interactive component there would eat clicks meant for CA's own buttons.
     root.add(EU.C("derpy_ic_standing", STANDING_W, STANDING_H,
                   layers=STANDING_LAYERS,
-                  **style("derpy_ic_standing", align="Center", valign="Center",
-                          tx="0.00,0.00", ty="0.00,0.00")))
+                  **style("derpy_ic_standing", align="Left", valign="Center",
+                          tx="0.00,0.00", ty=LABEL_TY)))
+    return root
+
+
+# THE EDICT NOTE (author, 2026-09-28: "no warning or feedback that it needs a
+# governor", then "the ui is not good" of the first one, which borrowed the
+# standing plate and drew bare letters on the HUD's trim). The seats counter's
+# own plate, the Hell-Forge's sub_title.png at its native 30px height, text
+# LEFT: ICUI.edict_note sizes it to its words' WidthOfTextLine plus a tenth and
+# holds them that far in with SetTextXOffset, so centring never moves them. It
+# makes it a child of CA's edict stack and MoveTo's it against the frame.
+EDICT_NOTE_W, EDICT_NOTE_H = 190, 30
+
+
+def _edict_note():
+    root = EU.C("root", EDICT_NOTE_W, EDICT_NOTE_H)
+    # NOT interactive, like the standing plate: it sits in CA's HUD and must
+    # not eat a click meant for an edict.
+    root.add(EU.C("derpy_ic_edict_note", EDICT_NOTE_W, EDICT_NOTE_H,
+                  layers=SEATS_LAYERS,
+                  **style("derpy_ic_edict_note", align="Left", valign="Center",
+                          tx="0.00,0.00", ty=LABEL_TY)))
     return root
 
 
@@ -3371,6 +3526,8 @@ FILES = [
     ("derpy_ic_opener.twui.xml", _opener, "The Iron Court - HUD opener button"),
     ("derpy_ic_standing.twui.xml", _standing,
      "The Iron Court - a courtier's standing, over CA's character panel"),
+    ("derpy_ic_edict_note.twui.xml", _edict_note,
+     "The Iron Court - why a province's edicts are grey, beside CA's edict stack"),
 ]
 
 LAYOUT_TABLES = {
@@ -3382,6 +3539,8 @@ LAYOUT_TABLES = {
     "derpy_ic_opener.twui.xml": {"derpy_ic_opener": (0, 0, OPENER_W, OPENER_H)},
     "derpy_ic_standing.twui.xml": {
         "derpy_ic_standing": (0, 0, STANDING_W, STANDING_H)},
+    "derpy_ic_edict_note.twui.xml": {
+        "derpy_ic_edict_note": (0, 0, EDICT_NOTE_W, EDICT_NOTE_H)},
     # PLACED BY ICUI.card_fire, not by a layout table: the emitter is MoveTo'd
     # to its card's bottom edge on every draw. Named here so check 7 knows it.
     "derpy_ic_fire.twui.xml": {"derpy_ic_fire": (0, 0, 0, 0), "embers": (0, 0, 0, 0),
@@ -3468,7 +3627,7 @@ FIRE_LIFT = 10
 
 SCALED_SCALARS = [
     "PANEL_W", "PANEL_H", "CONTENT_W", "ROWS_X", "ROWS_Y", "ROW_PITCH", "HDR_GAP",
-    "HDR_Y", "COL_TOP", "COL_GUTTER", "DIVIDER_W", "COL_W", "COL_L_X", "COL_R_X",
+    "HDR_Y", "COL_TOP", "COL_GUTTER", "DIVIDER_W", "CROWN_RULE_W", "COL_W", "COL_L_X", "COL_R_X",
     "COL_HDR_H", "COL_BODY_Y", "COL_BOTTOM", "RIM_PAD", "DIAL_CX", "DIAL_PAD_X",
     "DIAL_PAD_TOP", "DIAL_PAD_BOT", "DIAL_R", "DIAL_CY", "CREST_R", "CREST_PX",
     "SHARE_R", "SHARE_W", "SHARE_H", "CROWN_Y", "CROWN_BAND", "_CROWN_X",
@@ -3500,10 +3659,10 @@ NOT_GEOMETRY = [
     "PORTHOLE_W", "PORTHOLE_H", "MAX_HOUSES", "OFFICE_COUNT", "DIAL_SLICES",
     "CARD_TIERS", "CARD_WIDEST", "PLOT_COUNTS", "PLOT_COLS", "PLOT_DEPTH",
     "PLOT_BLURB_LINES", "VISIBLE_ROWS", "PARTY_COLS", "PARTY_ROWS", "PARTY_SLOTS",
-    "OPENER_W", "OPENER_H", "STANDING_W", "STANDING_H", "LAYOUT_TABLES",
+    "OPENER_W", "OPENER_H", "STANDING_W", "STANDING_H", "EDICT_NOTE_W", "EDICT_NOTE_H", "LAYOUT_TABLES",
     "FX_KEYS", "CROWN_CELLS",
     "PANEL_LAYERS", "ROW_LAYERS", "CARD_LAYERS", "PORT_LAYERS", "CARD_PORT_LAYERS",
-    "FACE_LAYERS", "OPENER_LAYERS", "CLOSE_LAYERS", "CLOSE_HOVER", "OPENER_HOVER",
+    "FACE_LAYERS", "OPENER_LAYERS", "CLOSE_LAYERS", "CLOSE_HOVER", "HELP_LAYERS", "HELP_HOVER", "HELP_ICON", "HELP_SLOTS", "OPENER_HOVER",
     "BTN_LAYERS", "BTN_HOVER", "PAGE_LAYERS", "PAGE_HOVER", "SORT_LAYERS",
     "SORT_HOVER", "STANDING_LAYERS", "BORDER_CORNER", "TEXTURE_MIN_MARGIN",
     "PLATE_W", "PLATE_H", "PLATE_BASE", "SIGIL", "FLAG_WHITE", "FLAG_CLEAR",
@@ -3511,7 +3670,8 @@ NOT_GEOMETRY = [
     "SIL_RIM", "SIL_RIM_PX", "SIL_ALPHA", "SIL_MIN_STEP", "RIM_TOP", "RIM_SIDE",
     "RIM_BOTTOM", "RIM_EDGE_A", "RIM_SHADOW", "RIM_W", "RIM_SS", "EMBER",
     "EMBER_DEPTH", "DIV_W", "DIV_EDGE_A", "DIV_SS", "PLATE_INDEX", "FACE_INDEX",
-    "MASK_INDEX", "FRAME_INDEX", "FRAME_ART", "FRAME_MARGIN", "FACE_COLOUR_FROM", "OPENER_ICON_INSET", "CLOSE_INSET", "TAB_H",
+    "MASK_INDEX", "FRAME_INDEX", "FRAME_ART", "FRAME_MARGIN", "FRAME_OUT", "FRAME_PX",
+    "FRAME_BAND", "FRAME_BRONZE", "FACE_COLOUR_FROM", "OPENER_ICON_INSET", "CLOSE_INSET", "TAB_H",
     "TAB_LAYERS", "TAB_HOVER", "TAB_CAP", "TAB_TEXT_INSET", "TITLE_LAYERS",
     "TITLE_CAP", "TITLE_TY", "PLATE_GAP", "FIT_PLATES", "HEADER_LAYERS", "HEADING_ART", "HEADING_CAP", "HEADING_TY", "HEADING_H",
     # Crop boxes in CA's source pixels, not layout.
@@ -4384,6 +4544,7 @@ def check():
     # "the corners are not filled" on CA's rounded one).
     out.extend(check_seat_rim())
     out.extend(check_seat_rim(margin=RIM_ROW_MARGIN, px=RIM_ROW_PX))
+    out.extend(check_portrait_frame())
 
     # 2. The prefix is ours, and DE15 is retired.
     for fname, text in all_files.items():
@@ -4705,6 +4866,12 @@ def check():
             # They sit where the row strip sits because that is where a heading
             # belongs, and the court is not one of the views they draw on.
             continue
+        if name.startswith("ic_help_") and name != "ic_help":
+            # THE HELP PAGE, which is a view of its own and draws no pie. The
+            # harness holds every one of these hidden on the Court tab
+            # ("...a second press or a tab leaves it"), which is the fact this
+            # exemption rests on.
+            continue
         if x < px0 + pw and x + w > px0 and y < py0 + ph and y + h > py0:
             out.append("%s at %d,%d %dx%d is under the pie at %d,%d %dx%d"
                        % (name, x, y, w, h, px0, py0, pw, ph))
@@ -4894,10 +5061,20 @@ def check():
         # picture, because quoting it under the standing icon is worse than
         # quoting it bare.
         _icons = dict(re.findall(r'ICUI\.(\w+_ICON)\s*=\s*"([^"]+)"', _uisrc))
+        # AND EVERY ICON TABLE, one path per entry (ICUI.FX_ICONS, 2026-09-28:
+        # an effect's icon is chosen by its label at draw time). Each path is
+        # held to a pack like a single declaration; a line naming the table or
+        # the house crest is an indirection like one naming a declared icon.
+        for _t, _body in re.findall(r'ICUI\.(\w+_ICONS)\s*=\s*\{(.*?)\n\}', _uisrc, re.S):
+            for _k, _p in enumerate(re.findall(r'"([^"]+\.png)"', _body)):
+                _icons["%s[%d]" % (_t, _k)] = _p
+        _via = ["ICUI." + _n for _n in _icons if "[" not in _n] + [
+            "ICUI." + _t for _t in re.findall(r'ICUI\.(\w+_ICONS)\s*=', _uisrc)] + [
+            "ICUI.crest("]
         _inline = set()
         for _ln in _code:
             for _p in re.findall(r"\[\[img:([^\]]+)\]\]", _ln):
-                if _p == "%s" and any(("ICUI." + _n) in _ln for _n in _icons):
+                if _p == "%s" and any(_v in _ln for _v in _via):
                     # AN INDIRECTION, not a path. The helper wraps the markup
                     # round a path declared elsewhere in the file, so the hole
                     # is nothing to resolve - the declaration is, and it is
@@ -5462,6 +5639,37 @@ def check():
             # the engine then cuts. The inline picture is a line box either way.
             return width * GAME_FONT_WIDER + pics * sum(font.getmetrics())
 
+        # 20c-help. EVERY HELP LINE FITS ITS ROW (2026-09-28). The row cuts a
+        #      long line to an ellipsis, which on a help page is a rule the
+        #      player never reads the end of. A {name} is a number filled at
+        #      draw time and is measured as four digits, wider than any the
+        #      model holds. The column's help width is read out of ICUI.COL_W,
+        #      where it is typed at 1920, and scaled the way ICUI.apply_scale
+        #      scales it: by its two edges. AT EVERY BOX, because the fonts step
+        #      down below 1920 and the column narrows with the box.
+        if True:
+            _ui_src = io.open(os.path.join(
+                ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+            _hm = re.search(r"^ICUI\.HELP = \{\n(.*?)^\}", _ui_src, re.S | re.M)
+            if not _hm:
+                out.append("cannot read ICUI.HELP out of the panel Lua, so no "
+                           "help line is measured")
+            else:
+                _room = usable_w(PANEL_LAYOUT["ic_help_line_1"][2], "ic_help_line_1")
+                _px = style("ic_help_line_1")["size"]
+                _help_lines = re.findall(r'^\s*"((?:[^"\\]|\\.)*)",\s*$',
+                                         _hm.group(1), re.M)
+                # A PATTERN THAT MATCHES NOTHING PASSES EVERY LINE.
+                if not _help_lines:
+                    out.append("ICUI.HELP holds no line this check can read, so "
+                               "no help line is measured")
+                for _line in _help_lines:
+                    _shown = re.sub(r"\{\w+\}", "9999", _line)
+                    _got = _measure(_shown, _px)
+                    if _got > _room:
+                        out.append("at %d: help line measures %dpx in a %dpx row: %s"
+                                   % (BOX_W, _got, _room, _line[:60]))
         _built = _G.build()
         _loc = {r["key"]: r["text"] for r in _built["loc"]}
         # FIVE CELLS OF SEVEN, AND THE OTHER TWO SAY WHY. ic_card_holder and
@@ -5694,18 +5902,20 @@ def check():
         # because ICUI.trait_line is what draw_leader writes now.
         _effects = [_G.effect_short(_e, _m, _i)
                     for _b in (_bands or ()) for _e, _m, _i in _b[4]]
+        # EVERY LINE WEARS AN ICON NOW (2026-09-28), measured as the trait's:
+        # every inline icon is drawn at the line's own height.
         _leader_strings = {
-            "ic_control": ["100% of the court"],
-            "ic_control_band": [_b[2] for _b in (_bands or ())],
+            "ic_control": [TRAIT_MARKUP + "100% of the court"],
+            "ic_control_band": [TRAIT_MARKUP + _b[2] for _b in (_bands or ())],
             "ic_leader_lbl": ["The Crown"],
             "ic_leader_name": [_LONG_PERSON],
-            "ic_leader_party": [_LONG_PERSON] + _rolled,
+            "ic_leader_party": [TRAIT_MARKUP + _p for _p in [_LONG_PERSON] + _rolled],
             "ic_leader_trait": [TRAIT_MARKUP + _t for _t in _leader_traits],
             "ic_leader_t1": [TRAIT_MARKUP + _t for _t in _party_traits],
             "ic_leader_t2": [TRAIT_MARKUP + _t for _t in _party_traits],
         }
         for _fx in FX_KEYS:
-            _leader_strings[_fx] = _effects
+            _leader_strings[_fx] = [TRAIT_MARKUP + _e for _e in _effects]
         # AND A BAND WITH MORE EFFECTS THAN THERE ARE LINES would drop its last
         # ones silently - the Lua writes FX_KEYS and no further.
         for _b in (_bands or ()):
@@ -6483,6 +6693,19 @@ def selftest():
                 _rim[_y][4 * _x + 3] = 0
     assert not check_seat_rim(), check_seat_rim()
     assert check_seat_rim([bytes(r) for r in _rim]),         "check_seat_rim passed a rim whose corners are cut away"
+    assert not check_portrait_frame(), check_portrait_frame()
+    _fr = [bytearray(r) for r in frame_pixels()]
+    for _r in (_fr[0], _fr[-1]):
+        for _i in range(3, len(_r), 4):
+            _r[_i] = 0
+    for _r in _fr:
+        _r[3] = 0
+        _r[-1] = 0
+    assert check_portrait_frame([bytes(r) for r in _fr]), \
+        "check_portrait_frame passed a frame with a clear outer edge"
+    _flat = dict(FACE_LAYERS[FRAME_INDEX], offset=(0, 0), dw=0, dh=0)
+    assert check_portrait_frame(layer=_flat), \
+        "check_portrait_frame passed a frame drawn inside the cell"
     assert check_burst(burst_xml().replace(
         'name="loops"', 'name="paused"')), "check_burst passed a paused sprite"
     _fire = fire_xml()

@@ -116,6 +116,13 @@ end
 
 IC.REBEL_LORD = "wh3_dlc23_chd_overseer"
 
+-- WHAT A RISING'S AI WANTS (author, 2026-09-28: "make the rebel faction
+-- aggresive"). The pool's qb factions keep the passive personality their
+-- startpos gave them and sat on what they took. This is the row CA's Will of
+-- Hashut crisis forces on its own invading Chaos Dwarfs: the aggressive
+-- strategic component and the endgame task generators.
+IC.REBEL_PERSONALITY = "wh3_combi_chaos_dwarf_endgame"
+
 IC.REBEL_GENERALS = {
     ["wh3_dlc23_chd_lord_convoy_overseer"] = true,
     ["wh3_dlc23_chd_overseer"] = true,
@@ -387,7 +394,6 @@ IC.TUNE = {
     -- A man whose term ended takes the same seat again only this many turns
     -- later, and without loyalty_appointed (author, 2026-09-25).
     renew_wait          = 3,
-    hire_standing       = 100,
 
     battle_influence    = {
         heroic_victory   = 50,
@@ -2272,21 +2278,6 @@ function IC.candidates(faction_key)
     return out
 end
 
-IC.HIRE = {
-    {subtype = "wh3_dlc23_chd_infernal_castellan",
-     agent = "engineer", name = "Infernal Castellan"},
-    {subtype = "wh3_dlc23_chd_bull_centaur_taurruk",
-     agent = "champion", name = "Bull Centaur Taurruk"},
-    {subtype = "wh3_dlc23_chd_daemonsmith_sorcerer_hashut",
-     agent = "wizard", name = "Daemonsmith Sorcerer"},
-}
-
-IC.hiring = {}
-
-function IC.hire_cost()
-    return IC.TUNE.hire_standing
-end
-
 -- The capital, else the first region with a settlement: where a hired officer
 -- or a party leader put in the field turns up.
 function IC.hire_region(faction)
@@ -2312,81 +2303,44 @@ function IC.hire_settlement(faction)
     return region and region:settlement() or nil
 end
 
-function IC.can_hire(faction_key, office_slug, index)
-    local office = IC.office_by_slug(office_slug)
-    if not office then return false, "no such office" end
-    if not IC.HIRE[index] then return false, "no such officer" end
-    local court = IC.court(faction_key)
-    if court.offices[office_slug] then
-        local left = (court.terms[office_slug] or 0) - cm:model():turn_number()
-        return false, "term", math.max(0, left)
+-- A NEW MAN'S INFLUENCE, off the SEAT LADDER (author, 2026-09-28: "hiring
+-- lords or hero should be on the recruitement panel, with influence adjusted
+-- to their level ... level 5 = 100 influence"). Each tier's level buys that
+-- tier's bar, evenly in between; below the lowest level the lowest bar, above
+-- the highest the highest. Read off IC.TUNE, so a retuned ladder moves it too.
+function IC.recruit_influence(rank)
+    local ladder = {}
+    for _, t in ipairs(IC.TIERS) do
+        ladder[#ladder + 1] = {IC.tier_rank(t), IC.tier_influence(t)}
     end
-    if IC.tier_influence(office.tier) > IC.TUNE.hire_standing then
-        return false, "too high"
+    table.sort(ladder, function(x, y) return x[1] < y[1] end)
+    if #ladder == 0 then return 0 end
+    rank = rank or 1
+    if rank <= ladder[1][1] then return ladder[1][2] end
+    for i = 2, #ladder do
+        local a, b = ladder[i - 1], ladder[i]
+        if rank <= b[1] then
+            return a[2] + math.floor((b[2] - a[2]) * (rank - a[1]) / (b[1] - a[1]))
+        end
     end
-    if not IC.hire_settlement(real_faction(faction_key)) then
-        return false, "no settlement"
-    end
-    return true
+    return ladder[#ladder][2]
 end
 
-function IC.hired(faction_key, character)
-    local office_slug = IC.hiring[faction_key]
-    if not office_slug then return false end
-    if not character or character:is_null_interface() then return false end
-    IC.hiring[faction_key] = nil
-
-    local lookup = cm:char_lookup_str(character)
-    pcall(function()
-        cm:add_agent_experience(lookup, IC.office_rank(office_slug), true)
-    end)
-    IC.stamp_origin(character, IC.origin_for(character))
-    IC.stamp_bg(character, IC.background_for(character, faction_key))
-    IC.stamp_ambition(faction_key, character)
-
+-- ONCE, AS HE ARRIVES, and only into a court that has its parties: a man with
+-- influence already on the books has earned it, and the start's own cast is
+-- dealt by the roll, not priced here.
+function IC.price_recruit(faction_key, character)
+    if not character or character:is_null_interface() then return end
+    local faction = character:faction()
+    if not faction or faction:is_null_interface() or not IC.runs_court(faction) then
+        return
+    end
+    if not IC.court_rolled(faction_key) then return end
     local cqi = character:command_queue_index()
-    IC.court(faction_key).standing[cqi] = IC.TUNE.hire_standing
-    local done, why, spare = IC.appoint(faction_key, office_slug, cqi)
-    if not done then
-        IC.save(faction_key)
-        return false, why, spare
-    end
-    IC.log(faction_key, "hire", own, office_slug, 0)
-    return true
-end
-
-function IC.hire(faction_key, office_slug, index)
-    local ok, why, spare = IC.can_hire(faction_key, office_slug, index)
-    if not ok then return false, why, spare end
-    local faction = real_faction(faction_key)
-    local settlement = IC.hire_settlement(faction)
-    local recruit = IC.HIRE[index]
-
-    local before = {}
-    local list = faction:character_list()
-    for i = 0, list:num_items() - 1 do
-        local one = list:item_at(i)
-        if one and not one:is_null_interface() then
-            before[one:command_queue_index()] = true
-        end
-    end
-
-    IC.hiring[faction_key] = office_slug
-    cm:spawn_agent_at_settlement(faction, settlement, recruit.agent,
-                                 recruit.subtype)
-
-    list = faction:character_list()
-    for i = 0, list:num_items() - 1 do
-        local one = list:item_at(i)
-        if one and not one:is_null_interface()
-                and not before[one:command_queue_index()] then
-            local done, reason, over = IC.hired(faction_key, one)
-            if done then return true end
-            if IC.hiring[faction_key] == nil then return false, reason, over end
-        end
-    end
-    -- Still open: the spawn was asynchronous and the listener will finish it.
-    return true
+    local court = IC.court(faction_key)
+    if court.standing[cqi] ~= nil then return end
+    court.standing[cqi] = IC.recruit_influence(character:rank())
+    IC.save(faction_key)
 end
 
 function IC.can_appoint(faction_key, office_slug, cqi)
@@ -3682,6 +3636,9 @@ function IC.secede(faction_key, slug)
                 cm:force_declare_war(rebels, faction_key, false, false)
             end)
             IC.say("IRON COURT: war declared")
+            pcall(function()
+                cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)
+            end)
             pcall(function()
                 local f = cm:get_faction(rebels)
                 if f and f ~= false then
@@ -5270,10 +5227,6 @@ IC.MP_OPS.favour = function(fk, arg)           -- favour|party
     local f = fields(arg)
     return answer(fk, "favour", arg, IC.favour(fk, f[1], f[2]))
 end
-IC.MP_OPS.hire = function(fk, arg)             -- office|index
-    local f = fields(arg)
-    return answer(fk, "hire", arg, IC.hire(fk, f[1], tonumber(f[2])))
-end
 IC.MP_OPS.grant = function(fk, arg)
     return answer(fk, "grant", arg, IC.grant_demand(fk))
 end
@@ -5354,7 +5307,7 @@ function IC.register()
         if not faction or faction:is_null_interface() then return end
         local faction_key = faction:name()
         if IC.runs_court(faction) then IC.loaded(faction_key) end
-        IC.hired(faction_key, character)
+        IC.price_recruit(faction_key, character)
         if IC.is_chd(faction) and IC.court_rolled(faction_key) then
             IC.stamp_origin(character, IC.origin_for(character))
             IC.stamp_bg(character, IC.background_for(character, faction_key))

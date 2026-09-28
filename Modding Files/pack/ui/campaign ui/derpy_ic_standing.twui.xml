@@ -21,7 +21,7 @@
 					this="IC340002-D000-4000-B000000000000002"
 					name="standard"
 					width="190"
-					height="22"
+					height="26"
 					uniqueguid="IC340002-D000-4000-B000000000000002">
 				</standard>
 			</states>
@@ -37,14 +37,14 @@
 				<component_image
 					this="IC340004-D001-4000-B000000000000004"
 					uniqueguid="IC340004-D001-4000-B000000000000004"
-					imagepath="ui/skins/default/button_round_medium_underlay.png"/>
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/sub_title.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC340005-D000-4000-B000000000000005"
 					name="standard"
 					width="190"
-					height="22"
+					height="26"
 					uniqueguid="IC340005-D000-4000-B000000000000005">
 					<imagemetrics>
 						<image
@@ -53,15 +53,14 @@
 							componentimage="IC340004-D001-4000-B000000000000004"
 							offset="0.00,0.00"
 							width="190"
-							height="22"
-							dockpoint="Center"
-							margin="0.00,0.00,0.00,0.00"/>
+							height="26"
+							margin="6.00,6.00,6.00,6.00"/>
 					</imagemetrics>
 					<component_text
-						texthalign="Center"
+						texthalign="Left"
 						textvalign="Center"
 						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
+						textyoffset="4.00,0.00"
 						texthbehaviour="Never split"
 						font_m_size="20"
 						font_m_colour="#FFF8D7FF"

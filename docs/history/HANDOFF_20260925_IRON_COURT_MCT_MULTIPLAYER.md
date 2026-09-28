@@ -890,3 +890,152 @@ sits on (it failed on the row first). Script log `script_log_280926_1540.txt` on
 three files loaded, the court ran, no script errors, `event_error_logs` empty. Build
 `7B34D7270FFCE04271B2142FB99A756F`, 9,240,059 bytes, 1,726 files, byte-verified; deployed to
 data/ (backup `derpy_iron_court.pack.bak_pre_frames_20260928` holds A54792C5); pushed to GitHub.
+
+**Thicker frames, recruitment, the Crown block (2026-09-28).** Author, on build 7B34D727:
+"make the borders thicker, the character portrait permeates thru the border"; "no icons or
+separation in the crown panel"; "remove also hiring heroes from the assigning part ... influence
+adjusted to their level".
+- **Frame:** our own `ui/derpy_ic/portrait_frame.png` (`gen_ic_ui.frame_pixels`, CA's measured
+  bronze, opaque from the first pixel, 4px of bronze) replaces CA's unit_card_frame, whose
+  outermost pixel is transparent and next one a 65% black line, so the portrait's outer 2px showed
+  round the bronze. The layer is pushed `FRAME_OUT` = 2px past the cell (offset -2, +4 size).
+  `check_portrait_frame` holds the opaque edge, the 4px band, the clear middle and the push; its
+  selftest breaks each. The preview had been forcing every layer to its cell's size - it now keeps
+  a layer's own size delta, which also drew buttons squashed before.
+- **Hiring removed.** IC.HIRE, IC.hiring, IC.hire_cost, IC.can_hire, IC.hired, IC.hire, the `hire`
+  MP op, TUNE.hire_standing, the picker's Hire rows and the importer's IC.HIRE check are gone
+  (the `hire` log kind stays, for old saves). `IC.price_recruit` on CharacterCreated gives a man
+  born into a rolled court, once, `IC.recruit_influence(rank)`: the SEAT LADDER read off
+  TUNE.tier_rank / tier_influence, evenly in between, clamped at both ends (5 -> 100, 12 -> 200,
+  20 -> 300, 30 -> 400). Before, a recruited man started at 0.
+- **Crown block.** Icons on the share (ICUI.COST_ICON), band (ICUI.BAND_ICON, CA's
+  chd_toz_tier.png) and effect lines (ICUI.FX_ICONS by short label: public_order, income,
+  military_spending, growth - CA's own icons for those effects), the Crown's crest on its party
+  line, and three flat-fill rules (ic_crown_rule_l/r/v) in ICUI.COLUMN_KEYS. The left half is
+  322 wide, not 316: the band line with its icon measured 260px in a 257px compact cell.
+  `import_iron_court.check_fx_icons` holds FX_ICONS against the bands' EFFECT_SHORT labels and
+  CA's effects.icon; gen_ic_ui check 23 now verifies an `ICUI.*_ICONS` table's paths too.
+Harness 711; 569 mutants all anchored (new: 4 recruit, 5 Crown; 2 re-aimed). Build
+`9588EE3E7E707FD6C06D28C7D5D5836F`, 9,243,255 bytes, 1,727 files, byte-verified. Deployed to data/
+(backup `derpy_iron_court.pack.bak_pre_crown_20260928` holds 7B34D727); not pushed.
+
+**Aggressive rebels, the help page (2026-09-28).** Author: "make the rebel faction aggresive"; "add a
+help button besides the hashut's court with all the information the player needed" (chose a Help page over a tooltip).
+- **Rebels:** `IC.secede` now calls `cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)` after the war,
+  `wh3_combi_chaos_dwarf_endgame` - the row CA's Will of Hashut crisis forces on its invaders (strategic component
+  `chaos_aggressive`, endgame task generators; verified present in db.pack). The qb pool factions kept their startpos
+  personality and sat still. On an own-origin rising it changes that house's faction for good, which is the point.
+- **Help page:** `ic_help` (CA's Tower of Zharr `icon_button_help.png` on the close button's plate) is MoveTo'd to the
+  fitted title plate's end plus the layout's own gap (`ICUI.fit_plate` now returns x, w). It toggles a `help` view
+  that is not a tab: `ICUI.help_back` is where it returns, close() never leaves the panel on it. `ICUI.HELP` is ten
+  topics drawn through the row pool with `COL_W.help = {[1] = 1528}`, each padded to a page so the pager turns
+  topics (padding rows `blank`, hidden). `{name}` in a line is filled from `ICUI.help_vars` - every number in IC.TUNE
+  plus seats, tiers and the ladder's ends - and a missing name stays on screen braces and all. gen_ic_ui check
+  20c-help measures every line (names as four digits) against the row; the harness fails an unresolved name.
+- **Edicts need a governor** (author: "grey out the button"). No script call locks an edict: they are
+  `provincial_initiative_records`, not initiatives, so `toggle_initiative_script_locked` cannot reach them. UI only:
+  on `SettlementSelected` (+0.1s and +0.5s) and on `ICUI.close`, `ICUI.apply_edict_lock` greys CA's
+  `hud_campaign > bl_parent > stack_incentives` children (read from hud_campaign.twui.xml: states active / inactive /
+  selected / selected_inactive; the stack's open_message is `commandment_available`) with SetState + SetDisabled when
+  `court.govs[province]` is nil. It relights only what it greyed, only in a province the player wholly holds
+  (`ICUI.edict_verdict` returns nil anywhere else, so the engine's own lock is never lifted). Tooltip untouched:
+  GetTooltipText hard-crashes on a HUD button, so a written reason could never be restored. UNVERIFIED IN GAME:
+  whether the engine keeps the state or re-sets it on its own refresh - the live probe was sent after the game closed.
+Harness 717; 585 mutants (full run 576/0 before the edict lock; its 9 run and caught). Build
+`52BCA382E018400A091AFC863D7A3981`, 9,272,475 bytes, 1,727 files, byte-verified. Deployed to data/ (backup `derpy_iron_court.pack.bak_pre_help_20260928` holds 9588EE3E); not pushed.
+
+**Build 52BCA382 in play (2026-09-28).** Author: the help page "doesnt look very user friendly" and "i can
+also issue edicts without a governor still". Both fixed; walked live through the bridge.
+- **Edicts found nothing.** The runtime HUD id is `BL_parent` (hud_campaign.twui.xml says `bl_parent`), and the
+  buttons are not the stack's children: the running edict's is, every choice is two levels down in
+  `clip_parent > stack_background`. And WH3's `string.find(s, "^...")` returns NO values - found probing the
+  walk. `ICUI.edict_buttons` now walks the whole stack for `button_*` by `string.sub`; `check_lua_api.py` flags an
+  anchored find (`find-anchor`). Proven live by hot-patching the running game: five buttons `inactive` and
+  disabled for the Plain of Zharr, strings healthy after. Whether the state holds through the engine's own
+  refreshes is still for the author to see.
+- **Help page rebuilt** (author chose a topic list and a page): `ic_help_box` (CARD_LAYERS, deliberately NOT a
+  tier -1 plate - make_ic_backdrop drops cells a tier -1 plate covers and this card covers the header strip),
+  `ic_help_rule`, `ic_help_head` (fit plate), `ic_help_topic_1..12` (tab plates, lit like tabs) and
+  `ic_help_line_1..12` at 34px; `gen_ic_ui.help_layout()` deals them, ICUI.PANEL_XY mirrors them literally.
+  Numbers filled from IC.TUNE are `[[col:yellow]]`. The button is CA's gold `icon_question_mark.png`. The row
+  pool, `COL_W.help`, the page padding and the importer exemption are gone. The 27 new cells pushed the UI
+  file's main chunk past 255 constants: `2 * ICUI.DIAL_R` in the wedge and wall loops is `ICUI.DIAL_R * 2` now.
+Harness 717; 593 mutants, 0 unexplained; gen_ic_ui selftest ok (554 components). Build
+`2BA85110434AD5B5F6A189FBEF7E0217`, 9,370,796 bytes, 1,727 files, byte-verified. Deployed to data/ (backup
+`derpy_iron_court.pack.bak_pre_helppage_20260928` holds 52BCA382); not pushed.
+
+**Build 2BA85110 in play (2026-09-28).** Author: "the buttons are not greyed out consistently only at the
+start", then "its greyed out but no warning or feedback that it needs a governor".
+- **The grey did not hold.** The engine drives these buttons' states itself and put them back to `active`,
+  disabled still. `ICUI.edict_look` sets CA's `set_greyscale_t0` shader on every state and the text, the
+  Exchange's `EX.set_off` technique; the author saw it hold.
+- **And only at the start**: `ic_edicts` was registered WITHOUT `add_listener`'s persist argument, so the engine
+  dropped it after the first settlement selected. The harness's `core.add_listener` stub now drops a one-shot the
+  way the engine does, which is how the old stub hid it; the edict check selects twice.
+- **No reason shown.** `SetTooltipText` on an edict button is ignored - the engine draws CA's edict tooltip
+  layout (tried live, "still the same"). `ICUI.edict_note` puts the standing plate
+  (`ui/campaign ui/derpy_ic_standing`) as `derpy_ic_edict_note`, a CHILD of `stack_incentives` so it goes when
+  the stack does, right of the stack and centred on it, sized by `TextDimensionsForText`: "Appoint a governor to
+  issue edicts". Shown on "grey", hidden on "live" and nil; found again every call, since the engine owns the
+  stack's children. Measured live at 1920x1080: stack 71x62 at 245,1020, nothing drawn right of it; note
+  322,1040, 399x22.
+Harness 718; 7 new mutants caught (persist, note missing / left up / never shown / made twice / mis-sized).
+Hot-patched live; the author saw the grey follow each selection and the note beside it. The note's resize goes through `ICUI.resize` (the packer refuses a bare `:Resize`). Build `4CB01AE88E79E513A6857171B3C2FEFB`, 9,373,392 bytes, 1,727 files, Lua byte-verified; deployed to data/ (backup `derpy_iron_court.pack.bak_pre_edictnote_20260928` holds 2BA85110), byte-verified; not pushed.
+
+**Build 4CB01AE8 in play (2026-09-28).** Author, of the note: "the ui is not good, improve this". The standing
+plate's underlay drew nothing beside the HUD - bare letters over the trim. The note now has its own file,
+`ui/campaign ui/derpy_ic_edict_note.twui.xml` (GUID prefix IC39, `gen_ic_ui._edict_note`): the seats counter's
+plate, the Hell-Forge's `sub_title.png` at its native 30px, margin 6, text centred, not interactive; the text
+leads with CA's `ui/skins/default/icon_governor.png` inline. `ICUI.EDICT_NOTE_PAD` 56 = caps 2x6 + 2x10 air +
+the icon's 24, because whether `TextDimensionsForText` counts an inline `[[img:]]` is unmeasured. Previewed off
+the author's screenshot with the real art before building. Harness 718; 2 more mutants caught (back on the
+standing plate, at its height). Build `A431EEF16A620AE5F7BECB65F6C9EBB8`, 9,376,243 bytes, 1,728 files, the
+three scripts and the new layout byte-verified. Deployed to data/ (backup
+`derpy_iron_court.pack.bak_pre_noteplate_20260928` holds 4CB01AE8), byte-identical; not pushed.
+
+**Build A431EEF1 in play (2026-09-28).** Author: "edges are too long, make it closer to the edict buttons and
+make the text fit with 0.1 borders". Measured live on the note: `TextDimensionsForText` reports 376 for the
+words and 409 with the icon, `WidthOfTextLine` 327 and 356 - and the author's screenshot draws ~326 and ~360.
+TDFT overstates by ~15% on this face, so the plate built from it carried ~50px of nothing each side. Now:
+`tw = WidthOfTextLine(text)`, `side = ceil(tw * EDICT_NOTE_BORDER / 2)` with `EDICT_NOTE_BORDER = 0.1`, width
+`tw + 2*side`, text LEFT with `SetTextXOffset(side, side)` (the engine's centring had put the words 40px from
+one end and 59 from the other), and `EDICT_NOTE_GAP = -2` because `button_edicts_frame.png`'s art ends at x 69
+of 71. Live at 1920x1080: 314,1036, 392x30. The layout file is `align="Left"` to match. Harness 718; 12 note
+mutants caught. Build `9633088965F31352DBEDECA4F1BE6639`, 9,376,790 bytes, 1,728 files, byte-verified; game
+running, so not deployed then - the author: "didnt i say always deploy it or automate if the game
+is not running then deploy it". Deployed on close (backup `.bak_pre_notefit_20260928` holds A431EEF1).
+`deploy_iron_court.py` now has `deploy()` (back up the live pack as `.bak_pre_auto_<stamp>`, copy,
+byte-compare; no-op when identical), `--wait` (poll every 15s until Warhammer3 exits, then deploy - run it in
+the background), `--deploy-only` and `--selftest`, and REFUSES an unknown argument: a `--selftest` passed
+while the edit adding it had not applied built and deployed twice. The live pack is that rebuild,
+`F29A1A113FC5A400EFFD30AD518BC568`, same source as 96330889 (scripts and note layout byte-verified).
+Author, of F29A1A11: "does it scale with higher or lower reso?" Yes, as CA's HUD does: position and size are
+read off the live stack and `WidthOfTextLine` at every draw, in the root's units (window / UI Scale, see memory
+`wh3-ui-root-is-window-over-ui-scale`); the panel's box factor is deliberately not applied. The note check now
+also moves the stack (180,790, 142x124) and a mutant that pins the note at 314,1036 is caught. Test-only change.
+
+**The court button between turns (2026-09-28).** Author: "buttons should be greyed out durign a turn, do that for
+the iron court" - with a screenshot of the Exchange's opener grey beside the court's lit one. Mirrors the Exchange
+(`EX.player_turn` / `EX.gate_button`): `ICUI.player_turn()` asks `world():is_factions_turn_by_key(player)` and
+FAILS OPEN; `ICUI.gate_opener(waiting, live)` sets SetDisabled + the greyscale shader (`ICUI.grey_look`, renamed
+from `edict_look`, which the edicts share) and stops the pulse BEFORE the grey goes on; `update_opener_tip` drives
+it, so every existing refresh point (placement after a load, the player's turn start, close) asks afresh. New
+`ic_turn_end` (FactionTurnEnd, player only, persistent) closes an open court and greys with `live=false`, since the
+model still calls it his turn while that event runs. The opener click opens only on his turn but still shuts an
+open court. Harness 719; 10 new mutants caught. Build `02D9C71061F4072DEBE0A00B84E04DDC`, 9,379,118 bytes,
+byte-verified; hot-patched live; `--deploy-only --wait` deploys it when the game closes.
+
+**The influence plate on the character panel (2026-09-28).** Author: "the influence in the character has the
+background stretched out" and "doesnt also change when changing characters". (1) It wore CA's ROUND
+`button_round_medium_underlay.png` pulled to 190x22 - a squashed ellipse. Now `STANDING_LAYERS = SEATS_LAYERS`
+(the Hell-Forge `sub_title.png`, margin 6), 26 tall like the panel's own `ic_influence`, text left and fitted by
+the new shared `ICUI.fit_words(c, text, h)` - the edict note's rule (WidthOfTextLine + `WORDS_BORDER` 0.1, half
+each end, `SetTextXOffset`), which the note now also calls. (2) Picking another man inside the open panel raised
+nothing the plate listened for. `ICUI.standing_cqi()` asks `character_context_parent:GetContextObjectId(
+"CcoCampaignCharacter")` (a plain id read, as CA's prologue script does) and falls back to the map's selection;
+`ic_char_switch` (ComponentLClickUp while the panel is open, +0.1s and +0.5s) redraws. Harness 720; 5 new plate
+mutants caught (one survived first - the switch test fired once - and the test now switches twice); the edict
+note's 4 retargeted onto `fit_words`. Build `B6E693757B1E83F2D9A88BAC946EE3B6`, 9,381,355 bytes, byte-verified;
+deployed by the `--deploy-only --wait` watcher when the game closed (22:32; backup
+`.bak_pre_auto_20260928_223247` holds F29A1A11), byte-identical. It carries the turn gate (02D9C710 never
+deployed on its own). Not pushed.
