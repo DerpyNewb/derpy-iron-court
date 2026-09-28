@@ -1039,3 +1039,5 @@ note's 4 retargeted onto `fit_words`. Build `B6E693757B1E83F2D9A88BAC946EE3B6`, 
 deployed by the `--deploy-only --wait` watcher when the game closed (22:32; backup
 `.bak_pre_auto_20260928_223247` holds F29A1A11), byte-identical. It carries the turn gate (02D9C710 never
 deployed on its own). Not pushed.
+Pushed to GitHub 2026-09-28 as b99387f (build B6E69375, with every build since 7B34D727); the sync manifest now
+lists `derpy_ic_edict_note.twui.xml`.
