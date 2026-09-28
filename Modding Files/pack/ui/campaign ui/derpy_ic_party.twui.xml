@@ -63,6 +63,14 @@
 					this="IC350004-D005-4000-B000000000000004"
 					uniqueguid="IC350004-D005-4000-B000000000000004"
 					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC350004-D007-4000-B000000000000004"
+					uniqueguid="IC350004-D007-4000-B000000000000004"
+					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC350004-D009-4000-B000000000000004"
+					uniqueguid="IC350004-D009-4000-B000000000000004"
+					imagepath="ui/derpy_ic/mask_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -97,6 +105,27 @@
 							width="455"
 							height="266"
 							margin="24.00,24.00,24.00,24.00"/>
+						<image
+							this="IC350004-D008-4000-B000000000000004"
+							uniqueguid="IC350004-D008-4000-B000000000000004"
+							componentimage="IC350004-D007-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="455"
+							height="266"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="1.00,1.30,0.80,0.00"
+							margin="40.00,40.00,40.00,40.00"/>
+						<image
+							this="IC350004-D010-4000-B000000000000004"
+							uniqueguid="IC350004-D010-4000-B000000000000004"
+							componentimage="IC350004-D009-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="455"
+							height="266"
+							colour="#FF3A2AFF"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.60,1.60,0.25,0.00"
+							margin="40.00,40.00,40.00,40.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -383,6 +412,10 @@
 					this="IC350022-D005-4000-B000000000000022"
 					uniqueguid="IC350022-D005-4000-B000000000000022"
 					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC350022-D007-4000-B000000000000022"
+					uniqueguid="IC350022-D007-4000-B000000000000022"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -419,6 +452,15 @@
 							height="55"
 							colour="#FFFFFFFF"
 							margin="0.00,0.00,0.00,0.00"/>
+						<image
+							this="IC350022-D008-4000-B000000000000022"
+							uniqueguid="IC350022-D008-4000-B000000000000022"
+							componentimage="IC350022-D007-4000-B000000000000022"
+							offset="0.00,0.00"
+							width="100"
+							height="55"
+							colour="#FFFFFFFF"
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>

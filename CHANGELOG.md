@@ -5,6 +5,36 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-28 - build 7B34D727
+
+Deployed 2026-09-28. MD5 `7B34D7270FFCE04271B2142FB99A756F`, 9,240,059 bytes. It gathers the
+builds since 5B0F8999 (160A02AE, 67CB2EC7, 6406707F, A54792C5); the detail is in the last
+three addenda of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`, and the
+feedback design and plan are in `docs/design/` and `docs/plans/`, argued from
+`docs/history/CA_CHD_UI_FX_20260928.md` and `IC_FEEDBACK_AUDIT_20260928.md`.
+
+- **Seats glow.** A held office wears a slowly breathing red edge (CA's Tower of Zharr glow,
+  redrawn with square corners), dim while the seat is stalled. A governed province's row is
+  lit, and dim while its governor is away.
+- **Filling a seat is felt.** Appointing an officer or a governor plays CA's warband-upgrade
+  starburst over it with the ritual sound. Releasing a governor is answered at last.
+- **Answers in words.** Granting a demand, accepting an offer, settling a feud, a gift and an
+  oath each say what happened, and the party's card lights up. A failed plot flashes its
+  target party red.
+- **Tabs show what is waiting,** with the Hell-Forge's heat glow on the tab's skull. The court
+  button pulses while the court needs an answer, and its tooltip lists every reason.
+- **What moved this turn.** A party's share and loyalty turn green or red since the turn
+  began; the figure is on the hover.
+- **Portrait frames:** the Hell-Forge's bronze unit-card frame on every portrait.
+- **The Steward of the Ash Fields** now cuts Hobgoblin upkeep by 15% (5% dearer while
+  vacant) instead of adding Growth.
+- **Ten bug fixes** from the "what else is missing" review: AI courts wiped after a load,
+  Ruthless never showing the last warning, dead courts padding the rotation, the sabotage
+  message never firing, Chaos Dwarf news reaching other races, switches not fully off, the
+  AI ruler skipping its gift on plot turns, and the governor tooltip ignoring absence.
+- **Tests:** harness 713 checks, 560 mutants all anchored. A fresh final review found five
+  faults the harness had been green over - each now has a check that failed first.
+
 ## 2026-09-27 - build 5B0F8999
 
 Deployed 2026-09-27. MD5 `5B0F8999BEEB2FEF03DA6087FA8C41D5`, 9,195,929 bytes. It gathers the

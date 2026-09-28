@@ -139,8 +139,8 @@ MUTANTS = [
     # without it the player has four silent turns and then a secession. The
     # clock still runs correctly, which is why nothing else notices.
     ("a secession that goes quiet after its first warning", M,
-     """                elseif house.clock == IC.TUNE.warn_turns then""",
-     """                elseif false then"""),
+     """                elseif house.clock == math.min(IC.TUNE.warn_turns,""",
+     """                elseif false and math.min(IC.TUNE.warn_turns,"""),
 
     # THE TEST THAT READS BETTER AND IS WRONG. "<=" is the natural way to write
     # "inside the last three turns" and it is true on every turn beneath the
@@ -148,15 +148,15 @@ MUTANTS = [
     # still lands at exactly the right distance, so a check that only measures
     # the warning's timing passes this happily.
     ("a last warning repeated every turn to the door", M,
-     """                elseif house.clock == IC.TUNE.warn_turns then""",
-     """                elseif house.clock <= IC.TUNE.warn_turns then"""),
+     """                elseif house.clock == math.min(IC.TUNE.warn_turns,""",
+     """                elseif house.clock <= math.min(IC.TUNE.warn_turns,"""),
 
     # AND A TURN OUT. Off-by-one against a tuning value is the classic form of
     # this bug and it is invisible without counting to the event itself: the
     # card still arrives, still once, still near the end.
     ("a last warning a turn later than it promises", M,
-     """                elseif house.clock == IC.TUNE.warn_turns then""",
-     """                elseif house.clock == IC.TUNE.warn_turns - 1 then"""),
+     """                elseif house.clock == math.min(IC.TUNE.warn_turns,""",
+     """                elseif house.clock == -1 + math.min(IC.TUNE.warn_turns,"""),
 
     # THE SECOND CALL SITE. Provoke sets the clock outright rather than going
     # through the branch above, so it skips secede_warn AND the crossing - the
@@ -314,9 +314,9 @@ MUTANTS = [
     # which is the same situation stated two ways with the number missing from
     # the one the player is standing in. Looks correct in a screenshot.
     ("the Crown's split count taken off its own card", U,
-     """        if (house.split or 0) > 0 then
-            return string.format("SPLITS %d", house.split)
-        end""",
+     """            if (house.split or 0) > 0 then
+                return string.format("SPLITS %d", house.split)
+            end""",
      """"""),
 
     ("the split's count left out of the save", M,
@@ -346,10 +346,8 @@ MUTANTS = [
 
     # ---- the clocks, the witnesses and the sweeps ------------------------
     ("provoke lengthens a clock it should only shorten", M,
-     """            local now = house.clock or 0
-            if now <= 0 or now > IC.TUNE.plot_provoke_clock then""",
-     """            local now = house.clock or 0
-            if true then"""),
+     """               and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then""",
+     """               and true then"""),
 
     ("a purge charges the Crown as a witness to itself", M,
      """            if slug2 ~= IC.CROWN then
@@ -2013,20 +2011,9 @@ end"""),
 
     ("the player's own card calling his house a plotter again", U,
      """function ICUI.mood(house, slug)
-    if slug == IC.CROWN then
-        -- THE COUNT, WHEN THERE IS ONE. A rival on the way out reads
-        -- "SECEDES 3" and the Crown read a bare "SPLINTERING" - the same
-        -- situation stated two ways, one of them with the number the player
-        -- needs. The count only exists once IC.splinter has started it, so the
-        -- word is still the right answer on the turn the line is crossed and
-        -- before the turn has run.
-        if (house.split or 0) > 0 then
-            return string.format("SPLITS %d", house.split)
-        end
-        if house.loyalty <= IC.TUNE.splinter_loyalty then return "SPLINTERING" end
-    elseif (house.clock or 0) > 0 then""",
+    if slug == IC.CROWN then""",
      """function ICUI.mood(house, slug)
-    if (house.clock or 0) > 0 then"""),
+    if false then"""),
 
     # THE AI'S THREE LEVERS, one mutant each. All three are exemptions or
     # preferences that a later reader would reasonably think were redundant,
@@ -3041,9 +3028,11 @@ end"""),
      "    if true then return true end"),
     ("mct: the settlement listener deaf to ai_courts", M,
      """        if not IC.runs_court(faction) then return end
+        IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)""",
      """        if not IC.is_chd(faction) then return end
+        IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)"""),
     ("mct: secession with secession off", M,
@@ -3320,8 +3309,8 @@ end"""),
      "                local tip = \"\"\n                if was then\n",
      "                local tip = \"\"\n                if false then\n"),
     ("qol: the button's summary leaves out the terms ending", U,
-     "    if #ending > 0 then\n        for i = 1, #ending do",
-     "    if false then\n        for i = 1, #ending do"),
+     "    if #s.ending > 0 then\n        local ending = {}",
+     "    if false then\n        local ending = {}"),
     ("qol: the button's summary leaves out a party leaving", U,
      "        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then",
      "        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 99 then"),
@@ -3422,7 +3411,7 @@ end"""),
      """    return (cm:model():turn_number() + at) % period == 0""",
      """    return true"""),
     ("news for humans who never met them", M,
-     """        if IC.has_met(human[i], source_key) then
+     """        if IC.hears(human[i], source_key) then
             local court = IC.court(human[i])""",
      """        if true then
             local court = IC.court(human[i])"""),
@@ -3435,6 +3424,158 @@ end"""),
     ("a confederated court arriving at the default loyalty", M,
      """    if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then""",
      """    if stamped > 0 and IC.add_house(faction_key, slug, true) then"""),
+    # ---- bug-fix pass, 2026-09-28 -------------------------------------------
+    ("an AI court touched before its own turn never loaded from the save", M,
+     "    if faction_key and not IC.state[faction_key] then IC.load(faction_key) end",
+     "    if false then IC.load(faction_key) end"),
+    ("the last warning pinned to warn_turns, which Ruthless never reaches", M,
+     """elseif house.clock == math.min(IC.TUNE.warn_turns,
+                                               IC.TUNE.secede_turns - 1) then""",
+     """elseif house.clock == IC.TUNE.warn_turns then"""),
+    ("dead courts counted in the AI rotation", P,
+     "alive = f and not f:is_null_interface() and not f:is_dead()",
+     "alive = f and not f:is_null_interface()"),
+    ("a sabotage never raises its card", P,
+     """        IC.feed(faction_key, "party_sabotage")
+        return true""",
+     """        return true"""),
+    ("court news to every human who has met the court", M,
+     """    if not IC.has_met(human_key, source_key) then return false end
+    local ok, runs""",
+     """    do return IC.has_met(human_key, source_key) end
+    local ok, runs"""),
+    ("Provoke starts a countdown with secession off", M,
+     """if IC.TUNE.secession ~= false
+               and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then""",
+     """if (now <= 0 or now > IC.TUNE.plot_provoke_clock) then"""),
+    ("the Crown's card threatens a split the settings switched off", U,
+     """if IC.TUNE.crown_split ~= false then
+            if (house.split""",
+     """if true then
+            if (house.split"""),
+    ("an AI court switched off left standing in the save", M,
+     'if packed and packed ~= "" then IC.dismantle(faction:name()) end',
+     'if packed and packed ~= "" then end'),
+    ("an AI ruler never placates", P,
+     "    if not human then IC.ai_placate(faction_key) end",
+     "    if false then IC.ai_placate(faction_key) end"),
+    ("an away governor's tooltip claims his bonus", U,
+     """    if not IC.governor_active(faction, province_key) then
+        return string.format("He is away""",
+     """    if false then
+        return string.format("He is away"""),
+    # ---- UI feedback, 2026-09-28 ---------------------------------------------
+    # Each is a plausible slip in the effects layer: the rim written only when
+    # there is one (so a recycled card keeps it), the flash painted but not
+    # remembered, the marker condition narrowed, the pulse never stopped.
+    ("a held seat's rim never lit", U,
+     """ICUI.set_rim(card, "card", cqi and (stalled and "dim" or "lit") or nil)""",
+     """ICUI.set_rim(card, "card", nil)"""),
+    ("a stalled seat lit like a working one", U,
+     """local stalled = stall ~= nil and stall_left > 0""",
+     """local stalled = false"""),
+    ("a recycled row keeps the last view's rim", U,
+     """ICUI.set_rim(row, "row", line and line.rim or nil)""",
+     """if line and line.rim then ICUI.set_rim(row, "row", line.rim) end"""),
+    ("an away governor's row lit as if he governed", U,
+     """rim = cqi and (IC.governor_active(faction, province_key) and "lit"
+                           or "dim") or nil,""",
+     """rim = cqi and "lit" or nil,"""),
+    ("the burst never taken away", U,
+     """            if b then b:Destroy() end""",
+     """            if false then b:Destroy() end"""),
+    ("a second claim finds the old burst and draws nothing", U,
+     """        if old then old:Destroy() end""",
+     """        if old then return end"""),
+    ("a burst created and left hidden", U,
+     '''        b:SetVisible(true)
+    end)
+    if not ok then IC.warn("IRON COURT: the claim burst failed: "''',
+     '''        b:SetVisible(false)
+    end)
+    if not ok then IC.warn("IRON COURT: the claim burst failed: "'''),
+    ("a filled seat back to the generic chime", U,
+     """            if card then
+                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)""",
+     """            if card then
+                pcall(function() common.trigger_soundevent(ICUI.SOUND_OK) end)"""),
+    ("releasing a governor answered with silence again", U,
+     """ICUI.ANSWERS.ungov = confirmed(false, false, "ungov")""",
+     """ICUI.ANSWERS.ungov_unused = confirmed(false, false, "ungov")"""),
+    ("an assigned governor draws no burst", U,
+     """if op == "gov" then filled_row = ICUI.gov_row(""",
+     """if false then filled_row = ICUI.gov_row("""),
+    ("a yes answered with a chime and no words", U,
+     """ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player()) or nil""",
+     """ICUI.notice = nil"""),
+    ("a flash wiped by the click's own redraw", U,
+     """    ICUI.set_rim(card, "party", ICUI.flashes[slug])""",
+     """    ICUI.set_rim(card, "party", nil)"""),
+    ("a flash remembered forever", U,
+     """        ICUI.flashes[slug] = nil""",
+     """        ICUI.flashes[slug] = ICUI.flashes[slug]"""),
+    ("a failed plot flashes nothing", U,
+     """if slug then ICUI.flash(slug, "red") end""",
+     """if false then ICUI.flash(slug, "red") end"""),
+    # ---- final review fixes, 2026-09-28 ------------------------------------
+    ("a failed plot flashes the man's number, not his party", U,
+     """local slug = target and IC.house_of_cqi(ICUI.player(), target)""",
+     """local slug = target and tostring(target)"""),
+    ("a demand's row forgets its party", U,
+     """{kind = "demand", slug = d.slug}""",
+     """{kind = "demand"}"""),
+    ("an ungoverned province pulses the button", U,
+     """    out.any = out.offices or out.court or out.petitions
+""",
+     """    out.any = out.offices or out.court or out.petitions or out.govs
+"""),
+    ("the summary silent on waiting petitions", U,
+     """    if s.petitions > 0 then""",
+     """    if false then"""),
+    ("the summary silent on ungoverned provinces", U,
+     """    if s.unruled > 0 then""",
+     """    if false then"""),
+    ("a baseline creates a court for a faction with none", U,
+     """    local court = IC.state[faction]
+    if not court then return end""",
+     """    local court = IC.court(faction)
+    if not court then return end"""),
+    ("a list row wears the card's rim and washes red", U,
+     """    local art = (kind == "row") and ICUI.RIM_ART_ROW or ICUI.RIM_ART""",
+     """    local art = ICUI.RIM_ART"""),
+    ("the pulse stopped only in the button's current state", U,
+     """pulse_uicomponent(button, on, ICUI.PULSE_STRENGTH, false, state)""",
+     """pulse_uicomponent(button, on, ICUI.PULSE_STRENGTH, false)"""),
+    ("the Offices tab not marked for an empty seat", U,
+     """        offices = s.empty > 0 or #s.ending > 0,""",
+     """        offices = #s.ending > 0,"""),
+    ("the Petitions tab blind to a demand", U,
+     """    s.petitions = a.demand ~= nil and 1 or 0""",
+     """    s.petitions = 0"""),
+    ("the Court tab blind to a party leaving", U,
+     """        court = #s.leaving > 0,""",
+     """        court = false,"""),
+    ("a governor away marks the Governors tab", U,
+     """        if not court.govs[province] then s.unruled = s.unruled + 1 end""",
+     """        s.unruled = s.unruled + 1"""),
+    ("the markers never drawn", U,
+     """    ICUI.draw_marks(panel, faction)
+""",
+     """    local _ = faction
+"""),
+    ("the button's pulse never stops", U,
+     """    ICUI.pulse_opener(ok2 and a.any == true)""",
+     """    ICUI.pulse_opener(true)"""),
+    ("a change coloured before any baseline", U,
+     """    local d_loyalty = base and loyalty - base.loyalty or 0""",
+     """    local d_loyalty = loyalty - (base and base.loyalty or 0)"""),
+    ("a moved number left plain", U,
+     """    return string.format("[[col:%s]]%s[[/col]]", n > 0 and "green" or "red", text)""",
+     """    return text"""),
+    ("the baseline taken at every faction's turn", U,
+     """    if faction:name() ~= ICUI.player() then return end
+    pcall(ICUI.take_baseline, faction:name())""",
+     """    pcall(ICUI.take_baseline, faction:name())"""),
 ]
 
 

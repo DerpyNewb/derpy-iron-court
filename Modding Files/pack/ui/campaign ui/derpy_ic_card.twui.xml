@@ -52,6 +52,14 @@
 					this="IC310004-D003-4000-B000000000000004"
 					uniqueguid="IC310004-D003-4000-B000000000000004"
 					imagepath="ui/derpy_ic/chd_frame.png"/>
+				<component_image
+					this="IC310004-D005-4000-B000000000000004"
+					uniqueguid="IC310004-D005-4000-B000000000000004"
+					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC310004-D007-4000-B000000000000004"
+					uniqueguid="IC310004-D007-4000-B000000000000004"
+					imagepath="ui/derpy_ic/mask_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -77,6 +85,25 @@
 							width="364"
 							height="184"
 							margin="8.00,8.00,8.00,8.00"/>
+						<image
+							this="IC310004-D006-4000-B000000000000004"
+							uniqueguid="IC310004-D006-4000-B000000000000004"
+							componentimage="IC310004-D005-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="364"
+							height="184"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="1.00,1.30,0.80,0.00"
+							margin="40.00,40.00,40.00,40.00"/>
+						<image
+							this="IC310004-D008-4000-B000000000000004"
+							uniqueguid="IC310004-D008-4000-B000000000000004"
+							componentimage="IC310004-D007-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="364"
+							height="184"
+							colour="#FFFFFF66"
+							margin="40.00,40.00,40.00,40.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -368,6 +395,10 @@
 					this="IC31001C-D005-4000-B00000000000001C"
 					uniqueguid="IC31001C-D005-4000-B00000000000001C"
 					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC31001C-D007-4000-B00000000000001C"
+					uniqueguid="IC31001C-D007-4000-B00000000000001C"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -404,6 +435,15 @@
 							height="47"
 							colour="#FFFFFFFF"
 							margin="0.00,0.00,0.00,0.00"/>
+						<image
+							this="IC31001C-D008-4000-B00000000000001C"
+							uniqueguid="IC31001C-D008-4000-B00000000000001C"
+							componentimage="IC31001C-D007-4000-B00000000000001C"
+							offset="0.00,0.00"
+							width="86"
+							height="47"
+							colour="#FFFFFFFF"
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>

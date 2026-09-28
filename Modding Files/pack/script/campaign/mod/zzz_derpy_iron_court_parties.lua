@@ -305,7 +305,9 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     end
     if move == "sabotage" then
         IC.log(faction_key, "sabotage", slug, key, cost)
-        if at_crown then IC.feed(faction_key, "party_sabotage") end
+        -- EVERY SABOTAGE IN A HUMAN COURT: a feud never involves the Crown, so
+        -- gating this on the Crown as target meant it never fired.
+        IC.feed(faction_key, "party_sabotage")
         return true
     end
     local kind = (move == "unseat" or move == "recall")
@@ -1163,10 +1165,20 @@ function IC.party_turn_due(faction_key)
     if IC.is_human(faction_key) then return true end
     local per = T.ai_party_courts or 0
     if per <= 0 then return false end
+    -- LIVING AI COURTS ONLY: a dead one in the count stretched the period, so
+    -- late in a campaign the few left waited turns for courts that were gone.
+    -- Whether a faction is dead is the same on every machine.
     local keys = {}
     for i = 1, #IC.ORIGINS do
         local key = IC.ORIGINS[i].faction
-        if key and not IC.is_human(key) then keys[#keys + 1] = key end
+        if key and not IC.is_human(key) then
+            local alive = false
+            pcall(function()
+                local f = cm:get_faction(key)
+                alive = f and not f:is_null_interface() and not f:is_dead()
+            end)
+            if alive then keys[#keys + 1] = key end
+        end
     end
     table.sort(keys)
     local at = 0
@@ -1205,6 +1217,9 @@ function IC.party_turn(faction_key)
     IC.end_feuds(faction_key)
     IC.check_demand(faction_key)
     IC.expire_offers(faction_key)
+    -- THE AI RULER'S DEFENCE FIRST, every turn it is due: it is not a party
+    -- acting, so neither a plot landing nor parties_act off may skip it.
+    if not human then IC.ai_placate(faction_key) end
     if IC.agenda(faction_key).plot then
         local done = IC.land_plot(faction_key)
         IC.save_agenda(faction_key)
@@ -1252,7 +1267,6 @@ function IC.party_turn(faction_key)
         chosen.act.act(faction_key, chosen.slug, chosen.target)
         done = chosen.act.key
     end
-    if not human then IC.ai_placate(faction_key) end
     IC.save_agenda(faction_key)
     IC.save(faction_key)
     return done

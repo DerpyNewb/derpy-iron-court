@@ -52,6 +52,7 @@ MANIFEST = [(p, p) for p in [
     "tools/import_great_guilds.py",
     "tools/make_guild_icons.py",
     "tools/make_guild_backgrounds.py",
+    "tools/make_guild_bundle_icons.py",
     "tools/read_pack_index.py",
     "tools/read_vanilla_cache.py",
     "tools/read_vanilla_db.py",

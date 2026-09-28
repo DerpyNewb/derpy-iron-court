@@ -20,8 +20,8 @@ derpy_ic_office_roads	The roads out of Zharr are his, and they are quicker than 
 derpy_ic_vacant_roads	The roads are unwatched, and the caravans take the long way round.	Warden of the Caravan Roads (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_office_kilns	Brick and slag leave his kilns cheaper than anyone can explain.	Keeper of the Kilns	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_vacant_kilns	The kilns burn on regardless, and the bill arrives regardless.	Keeper of the Kilns (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_office_fields	Even ash will grow something, if a Dawi Zharr is made to care.	Steward of the Ash Fields	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_vacant_fields	The ash fields are left to the ash.	Steward of the Ash Fields (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_office_fields	The hobgoblin tribes that work the ash fields march cheap for whoever feeds them.	Steward of the Ash Fields	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_vacant_fields	The ash fields go untended, and the hobgoblins want more to march.	Steward of the Ash Fields (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_office_scribes	His clerks know which door to knock on, and when.	Master of the Scribes	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_vacant_scribes	The clerks knock on the wrong doors and are turned away.	Master of the Scribes (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_office_muster	He knows what a warrior costs, and he pays no more than that.	Warden of the Muster	faction	1	chd_conclave_influence.png	true	false	true

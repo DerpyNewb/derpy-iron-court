@@ -1306,6 +1306,14 @@ function IC.load(faction_key)
     return IC.court(faction_key)
 end
 
+-- A COURT READ FROM THE SAVE IF IT IS NOT IN MEMORY YET. After a load an AI court
+-- is read on its own turn; an event that reaches it earlier in the round would
+-- build an empty court and save it over the real one (review 2026-09-27). Every
+-- listener that can touch another faction's court calls this first.
+function IC.loaded(faction_key)
+    if faction_key and not IC.state[faction_key] then IC.load(faction_key) end
+end
+
 local function real_faction(faction_key)
     local faction = cm:get_faction(faction_key)
     if not faction then return nil end
@@ -2760,15 +2768,12 @@ function IC.refresh_gov_weight(faction_key)
     end
 end
 
-function IC.apply_governor_bundles(faction_key)
-    local court = IC.court(faction_key)
-    IC.refresh_gov_weight(faction_key)
-
-    -- OFF EVERY PROVINCE FIRST. The bundles go on per province, so they come off
-    -- per province - the faction call this used to make never touched them, and
-    -- a province kept its last governor's bonus for ever (review 2026-09-27).
-    -- One region per province is enough: CA removes from "the portion of the
-    -- province owned by the owner of the specified region".
+-- OFF EVERY PROVINCE. The bundles go on per province, so they come off
+-- per province - the faction call this used to make never touched them, and
+-- a province kept its last governor's bonus for ever (review 2026-09-27).
+-- One region per province is enough: CA removes from "the portion of the
+-- province owned by the owner of the specified region".
+function IC.clear_gov_bundles(faction_key)
     pcall(function()
         local faction = real_faction(faction_key)
         if not faction then return end
@@ -2788,6 +2793,40 @@ function IC.apply_governor_bundles(faction_key)
             end
         end
     end)
+end
+
+-- A COURT SWITCHED OFF comes off the map whole (MCT review 2026-09-25): an older
+-- save loaded with AI courts off stopped running them and left every office,
+-- control and governor bonus and every office title on for good. Party and
+-- trade traits are who a man is and stay.
+function IC.dismantle(faction_key)
+    IC.loaded(faction_key)
+    local court = IC.court(faction_key)
+    for i = 1, #IC.OFFICES do
+        local slug = IC.OFFICES[i].slug
+        cm:remove_effect_bundle(IC.office_bundle(slug), faction_key)
+        cm:remove_effect_bundle(IC.vacancy_bundle(slug), faction_key)
+        local man = court.offices[slug] and IC.character_by_cqi(faction_key, court.offices[slug])
+        if man then
+            pcall(function()
+                cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(slug))
+            end)
+        end
+    end
+    for i = 1, #IC.CONTROL do
+        cm:remove_effect_bundle(IC.control_bundle(IC.CONTROL[i].slug), faction_key)
+    end
+    IC.clear_gov_bundles(faction_key)
+    IC.forget_court(faction_key)
+    IC.say("IRON COURT: AI courts are off - " .. tostring(faction_key)
+           .. "'s court taken off the map")
+end
+
+function IC.apply_governor_bundles(faction_key)
+    local court = IC.court(faction_key)
+    IC.refresh_gov_weight(faction_key)
+
+    IC.clear_gov_bundles(faction_key)
 
     for province_key, cqi in pairs(court.govs) do
         local character = IC.character_by_cqi(faction_key, cqi)
@@ -3532,7 +3571,7 @@ function IC.secede(faction_key, slug)
     if not IC.is_human(faction_key) and IC.news(faction_key, "secede", slug) > 0 then
         local okh, human = pcall(function() return cm:get_human_factions() end)
         for i = 1, (okh and human) and #human or 0 do
-            if IC.has_met(human[i], faction_key) and risings[1] then
+            if IC.hears(human[i], faction_key) and risings[1] then
                 IC.raise_feed_located(human[i], "realm_secede",
                                       risings[1].x, risings[1].y)
             end
@@ -3790,7 +3829,10 @@ function IC.tick_secession(faction_key)
                 house.clock = house.clock - 1
                 if house.clock <= 0 then
                     seceding[#seceding + 1] = slug
-                elseif house.clock == IC.TUNE.warn_turns then
+                -- ONE TURN AFTER THE START CARD when the count is too short to
+                -- reach warn_turns once started: Ruthless counts from 3.
+                elseif house.clock == math.min(IC.TUNE.warn_turns,
+                                               IC.TUNE.secede_turns - 1) then
                     IC.feed(faction_key, "secede_soon")
                 end
             end
@@ -4492,7 +4534,10 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         local house = IC.house_of_victim(faction_key, cqi)
         if house then
             local now = house.clock or 0
-            if now <= 0 or now > IC.TUNE.plot_provoke_clock then
+            -- NO COUNTDOWN WITH SECESSION SWITCHED OFF: the insult still costs
+            -- them loyalty, but nothing may start a clock the switch stops.
+            if IC.TUNE.secession ~= false
+               and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then
                 house.clock = IC.TUNE.plot_provoke_clock
                 if house.clock <= IC.TUNE.warn_turns
                    and (now <= 0 or now > IC.TUNE.warn_turns) then
@@ -4916,6 +4961,17 @@ end
 -- section 6). A PARTY'S NAME, NOT A LOC CALL: the name is the rolled string,
 -- read now because a seceded party's is gone afterwards; the faction stays a
 -- key and the panel names it at draw time.
+-- A HUMAN WHO HEARS A COURT'S NEWS: one who has met it and runs a court of his
+-- own. An Empire player has no panel and no Record tab to read it in.
+function IC.hears(human_key, source_key)
+    if not IC.has_met(human_key, source_key) then return false end
+    local ok, runs = pcall(function()
+        local f = cm:get_faction(human_key)
+        return f and not f:is_null_interface() and IC.runs_court(f)
+    end)
+    return ok and runs == true
+end
+
 function IC.news(source_key, kind, a, b)
     if not source_key or IC.is_human(source_key) then return 0 end
     local ok, human = pcall(function() return cm:get_human_factions() end)
@@ -4924,7 +4980,7 @@ function IC.news(source_key, kind, a, b)
     local b_name = b and (IC.party_name(source_key, b) or b) or "-"
     local told = 0
     for i = 1, #human do
-        if IC.has_met(human[i], source_key) then
+        if IC.hears(human[i], source_key) then
             local court = IC.court(human[i])
             court.news = court.news or {}
             court.news[#court.news + 1] = {turn = cm:model():turn_number(),
@@ -5257,7 +5313,14 @@ function IC.register()
 
     core:add_listener("ic_turn", "FactionTurnStart", true, function(context)
         local faction = context:faction()
-        if not IC.runs_court(faction) then return end
+        if not IC.runs_court(faction) then
+            -- A CHAOS DWARF COURT THE SETTINGS SWITCHED OFF, still in the save.
+            if IC.is_chd(faction) then
+                local packed = cm:get_saved_value("derpy_ic_" .. faction:name())
+                if packed and packed ~= "" then IC.dismantle(faction:name()) end
+            end
+            return
+        end
         IC.turn(faction:name())
     end, true)
 
@@ -5268,6 +5331,7 @@ function IC.register()
         local slug = IC.origin_for_faction(joined:name())
         if not slug then return end
         local host_key = host:name()
+        IC.loaded(host_key)
         local before = {}
         local own = host:character_list()
         for i = 0, own:num_items() - 1 do
@@ -5289,6 +5353,7 @@ function IC.register()
         local faction = character:faction()
         if not faction or faction:is_null_interface() then return end
         local faction_key = faction:name()
+        if IC.runs_court(faction) then IC.loaded(faction_key) end
         IC.hired(faction_key, character)
         if IC.is_chd(faction) and IC.court_rolled(faction_key) then
             IC.stamp_origin(character, IC.origin_for(character))
@@ -5312,6 +5377,7 @@ function IC.register()
         local gain = IC.TUNE.battle_influence[result]
         if not gain then return end
         local faction_key = faction:name()
+        IC.loaded(faction_key)
         IC.move_loyalty(faction_key,
                         IC.house_of_character(character, faction_key),
                         IC.TUNE.loyalty_battle_won)
@@ -5324,6 +5390,7 @@ function IC.register()
         local faction = character:faction()
         if not faction or faction:is_null_interface() then return end
         if not IC.runs_court(faction) then return end
+        IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)
     end, true)
@@ -5335,6 +5402,7 @@ function IC.register()
         if not faction or faction:is_null_interface() then return end
         if not IC.runs_court(faction) then return end
         local gained = context:ranks_gained() or 1
+        IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
                         gained * IC.TUNE.rank_influence)
     end, true)
@@ -5346,6 +5414,7 @@ function IC.register()
         local faction = character:faction()
         if not IC.runs_court(faction) then return end
         local faction_key = faction:name()
+        IC.loaded(faction_key)
         local cqi = character:command_queue_index()
         local court = IC.court(faction_key)
         for office_slug, holder in pairs(court.offices) do

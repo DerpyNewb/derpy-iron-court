@@ -227,6 +227,10 @@ ICUI.PANEL_XY = {
     -- THE RECORD LAST: the one tab with nothing to act on (author, 2026-09-24).
     ic_tab_petitions = {994, 62, 240, 32},
     ic_tab_log       = {1238, 62, 240, 32},
+    ic_mark_court     = {224, 64, 28, 28},
+    ic_mark_offices   = {468, 64, 28, 28},
+    ic_mark_govs      = {712, 64, 28, 28},
+    ic_mark_petitions = {1200, 64, 28, 28},
     -- ITS HOME ON THE OTHER FOUR TABS. On the court it moves into the
     -- Crown's box, to ICUI.COURT_SECTION_XY below - the same trick the header
     -- reason a component gets two homes at all: one component, five views, and
@@ -651,6 +655,29 @@ ICUI.PARTY_CHILD_XY = {
 ICUI.PARTY_SEL_INDEX = 2
 ICUI.PARTY_SELECTED =
     "ui/skins/default/dlc25_gunnery_school/frame_unit_card_selected.png"
+
+-- THE SEAT'S RIM (spec 2026-09-28 section 4.1): CA's completed-district glow off
+-- the Tower of Zharr, redrawn with SQUARE corners - CA's own file is a rounded
+-- rectangle and left the card's corners dark in game. Each kind of component carries one layer per look, all
+-- shipping MASK_NONE; ICUI.set_rim writes the rim into one and clears the rest.
+-- Must match RIM_ART and CARD_RIM / ROW_RIM / PARTY_RIM in tools/gen_ic_ui.py
+-- (check_rim_slots).
+ICUI.RIM_ART = "ui/derpy_ic/seat_rim.png"
+-- A LIST ROW'S OWN, narrower: the card rim's 40px margin is more than half a
+-- 61px row, and its top and bottom slices overlapped into a red wash.
+ICUI.RIM_ART_ROW = "ui/derpy_ic/seat_rim_row.png"
+ICUI.RIMS = {
+    card = {lit = 2, dim = 3},
+    row = {lit = 1, dim = 2},
+    party = {lit = 3, red = 4},
+}
+
+-- THE CLAIM BURST: CA's seat-claimed starburst (tools/gen_ic_ui.py BURST_FILE).
+ICUI.BURST = "derpy_ic_burst"
+ICUI.PATH_BURST = "ui/campaign ui/derpy_ic_burst.twui.xml"
+ICUI.BURST_SECONDS = 1.3    -- 20 frames at 60 ms, and a little over
+-- A SEAT FILLED is a ritual, not a message: CA's own ritual click.
+ICUI.SOUND_SEAT = "UI_CLICK_Begin_Ritual"
 
 ICUI.btn_at = nil
 ICUI.view = "court"
@@ -1103,6 +1130,62 @@ end
 -- THE COURT AT A GLANCE, on the button (author, 2026-09-25): its state without
 -- opening the panel. A line for something that is not happening is left out,
 -- not written as a zero - except the empty seats, which are always worth a look.
+-- THE COURT'S WAITING BUSINESS, once. The button's summary words it and the tab
+-- markers light from it, so the two can never disagree about the same fact.
+function ICUI.court_state(faction)
+    local court = IC.court(faction)
+    local s = {empty = 0, back = {}, ending = {}, leaving = {}}
+    for i = 1, #IC.OFFICES do
+        local slug = IC.OFFICES[i].slug
+        if not court.offices[slug] then
+            s.empty = s.empty + 1
+            local last = court.last[slug]
+            local man = last and IC.renew_wait(faction, slug, last.cqi) == 0
+                        and IC.character_by_cqi(faction, last.cqi) or nil
+            if man then
+                s.back[#s.back + 1] = string.format("%s (%s)",
+                    ICUI.character_name(man), ICUI.office_name(slug))
+            end
+        end
+    end
+    s.ending = IC.terms_ending(faction)
+    local seated = IC.present_houses(faction)
+    for i = 1, #seated do
+        local house = court.houses[seated[i]]
+        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
+            s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
+        end
+    end
+    local a = IC.agenda(faction)
+    s.petitions = a.demand ~= nil and 1 or 0
+    for _ in pairs(a.offers or {}) do s.petitions = s.petitions + 1 end
+    for _ in pairs(a.feuds or {}) do s.petitions = s.petitions + 1 end
+    -- NOT a governor away: a lord in the field is away most turns, and a marker
+    -- that is nearly always lit tells the player nothing (spec 4.4).
+    s.unruled = 0
+    for _, province in ipairs(IC.seats(faction)) do
+        if not court.govs[province] then s.unruled = s.unruled + 1 end
+    end
+    return s
+end
+
+-- WHAT IS WAITING, per tab (spec 2026-09-28 section 4.4).
+function ICUI.attention(faction)
+    local s = ICUI.court_state(faction)
+    local out = {
+        offices = s.empty > 0 or #s.ending > 0,
+        court = #s.leaving > 0,
+        petitions = s.petitions > 0,
+        govs = s.unruled > 0,
+    }
+    -- THE BUTTON PULSES FOR THE COURT'S BUSINESS, and not for an ungoverned
+    -- province: once a realm holds more provinces than it has spare lords that
+    -- is every turn, and a button that always pulses says nothing. The tab is
+    -- still marked and the summary still says it (final review, 2026-09-28).
+    out.any = out.offices or out.court or out.petitions
+    return out
+end
+
 function ICUI.opener_tip(faction)
     local court = IC.court(faction)
     local lines = {}
@@ -1110,34 +1193,25 @@ function ICUI.opener_tip(faction)
         lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
             IC.control(faction), ICUI.band_name(IC.control_band(faction)))
     end
-    local empty, back = 0, {}
-    for i = 1, #IC.OFFICES do
-        local slug = IC.OFFICES[i].slug
-        if not court.offices[slug] then
-            empty = empty + 1
-            local last = court.last[slug]
-            local man = last and IC.renew_wait(faction, slug, last.cqi) == 0
-                        and IC.character_by_cqi(faction, last.cqi) or nil
-            if man then
-                back[#back + 1] = string.format("%s (%s)",
-                    ICUI.character_name(man), ICUI.office_name(slug))
-            end
-        end
-    end
-    lines[#lines + 1] = string.format("Empty seats: %d of %d.", empty, #IC.OFFICES)
-    local ending = IC.terms_ending(faction)
-    if #ending > 0 then
-        for i = 1, #ending do ending[i] = ICUI.office_name(ending[i]) end
+    local s = ICUI.court_state(faction)
+    local back = s.back
+    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
+    if #s.ending > 0 then
+        local ending = {}
+        for i = 1, #s.ending do ending[i] = ICUI.office_name(s.ending[i]) end
         lines[#lines + 1] = "Terms ending next turn: " .. table.concat(ending, ", ") .. "."
     end
-    local seated = IC.present_houses(faction)
-    for i = 1, #seated do
-        local house = court.houses[seated[i]]
-        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
-            lines[#lines + 1] = string.format("%s leaves the court in %d turn%s.",
-                ICUI.house_name(seated[i], faction), house.clock,
-                house.clock == 1 and "" or "s")
-        end
+    for _, l in ipairs(s.leaving) do
+        lines[#lines + 1] = string.format("%s leaves the court in %d turn%s.",
+            ICUI.house_name(l.slug, faction), l.clock, l.clock == 1 and "" or "s")
+    end
+    -- EVERY REASON THE BUTTON PULSES OR A TAB IS MARKED is worded here.
+    if s.petitions > 0 then
+        lines[#lines + 1] = string.format("Petitions waiting for your answer: %d.",
+                                          s.petitions)
+    end
+    if s.unruled > 0 then
+        lines[#lines + 1] = string.format("Provinces with no governor: %d.", s.unruled)
     end
     if #back > 0 then
         lines[#lines + 1] = "Free to take their old seat again: "
@@ -1156,7 +1230,38 @@ function ICUI.update_opener_tip()
         return false
     end
     pcall(function() button:SetTooltipText(tip, "", true) end)
+    -- AND IT PULSES WHILE ANYTHING WAITS (spec 2026-09-28 section 4.4).
+    local ok2, a = pcall(ICUI.attention, ICUI.player())
+    ICUI.pulse_opener(ok2 and a.any == true)
     return true
+end
+
+-- CA'S OWN "LOOK AT ME" on a HUD button, the call ICUI.confirm already uses
+-- (plan ruling 3; its pulse was seen in game 2026-09-28). Started and stopped
+-- explicitly: a pulse nothing stops runs until the button is destroyed.
+function ICUI.pulse_opener(on)
+    local button = comp(ICUI.BTN)
+    if not button then return end
+    -- EACH STATE BY NAME: with none named CA's call touches only the CURRENT
+    -- state, and a pulse started in hover would outlive the stop in standard.
+    for _, state in ipairs({"standard", "hover"}) do
+        pcall(function() pulse_uicomponent(button, on, ICUI.PULSE_STRENGTH, false, state) end)
+    end
+end
+
+-- THE TAB MARKERS: a Hell-Forge heat glow on the right-hand skull of a tab
+-- that has something waiting. Must match the ic_mark_* cells in
+-- tools/gen_ic_ui.py.
+ICUI.MARKS = {court = "ic_mark_court", offices = "ic_mark_offices",
+              govs = "ic_mark_govs", petitions = "ic_mark_petitions"}
+
+function ICUI.draw_marks(panel, faction)
+    local ok, a = pcall(ICUI.attention, faction)
+    if not ok then a = {} end
+    for view, name in pairs(ICUI.MARKS) do
+        local m = comp(name, panel)
+        if m then m:SetVisible(a[view] == true) end
+    end
 end
 
 function ICUI.place_opener(attempt)
@@ -1375,11 +1480,14 @@ function ICUI.mood(house, slug)
         -- situation stated two ways, one of them with the number the player
         -- needs. The count only exists once IC.splinter has started it, so the
         -- word is still the right answer on the turn the line is crossed and
-        -- before the turn has run.
-        if (house.split or 0) > 0 then
-            return string.format("SPLITS %d", house.split)
+        -- before the turn has run. NEITHER when the crown_split setting is off:
+        -- there is no split to threaten, so it reads RESTLESS or LOYAL.
+        if IC.TUNE.crown_split ~= false then
+            if (house.split or 0) > 0 then
+                return string.format("SPLITS %d", house.split)
+            end
+            if house.loyalty <= IC.TUNE.splinter_loyalty then return "SPLINTERING" end
         end
-        if house.loyalty <= IC.TUNE.splinter_loyalty then return "SPLINTERING" end
     elseif (house.clock or 0) > 0 then
         return string.format("SECEDES %d", house.clock)
     elseif house.loyalty <= 25 then
@@ -2623,6 +2731,9 @@ function ICUI.fill_rows(panel, lines, view)
             else
                 row:SetVisible(false)
             end
+            -- EVERY ROW OF THE POOL, drawn or not: the pool is shared by five
+            -- views, and a governor's rim left on a row is a Record line lit up.
+            ICUI.set_rim(row, "row", line and line.rim or nil)
         end
     end
     ICUI.draw_pager(panel, total, at)
@@ -3049,6 +3160,9 @@ end
 function ICUI.fill_party(card, faction, court, slug)
     local house = court.houses[slug]
     if not house then return end
+    -- THE RIM, every draw: a recycled card must not carry one party's flash to
+    -- the next party drawn in its slot.
+    ICUI.set_rim(card, "party", ICUI.flashes[slug])
     ICUI.set_crest(card, "ic_party_crest", ICUI.crest(slug), ICUI.PARTY_CREST)
     ICUI.fit_two(comp("ic_party_name", card), comp("ic_party_name2", card),
                  ICUI.house_name(slug, faction))
@@ -3090,12 +3204,28 @@ function ICUI.fill_party(card, faction, court, slug)
     -- THE TWO NUMBERS THE ROW USED TO CARRY, and the breakdown that explains the
     -- second of them. The tooltip moved off the Loyalty cell with the cell.
     local nums = comp("ic_party_nums", card)
-    set_text(nums, string.format("%d%% of the court - %d loyalty",
-                                 math.floor(IC.share(faction, slug) + 0.5),
-                                 house.loyalty or 0))
+    -- AND WHAT MOVED THEM THIS TURN (spec 2026-09-28 section 4.5): a number
+    -- that moved is coloured, and the figure is on the hover. COLOUR, NOT A
+    -- SECOND NUMBER: this cell is 281px, 233 on a small screen, and measured
+    -- in the game's face no wording with two changes in it fits - "of the
+    -- court" alone ran to 322px at 100% and 100 loyalty, which is why it is
+    -- "share" now.
+    local share = math.floor(IC.share(faction, slug) + 0.5)
+    local loyalty = house.loyalty or 0
+    local base = (ICUI.baseline[faction] or {})[slug]
+    local d_share = base and share - base.share or 0
+    local d_loyalty = base and loyalty - base.loyalty or 0
+    set_text(nums, string.format("%s share - %s loyalty",
+        ICUI.moved(share .. "%", d_share), ICUI.moved(tostring(loyalty), d_loyalty)))
+    local since = ""
+    if d_share ~= 0 or d_loyalty ~= 0 then
+        since = string.format("\n\nSince your turn began: share %s, loyalty %s.",
+            d_share == 0 and "unchanged" or ICUI.delta(d_share) .. "%",
+            d_loyalty == 0 and "unchanged" or ICUI.delta(d_loyalty))
+    end
     if nums then
         pcall(function()
-            nums:SetTooltipText(ICUI.loyalty_tip(faction, court, slug), "", true)
+            nums:SetTooltipText(ICUI.loyalty_tip(faction, court, slug) .. since, "", true)
             nums:SetInteractive(true)
         end)
     end
@@ -3682,6 +3812,49 @@ function ICUI.card_fire(card, lit)
     if not ok then IC.warn("IRON COURT: embers on a seat failed: " .. tostring(err)) end
 end
 
+-- ONE LOOK PER COMPONENT: the rim into the look's layer, MASK_NONE into every
+-- other. Written on every draw, because cards and rows are recycled and a rim
+-- left on is a seat that looks held.
+function ICUI.set_rim(c, kind, look)
+    if not c then return end
+    local art = (kind == "row") and ICUI.RIM_ART_ROW or ICUI.RIM_ART
+    for name, index in pairs(ICUI.RIMS[kind]) do
+        local path = (name == look) and art or ICUI.MASK_NONE
+        pcall(function() c:SetImagePath(path, index) end)
+    end
+end
+
+-- THE CLAIM BURST, created into the card and destroyed after it plays - a new
+-- one per claim, so a finished sprite never has to replay. HOST BY NAME: the
+-- callback re-finds everything under the panel, because the panel may be shut
+-- before it fires, and a component kept from before is then a dead address.
+function ICUI.burst(host_name)
+    local ok, err = pcall(function()
+        local panel = comp(ICUI.PANEL)
+        local host = panel and comp(host_name, panel)
+        if not host then return end
+        local old = find_uicomponent(host, ICUI.BURST)
+        if old then old:Destroy() end
+        host:CreateComponent(ICUI.BURST, ICUI.PATH_BURST)
+        local b = find_uicomponent(host, ICUI.BURST)
+        if not b or not is_uicomponent(b) then return end
+        local x, y = host:Position()
+        local w, h = host:Dimensions()
+        local bw, bh = b:Dimensions()
+        b:MoveTo(x + math.floor((w - bw) / 2), y + math.floor((h - bh) / 2))
+        b:SetVisible(true)
+    end)
+    if not ok then IC.warn("IRON COURT: the claim burst failed: " .. tostring(err)) end
+    cm:callback(function()
+        pcall(function()
+            local panel = comp(ICUI.PANEL)
+            local host = panel and comp(host_name, panel)
+            local b = host and find_uicomponent(host, ICUI.BURST)
+            if b then b:Destroy() end
+        end)
+    end, ICUI.BURST_SECONDS)
+end
+
 -- WHY A SEAT IS STALLED, in a sentence, for its button's tooltip.
 function ICUI.stall_reason(faction, stall)
     if stall.cause == "withhold" then
@@ -3757,6 +3930,9 @@ function ICUI.draw_offices(panel, faction, court)
             set_text(comp("ic_card_term", card), term_text)
             local stall = cqi and (court.stalled or {})[office.slug] or nil
             local stall_left = stall and IC.stalled_for(faction, office.slug) or 0
+            -- A STALLED SEAT IS HELD AND GIVES NOTHING: its rim goes dim and still.
+            local stalled = stall ~= nil and stall_left > 0
+            ICUI.set_rim(card, "card", cqi and (stalled and "dim" or "lit") or nil)
             local button = comp("ic_card_button", card)
             if button then
                 local tip = ""
@@ -3882,6 +4058,22 @@ function ICUI.gov_effect(faction, province_key, cqi)
     return text
 end
 
+-- WHAT HIS RANK ADDS (spec 2026-09-27 section 7) - and NOTHING while he is
+-- away, since apply_governor_bundles skips an absent governor entirely.
+function ICUI.gov_rank_tip(faction, province_key, holder)
+    local r = 0
+    pcall(function() r = holder:rank() end)
+    local o, inc = IC.gov_rank_bonus(r)
+    if not IC.governor_active(faction, province_key) then
+        return string.format("He is away from this province and adds nothing until "
+            .. "he returns. At rank %d he would add +%d public order and +%d%% "
+            .. "income here.", r, o, inc)
+    end
+    return string.format("At rank %d he adds +%d public order and +%d%% "
+        .. "income to this province, on top of the governor's base "
+        .. "bonus. Both grow as he ranks up.", r, o, inc)
+end
+
 function ICUI.draw_govs(panel, faction, court)
     local lines = {}
     -- NO CAP. The list is built in full and the row pool windows it; capping here
@@ -3939,14 +4131,10 @@ function ICUI.draw_govs(panel, faction, court)
             -- back to house_plate_none, which is opaque - see fill_rows.
             vacant = (cqi == nil),
             -- WHAT HIS RANK ADDS (spec 2026-09-27 section 7).
-            tip = holder and (function()
-                local r = 0
-                pcall(function() r = holder:rank() end)
-                local o, inc = IC.gov_rank_bonus(r)
-                return string.format("At rank %d he adds +%d public order and +%d%% "
-                    .. "income to this province, on top of the governor's base "
-                    .. "bonus. Both grow as he ranks up.", r, o, inc)
-            end)() or nil,
+            tip = holder and ICUI.gov_rank_tip(faction, province_key, holder) or nil,
+            -- LIT WHILE HE GOVERNS, DIM WHILE HE IS AWAY: away, he gives nothing.
+            rim = cqi and (IC.governor_active(faction, province_key) and "lit"
+                           or "dim") or nil,
             -- WHAT ICUI.sort_rows ORDERS ON. The province name is the CELL's
             -- text and not the key: the key is wh3_main_combi_province_gash_kadrak
             -- and sorting on it would order the list by a string nobody is shown.
@@ -3973,6 +4161,89 @@ function ICUI.draw_govs(panel, faction, court)
     ICUI.sort_rows("govs", lines, ICUI.gov_keys, #seats)
     ICUI.fill_rows(panel, lines, "govs")
     return ""
+end
+
+-- THE ROW DRAWING A PROVINCE on the Governors tab, by name, or nil when it is
+-- scrolled out of the window. fill_rows draws line n in row n - at + first - 1,
+-- and gov_keys is permuted with the lines, so this is that sum run backwards.
+function ICUI.gov_row(province_key)
+    local first = ICUI.first_row("govs")
+    local at = ICUI.scroll.govs or 0
+    for i, key in ipairs(ICUI.gov_keys or {}) do
+        if key == province_key then
+            local slot = i - at + first - 1
+            if slot >= first and slot <= ICUI.MAX_ROWS then
+                return ICUI.ROW .. "_" .. slot
+            end
+            return nil
+        end
+    end
+    return nil
+end
+
+-- THE PARTY'S CARD ON SCREEN, or nil when the court view is not drawing it.
+-- court_keys is the list the cards were drawn from and the court's scroll is
+-- the window, so this is the draw loop's own sum run backwards.
+function ICUI.party_card(slug)
+    local panel = comp(ICUI.PANEL)
+    if not panel or ICUI.view ~= "court" then return nil end
+    local at = ICUI.scroll.court or 0
+    for i, s in ipairs(ICUI.court_keys or {}) do
+        if s == slug then
+            local slot = i - at
+            if slot >= 1 and slot <= ICUI.PARTY_SLOTS then
+                return comp(ICUI.PARTY .. "_" .. slot, panel)
+            end
+        end
+    end
+    return nil
+end
+
+-- A SHORT RIM ON A PARTY'S CARD: lit for a party an answer pleased, red for the
+-- target of a plot that failed. HELD IN ICUI.flashes, not only painted: in
+-- single player the click redraws the whole panel straight after its answer,
+-- and fill_party repaints every card's rim from this table - a flash painted
+-- and not remembered would be wiped by that redraw before a frame of it drew.
+ICUI.FLASH_SECONDS = 1.5
+ICUI.flashes = {}
+function ICUI.flash(slug, look)
+    ICUI.flashes[slug] = look
+    ICUI.set_rim(ICUI.party_card(slug), "party", look)
+    cm:callback(function()
+        ICUI.flashes[slug] = nil
+        pcall(function() ICUI.set_rim(ICUI.party_card(slug), "party", nil) end)
+    end, ICUI.FLASH_SECONDS)
+end
+
+-- WHAT MOVED THIS TURN (spec 2026-09-28 section 4.5). A snapshot of every
+-- party's share and loyalty taken as the player's turn begins - BEFORE the
+-- model's own turn-start work, since this file's listeners register first - so
+-- the numbers show the turn's changes and the player's own. Kept on screen
+-- only: after a load there is no snapshot, and no suffix, until the next turn.
+ICUI.baseline = {}
+
+function ICUI.take_baseline(faction)
+    -- READ, NOT IC.court: that creates a court, and IC.state is the save.
+    local court = IC.state[faction]
+    if not court then return end
+    local snap = {}
+    for slug, house in pairs(court.houses) do
+        snap[slug] = {share = math.floor(IC.share(faction, slug) + 0.5),
+                      loyalty = house.loyalty or 0}
+    end
+    ICUI.baseline[faction] = snap
+end
+
+-- A CHANGE AS A SIGNED FIGURE, "+5" or "-10", and nothing for none.
+function ICUI.delta(n)
+    if not n or n == 0 then return "" end
+    return string.format("%+d", n)
+end
+
+-- A FIGURE IN THE COLOUR OF ITS CHANGE: green up, red down, plain unmoved.
+function ICUI.moved(text, n)
+    if not n or n == 0 then return text end
+    return string.format("[[col:%s]]%s[[/col]]", n > 0 and "green" or "red", text)
 end
 
 -- A house's display name, from its slug.
@@ -4788,7 +5059,7 @@ function ICUI.draw_petitions(panel, faction, court)
             crest = face and ICUI.crest(d.slug) or nil,
             plate = d.slug,
         }
-        ICUI.petition_rows[#lines] = {kind = "demand"}
+        ICUI.petition_rows[#lines] = {kind = "demand", slug = d.slug}
     end
 
     -- THE OFFERS, in the court's own order, so the list does not reshuffle
@@ -4852,7 +5123,9 @@ function ICUI.on_petition_click(context, yes)
     -- SENT, NOT CALLED: see IC.mp_send. The answer is ICUI.ANSWERS'.
     local op, arg
     if p.kind == "demand" then
-        op, arg = (yes and "grant" or "refuse"), ""
+        -- THE PARTY TRAVELS WITH IT, for the answer to name: the model's
+        -- grant and refuse take no argument and ignore this one.
+        op, arg = (yes and "grant" or "refuse"), (p.slug or "")
     elseif p.kind == "feud" then
         op, arg = "arbit", p.slug .. "|" .. (yes and "back" or "peace")
     else
@@ -5247,6 +5520,7 @@ function ICUI.refresh()
     set_text(comp("ic_tab_log", panel), "Record")
     set_text(comp("ic_tab_petitions", panel), "Petitions")
     ICUI.light_tabs(panel)
+    ICUI.draw_marks(panel, faction)
     if ICUI.pick then
         set_text(comp("ic_lbl_section", panel), ICUI.pick_title())
     else
@@ -5846,28 +6120,73 @@ end
 -- ---------------------------------------------------------------------------
 ICUI.ANSWERS = {}
 
--- A yes or a no that confirms with a sound, and a refusal that says why.
-local function confirmed(yes, demand)
-    return function(_arg, done, why, spare)
+-- THE PARTY AN ANSWER NAMES, off the wire. favour sends favour|party; every
+-- other op sends party first.
+function ICUI.answer_party(op, arg)
+    local f = {}
+    for x in string.gmatch((arg or "") .. "|", "([^|]*)|") do f[#f + 1] = x end
+    local slug = (op == "favour") and f[2] or f[1]
+    if slug == "" then return nil end
+    return slug, f
+end
+
+-- WHAT A YES DID, in a sentence (spec 2026-09-28 section 4.3). The player's own
+-- successful clicks were the quietest events in the panel: a chime, and the
+-- notice line cleared. Amounts are the model's own tuning, never retyped - and
+-- a grant names none, because it also seats the man and his own loyalty lands
+-- on top of the demand's.
+function ICUI.answer_text(op, arg, faction)
+    local slug, f = ICUI.answer_party(op, arg)
+    local name = slug and ICUI.house_name(slug, faction) or "The party"
+    local T = IC.TUNE
+    if op == "grant" then
+        return string.format("Granted. %s has what it asked for and is pleased.", name)
+    elseif op == "accept" then
+        return string.format("Accepted. %s keeps its word.", name)
+    elseif op == "arbit" and f[2] == "back" then
+        return string.format("You backed %s (+%d loyalty). Its rival will not forget it.",
+            name, T.arbit_side_loyalty or 0)
+    elseif op == "arbit" then
+        return string.format("Settled. %s and its rival stand down (+%d loyalty each).",
+            name, T.arbit_peace_loyalty or 0)
+    elseif op == "favour" and f[1] == "gift" then
+        return string.format("Sent. %s is pleased (+%d loyalty).",
+            name, T.favour_gift_loyalty or 0)
+    elseif op == "favour" then
+        return string.format("Secured. %s is bound by oath for %d turns.",
+            name, T.favour_secure_turns or 0)
+    end
+    return nil
+end
+
+-- A yes or a no that confirms with a sound, and a refusal that says why. A yes
+-- also says what it did, and lights the rim of the party it pleased.
+local function confirmed(yes, demand, op)
+    return function(arg, done, why, spare)
         -- A DEMAND THE TURN HAD ALREADY DECIDED, and reason_text's "gone" is
         -- worded for an offer.
         if demand and why == "gone" then why = "no demand" end
         if done then
-            ICUI.notice = nil
+            ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player()) or nil
             -- THE GOOD SOUND FOR A YES and the bad one for a no, which is what
             -- a refusal is to the party that asked.
             ICUI.confirm(nil, yes)
+            local slug = yes and ICUI.answer_party(op, arg) or nil
+            if slug then ICUI.flash(slug, "lit") end
         else
             ICUI.notice = ICUI.reason_text(why, spare)
         end
     end
 end
-ICUI.ANSWERS.grant = confirmed(true, true)
-ICUI.ANSWERS.refuse = confirmed(false, true)
-ICUI.ANSWERS.accept = confirmed(true, false)
-ICUI.ANSWERS.decline = confirmed(false, false)
-ICUI.ANSWERS.favour = confirmed(true, false)
-ICUI.ANSWERS.arbit = confirmed(true, false)
+ICUI.ANSWERS.grant = confirmed(true, true, "grant")
+ICUI.ANSWERS.refuse = confirmed(false, true, "refuse")
+ICUI.ANSWERS.accept = confirmed(true, false, "accept")
+ICUI.ANSWERS.decline = confirmed(false, false, "decline")
+ICUI.ANSWERS.favour = confirmed(true, false, "favour")
+ICUI.ANSWERS.arbit = confirmed(true, false, "arbit")
+-- RELEASING A GOVERNOR. It had no answer at all: no sound, and a refusal that
+-- said nothing (audit 2026-09-28).
+ICUI.ANSWERS.ungov = confirmed(false, false, "ungov")
 
 -- The four pickers.
 local function picked(op)
@@ -5880,8 +6199,9 @@ local function picked(op)
         end
         -- THE SEAT THIS FILLED, off the wire: in multiplayer the picker that
         -- sent this may have closed by now.
-        local filled = nil
+        local filled, filled_row = nil, nil
         if op == "appoint" or op == "hire" then filled = string.match(arg or "", "^([^|]*)") end
+        if op == "gov" then filled_row = ICUI.gov_row(string.match(arg or "", "^([^|]*)")) end
         ICUI.pick = nil
         ICUI.scroll.pick = 0
         -- A PLOT THAT RESOLVED IS STILL OWED AN ANSWER. `done` means the move
@@ -5891,10 +6211,29 @@ local function picked(op)
             ICUI.notice = "It did not work. The influence is spent, and they "
                           .. "know perfectly well who tried."
             ICUI.confirm(nil, false)
+            -- AND THE TARGET'S CARD FLASHES RED: a failure looked exactly like
+            -- a success, bar the sound (spec 2026-09-28 section 4.6).
+            if op == "plot" then
+                -- The field is the target MAN's cqi (on_pick_click); the card
+                -- is his party's.
+                local target = tonumber(string.match(arg or "", "^[^|]*|[^|]*|(.*)$"))
+                local slug = target and IC.house_of_cqi(ICUI.player(), target)
+                if slug then ICUI.flash(slug, "red") end
+            end
         else
             ICUI.notice = nil
-            -- THE CARD THAT JUST CHANGED, when a seat is what changed.
-            ICUI.confirm(filled and ICUI.office_card(filled) or nil, true)
+            -- THE CARD THAT JUST CHANGED, when a seat is what changed: CA's
+            -- claim burst and the ritual sound, instead of the generic chime.
+            local card = filled and ICUI.office_card(filled) or nil
+            if card then
+                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)
+                ICUI.burst(card:Id())
+            elseif filled_row then
+                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)
+                ICUI.burst(filled_row)
+            else
+                ICUI.confirm(nil, true)
+            end
         end
     end
 end
@@ -6033,6 +6372,16 @@ end, true)
 -- THE SUMMARY, on the player's own turn start and ONE TICK LATE: this file's
 -- listeners are registered before the model's, so read now it would describe
 -- the court before its turn - terms not yet ended, clocks not yet moved.
+-- THE BASELINE FOR THE CHANGE NUMBERS, synchronously: this file registers
+-- before the model, so this runs before the turn's own changes land. The local
+-- player only, and nothing here touches the model or the save.
+core:add_listener("ic_baseline", "FactionTurnStart", true, function(context)
+    local faction = context:faction()
+    if not faction or faction:is_null_interface() then return end
+    if faction:name() ~= ICUI.player() then return end
+    pcall(ICUI.take_baseline, faction:name())
+end, true)
+
 core:add_listener("ic_opener_tip", "FactionTurnStart", true, function(context)
     local faction = context:faction()
     if not faction or faction:is_null_interface() then return end
@@ -6181,7 +6530,7 @@ ICUI.NOT_SCALED = {
     "PLOT_COUNTS", "PLOT_DEPTH", "PLOT_BLURB_LINES", "PARTY_COLS", "PARTY_ROWS",
     "PARTY_SLOTS", "STANDING_W", "STANDING_H", "STANDING_DX", "STANDING_DY",
     "SHARE_INK", "HSORT_GAP", "HSORT_INDEX", "PULSE_SECONDS", "PULSE_STRENGTH",
-    "TIP_PROVINCES", "SORTS", "BW", "BASE", "COMPACT_OVERRIDES",
+    "TIP_PROVINCES", "SORTS", "BW", "BASE", "COMPACT_OVERRIDES", "BURST_SECONDS", "RIMS", "FLASH_SECONDS",
     "PARTY_SEL_INDEX",
 }
 

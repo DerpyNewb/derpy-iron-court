@@ -75,10 +75,20 @@ E_AGENT = ("wh_main_effect_agent_action_success_chance",
            "faction_to_character_own", True)
 E_RAID = ("wh_main_effect_force_all_campaign_raid_income",
           "faction_to_force_own", True)
+# CHEAPER HOBGOBLINS, for the Steward of the Ash Fields (author, 2026-09-28:
+# "redo growth effect into something else"; chose "cheaper hobgoblins"). UPKEEP,
+# not recruitment cost: CA ships the hobgoblin recruit-cost effect only on
+# buildings, scoped to one province, and a faction bundle cannot use that scope.
+# This one CA ships faction-wide, faction_to_force_own at -15, on the Volary
+# (Tomb of Khengai Khan) - an upkeep_mod on unit set
+# wh3_dlc23_chd_hobgoblin_units_and_gorduz, is_positive_value_good False.
+E_HOBGOBLIN = ("wh3_dlc23_effect_upkeep_hobgoblins",
+               "faction_to_force_own", False)
 
 ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_GROWTH,
                E_UPKEEP, E_REPLEN, E_PB_LABOUR,
-               E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID]
+               E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID,
+               E_HOBGOBLIN]
 
 # ---------------------------------------------------------------------------
 # THE ZIGGURAT.
@@ -342,6 +352,7 @@ EFFECT_TEXT = {
     E_RECRUIT[0]:   "Recruitment cost: %+n%",
     E_AGENT[0]:     "Hero action success chance: %+n%",
     E_RAID[0]:      "Income from raiding: %+n%",
+    E_HOBGOBLIN[0]: "Upkeep: %+n% for Hobgoblin units",
 }
 # THE CARD'S OWN WORDING, and the only place in this mod that does not use CA's.
 #
@@ -368,6 +379,7 @@ EFFECT_SHORT = {
     E_RECRUIT[0]:   "Recruitment cost",
     E_AGENT[0]:     "Hero success",
     E_RAID[0]:      "Raiding income",
+    E_HOBGOBLIN[0]: "Hobgoblin upkeep",
 }
 
 # Which of them are percentages, so the short line does not put a % on Control
@@ -520,10 +532,10 @@ OFFICES = [
         "name": "Steward of the Ash Fields",
         "affinity": "hearth",
         "tier": 4,
-        "blurb": "Even ash will grow something, if a Dawi Zharr is made to care.",
-        "vacant_blurb": "The ash fields are left to the ash.",
-        "effects": [(E_GROWTH, 10, BOON)],
-        "vacancy": [(E_GROWTH, 5, MALUS)],
+        "blurb": "The hobgoblin tribes that work the ash fields march cheap for whoever feeds them.",
+        "vacant_blurb": "The ash fields go untended, and the hobgoblins want more to march.",
+        "effects": [(E_HOBGOBLIN, 15, BOON)],
+        "vacancy": [(E_HOBGOBLIN, 5, MALUS)],
     },
     {
         "slug": "scribes",
@@ -951,7 +963,7 @@ EVENTS = [
      "TERMS END"),
     ("party_sabotage", True, "chd/army_morale_down", "Negative",
      "An Office Sabotaged",
-     "A party feuding with yours has sabotaged one of your offices. Its bonus is "
+     "A feuding party has sabotaged an office held by its rival. Its bonus is "
      "lost for a few turns; the Offices tab shows which seat and for how long.",
      "SABOTAGE"),
     ("party_withhold", True, "chd/army_morale_down", "Negative",
@@ -1994,6 +2006,19 @@ def check():
         fields, rows = junc
         ei, si = fields.index("effect_key"), fields.index("effect_scope")
         pairs = set((r[ei], r[si]) for r in rows)
+        # AND THE BUILDING AND TECHNOLOGY TABLES. A scope is the same scope
+        # whichever table carries the row: faction_to_force_own on a landmark is
+        # the effect applied at faction level to every force, which is what an
+        # office's faction bundle does. The Steward's hobgoblin upkeep has its
+        # one precedent there - the Volary, a shipped landmark, at -15.
+        for table in ("building_effects_junction", "technology_effects_junction"):
+            more = _cache_table(table)
+            if more is None:
+                continue
+            f2, r2 = more
+            if "effect" in f2 and "effect_scope" in f2:
+                e2, s2 = f2.index("effect"), f2.index("effect_scope")
+                pairs |= set((r[e2], r[s2]) for r in r2)
         for effect in ALL_EFFECTS:
             if (effect[0], effect[1]) not in pairs:
                 out.append("(effect, scope) pair not shipped by CA: %s / %s"

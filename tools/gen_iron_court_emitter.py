@@ -171,6 +171,15 @@ def _state(c, name, sguid, entries, target):
                 out += '\t\t\t\t\t\t\tdockpoint="%s"\n' % dock
             if lay.get("colour"):
                 out += '\t\t\t\t\t\t\tcolour="%s"\n' % lay["colour"]
+            # CA'S PULSE, ON THE IMAGE. glow_pulse_t0 is how every torch and rune
+            # in the Chaos Dwarf panels breathes (876 uses in ui3.pack), declared
+            # per image and running on its own while the image is visible - no
+            # trigger. Values: lowest, highest, interval, time offset (CA's
+            # uicomponent.html "Shader Techniques" table).
+            if lay.get("shader"):
+                out += '\t\t\t\t\t\t\tshader_name="%s"\n' % lay["shader"]
+                out += ('\t\t\t\t\t\t\tshadertechnique_vars="%s"\n'
+                        % lay.get("shader_vars", "0.00,0.00,0.00,0.00"))
             # A TUPLE IS (vertical, horizontal): CA's own skull-capped tab writes
             # "0,65,0,65" - caps on the ends, the bar stretched between them. Only
             # ever symmetric here, because no CA file says which of the two

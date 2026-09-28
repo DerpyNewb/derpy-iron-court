@@ -194,6 +194,10 @@
 				<ic_barp_22 this="IC300232-D000-4000-B000000000000232"/>
 				<ic_barp_23 this="IC300235-D000-4000-B000000000000235"/>
 				<ic_barp_24 this="IC300238-D000-4000-B000000000000238"/>
+				<ic_mark_court this="IC30023B-D000-4000-B00000000000023B"/>
+				<ic_mark_govs this="IC30023E-D000-4000-B00000000000023E"/>
+				<ic_mark_offices this="IC300241-D000-4000-B000000000000241"/>
+				<ic_mark_petitions this="IC300244-D000-4000-B000000000000244"/>
 			</derpy_ic_panel>
 		</root>
 	</hierarchy>
@@ -1869,6 +1873,10 @@
 					this="IC30006D-D005-4000-B00000000000006D"
 					uniqueguid="IC30006D-D005-4000-B00000000000006D"
 					imagepath="ui/derpy_ic/mask_none.png"/>
+				<component_image
+					this="IC30006D-D007-4000-B00000000000006D"
+					uniqueguid="IC30006D-D007-4000-B00000000000006D"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -1905,6 +1913,15 @@
 							height="100"
 							colour="#FFFFFFFF"
 							margin="0.00,0.00,0.00,0.00"/>
+						<image
+							this="IC30006D-D008-4000-B00000000000006D"
+							uniqueguid="IC30006D-D008-4000-B00000000000006D"
+							componentimage="IC30006D-D007-4000-B00000000000006D"
+							offset="0.00,0.00"
+							width="183"
+							height="100"
+							colour="#FFFFFFFF"
+							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -7333,5 +7350,149 @@
 				</standard>
 			</states>
 		</ic_barp_24>
+		<ic_mark_court
+			this="IC30023B-D000-4000-B00000000000023B"
+			id="ic_mark_court"
+			tooltipslocalised="true"
+			uniqueguid="IC30023B-D000-4000-B00000000000023B"
+			currentstate="IC30023C-D000-4000-B00000000000023C"
+			defaultstate="IC30023C-D000-4000-B00000000000023C">
+			<componentimages>
+				<component_image
+					this="IC30023B-D001-4000-B00000000000023B"
+					uniqueguid="IC30023B-D001-4000-B00000000000023B"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC30023C-D000-4000-B00000000000023C"
+					name="standard"
+					width="28"
+					height="28"
+					uniqueguid="IC30023C-D000-4000-B00000000000023C">
+					<imagemetrics>
+						<image
+							this="IC30023B-D002-4000-B00000000000023B"
+							uniqueguid="IC30023B-D002-4000-B00000000000023B"
+							componentimage="IC30023B-D001-4000-B00000000000023B"
+							offset="0.00,0.00"
+							width="28"
+							height="28"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_court>
+		<ic_mark_govs
+			this="IC30023E-D000-4000-B00000000000023E"
+			id="ic_mark_govs"
+			tooltipslocalised="true"
+			uniqueguid="IC30023E-D000-4000-B00000000000023E"
+			currentstate="IC30023F-D000-4000-B00000000000023F"
+			defaultstate="IC30023F-D000-4000-B00000000000023F">
+			<componentimages>
+				<component_image
+					this="IC30023E-D001-4000-B00000000000023E"
+					uniqueguid="IC30023E-D001-4000-B00000000000023E"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC30023F-D000-4000-B00000000000023F"
+					name="standard"
+					width="28"
+					height="28"
+					uniqueguid="IC30023F-D000-4000-B00000000000023F">
+					<imagemetrics>
+						<image
+							this="IC30023E-D002-4000-B00000000000023E"
+							uniqueguid="IC30023E-D002-4000-B00000000000023E"
+							componentimage="IC30023E-D001-4000-B00000000000023E"
+							offset="0.00,0.00"
+							width="28"
+							height="28"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_govs>
+		<ic_mark_offices
+			this="IC300241-D000-4000-B000000000000241"
+			id="ic_mark_offices"
+			tooltipslocalised="true"
+			uniqueguid="IC300241-D000-4000-B000000000000241"
+			currentstate="IC300242-D000-4000-B000000000000242"
+			defaultstate="IC300242-D000-4000-B000000000000242">
+			<componentimages>
+				<component_image
+					this="IC300241-D001-4000-B000000000000241"
+					uniqueguid="IC300241-D001-4000-B000000000000241"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC300242-D000-4000-B000000000000242"
+					name="standard"
+					width="28"
+					height="28"
+					uniqueguid="IC300242-D000-4000-B000000000000242">
+					<imagemetrics>
+						<image
+							this="IC300241-D002-4000-B000000000000241"
+							uniqueguid="IC300241-D002-4000-B000000000000241"
+							componentimage="IC300241-D001-4000-B000000000000241"
+							offset="0.00,0.00"
+							width="28"
+							height="28"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_offices>
+		<ic_mark_petitions
+			this="IC300244-D000-4000-B000000000000244"
+			id="ic_mark_petitions"
+			tooltipslocalised="true"
+			uniqueguid="IC300244-D000-4000-B000000000000244"
+			currentstate="IC300245-D000-4000-B000000000000245"
+			defaultstate="IC300245-D000-4000-B000000000000245">
+			<componentimages>
+				<component_image
+					this="IC300244-D001-4000-B000000000000244"
+					uniqueguid="IC300244-D001-4000-B000000000000244"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC300245-D000-4000-B000000000000245"
+					name="standard"
+					width="28"
+					height="28"
+					uniqueguid="IC300245-D000-4000-B000000000000245">
+					<imagemetrics>
+						<image
+							this="IC300244-D002-4000-B000000000000244"
+							uniqueguid="IC300244-D002-4000-B000000000000244"
+							componentimage="IC300244-D001-4000-B000000000000244"
+							offset="0.00,0.00"
+							width="28"
+							height="28"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_petitions>
 	</components>
 </layout>

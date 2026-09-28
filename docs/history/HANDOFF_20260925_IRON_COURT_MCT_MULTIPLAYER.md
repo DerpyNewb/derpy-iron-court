@@ -825,3 +825,68 @@ survived until then); four mutants added, one removed (padding with his own stac
 rule). Harness 687; 45 army mutants caught. Deployed to data/ on 2026-09-27
 (backup `derpy_iron_court.pack.bak_pre_hashutdraft_20260927` holds 50342536): MD5
 `5B0F8999BEEB2FEF03DA6087FA8C41D5`, 9,195,929 bytes, 1,723 files, Lua byte-verified.
+
+**Bug-fix pass (2026-09-28, author: "fix the bugs").** Ten faults from the "what else is missing"
+review, each with a check that failed first and a mutant that the check kills (18 mutants in the
+filtered run: the ten new, eight older ones re-aimed at lines these fixes moved; 529 in the file).
+- **AI court wiped after a load.** Listeners (`ic_confed` host, `ic_born`, `ic_battle`, `ic_took`,
+  `ic_rank`, `ic_dead`) and `IC.dismantle` call `IC.loaded(key)`, which loads a court not yet in
+  `IC.state`. Not done inside `IC.court`: the harness's `saved` table outlives `IC.state = {}`, and
+  a lazy load there broke every check that means "fresh court".
+- **Ruthless never saw the soon card**: it fires at `min(warn_turns, secede_turns - 1)`.
+- **Dead courts padded the rotation**: `party_turn_due` counts living AI courts only.
+- **Sabotage card never fired**: it was gated on the Crown as target, which a feud never is.
+- **News to non-Chaos-Dwarf humans**: `IC.hears` = met AND runs a court; used by `IC.news` and the
+  `realm_secede` card loop.
+- **Switches not fully off**: Provoke starts no clock with `secession` off; `ICUI.mood` drops
+  SPLITS/SPLINTERING with `crown_split` off; a Chaos Dwarf faction whose court the settings switch
+  off but whose save still holds one is `IC.dismantle`d at its turn start (office, vacancy and
+  control bundles, office title traits, governor bundles, the saved court).
+- **`IC.ai_placate` skipped on plot turns and with parties_act off**: moved up to right after
+  `IC.expire_offers`, before both early returns.
+- **Governor tooltip ignored absence**: `ICUI.gov_rank_tip` says he adds nothing while away
+  (`apply_governor_bundles` skips an absent governor, so the old text overstated).
+- Found already fixed: the Harsh preset tooltip. Deferred: greyed MCT sliders showing numbers the
+  preset does not use (needs MCT's value setter, not verifiable offline).
+Harness 697. Built into Modpacks only (MD5 `160A02AE...`, 9,200,379 bytes, 1,723 files, Lua
+byte-verified); not deployed to data/, not pushed.
+
+**UI feedback and effects (2026-09-28).** Spec `docs/superpowers/specs/2026-09-28-iron-court-ui-feedback-design.md`,
+plan `docs/superpowers/plans/2026-09-28-iron-court-ui-feedback.md`; the engine lessons are in
+`docs/CUSTOM_UI.md` "Effects on a runtime panel".
+- **What shipped:** a square-cornered glowing rim (`ui/derpy_ic/seat_rim.png`, our own art in CA's
+  measured red, `glow_pulse_t0` on the layer) on held office cards, dim on a stalled seat;
+  governor rows lit / dim while away; a one-shot starburst (`derpy_ic_burst.twui.xml`, created
+  and destroyed per claim) plus the ritual sound on filling a seat or assigning a governor; an
+  answer for releasing a governor (was silent); answer sentences for grant / accept / arbit /
+  gift / secure with a lit flash on the party card; a red flash on a failed plot's target party;
+  Hell-Forge heat-glow markers on tabs with business waiting; the HUD button pulses for offices,
+  court and petitions (not for ungoverned provinces) and its tooltip words every reason; party
+  share and loyalty coloured by change since the turn began, with the figure on hover. The
+  Steward of the Ash Fields now gives -15% hobgoblin upkeep (+5% vacant) instead of Growth.
+- **Probe (in game, author):** the rim draws and breathes, the burst plays, `pulse_uicomponent`
+  is visible but faint. CA's own district rim has rounded corners, hence our own art.
+- **Final review** (fresh reviewer) found five faults the harness was green over, all fixed
+  with a check that failed first: the failed-plot flash keyed by the man's cqi rather than his
+  party; the demand row carrying no party, so a grant named nobody; the button pulsing for
+  petitions and ungoverned provinces its tooltip never mentioned; the pulse stopped only in the
+  button's current state; the turn-start baseline creating an empty court (a save write) for a
+  non-Chaos-Dwarf player. Deferred minors are in the ledger
+  (`.superpowers/sdd/2026-09-28-iron-court-ui-feedback/progress.md`).
+Harness 713; 559 mutants, all anchored, every new one caught. Built into Modpacks only: MD5
+`A54792C5F50A7A5B1646F6323845D8BA`, 9,235,460 bytes, 1,725 files, the three Lua files, the burst
+file and the rim art byte-verified. Deployed to data/ on 2026-09-28 (backup `derpy_iron_court.pack.bak_pre_uifeedback_20260928` holds 6406707F), MD5-matched; not pushed. Still unseen in game: the
+stop of the button pulse after the panel is closed from its hover state.
+
+**Portrait frames and the row rim (2026-09-28).** Every face cell carries a fourth, fixed layer:
+CA's Hell-Forge `dlc23_chd_hell_forge/unit_card_frame.png` nine-sliced at 8
+(`gen_ic_ui.FRAME_ART` / `FRAME_INDEX` / `FRAME_MARGIN`); check 13b holds its margin to the
+smallest face cell, and the layer-order check now expects plate < face < mask < frame. The
+author's "glitches to the governor tab if there is someone in position" was the row rim: the
+card rim's 40px nine-slice margin on a 61px row overlapped itself into a red wash with corner
+blocks. Rows now wear `ui/derpy_ic/seat_rim_row.png` (same colour and profile, faded by 20px,
+margin 20; `ICUI.RIM_ART_ROW`), and check 13 measures every rim layer against the component it
+sits on (it failed on the row first). Script log `script_log_280926_1540.txt` on A54792C5: all
+three files loaded, the court ran, no script errors, `event_error_logs` empty. Build
+`7B34D7270FFCE04271B2142FB99A756F`, 9,240,059 bytes, 1,726 files, byte-verified; deployed to
+data/ (backup `derpy_iron_court.pack.bak_pre_frames_20260928` holds A54792C5); pushed to GitHub.

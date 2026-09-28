@@ -92,6 +92,8 @@ GUID_PREFIXES = {
     # means more components. See PLOT_LAYOUT.
     "derpy_ic_plot.twui.xml":   "IC36",
     "derpy_ic_fire.twui.xml":   "IC37",
+    # IC38 - the claim burst, created into a card or row per claim.
+    "derpy_ic_burst.twui.xml":  "IC38",
     # IC40-IC44 - THE COMPACT COPIES, the same components one CA font size
     # down for a box under 1920. Their own prefixes: a copy that reused its
     # base file's would collide with it GUID for GUID.
@@ -205,6 +207,13 @@ PANEL_LAYOUT = {
     # secession clocks, and a page of history pushed the one thing a player
     # can still act on off the screen.
     "ic_tab_log": (1238, 62, 240, 32),
+    # THE ATTENTION MARKERS (spec 2026-09-28 section 4.4): a heat glow over
+    # each tab's right-hand skull, the cap's centre 20px in from the end
+    # (TAB_CAP 40), shown by ICUI.draw_marks while that tab has business.
+    "ic_mark_court": (18 + 240 - 34, 64, 28, 28),
+    "ic_mark_offices": (262 + 240 - 34, 64, 28, 28),
+    "ic_mark_govs": (506 + 240 - 34, 64, 28, 28),
+    "ic_mark_petitions": (994 + 240 - 34, 64, 28, 28),
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
@@ -1879,9 +1888,124 @@ def plate_pixels(hexcol):
 # when this generator has seen the file in an installed pack.
 MASK_DIR = PLATE_DIR
 MASK_NONE = "%s/mask_none.png" % MASK_DIR
+
+# THE SEAT'S RIM (spec 2026-09-28 section 4.1). CA's completed-district glow off
+# the Tower of Zharr, 9-sliced at 40 - the Great Guilds' measured value, and it
+# fits MASK_NONE (300x164) as well as the rim (299x877), so no layer can sample
+# outside its texture whichever of the two it holds.
+#
+# ONE LAYER PER LOOK, each shipping MASK_NONE. ICUI.set_rim writes the rim into
+# the look's layer and MASK_NONE into the others. A layer's colour multiplies
+# its image, so the dim and red looks are the same CA art under another colour
+# rather than derived files (ruling 1 of the 2026-09-28 plan).
+# OUR OWN TEXTURE, NOT CA'S FILE (author, 2026-09-28, of CA's rim in game: "the
+# corners are not filled"). CA's district_complete_glow_02.png is a ROUNDED
+# rectangle - its glow peaks 10px in along an edge and 20px in along the
+# diagonal, a corner radius near 30px - so no margin can take it into a square
+# card's corner, and pushing the layer out past the card to hide the curve
+# spills ~25px of glow into the 20px gaps between cards. seat_rim_pixels()
+# draws CA's own measured colour and edge profile with SQUARE corners instead.
+RIM_ART = "%s/seat_rim.png" % PLATE_DIR
+RIM_MARGIN = 40
+RIM_PX = 128
+# A LIST ROW'S RIM (author, 2026-09-28: "there's glitches to the governor tab if
+# there is someone in position"). A row is 61px, 51 on a small screen, and a
+# 40px margin top and bottom is 80: the two slices overlapped, washing the whole
+# row red with a full-strength corner block at each end. Same colour and the
+# same profile up to its peak at 10px, faded out by 20 instead of 40.
+RIM_ROW_ART = "%s/seat_rim_row.png" % PLATE_DIR
+RIM_ROW_MARGIN = 20
+RIM_ROW_PX = 64
+# Measured off CA's rim at x=150, every 2px in from the edge: its colour holds
+# near (176, 5, 5) and only the alpha changes.
+RIM_RGB = (176, 5, 5)
+RIM_ALPHA = [2, 8, 21, 37, 50, 55, 53, 48, 42, 37, 32, 28, 24, 21, 18, 16, 14,
+             13, 12, 11]
+RIM_LOOKS = {
+    # CA's ToZ furnace glow_01 values.
+    "lit": {"shader": "glow_pulse_t0", "shader_vars": "1.00,1.30,0.80,0.00"},
+    "dim": {"colour": "#FFFFFF66"},
+    # A fast flicker in red: a failure is short and sharp, not a slow breath.
+    "red": {"colour": "#FF3A2AFF", "shader": "glow_pulse_t0",
+            "shader_vars": "0.60,1.60,0.25,0.00"},
+}
+
+
+def rim_layers(looks, margin=RIM_MARGIN):
+    out = []
+    for look in looks:
+        lay = {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
+               "margin": margin, "dock": None}
+        lay.update(RIM_LOOKS[look])
+        out.append(lay)
+    return out
+
+
+OFFICE_CARD_LAYERS = CARD_LAYERS + rim_layers(["lit", "dim"])
+# Which layer holds each look, per component kind. Must match ICUI.RIMS;
+# check_rim_slots() holds the two together.
+CARD_RIM = {"lit": len(CARD_LAYERS), "dim": len(CARD_LAYERS) + 1}
+# The tab marker: CA's Hell-Forge heat glow, breathing at the Hell-Forge
+# category block's own values.
+MARK_LAYERS = [{"path": "ui/skins/default/dlc23_chd_hell_forge/heat_glow.png",
+                "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "dock": None,
+                "colour": "#FFFFFFD0", "shader": "glow_pulse_t0",
+                "shader_vars": "0.80,1.50,0.80,0.00"}]
+ROW_RIM = {"lit": len(ROW_LAYERS), "dim": len(ROW_LAYERS) + 1}
+ROW_FULL_LAYERS = ROW_LAYERS + rim_layers(["lit", "dim"], RIM_ROW_MARGIN)
 # Only portraits under this prefix can turn up in a Chaos Dwarf court.
 MASK_PREFIX = "chd_"
 MASK_SUFFIX = "_mask1.png"
+
+
+def seat_rim_alpha(d, margin=RIM_MARGIN):
+    """CA's edge profile at distance d from the nearest edge, gone by RIM_MARGIN.
+
+    Faded to nothing at the margin, where CA's own tail is still at 10: past
+    the margin is the 9-slice's stretched centre, and anything left there is a
+    red wash across the whole card."""
+    i = d // 2
+    a = RIM_ALPHA[i] if i < len(RIM_ALPHA) else 0
+    if d >= margin:
+        return 0
+    fade = margin - 10
+    if d > fade:
+        a = a * (margin - d) // 10
+    return a
+
+
+def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX):
+    """The distance is to the NEAREST edge, so a corner pixel takes the brighter
+    of its two edges: the glow meets itself in a square corner."""
+    rows = []
+    for y in range(px):
+        row = bytearray()
+        for x in range(px):
+            d = min(x, y, px - 1 - x, px - 1 - y)
+            row += bytearray((RIM_RGB[0], RIM_RGB[1], RIM_RGB[2],
+                              seat_rim_alpha(d, margin)))
+        rows.append(bytes(row))
+    return rows
+
+
+def check_seat_rim(rows=None, margin=RIM_MARGIN, px=RIM_PX):
+    """The rim's corner must be as bright as its edge, and its centre empty."""
+    rows = rows or seat_rim_pixels(margin, px)
+    out = []
+    if len(rows) < 2 * margin or len(rows[0]) // 4 < 2 * margin:
+        out.append("seat rim: %dpx cannot hold a %d margin on both sides"
+                   % (len(rows), margin))
+        return out
+    peak = max(range(margin), key=lambda d: seat_rim_alpha(d, margin))
+    edge = rows[peak][4 * (px // 2) + 3]
+    corner = rows[peak][4 * peak + 3]
+    if corner < edge:
+        out.append("seat rim: the corner's glow is %d where the edge's is %d - "
+                   "the corners are not filled" % (corner, edge))
+    centre = rows[px // 2][4 * (px // 2) + 3]
+    if centre:
+        out.append("seat rim: the centre is %d, a wash over the whole card" % centre)
+    return out
 
 
 def mask_pixels():
@@ -2394,6 +2518,8 @@ def build_plates():
     # function returns a dict; wedge_art() yields them one at a time instead,
     # and art_paths() is what anything needing only the NAMES should ask.
     out[MASK_NONE] = mask_pixels()
+    out[RIM_ART] = seat_rim_pixels()
+    out[RIM_ROW_ART] = seat_rim_pixels(RIM_ROW_MARGIN, RIM_ROW_PX)
     out[SIL_PATH] = silhouette_pixels()
     return out
 
@@ -2451,6 +2577,15 @@ def masked_portraits(quiet=False):
 #
 # Index 0 ships pointing at the vacant plate rather than at 1x1_blank_white,
 # because a cell that has never had its plate set must not flash white.
+#
+#   3  the frame (author, 2026-09-28: "add portrait borders") - CA's own
+#      Hell-Forge unit_card_frame, the thin bronze frame round every unit picture
+#      in the Hell-Forge: 1px dark line, 2px bronze, a soft inner shadow, a clear
+#      middle. Nine-sliced at FRAME_MARGIN, never swapped, on top of all three so
+#      nothing the Lua writes can cover it. NOT the card's panel_back_border,
+#      which is what "the portrait is doubled when assigned" was.
+FRAME_ART = "ui/skins/default/dlc23_chd_hell_forge/unit_card_frame.png"
+FRAME_MARGIN = 8
 FACE_LAYERS = [
     {"path": plate_path(None),
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#FFFFFFFF",
@@ -2461,6 +2596,9 @@ FACE_LAYERS = [
     {"path": MASK_NONE,
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#FFFFFFFF",
      "dock": None},
+    {"path": FRAME_ART,
+     "offset": (0, 0), "dw": 0, "dh": 0, "margin": FRAME_MARGIN,
+     "colour": "#FFFFFFFF", "dock": None},
 ]
 # The Lua addresses layers by these numbers; import_iron_court.py compares them
 # against ICUI.PLATE_INDEX / ICUI.FACE_INDEX / ICUI.MASK_INDEX. Written out
@@ -2469,6 +2607,7 @@ FACE_LAYERS = [
 PLATE_INDEX = 0
 FACE_INDEX = 1
 MASK_INDEX = 2
+FRAME_INDEX = 3
 
 # PrimaryColour and not BannerPrimaryColour: a house's identity here is the
 # faction colour the rest of the campaign already shows for it. CA binds both -
@@ -2905,6 +3044,8 @@ def _panel_order(name):
         tier = 2                # over the walls, so their tips tuck under it
     elif name.startswith("ic_div_"):
         tier = 1                # over every wedge, under the frame
+    elif name.startswith("ic_mark_"):
+        tier = 4                # over the tab whose skull it lights
     else:
         tier = 0
     return (tier, name)
@@ -2915,7 +3056,9 @@ def _panel():
     panel = root.add(EU.C("derpy_ic_panel", PANEL_W, PANEL_H, layers=PANEL_LAYERS))
     for name in sorted(PANEL_LAYOUT, key=_panel_order):
         _x, _y, w, h = PANEL_LAYOUT[name]
-        if name.startswith("ic_barc_"):
+        if name.startswith("ic_mark_"):
+            panel.add(EU.C(name, w, h, layers=MARK_LAYERS))
+        elif name.startswith("ic_barc_"):
             # The crest plate. Blank white at index 0 so SetImagePath has a layer
             # to replace, and no text - it is a picture cell.
             # INTERACTIVE, because a tooltip can only be reached on an
@@ -3047,7 +3190,7 @@ def _panel():
 
 def _row():
     root = EU.C("root", ROW_W, ROW_H)
-    row = root.add(EU.C("derpy_ic_row", ROW_W, ROW_H, layers=ROW_LAYERS))
+    row = root.add(EU.C("derpy_ic_row", ROW_W, ROW_H, layers=ROW_FULL_LAYERS))
     for name in sorted(ROW_LAYOUT):
         _x, _y, w, h = ROW_LAYOUT[name]
         # The last cell is the one a player clicks (Assign, Appoint), so it is
@@ -3103,7 +3246,7 @@ def _plot():
 
 def _card():
     root = EU.C("root", CARD_W, CARD_H)
-    card = root.add(EU.C("derpy_ic_card", CARD_W, CARD_H, layers=CARD_LAYERS))
+    card = root.add(EU.C("derpy_ic_card", CARD_W, CARD_H, layers=OFFICE_CARD_LAYERS))
     for name in sorted(CARD_LAYOUT):
         _x, _y, w, h = CARD_LAYOUT[name]
         if name == "ic_card_button":
@@ -3143,7 +3286,9 @@ TEXTURE_MIN_MARGIN[PARTY_SELECTED] = 24
 PARTY_SEL_INDEX = 2
 PARTY_LAYERS = CARD_LAYERS + [
     {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
-     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]
+     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}] + rim_layers(["lit", "red"])
+# The flash's two looks, after the chosen frame. Must match ICUI.RIMS.party.
+PARTY_RIM = {"lit": PARTY_SEL_INDEX + 1, "red": PARTY_SEL_INDEX + 2}
 # THE WHOLE CARD IS THE CONTROL NOW, so it says what a click does. Static text
 # in the file rather than a SetTooltipText, because it never changes.
 PARTY_TIP = ("Choose this party||Click once to act on it with the buttons "
@@ -3241,6 +3386,8 @@ LAYOUT_TABLES = {
     # to its card's bottom edge on every draw. Named here so check 7 knows it.
     "derpy_ic_fire.twui.xml": {"derpy_ic_fire": (0, 0, 0, 0), "embers": (0, 0, 0, 0),
                                "template_particle": (0, 0, 0, 0)},
+    # PLACED BY ICUI.burst over its card or row, and destroyed after it plays.
+    "derpy_ic_burst.twui.xml": {"derpy_ic_burst": (0, 0, 0, 0)},
 }
 
 
@@ -3364,12 +3511,14 @@ NOT_GEOMETRY = [
     "SIL_RIM", "SIL_RIM_PX", "SIL_ALPHA", "SIL_MIN_STEP", "RIM_TOP", "RIM_SIDE",
     "RIM_BOTTOM", "RIM_EDGE_A", "RIM_SHADOW", "RIM_W", "RIM_SS", "EMBER",
     "EMBER_DEPTH", "DIV_W", "DIV_EDGE_A", "DIV_SS", "PLATE_INDEX", "FACE_INDEX",
-    "MASK_INDEX", "FACE_COLOUR_FROM", "OPENER_ICON_INSET", "CLOSE_INSET", "TAB_H",
+    "MASK_INDEX", "FRAME_INDEX", "FRAME_ART", "FRAME_MARGIN", "FACE_COLOUR_FROM", "OPENER_ICON_INSET", "CLOSE_INSET", "TAB_H",
     "TAB_LAYERS", "TAB_HOVER", "TAB_CAP", "TAB_TEXT_INSET", "TITLE_LAYERS",
     "TITLE_CAP", "TITLE_TY", "PLATE_GAP", "FIT_PLATES", "HEADER_LAYERS", "HEADING_ART", "HEADING_CAP", "HEADING_TY", "HEADING_H",
     # Crop boxes in CA's source pixels, not layout.
     "CHD_CUTS",
     "BTN_PLATE_MARGIN", "PARTY_LAYERS", "PARTY_SEL_INDEX", "SEATS_LAYERS",
+    "RIM_ART", "RIM_MARGIN", "RIM_ROW_ART", "RIM_ROW_MARGIN", "RIM_ROW_PX", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "ROW_RIM", "ROW_FULL_LAYERS", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
+    "BURST_FILE", "BURST_FRAMES", "BURST_LAST", "BURST_MS", "BURST_SIZE",
     "SEATS_PAD",
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
     # built it.
@@ -3607,7 +3756,8 @@ def _small():
 
 def ui_file_names():
     """Every .twui.xml this generator writes, base files and compact copies."""
-    return [f for f, _b, _c in FILES] + [FIRE_FILE] + sorted(COMPACT_FILES.values())
+    return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE]
+            + sorted(COMPACT_FILES.values()))
 
 
 # FIRE ON A HELD SEAT (author, 2026-09-26: "active seats should also have the
@@ -3826,12 +3976,168 @@ def check_fire(text):
     return out
 
 
+# THE CLAIM BURST (spec 2026-09-28 section 4.1). CA's own seat-claimed starburst,
+# in the SHAPE of the Hell-Forge's unlock burst (hellforge_panel_unit_caps_tab,
+# sprite_progression_celebration): SpriteAnimation with no `paused`, one blank
+# image slot, hidden in the file. ICUI.burst creates it into the card, shows it,
+# and destroys it after ICUI.BURST_SECONDS - a new one per claim, so whether a
+# finished sprite replays when shown again never arises (ruling 2).
+BURST_FILE = "derpy_ic_burst.twui.xml"
+BURST_FRAMES = "UI/sprite_anims/warband_upgrade_starburst/starburst_"
+BURST_LAST = 19
+BURST_MS = 60
+BURST_SIZE = 200            # CA's frames are 200x200
+
+_BURST_TEMPLATE = """<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="derpy: CA's seat-claimed starburst for the Iron Court. Created at runtime into a card or row by ICUI.burst; generated by tools/gen_ic_ui.py - do not edit by hand."
+	precache_condition="">
+	<hierarchy>
+		<root this="@0">
+			<derpy_ic_burst this="@1"/>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="@0"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="@0"
+			currentstate="@2"
+			defaultstate="@2">
+			<states>
+				<standard
+					this="@2"
+					name="standard"
+					width="@S"
+					height="@S"
+					uniqueguid="@2"/>
+			</states>
+		</root>
+		<derpy_ic_burst
+			this="@1"
+			id="derpy_ic_burst"
+			visible="false"
+			priority="60"
+			tooltipslocalised="true"
+			uniqueguid="@1"
+			currentstate="@3"
+			defaultstate="@3">
+			<callbackwithcontextlist>
+				<callback_with_context callback_id="SpriteAnimation">
+					<child_m_user_properties>
+						<property
+							name="frame_name"
+							value="@FRAMES"/>
+						<property
+							name="last_frame"
+							value="@LAST"/>
+						<property
+							name="loops"
+							value="0"/>
+						<property
+							name="time_per_frame"
+							value="@MS"/>
+					</child_m_user_properties>
+				</callback_with_context>
+			</callbackwithcontextlist>
+			<componentimages>
+				<component_image
+					this="@4"
+					uniqueguid="@4"/>
+			</componentimages>
+			<states>
+				<default
+					this="@3"
+					name="default"
+					width="@S"
+					height="@S"
+					uniqueguid="@3">
+					<imagemetrics>
+						<image
+							this="@5"
+							uniqueguid="@5"
+							componentimage="@4"
+							width="@S"
+							height="@S"/>
+					</imagemetrics>
+				</default>
+			</states>
+		</derpy_ic_burst>
+	</components>
+</layout>
+"""
+
+
+def burst_xml():
+    g = GUID_PREFIXES[BURST_FILE]
+    text = _BURST_TEMPLATE
+    for key, value in (("@FRAMES", BURST_FRAMES), ("@LAST", BURST_LAST),
+                       ("@MS", BURST_MS), ("@S", BURST_SIZE)):
+        text = text.replace(key, str(value))
+    for n in range(5, -1, -1):
+        text = text.replace("@%d" % n, "%s%04X-D000-4000-B%015X" % (g, n, n))
+    return text
+
+
+def check_burst(text, assets=None):
+    """The burst's frames must exist: a wrong frame name draws nothing, silently."""
+    out = []
+    if 'callback_id="SpriteAnimation"' not in text:
+        out.append("%s: no SpriteAnimation callback" % BURST_FILE)
+    if 'name="paused"' in text:
+        out.append("%s: paused - nothing in Lua can start a paused sprite" % BURST_FILE)
+    # READ OFF THE FILE, not off BURST_FRAMES: the file is what the engine reads.
+    stem = re.search(r'name="frame_name"\s+value="([^"]*)"', text)
+    last = re.search(r'name="last_frame"\s+value="(\d+)"', text)
+    if not stem or not last:
+        out.append("%s: no frame_name or last_frame" % BURST_FILE)
+    elif assets is not None:
+        for n in range(int(last.group(1)) + 1):
+            p = (stem.group(1).replace("\\", "/") + "%d.png" % n).lower()
+            if p not in assets:
+                out.append("%s: frame %s is in no pack" % (BURST_FILE, p))
+    return out
+
+
+def check_rim_slots():
+    """ICUI.RIMS in the panel Lua must name the layers this file emits."""
+    ui = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                      "zzz_derpy_iron_court_ui.lua")
+    text = io.open(ui, encoding="utf-8").read()
+    at = text.find("ICUI.RIMS = {")
+    if at < 0:
+        return ["the panel Lua has no ICUI.RIMS table"]
+    block = text[at:text.find("\n}", at)]
+    want = {"card": CARD_RIM}
+    for kind in ("row", "party"):
+        if ("%s_RIM" % kind.upper()) in globals():
+            want[kind] = globals()["%s_RIM" % kind.upper()]
+    out = []
+    if ('ICUI.RIM_ART = "%s"' % RIM_ART) not in text:
+        out.append("ICUI.RIM_ART is not %s, the art this file writes" % RIM_ART)
+    if ('ICUI.RIM_ART_ROW = "%s"' % RIM_ROW_ART) not in text:
+        out.append("ICUI.RIM_ART_ROW is not %s, the art this file writes"
+                   % RIM_ROW_ART)
+    for kind, looks in sorted(want.items()):
+        m = re.search(r"\b%s\s*=\s*\{([^}]*)\}" % kind, block)
+        if not m:
+            out.append("ICUI.RIMS has no %s entry" % kind)
+            continue
+        got = dict((k, int(v)) for k, v in re.findall(r"(\w+)\s*=\s*(\d+)", m.group(1)))
+        if got != looks:
+            out.append("ICUI.RIMS.%s is %r and the file emits %r" % (kind, got, looks))
+    return out
+
+
 def build_xml():
     out = {}
     for fname, builder, comment in FILES:
         root = EU.assign(builder(), GUID_PREFIXES[fname])
         out[fname] = EU.layout(root, comment)
     out[FIRE_FILE] = fire_xml()
+    out[BURST_FILE] = burst_xml()
     # THE COMPACT COPIES are built by the copy of this module at a 1600 box,
     # whose fonts are already one size down and whose cells are already the
     # sizes a 1600x900 player gets. Only the base module writes them: a copy
@@ -3892,6 +4198,11 @@ def paint_helpers(utext):
     out, unresolved = {}, []
     for m in re.finditer(r"\nfunction ICUI\.(set_\w+)\(.*?\n(.*?)\nend\n", utext, re.S):
         name, body = m.group(1), m.group(2)
+        # set_rim's slots are ICUI.RIMS, read out of a table and not written as
+        # a constant: check_rim_slots (1d) pairs every one of them with the
+        # layers the files emit, which is this check's question asked directly.
+        if name == "set_rim":
+            continue
         slots = set()
         for call in re.findall(r"SetImagePath\([^,]+,\s*([^)]+?)\s*\)", body):
             call = call.strip()
@@ -4064,6 +4375,15 @@ def check():
 
     # 1b. The ember emitter's particle rules. See check_fire.
     out.extend(check_fire(all_files.get(FIRE_FILE, "")))
+    # 1c. The claim burst: its sprite frames exist and nothing pauses it.
+    out.extend(check_burst(all_files.get(BURST_FILE, ""),
+                           set(p.lower() for p in _assets())))
+    # 1d. The rim layers the Lua writes are the ones the files emit.
+    out.extend(check_rim_slots())
+    # 1e. The rim's corners are as bright as its edges (author, 2026-09-28:
+    # "the corners are not filled" on CA's rounded one).
+    out.extend(check_seat_rim())
+    out.extend(check_seat_rim(margin=RIM_ROW_MARGIN, px=RIM_ROW_PX))
 
     # 2. The prefix is ours, and DE15 is retired.
     for fname, text in all_files.items():
@@ -4406,10 +4726,20 @@ def check():
 
     # 13. Nothing may 9-slice a margin wider than half the box it fills, or the
     #     opposing corners overlap and there is no middle left to stretch.
-    for name, layers in (("panel", PANEL_LAYERS), ("card", CARD_LAYERS),
-                         ("tab", BTN_LAYERS), ("tab hover", BTN_HOVER)):
-        box = {"panel": (PANEL_W, PANEL_H), "card": (CARD_W, CARD_H),
-               "tab": (132, TAB_H), "tab hover": (132, TAB_H)}[name]
+    #     AND EVERY RIM, on the component it is drawn on (author, 2026-09-28,
+    #     of the Governors tab: "there's glitches ... if there is someone in
+    #     position"). The seat rim's 40px margin went onto a 61px list row, so
+    #     its top and bottom slices overlapped: a red wash over the whole row
+    #     and a full-strength corner block at each end. This loop only knew
+    #     the panel, the card and the tabs.
+    for name, layers, box in (
+            ("panel", PANEL_LAYERS, (PANEL_W, PANEL_H)),
+            ("card", CARD_LAYERS, (CARD_W, CARD_H)),
+            ("tab", BTN_LAYERS, (132, TAB_H)),
+            ("tab hover", BTN_HOVER, (132, TAB_H)),
+            ("office card", OFFICE_CARD_LAYERS, (CARD_W, CARD_H)),
+            ("list row", ROW_FULL_LAYERS, (ROW_W, ROW_H)),
+            ("party card", PARTY_LAYERS, (PARTY_W, PARTY_H))):
         for layer in layers:
             m = layer.get("margin") or 0
             if m * 2 > min(box):
@@ -4446,15 +4776,26 @@ def check():
         #     the right one, in the right colours, with nothing else wrong.
         for path, want in wedge_art():
             _compare(path, want)
-    order = [PLATE_INDEX, FACE_INDEX, MASK_INDEX]
+    order = [PLATE_INDEX, FACE_INDEX, MASK_INDEX, FRAME_INDEX]
     if sorted(order) != list(range(len(FACE_LAYERS))):
-        out.append("the plate/face/mask layer numbers %s are not the %d layers a "
-                   "face cell actually carries - a call to a layer that is not "
-                   "there does nothing, silently"
+        out.append("the plate/face/mask/frame layer numbers %s are not the %d "
+                   "layers a face cell actually carries - a call to a layer that "
+                   "is not there does nothing, silently"
                    % (order, len(FACE_LAYERS)))
     elif order != sorted(order):
         out.append("layers draw in list order, so the plate must sit under the "
-                   "face and the mask over it - %s is not that order" % (order,))
+                   "face, the mask over it and the frame over all - %s is not "
+                   "that order" % (order,))
+    elif (FACE_LAYERS[FRAME_INDEX]["path"] != FRAME_ART
+          or FACE_LAYERS[FRAME_INDEX]["margin"] != FRAME_MARGIN):
+        out.append("a face cell's top layer is not the portrait frame")
+    # 13b. THE FRAME'S NINE-SLICE MUST FIT THE SMALLEST CELL IT LANDS ON: a
+    #     list row's crest, which the Lua resizes that same cell to.
+    _smallest = min(PORT_BOX + CARD_LAYOUT["ic_card_port"][2:]
+                    + PARTY_LAYOUT["ic_party_port"][2:] + (36,))
+    if FRAME_MARGIN * 2 > _smallest:
+        out.append("the portrait frame's margin %d is over half the %dpx of the "
+                   "smallest face cell" % (FRAME_MARGIN, _smallest))
     # 21c. THE SILHOUETTE MUST BE VISIBLE ON EVERY GROUND IT NOW LANDS ON.
     #     It used to have one ground - house_plate_none, an opaque box built to
     #     go behind it - and a vacant seat clears its plate to a TRANSPARENT png
@@ -5109,6 +5450,10 @@ def check():
             # because the engine's real figure is TextDimensionsForText and
             # that needs the game running.
             shown = re.sub(r"\[\[/?img[^\]]*\]\]", "", text)
+            # A COLOUR TAG DRAWS NOTHING: it tints the characters between its
+            # two halves and takes no width of its own (the change figures,
+            # spec 2026-09-28 section 4.5, were measured as 819px of markup).
+            shown = re.sub(r"\[\[/?col[^\]]*\]\]", "", shown)
             pics = len(re.findall(r"\[\[img:", text))
             width = ImageDraw.Draw(Image.new("RGB", (8, 8))).textlength(
                 shown, font=font)
@@ -5220,7 +5565,12 @@ def check():
             "ic_party_ltrait": [TRAIT_MARKUP + _t for _t in _leader_traits],
             "ic_party_t1": [TRAIT_MARKUP + _t for _t in _party_traits],
             "ic_party_t2": [TRAIT_MARKUP + _t for _t in _party_traits],
-            "ic_party_nums": ["100% - 100 loyalty"],
+            # THE LONGEST IT DRAWS, both figures coloured as they are after a
+            # change (spec 2026-09-28 section 4.5). The old sample, "100% -
+            # 100 loyalty", was shorter than the "of the court" line the panel
+            # really wrote, which measured 322px in this 281px cell.
+            "ic_party_nums": ["[[col:green]]100%[[/col]] share - "
+                              "[[col:red]]100[[/col]] loyalty"],
             # EVERY WORD ICUI.card_mood CAN ANSWER, the Crown's three included.
             "ic_party_state": ["SECEDES 99", "SPLITS 99", "SPLINTERING",
                                "PLOTTING", "RESTLESS", "LOYAL", "SCHEMING",
@@ -6106,9 +6456,9 @@ def selftest_compact():
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
     assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
-    # +1: FIRE_FILE, which holds no text and so has no compact twin.
-    assert len(files) == len(FILES) + len(COMPACT_FILES) + 1
-    assert FIRE_FILE not in COMPACT_FILES
+    # +2: FIRE_FILE and BURST_FILE, which hold no text and so have no compact twin.
+    assert len(files) == len(FILES) + len(COMPACT_FILES) + 2
+    assert FIRE_FILE not in COMPACT_FILES and BURST_FILE not in COMPACT_FILES
     assert "derpy_ic_opener_compact.twui.xml" not in files
     assert "derpy_ic_standing_compact.twui.xml" not in files
     for base, compact in COMPACT_FILES.items():
@@ -6125,6 +6475,16 @@ def selftest():
     # THE EMBER RULE FIRES. A particle named anything but template_particle is a
     # null the emitter dereferences on panel open, so the check has to be seen
     # catching one, and seen passing the shipped file.
+    assert not check_burst(burst_xml()), check_burst(burst_xml())
+    _rim = [bytearray(r) for r in seat_rim_pixels()]
+    for _y in range(RIM_MARGIN):
+        for _x in range(RIM_MARGIN):
+            if _x + _y < RIM_MARGIN:        # a rounded corner, cut away
+                _rim[_y][4 * _x + 3] = 0
+    assert not check_seat_rim(), check_seat_rim()
+    assert check_seat_rim([bytes(r) for r in _rim]),         "check_seat_rim passed a rim whose corners are cut away"
+    assert check_burst(burst_xml().replace(
+        'name="loops"', 'name="paused"')), "check_burst passed a paused sprite"
     _fire = fire_xml()
     assert not check_fire(_fire), check_fire(_fire)
     assert any("not named template_particle" in m for m in

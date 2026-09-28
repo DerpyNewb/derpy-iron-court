@@ -3727,8 +3727,9 @@ local function install_ui_stubs(bar_y)
     -- The pulse, recorded as (component id, on/off) in the order it was asked
     -- for. The ORDER is the point: a pulse nothing turns off runs until the
     -- panel is destroyed.
-    pulse_uicomponent = function(c, on, _strength, _propagate)
-        pulses[#pulses + 1] = {id = c and c:Id() or "?", on = on and true or false}
+    pulse_uicomponent = function(c, on, _strength, _propagate, state)
+        pulses[#pulses + 1] = {id = c and c:Id() or "?", on = on and true or false,
+                               state = state}
     end
     core.get_ui_root = function()
         return {
@@ -4259,6 +4260,10 @@ check("every panel, row and card cell has a layout offset", function()
     -- derives them: a category added to the model adds a header here too.
     for i = 1, ICUI.PLOT_COLS do
         want["ic_plotcat_" .. i] = true
+    end
+    -- THE TAB MARKERS, one per tab that can have business waiting.
+    for _, name in pairs(ICUI.MARKS) do
+        want[name] = true
     end
     for name in pairs(want) do
         assert(ICUI.PANEL_XY[name], "no layout offset for " .. name)
@@ -5025,7 +5030,18 @@ fake_component = function(name)
     function c:SetInteractive(on)
         IC_NEED_BOOL("SetInteractive on " .. tostring(self.name), on); self.interactive = on end
     function c:DestroyChildren() end
-    function c:Destroy() end
+    -- REMOVED FROM ITS PARENT, so a component destroyed and then created again
+    -- is a new one - the claim burst depends on exactly that.
+    function c:Destroy()
+        self.destroyed = true
+        local p = self.parent
+        if p and p.children and p.children[self.name] == self then
+            p.children[self.name] = nil
+            for i = #p.order, 1, -1 do
+                if p.order[i] == self then table.remove(p.order, i) end
+            end
+        end
+    end
     function c:is_null_interface() return false end
     function c:Id() return self.name end
     function c:Parent() return self.parent end
@@ -6143,9 +6159,12 @@ check("Send a Gift buys the chosen party loyalty, and is refused when it is full
         -- A GIFT AND NOT AN OATH: the two favours sit side by side, and one
         -- routed to the other would still spend gold.
         assert(IC.protected_for(F, "forge") == 0, "the gift swore an oath")
-        assert(not ICUI.pick and ICUI.notice == nil,
+        -- NO PICKER, and the notice says what the gift did (spec 2026-09-28
+        -- section 4.3) rather than going blank.
+        assert(not ICUI.pick and ICUI.notice
+                   == ICUI.answer_text("favour", "gift|forge", F),
             "the gift opened " .. tostring(ICUI.pick and ICUI.pick.kind)
-            .. " or left a notice: " .. tostring(ICUI.notice))
+            .. " or said: " .. tostring(ICUI.notice))
 
         -- A PARTY AT 100 CANNOT BE PLEASED FURTHER: red, and it says why on
         -- the button's tooltip and again on the click, and spends nothing.
@@ -6258,7 +6277,8 @@ check("Secure Loyalty swears the chosen party, and refuses a second oath", funct
         click({string = "ic_act_secure"})
         assert(IC.protected_for(F, "forge") > 0, "the oath never landed")
         assert(not ICUI.pick, "securing loyalty opened a picker")
-        assert(ICUI.notice == nil, "a sworn oath left a notice: " .. tostring(ICUI.notice))
+        assert(ICUI.notice == ICUI.answer_text("favour", "secure|forge", F),
+            "a sworn oath said: " .. tostring(ICUI.notice))
         -- AND A SECOND OATH IS REFUSED IN WORDS while the first holds.
         assert(is_red(panel.children.ic_act_secure.text),
             "a party already sworn is offered the oath again")
@@ -18670,7 +18690,21 @@ end
 check("an AI court whose turn it is not does nothing", function()
     party_court({legion = 5})
     cm.get_human_factions = function() return {} end
-    assert(IC.party_turn(F) == nil, "an AI court ran a party event")
+    -- EVERY OTHER COURT ALIVE, so the rotation has others to give the turn to,
+    -- and a turn that is not F's chosen on purpose.
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= F then make_faction(key, IC.CHD_SUBCULTURE, {}, {}) end
+    end
+    local t0 = turn
+    for t = 1, 20 do
+        turn = t
+        if not IC.party_turn_due(F) then break end
+    end
+    assert(not IC.party_turn_due(F), "no turn in twenty was another court's")
+    local acted = IC.party_turn(F)
+    turn = t0
+    assert(acted == nil, "an AI court ran a party event")
     assert(saved["derpy_ic_agenda_" .. F] == nil, "an AI court saved an agenda")
 end)
 
@@ -22594,9 +22628,13 @@ check("AI courts take their party turn in rotation, the same way every time", fu
     local saved = cm.get_human_factions
     cm.get_human_factions = function() return {"wh3_dlc23_chd_conclave"} end
     local ai = {}
+    factions = {}
     for i = 1, #IC.ORIGINS do
         local key = IC.ORIGINS[i].faction
-        if key and key ~= "wh3_dlc23_chd_conclave" then ai[#ai + 1] = key end
+        if key and key ~= "wh3_dlc23_chd_conclave" then
+            ai[#ai + 1] = key
+            make_faction(key, IC.CHD_SUBCULTURE, {}, {})   -- alive
+        end
     end
     local period = math.ceil(#ai / IC.TUNE.ai_party_courts)
     local seen = {}
@@ -23021,6 +23059,780 @@ check("a lord who leaves brings his army, filled out into a proper one", functio
         assert(rebel_role_of(kit[i]), "slot " .. i .. " is " .. tostring(kit[i])
             .. " - padded with his own stack again, or with nothing")
     end
+end)
+
+check("an AI court touched before its own turn after a load keeps its parties", function()
+    -- REPORTED 2026-09-27 (final review): after a load, AI courts are read on
+    -- their own FactionTurnStart. A lord of theirs ranking up earlier in the
+    -- round reached IC.court, which built an EMPTY court, and add_standing saved
+    -- it over the real one - so the next turn rolled a whole new court.
+    IC.state = {}
+    factions = {}
+    local man = make_character(4401, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.save(F)
+    IC.state = {}                      -- the load: nothing in memory yet
+    IC.register()
+    core.listeners["ic_rank"]({character = function() return man end,
+                               ranks_gained = function() return 1 end})
+    assert(IC.court(F).houses.forge, "the court in memory lost its parties")
+    IC.state = {}
+    IC.load(F)
+    assert(IC.court(F).houses.forge, "an empty court was saved over the real one")
+end)
+
+check("on Ruthless the last warning still comes before a secession", function()
+as_player(function()
+    -- RUTHLESS COUNTS DOWN FROM 3 and the last warning waited for the clock to
+    -- READ warn_turns (3) after a tick - which a three-turn clock never does
+    -- once it has started. It now lands one turn after the start card.
+    local was = IC.TUNE.secede_turns
+    IC.TUNE.secede_turns = 3
+    local ok, err = pcall(function()
+        local court = angry_court()
+        local soon = IC.EVENTS.secede_soon[1]
+        shown = {}
+        local warned_on, gone_on
+        for n = 1, IC.TUNE.secede_turns + 4 do
+            IC.tick_secession(F)
+            if not warned_on and cards_at(soon) > 0 then warned_on = n end
+            if not court.houses.legion then gone_on = n break end
+        end
+        assert(gone_on, "the party never left")
+        assert(warned_on, "a three-turn count ran out with no last warning")
+        assert(gone_on - warned_on == 2, "the last warning landed "
+            .. (gone_on - warned_on) .. " turns before the secession, not 2")
+        assert(cards_at(soon) == 1, cards_at(soon) .. " last warnings, not one")
+    end)
+    IC.TUNE.secede_turns = was
+    assert(ok, err)
+end)
+end)
+
+check("a dead court takes no place in the AI rotation", function()
+    -- REVIEW 2026-09-27: the rotation's period counted every Chaos Dwarf faction
+    -- ever, so late in a campaign three living AI courts still waited a whole
+    -- period of dead ones between turns.
+    local keep = cm.get_human_factions
+    cm.get_human_factions = function() return {"wh3_dlc23_chd_conclave"} end
+    factions = {}
+    local living = {}
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= "wh3_dlc23_chd_conclave" then
+            local f = make_faction(key, IC.CHD_SUBCULTURE, {}, {})
+            if #living < IC.TUNE.ai_party_courts then
+                living[#living + 1] = key
+            else
+                f._dead = true
+            end
+        end
+    end
+    local ok, err = pcall(function()
+        for t = 1, 4 do
+            turn = t
+            for _, key in ipairs(living) do
+                assert(IC.party_turn_due(key), key .. " waited on turn " .. t
+                    .. " though only " .. #living .. " AI courts are left")
+            end
+        end
+    end)
+    cm.get_human_factions = keep
+    assert(ok, err)
+end)
+
+check("a sabotage in your court raises its card", function()
+as_player(function()
+    -- REVIEW 2026-09-27: the card was raised only when the Crown was the
+    -- target, and a feud never involves the Crown - so it could never fire.
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 10
+    local saboteur = make_character(633, ANY_SEAT, "chain")
+    local victim = make_character(634, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {saboteur, victim}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "chain")
+    IC.add_house(F, "forge")
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 634
+    IC.court(F).standing[633] = 5000
+    shown = {}
+    local keep = cm.random_number
+    cm.random_number = function() return 1 end
+    local ok, err = pcall(function()
+        assert(IC.party_strike(F, "chain", "sabotage", 633, 634, office),
+            "the sabotage failed")
+    end)
+    cm.random_number = keep
+    assert(ok, err)
+    assert(cards_at(IC.EVENTS.party_sabotage[1]) == 1,
+        "a sabotage in your court raised " .. cards_at(IC.EVENTS.party_sabotage[1])
+        .. " cards")
+end)
+end)
+
+check("a human who has no court hears no court news", function()
+    -- REVIEW 2026-09-27: news went to every human who had met the court, so an
+    -- Empire player was given a Chaos Dwarf court save and a card whose text
+    -- sends him to a court log he does not have.
+    IC.state = {}
+    turn = 40
+    local E = "wh_main_emp_empire"
+    local e = make_faction(E, "wh_main_sc_emp_empire", {}, {})
+    e._met = {F}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, "forge")
+    local keep = cm.get_human_factions
+    cm.get_human_factions = function() return {E} end
+    local n = IC.news(F, "feud", "forge", "chain")
+    cm.get_human_factions = keep
+    assert(n == 0, "the news reached " .. n .. " human(s) with no court")
+    assert(IC.state[E] == nil and saved["derpy_ic_" .. E] == nil,
+        "a court was made and saved for a faction that has none")
+end)
+
+check("with secession off, Provoke starts no countdown", function()
+    -- MCT review 2026-09-25, deferred: the switch stopped every clock at turn
+    -- start but Provoke could still set one, card and all, at full price.
+    IC.state = {}
+    local actor = make_character(972, ANY_SEAT, "crown")
+    local victim = make_character(973, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {actor, victim}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "legion")
+    IC.court(F).standing[972] = 5000
+    IC.court(F).standing[973] = 100
+    local house = IC.court(F).houses["legion"]
+    house.loyalty, house.clock = 80, 0
+    local keep = IC.TUNE.secession
+    IC.TUNE.secession = false
+    local ok, err = pcall(function()
+        IC.plot(F, "provoke", 972, "973")
+        assert((house.clock or 0) == 0, "Provoke started a " .. tostring(house.clock)
+            .. "-turn countdown with secession off")
+    end)
+    IC.TUNE.secession = keep
+    assert(ok, err)
+end)
+
+check("with the Crown's split off, its card does not threaten one", function()
+    local keep = IC.TUNE.crown_split
+    IC.TUNE.crown_split = false
+    local ok, err = pcall(function()
+        for _, h in ipairs({{loyalty = 1}, {loyalty = 1, split = 2}}) do
+            local mood = ICUI.mood(h, IC.CROWN)
+            assert(mood ~= "SPLINTERING" and not string.find(mood, "SPLITS", 1, true),
+                "the Crown's card reads " .. mood .. " with the split switched off")
+        end
+    end)
+    IC.TUNE.crown_split = keep
+    assert(ok, err)
+end)
+
+check("an AI court switched off takes its effects off with it", function()
+    -- MCT review 2026-09-25, deferred: an older save loaded with AI courts off
+    -- stopped running them and left their office, control and governor bonuses
+    -- and the office titles on for good.
+    IC.state = {}
+    factions = {}
+    applied, province_removed = {}, {}
+    local holder = make_character(4501, ANY_SEAT, "crown", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {holder}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    local office = IC.OFFICES[1].slug
+    IC.court(F).offices[office] = 4501
+    cm:force_add_trait("cqi:4501", IC.office_trait(office), true)
+    IC.apply_office_bundles(F)
+    IC.apply_control_bundle(F)
+    IC.save(F)
+    assert(applied[IC.office_bundle(office)], "the fixture applied no office bundle")
+    IC.state = {}                       -- as after a load: read on its own turn
+    local keep_h, keep_ai = cm.get_human_factions, IC.TUNE.ai_courts
+    cm.get_human_factions = function() return {} end
+    IC.TUNE.ai_courts = false
+    local ok, err = pcall(function()
+        IC.register()
+        core.listeners["ic_turn"]({faction = function() return f end})
+        assert(not applied[IC.office_bundle(office)], "the office bonus stayed on")
+        for i = 1, #IC.CONTROL do
+            assert(not applied[IC.control_bundle(IC.CONTROL[i].slug)],
+                "the " .. IC.CONTROL[i].slug .. " control bonus stayed on")
+        end
+        assert(not holder._traits[IC.office_trait(office)], "he still wears the title")
+        local off = false
+        for _, r in ipairs(province_removed) do
+            if r == IC.gov_bundle_base() .. "@region_prov_a" then off = true end
+        end
+        assert(off, "the governor bundles were not taken off its provinces")
+        assert((saved["derpy_ic_" .. F] or "") == "", "the court is still saved")
+    end)
+    cm.get_human_factions, IC.TUNE.ai_courts = keep_h, keep_ai
+    assert(ok, err)
+end)
+
+check("an AI ruler still secures a party on a turn a plot lands, or with parties still", function()
+    -- REVIEW 2026-09-27: the placation sat after the act, so a turn that
+    -- landed a warned plot - or any turn with parties_act off - returned early
+    -- and the ruler did nothing for a party counting down.
+    local keep = cm.get_human_factions
+    cm.get_human_factions = function() return {} end
+    local ok, err = pcall(function()
+        for _, case in ipairs({"plot", "parties_off"}) do
+            IC.state = {}
+            IC.agenda_state = {}
+            turn = 30
+            local f = make_faction(F, IC.CHD_SUBCULTURE,
+                {make_character(672, ANY_SEAT, "forge")}, {})
+            IC.add_house(F, IC.CROWN)
+            IC.add_house(F, "forge")
+            IC.court(F).houses.forge.loyalty = 20
+            IC.court(F).houses.forge.clock = 3
+            f._gold = 100000
+            local keep_due, keep_act = IC.party_turn_due, IC.TUNE.parties_act
+            IC.party_turn_due = function() return true end
+            if case == "plot" then
+                IC.agenda(F).plot = {slug = "forge", move = "rumour", actor = 672,
+                                     target = 672, key = nil, turn = 29}
+            else
+                IC.TUNE.parties_act = false
+            end
+            local ok2, err2 = pcall(IC.party_turn, F)
+            IC.party_turn_due, IC.TUNE.parties_act = keep_due, keep_act
+            assert(ok2, err2)
+            assert(IC.protected_for(F, "forge") > 0,
+                "on a " .. case .. " turn the ruler left a party counting down")
+        end
+    end)
+    cm.get_human_factions = keep
+    assert(ok, err)
+end)
+
+check("the governor's tooltip says when he is away and adds nothing", function()
+    local man = make_character(4601, 20, "forge")
+    local keep = IC.governor_active
+    local ok, err = pcall(function()
+        IC.governor_active = function() return true end
+        local o = IC.gov_rank_bonus(20)
+        assert(o > 0, "rank 20 must add something for this check to mean anything")
+        local here = ICUI.gov_rank_tip(F, "prov_a", man)
+        assert(string.find(here, "+" .. o .. " public order", 1, true)
+            and not string.find(here, "away", 1, true), "in place: " .. here)
+        IC.governor_active = function() return false end
+        local away = ICUI.gov_rank_tip(F, "prov_a", man)
+        assert(string.find(away, "away", 1, true) and string.find(away, "nothing", 1, true),
+            "away, the tooltip reads: " .. away)
+    end)
+    IC.governor_active = keep
+    assert(ok, err)
+end)
+
+check("a held seat wears the lit rim and an empty one none, on a recycled card", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.sel, ICUI.pick = nil, nil
+    local seat = IC.OFFICES[1].slug
+    IC.court(F).offices[seat] = 1
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local held = panel.children[ICUI.CARD .. "_1"]
+        local empty = panel.children[ICUI.CARD .. "_2"]
+        local lit = ICUI.RIMS.card.lit
+        assert(held.images[lit] == ICUI.RIM_ART,
+            "the held seat's rim layer holds " .. tostring(held.images[lit]))
+        assert(empty.images[lit] == ICUI.MASK_NONE,
+            "an empty seat's rim layer holds " .. tostring(empty.images[lit]))
+        -- THE SAME CARD, EMPTIED: the pool redraws it, and a rim left on is a
+        -- seat that looks held.
+        IC.court(F).offices[seat] = nil
+        ICUI.refresh()
+        assert(held.images[lit] == ICUI.MASK_NONE,
+            "the card kept its rim after its seat emptied")
+    end)
+end)
+
+check("filling a seat plays the burst over its card, and the burst goes away", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local seat = IC.OFFICES[1].slug
+    sounds, pulses = {}, {}
+    local later = {}
+    local saved_cb = cm.callback
+    cm.callback = function(_self, fn, delay) later[#later + 1] = {fn = fn, delay = delay} end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        ICUI.ANSWERS.appoint(seat .. "|1", true)
+        local card = panel.children[ICUI.CARD .. "_1"]
+        local burst = card.children[ICUI.BURST]
+        assert(burst, "no burst was created in the filled seat's card")
+        assert(burst.visible ~= false, "the burst was created and left hidden")
+        assert(sounds[1] == ICUI.SOUND_SEAT,
+            "a filled seat played " .. tostring(sounds[1]))
+        local stop = nil
+        for _, cb in ipairs(later) do
+            if cb.delay == ICUI.BURST_SECONDS then stop = cb end
+        end
+        assert(stop, "nothing was scheduled to take the burst away")
+        -- A CLAIM WHILE THE LAST BURST STILL PLAYS replaces it, not skips it.
+        ICUI.ANSWERS.appoint(seat .. "|1", true)
+        local again = card.children[ICUI.BURST]
+        assert(again and again ~= burst,
+            "a claim made while the last burst still played drew nothing new")
+        stop.fn()
+        assert(not card.children[ICUI.BURST], "the burst outlived its callback")
+        -- A SECOND CLAIM MAKES A NEW ONE: a burst that is only ever shown
+        -- once is a seat that stops answering.
+        ICUI.ANSWERS.appoint(seat .. "|1", true)
+        assert(card.children[ICUI.BURST], "the second claim drew no burst")
+    end)
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("a burst whose panel was closed is not touched when its time is up", function()
+    local later = {}
+    local saved_cb = cm.callback
+    cm.callback = function(_self, fn, delay) later[#later + 1] = fn end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.burst(ICUI.CARD .. "_1")
+        -- THE PANEL GOES: find_uicomponent now answers nothing for it.
+        local saved_find = find_uicomponent
+        find_uicomponent = function() return false end
+        for _, fn in ipairs(later) do fn() end
+        find_uicomponent = saved_find
+    end)
+    cm.callback = saved_cb
+    assert(ok, "the burst's callback failed on a closed panel: " .. tostring(err))
+end)
+
+check("a stalled seat's rim is dimmed, not lit", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local seat = IC.OFFICES[1].slug
+    IC.court(F).offices[seat] = 1
+    assert(IC.stall_office(F, seat, 3, "chain", "sabotage") ~= false,
+        "the fixture could not stall the seat")
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local card = panel.children[ICUI.CARD .. "_1"]
+        assert(card.images[ICUI.RIMS.card.dim] == ICUI.RIM_ART,
+            "a stalled seat's dim layer holds " .. tostring(card.images[ICUI.RIMS.card.dim]))
+        assert(card.images[ICUI.RIMS.card.lit] == ICUI.MASK_NONE,
+            "a stalled seat still wears the lit rim")
+    end)
+end)
+
+check("a governed province's row is lit, an away one dim, and other views clear it", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, 20, "forge", "prov_a")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).govs["prov_a"] = 1
+    local keep = IC.governor_active
+    local ok, err = pcall(with_fake_panel, function(panel)
+        IC.governor_active = function() return true end
+        ICUI.view = "govs"
+        ICUI.refresh()
+        local row = panel.children[ICUI.gov_row("prov_a")]
+        -- THE ROW'S OWN ART: the card rim's 40px margin overlaps itself on a
+        -- 61px row and washes the whole row red (author, 2026-09-28).
+        assert(ICUI.RIM_ART_ROW and ICUI.RIM_ART_ROW ~= ICUI.RIM_ART,
+            "rows have no rim art of their own")
+        assert(row.images[ICUI.RIMS.row.lit] == ICUI.RIM_ART_ROW,
+            "a present governor's row is not lit with the row's rim: "
+            .. tostring(row.images[ICUI.RIMS.row.lit]))
+        local bare = panel.children[ICUI.gov_row("prov_b")]
+        assert(bare.images[ICUI.RIMS.row.lit] == ICUI.MASK_NONE,
+            "an ungoverned province is lit")
+        IC.governor_active = function() return false end
+        ICUI.refresh()
+        assert(row.images[ICUI.RIMS.row.dim] == ICUI.RIM_ART_ROW,
+            "an away governor's row is not dimmed")
+        -- THE POOL IS SHARED: the same row drawing the Record must drop the rim.
+        ICUI.view = "log"
+        ICUI.refresh()
+        for i = 1, ICUI.MAX_ROWS do
+            local r = panel.children[ICUI.ROW .. "_" .. i]
+            if r then
+                for _, index in pairs(ICUI.RIMS.row) do
+                    assert(r.images[index] == ICUI.MASK_NONE,
+                        "row " .. i .. " kept a governor's rim on the record")
+                end
+            end
+        end
+    end)
+    IC.governor_active = keep
+    assert(ok, err)
+end)
+
+check("releasing a governor is answered, and assigning one bursts his row", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, 20, "forge", "prov_a")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    assert(ICUI.ANSWERS.ungov, "releasing a governor has no answer at all")
+    sounds = {}
+    ICUI.ANSWERS.ungov("prov_a", true)
+    assert(sounds[1] == ICUI.SOUND_BAD, "a release played " .. tostring(sounds[1]))
+    ICUI.notice = nil
+    ICUI.ANSWERS.ungov("prov_a", false, "no governor")
+    assert(ICUI.notice and ICUI.notice ~= "", "a refused release said nothing")
+    IC.court(F).govs["prov_a"] = 1
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "govs"
+        ICUI.refresh()
+        sounds = {}
+        ICUI.ANSWERS.gov("prov_a|1", true)
+        local row = panel.children[ICUI.gov_row("prov_a")]
+        assert(row.children[ICUI.BURST], "assigning a governor drew no burst on his row")
+        assert(sounds[1] == ICUI.SOUND_SEAT,
+            "assigning a governor played " .. tostring(sounds[1]))
+    end)
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("a granted demand, an accepted offer, a settled feud and a gift each say so", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local ok, err = pcall(function()
+        for _, case in ipairs({{"grant", "forge"}, {"accept", "forge"},
+                               {"arbit", "forge|back"}, {"arbit", "forge|peace"},
+                               {"favour", "gift|forge"}, {"favour", "secure|forge"}}) do
+            ICUI.notice = nil
+            ICUI.ANSWERS[case[1]](case[2], true)
+            assert(ICUI.notice and ICUI.notice ~= "",
+                case[1] .. " " .. case[2] .. " was answered with a chime and no words")
+            assert(string.find(ICUI.notice, ICUI.house_name("forge", F), 1, true),
+                case[1] .. " does not name the party: " .. ICUI.notice)
+        end
+        -- A NO STAYS QUIET: the refusal already raises its own card.
+        ICUI.notice = nil
+        ICUI.ANSWERS.refuse("forge", true)
+        assert(ICUI.notice == nil, "a refusal wrote " .. tostring(ICUI.notice))
+        -- AND THE DEMAND'S ROW CARRIES ITS PARTY: the click sends what the row
+        -- holds, and a row with no party sends "" and names nobody.
+        IC.agenda(F).demand = {slug = "forge", kind = "office", cqi = 1,
+                               key = IC.OFFICES[1].slug, was = 0, ends = 6}
+        local sent = nil
+        local saved_send, saved_idx = IC.mp_send, ICUI.clicked_index
+        IC.mp_send = function(_f, op, arg) sent = {op = op, arg = arg} end
+        local ok2, err2 = pcall(as_player, function()
+            with_fake_panel(function()
+                ICUI.view = "petitions"
+                ICUI.refresh()
+                local at = nil
+                for i, p in pairs(ICUI.petition_rows) do
+                    if p.kind == "demand" then at = i end
+                end
+                assert(at, "the Petitions view drew no demand row")
+                ICUI.scroll.petitions = 0
+                ICUI.clicked_index = function() return at end
+                ICUI.on_petition_click({component = {}}, true)
+            end)
+        end)
+        IC.mp_send, ICUI.clicked_index = saved_send, saved_idx
+        IC.agenda(F).demand = nil
+        assert(ok2, err2)
+        assert(sent and sent.op == "grant", "granting the demand sent " .. tostring(sent and sent.op))
+        ICUI.notice = nil
+        ICUI.ANSWERS.grant(sent.arg, true)
+        assert(string.find(ICUI.notice or "", ICUI.house_name("forge", F), 1, true),
+            "the click's own grant does not name the party: " .. tostring(ICUI.notice))
+    end)
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("a failed plot flashes its target red through the click's own redraw, then goes out", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local later = {}
+    local saved_cb = cm.callback
+    cm.callback = function(_self, fn, delay) later[#later + 1] = {fn = fn, delay = delay} end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local card = ICUI.party_card("forge")
+        assert(card, "the forge party has no card on the court view")
+        -- THE SHAPE THE CLICK SENDS: plot|actor cqi|target man's cqi.
+        ICUI.ANSWERS.plot("rumour|99|1", true, "failed")
+        -- THE CLICK REDRAWS THE PANEL straight after the answer, in single
+        -- player; a flash the redraw wipes is a flash nobody sees.
+        ICUI.refresh()
+        assert(card.images[ICUI.RIMS.party.red] == ICUI.RIM_ART,
+            "a failed plot left its target's card " .. tostring(card.images[ICUI.RIMS.party.red]))
+        for _, cb in ipairs(later) do
+            if cb.delay == ICUI.FLASH_SECONDS then cb.fn() end
+        end
+        assert(card.images[ICUI.RIMS.party.red] == ICUI.MASK_NONE,
+            "the red flash never went out")
+        ICUI.refresh()
+        assert(card.images[ICUI.RIMS.party.red] == ICUI.MASK_NONE,
+            "the next redraw brought the red flash back")
+    end)
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("a tab with something waiting is marked, and the button pulses while any is", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = nil end
+    local a = ICUI.attention(F)
+    assert(a.offices, "empty seats did not mark the Offices tab")
+    assert(a.govs, "an ungoverned province did not mark the Governors tab")
+    assert(not a.petitions, "the Petitions tab is marked with nothing waiting")
+    assert(not a.court, "the Court tab is marked with nobody leaving")
+    assert(a.any, "something is waiting and the button would not pulse")
+    IC.agenda(F).demand = {slug = "forge", kind = "office", cqi = 1,
+                           key = IC.OFFICES[1].slug, was = 0, ends = 6}
+    assert(ICUI.attention(F).petitions, "an open demand did not mark Petitions")
+    IC.agenda(F).demand = nil
+    IC.court(F).houses["forge"].clock = 3
+    assert(ICUI.attention(F).court, "a party leaving did not mark the Court tab")
+    -- A GOVERNOR AWAY IS NOT A MARK: a lord in the field is away most turns.
+    IC.court(F).houses["forge"].clock = 0
+    IC.court(F).govs["prov_a"] = 1
+    local keep = IC.governor_active
+    IC.governor_active = function() return false end
+    local away = ICUI.attention(F).govs
+    IC.governor_active = keep
+    assert(not away, "a governor away marked the Governors tab")
+end)
+
+check("the markers and the button's summary never disagree about the seats", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 1 end
+    local tip = ICUI.opener_tip(F)
+    assert(string.find(tip, "Empty seats: 0 of", 1, true), tip)
+    assert(not ICUI.attention(F).offices or #IC.terms_ending(F) > 0,
+        "Offices is marked while the summary says every seat is full and no term ends")
+    IC.court(F).offices[IC.OFFICES[1].slug] = nil
+    assert(ICUI.attention(F).offices
+           and not string.find(ICUI.opener_tip(F), "Empty seats: 0 of", 1, true),
+        "the marker and the summary disagree about an empty seat")
+end)
+
+check("the button's summary words every reason it pulses", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 1 end
+    local saved_ending = IC.terms_ending
+    IC.terms_ending = function() return {} end
+    local ok, err = pcall(function()
+        -- AN UNGOVERNED PROVINCE MARKS ITS TAB AND SAYS SO, but does not pulse
+        -- the button: most of a campaign has one, and a button that always
+        -- pulses tells the player nothing.
+        local a = ICUI.attention(F)
+        assert(a.govs, "an ungoverned province did not mark the Governors tab")
+        assert(not a.any, "an ungoverned province alone pulses the button")
+        assert(string.find(ICUI.opener_tip(F), "Provinces with no governor: 1", 1, true),
+            "the summary does not say a province has no governor: " .. ICUI.opener_tip(F))
+        -- A PETITION PULSES THE BUTTON, SO THE SUMMARY SAYS SO.
+        IC.court(F).govs["prov_a"] = 1
+        IC.agenda(F).demand = {slug = "forge", kind = "office", cqi = 1,
+                               key = IC.OFFICES[1].slug, was = 0, ends = 6}
+        assert(ICUI.attention(F).any, "an open demand did not pulse the button")
+        assert(string.find(ICUI.opener_tip(F), "Petitions waiting for your answer: 1", 1, true),
+            "the button pulses for a petition its summary never mentions: " .. ICUI.opener_tip(F))
+        IC.agenda(F).demand = nil
+        assert(not string.find(ICUI.opener_tip(F), "Petitions waiting", 1, true),
+            "the summary names petitions with none waiting")
+        assert(not string.find(ICUI.opener_tip(F), "no governor", 1, true),
+            "the summary names an ungoverned province with every one governed")
+    end)
+    IC.terms_ending = saved_ending
+    assert(ok, err)
+end)
+
+check("the markers are drawn on their tabs and the button pulses", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = nil end
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        assert(panel.children[ICUI.MARKS.offices].visible ~= false,
+            "the Offices marker is hidden with empty seats")
+        assert(panel.children[ICUI.MARKS.petitions].visible == false,
+            "the Petitions marker shows with nothing waiting")
+    end)
+    local btn = fake_component(ICUI.BTN)
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    find_uicomponent = function(_parent, name)
+        if name == ICUI.BTN then return btn end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    local ok, err = pcall(function()
+        pulses = {}
+        ICUI.pulse_opener(true)
+        assert(pulses[1] and pulses[1].on, "the button was not pulsed")
+        ICUI.pulse_opener(false)
+        -- IN BOTH STATES: pulse_uicomponent touches only the CURRENT state
+        -- unless it is named, and the button may be in hover when it starts.
+        local stopped = {}
+        for _, p in ipairs(pulses) do
+            if not p.on and p.state then stopped[p.state] = true end
+        end
+        assert(stopped.standard and stopped.hover,
+            "the pulse was not stopped in both of the button's states")
+    end)
+    find_uicomponent, is_uicomponent = saved_find, saved_is
+    assert(ok, err)
+end)
+
+check("a party's numbers show what moved since the turn began, and nothing before a baseline", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.baseline = {}
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local card = ICUI.party_card("forge")
+        local before = card.children.ic_party_nums.text
+        assert(not string.find(before, "[[col:", 1, true),
+            "with no baseline the numbers carry a change: " .. before)
+        ICUI.take_baseline(F)
+        local was = IC.court(F).houses.forge.loyalty
+        IC.move_loyalty(F, "forge", -10)
+        local moved = IC.court(F).houses.forge.loyalty - was
+        assert(moved < 0, "the fixture's loyalty did not move")
+        ICUI.refresh()
+        -- THE NUMBER THAT MOVED IS COLOURED, and the figure is on the hover:
+        -- the card has no width for a second number (ruling, Task 5).
+        local now = IC.court(F).houses.forge.loyalty
+        local after = card.children.ic_party_nums.text
+        assert(string.find(after, "[[col:red]]" .. now .. "[[/col]] loyalty", 1, true),
+            "a loss of " .. -moved .. " loyalty reads " .. after)
+        local tip = card.children.ic_party_nums.tooltip or ""
+        assert(string.find(tip, "loyalty " .. moved, 1, true),
+            "the hover does not give the change: " .. tip)
+        -- UNCHANGED SINCE THE BASELINE, NO COLOUR.
+        ICUI.take_baseline(F)
+        ICUI.refresh()
+        assert(not string.find(card.children.ic_party_nums.text, "[[col:", 1, true),
+            "a fresh baseline still shows a change: " .. card.children.ic_party_nums.text)
+    end)
+    assert(ICUI.delta(0) == "", "no change still wrote a figure")
+    assert(ICUI.delta(5) == "+5" and ICUI.delta(-3) == "-3", ICUI.delta(5))
+end)
+
+check("the baseline is taken at the player's own turn start and nobody else's", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.baseline = {}
+    local other = make_faction("wh3_dlc23_chd_legion_of_azgorh", IC.CHD_SUBCULTURE, {}, {})
+    -- A COURT OF ITS OWN, or take_baseline skips it anyway and the guard
+    -- under test is never reached.
+    IC.add_house("wh3_dlc23_chd_legion_of_azgorh", IC.CROWN)
+    as_player(function()
+        core.listeners["ic_baseline"]({faction = function() return other end})
+        assert(not ICUI.baseline[F] and not ICUI.baseline["wh3_dlc23_chd_legion_of_azgorh"],
+            "another faction's turn start took a baseline")
+        core.listeners["ic_baseline"]({faction = function() return cm:get_faction(F) end})
+        assert(ICUI.baseline[F] and ICUI.baseline[F].forge,
+            "the player's turn start took no baseline")
+    end)
+end)
+
+check("the baseline never creates a court for a faction that has none", function()
+    -- IC.court CREATES what it is asked for, and IC.state is the save: a
+    -- non-Chaos-Dwarf player's own machine would write an empty court into it
+    -- that the other machine never does (final review, 2026-09-28).
+    IC.state = {}
+    ICUI.baseline = {}
+    ICUI.take_baseline("wh_main_emp_empire")
+    assert(IC.state["wh_main_emp_empire"] == nil,
+        "taking a baseline created a court for a faction with none")
+    assert(ICUI.baseline["wh_main_emp_empire"] == nil,
+        "a faction with no court was given a baseline")
+end)
+
+check("the button stops pulsing once nothing is waiting", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 1 end
+    local btn = fake_component(ICUI.BTN)
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    find_uicomponent = function(_parent, name)
+        if name == ICUI.BTN then return btn end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    local saved_ending = IC.terms_ending
+    IC.terms_ending = function() return {} end
+    local ok, err = pcall(as_player, function()
+        assert(not ICUI.attention(F).any, "the fixture still has something waiting")
+        pulses = {}
+        ICUI.update_opener_tip()
+        assert(pulses[#pulses] and pulses[#pulses].on == false,
+            "with nothing waiting the button was left pulsing")
+        IC.court(F).offices[IC.OFFICES[1].slug] = nil
+        pulses = {}
+        ICUI.update_opener_tip()
+        assert(pulses[#pulses] and pulses[#pulses].on == true,
+            "an empty seat did not start the button pulsing")
+    end)
+    find_uicomponent, is_uicomponent = saved_find, saved_is
+    IC.terms_ending = saved_ending
+    assert(ok, err)
 end)
 
 check("no parties' turn failed anywhere in the run", function()

@@ -61,11 +61,11 @@ effect_bundles_localised_title_derpy_ic_vacant_kilns	Keeper of the Kilns (Vacant
 effect_bundles_localised_description_derpy_ic_vacant_kilns	The kilns burn on regardless, and the bill arrives regardless.	false
 derpy_ic_effects_derpy_ic_vacant_kilns	Construction cost +4%	false
 effect_bundles_localised_title_derpy_ic_office_fields	Steward of the Ash Fields	false
-effect_bundles_localised_description_derpy_ic_office_fields	Even ash will grow something, if a Dawi Zharr is made to care.	false
-derpy_ic_effects_derpy_ic_office_fields	Growth +10	false
+effect_bundles_localised_description_derpy_ic_office_fields	The hobgoblin tribes that work the ash fields march cheap for whoever feeds them.	false
+derpy_ic_effects_derpy_ic_office_fields	Hobgoblin upkeep -15%	false
 effect_bundles_localised_title_derpy_ic_vacant_fields	Steward of the Ash Fields (Vacant)	false
-effect_bundles_localised_description_derpy_ic_vacant_fields	The ash fields are left to the ash.	false
-derpy_ic_effects_derpy_ic_vacant_fields	Growth -5	false
+effect_bundles_localised_description_derpy_ic_vacant_fields	The ash fields go untended, and the hobgoblins want more to march.	false
+derpy_ic_effects_derpy_ic_vacant_fields	Hobgoblin upkeep +5%	false
 effect_bundles_localised_title_derpy_ic_office_scribes	Master of the Scribes	false
 effect_bundles_localised_description_derpy_ic_office_scribes	His clerks know which door to knock on, and when.	false
 derpy_ic_effects_derpy_ic_office_scribes	Hero success +8%	false
@@ -485,8 +485,8 @@ character_trait_levels_colour_text_derpy_ic_title_kilns	Brick and slag leave his
 character_trait_levels_explanation_text_derpy_ic_title_kilns	Construction cost: -8% for all buildings	false
 character_trait_levels_removal_text_derpy_ic_title_kilns	He has been stripped of the office, and everyone saw it.	false
 character_trait_levels_onscreen_name_derpy_ic_title_fields	Steward of the Ash Fields	false
-character_trait_levels_colour_text_derpy_ic_title_fields	Even ash will grow something, if a Dawi Zharr is made to care.	false
-character_trait_levels_explanation_text_derpy_ic_title_fields	Growth: +10	false
+character_trait_levels_colour_text_derpy_ic_title_fields	The hobgoblin tribes that work the ash fields march cheap for whoever feeds them.	false
+character_trait_levels_explanation_text_derpy_ic_title_fields	Upkeep: -15% for Hobgoblin units	false
 character_trait_levels_removal_text_derpy_ic_title_fields	He has been stripped of the office, and everyone saw it.	false
 character_trait_levels_onscreen_name_derpy_ic_title_scribes	Master of the Scribes	false
 character_trait_levels_colour_text_derpy_ic_title_scribes	His clerks know which door to knock on, and when.	false
@@ -568,7 +568,7 @@ event_feed_strings_text_derpy_ic_event_term_soon_title	A Term Ends Next Turn	fal
 event_feed_strings_text_derpy_ic_event_term_soon_primary	An officer's term ends at the start of your next turn, and his seat will stand empty. He cannot take the same seat straight back, so decide now who follows him.	false
 event_feed_strings_text_derpy_ic_event_term_soon_secondary	TERMS END	false
 event_feed_strings_text_derpy_ic_event_party_sabotage_title	An Office Sabotaged	false
-event_feed_strings_text_derpy_ic_event_party_sabotage_primary	A party feuding with yours has sabotaged one of your offices. Its bonus is lost for a few turns; the Offices tab shows which seat and for how long.	false
+event_feed_strings_text_derpy_ic_event_party_sabotage_primary	A feuding party has sabotaged an office held by its rival. Its bonus is lost for a few turns; the Offices tab shows which seat and for how long.	false
 event_feed_strings_text_derpy_ic_event_party_sabotage_secondary	SABOTAGE	false
 event_feed_strings_text_derpy_ic_event_party_withhold_title	A Party Withholds Its Service	false
 event_feed_strings_text_derpy_ic_event_party_withhold_primary	A party whose loyalty has fallen low has told its officers to stop working for you. Every office its men hold gives no bonus for a few turns. Secure their loyalty and they return to work at once.	false
