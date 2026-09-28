@@ -1253,6 +1253,11 @@ function ICUI.court_state(faction)
         end
     end
     s.ending = IC.terms_ending(faction)
+    -- SEATS SOMEBODY CAN TAKE NOW (author, 2026-09-28: "only available empty
+    -- seats should make the button pulse since every seat is empty"): the Fill
+    -- button's own plan, one post per man, so the glow and the red Fill button
+    -- can never disagree about whether there is anything to do.
+    s.fillable = #IC.fill_plan(faction)
     local seated = IC.present_houses(faction)
     for i = 1, #seated do
         local house = court.houses[seated[i]]
@@ -1277,7 +1282,7 @@ end
 function ICUI.attention(faction)
     local s = ICUI.court_state(faction)
     local out = {
-        offices = s.empty > 0 or #s.ending > 0,
+        offices = s.fillable > 0 or #s.ending > 0,
         court = #s.leaving > 0,
         petitions = s.petitions > 0,
         govs = s.unruled > 0,
@@ -1292,30 +1297,48 @@ end
 
 function ICUI.opener_tip(faction)
     local court = IC.court(faction)
+    local s = ICUI.court_state(faction)
+    local back = s.back
+    -- WHY IT PULSES, FIRST, AND WHERE TO GO (author, 2026-09-28: "the button is
+    -- pulsating, but no info why thats shown"). Every reason was already worded
+    -- here, but as one more status line among the rest. These are exactly
+    -- ICUI.attention's `any`, off the same court_state, so the heading shows
+    -- when and only when the button pulses.
+    local waiting = {}
+    if s.fillable > 0 then
+        waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",
+                                              s.fillable)
+    end
+    if #s.ending > 0 then
+        local ending = {}
+        for i = 1, #s.ending do ending[i] = ICUI.office_name(s.ending[i]) end
+        waiting[#waiting + 1] = "Terms ending next turn: " .. table.concat(ending, ", ")
+            .. " (Offices tab)."
+    end
+    for _, l in ipairs(s.leaving) do
+        waiting[#waiting + 1] = string.format("%s leaves the court in %d turn%s (Court tab).",
+            ICUI.house_name(l.slug, faction), l.clock, l.clock == 1 and "" or "s")
+    end
+    if s.petitions > 0 then
+        waiting[#waiting + 1] = string.format(
+            "Petitions waiting for your answer: %d (Petitions tab).", s.petitions)
+    end
     local lines = {}
+    if #waiting > 0 then
+        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"
+        for i = 1, #waiting do lines[#lines + 1] = waiting[i] end
+        lines[#lines + 1] = ""
+    end
     if court.houses[IC.CROWN] then
         lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
             IC.control(faction), ICUI.band_name(IC.control_band(faction)))
     end
-    local s = ICUI.court_state(faction)
-    local back = s.back
+    -- EVERY EMPTY SEAT, fillable or not: the seats are always worth a look.
     lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
-    if #s.ending > 0 then
-        local ending = {}
-        for i = 1, #s.ending do ending[i] = ICUI.office_name(s.ending[i]) end
-        lines[#lines + 1] = "Terms ending next turn: " .. table.concat(ending, ", ") .. "."
-    end
-    for _, l in ipairs(s.leaving) do
-        lines[#lines + 1] = string.format("%s leaves the court in %d turn%s.",
-            ICUI.house_name(l.slug, faction), l.clock, l.clock == 1 and "" or "s")
-    end
-    -- EVERY REASON THE BUTTON PULSES OR A TAB IS MARKED is worded here.
-    if s.petitions > 0 then
-        lines[#lines + 1] = string.format("Petitions waiting for your answer: %d.",
-                                          s.petitions)
-    end
+    -- MARKED ON ITS TAB BUT NOT A PULSE: most of a campaign has one.
     if s.unruled > 0 then
-        lines[#lines + 1] = string.format("Provinces with no governor: %d.", s.unruled)
+        lines[#lines + 1] = string.format("Provinces with no governor: %d (Governors tab).",
+                                          s.unruled)
     end
     if #back > 0 then
         lines[#lines + 1] = "Free to take their old seat again: "

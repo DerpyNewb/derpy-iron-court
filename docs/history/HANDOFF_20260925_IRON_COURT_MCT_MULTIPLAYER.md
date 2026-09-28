@@ -1041,3 +1041,26 @@ deployed by the `--deploy-only --wait` watcher when the game closed (22:32; back
 deployed on its own). Not pushed.
 Pushed to GitHub 2026-09-28 as b99387f (build B6E69375, with every build since 7B34D727); the sync manifest now
 lists `derpy_ic_edict_note.twui.xml`.
+
+**Why the button pulses (2026-09-28).** Author: "the button is pulsating, but no info why thats shown". Every
+reason was already in `ICUI.opener_tip`, but as status lines among the rest. The tip now opens with
+`[[col:yellow]]Waiting for you:[[/col]]` and exactly the pulse's reasons (empty seats, terms ending, parties
+leaving, petitions - `ICUI.attention`'s `any`, off the same `court_state`), each naming its tab, then a blank line
+and the summary; an ungoverned province stays in the summary with "(Governors tab)" because it marks its tab
+without pulsing. Harness 721; 4 new mutants caught. Build `62C28B4D5021B576D0772EEFA4B16A07`, 9,382,303 bytes,
+deployed (backup `.bak_pre_auto_20260928_225141` holds B6E69375), byte-verified. Not pushed.
+
+**Only a seat somebody can take pulses (2026-09-28).** Author: "only available empty seats should make the button
+pulse since every seat is empty". `court_state` now carries `s.fillable = #IC.fill_plan(faction)` - the Fill
+button's own plan: one post per man, the claimed-seat rule, and for a PLAYER's man the seat's tier influence
+(`IC.can_appoint`), which is why every seat of a young court sits empty. `attention.offices` = fillable > 0 or a
+term ending; the tooltip's waiting line is "Seats you can fill now: N (Offices tab)." and the summary always
+counts "Empty seats: X of Y.". Found on the way: "the markers are drawn on their tabs" had passed only because
+no seat-holder influence was needed outside the player path - its man now has the influence. Harness 722; 3 new
+mutants caught, 10 related re-run and caught. Build `3DFB28D14E443B25615B8C703993D221`, 9,382,627 bytes,
+deployed (backup `.bak_pre_auto_20260928_230134` holds 62C28B4D), byte-verified. Not pushed.
+Full mutation run on 3DFB28D1: 629 mutants, 627 caught, 2 STALE ANCHORS - "the Offices tab not marked" and "the
+button's pulse never stops" aimed at lines this session rewrote (`attention.offices` now reads `s.fillable`; the
+pulse call moved into `ICUI.gate_opener`). Both retargeted and caught. Generated files regenerated after the run;
+the scripts, MCT settings and all 15 layouts match the deployed pack byte for byte.
+Pushed to GitHub 2026-09-28 with build 3DFB28D1 (62C28B4D and 3DFB28D1 together).

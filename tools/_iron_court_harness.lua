@@ -22044,8 +22044,12 @@ check("the court button's tooltip sums up the court, and the button wears it", f
     has(string.format("Your party holds %d%% of the court: %s.", IC.control(F),
                       ICUI.band_name(IC.control_band(F))))
     has(string.format("Empty seats: %d of %d.", #IC.OFFICES - 1, #IC.OFFICES))
-    has("Terms ending next turn: " .. ICUI.office_name(other) .. ".")
-    has(ICUI.house_name("legion", F) .. " leaves the court in 2 turns.")
+    -- AND HOW MANY OF THEM A MAN CAN TAKE NOW, the Fill button's plan.
+    local fillable = #IC.fill_plan(F)
+    assert(fillable > 0, "the fixture has nobody free for a seat")
+    has(string.format("Seats you can fill now: %d (Offices tab).", fillable))
+    has("Terms ending next turn: " .. ICUI.office_name(other) .. " (Offices tab).")
+    has(ICUI.house_name("legion", F) .. " leaves the court in 2 turns (Court tab).")
     has(ICUI.character_name(zhaak) .. " (" .. ICUI.office_name("forge") .. ")")
 
     -- NOTHING THAT IS NOT TRUE: no line for what is not happening.
@@ -23610,10 +23614,27 @@ check("the markers and the button's summary never disagree about the seats", fun
     assert(string.find(tip, "Empty seats: 0 of", 1, true), tip)
     assert(not ICUI.attention(F).offices or #IC.terms_ending(F) > 0,
         "Offices is marked while the summary says every seat is full and no term ends")
+    -- AN EMPTY SEAT ITS ONLY MAN CANNOT TAKE - he holds every other one - is
+    -- counted but neither marked nor named as waiting (author, 2026-09-28:
+    -- "only available empty seats should make the button pulse").
+    local saved_ending = IC.terms_ending
+    IC.terms_ending = function() return {} end
     IC.court(F).offices[IC.OFFICES[1].slug] = nil
-    assert(ICUI.attention(F).offices
-           and not string.find(ICUI.opener_tip(F), "Empty seats: 0 of", 1, true),
-        "the marker and the summary disagree about an empty seat")
+    tip = ICUI.opener_tip(F)
+    assert(#IC.fill_plan(F) == 0, "the fixture's man is free for the seat")
+    assert(not ICUI.attention(F).offices
+           and not string.find(tip, "Seats you can fill now", 1, true)
+           and string.find(tip, "Empty seats: 1 of", 1, true),
+        "the marker and the summary disagree about a seat nobody can take:\n" .. tip)
+    -- AND ONE HE CAN: both say so.
+    IC.court(F).offices[IC.OFFICES[2].slug] = nil
+    for i = 3, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 999 end
+    tip = ICUI.opener_tip(F)
+    local fillable = #IC.fill_plan(F) > 0
+    IC.terms_ending = saved_ending
+    assert(fillable, "the freed man can take no seat")
+    assert(ICUI.attention(F).offices and string.find(tip, "Seats you can fill now", 1, true),
+        "the marker and the summary disagree about a seat a man can take:\n" .. tip)
 end)
 
 check("the button's summary words every reason it pulses", function()
@@ -23658,11 +23679,14 @@ check("the markers are drawn on their tabs and the button pulses", function()
     IC.add_house(F, IC.CROWN)
     IC.add_house(F, "forge")
     for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = nil end
+    -- ENOUGH INFLUENCE FOR A SEAT: the panel draws for the player, and a
+    -- player's man must have the seat's influence before it is his to take.
+    IC.court(F).standing[1] = 100000
     with_fake_panel(function(panel)
         ICUI.view = "court"
         ICUI.refresh()
         assert(panel.children[ICUI.MARKS.offices].visible ~= false,
-            "the Offices marker is hidden with empty seats")
+            "the Offices marker is hidden with a seat a man can take")
         assert(panel.children[ICUI.MARKS.petitions].visible == false,
             "the Petitions marker shows with nothing waiting")
     end)
@@ -23786,11 +23810,20 @@ check("the button stops pulsing once nothing is waiting", function()
         ICUI.update_opener_tip()
         assert(pulses[#pulses] and pulses[#pulses].on == false,
             "with nothing waiting the button was left pulsing")
+        -- AN EMPTY SEAT NOBODY CAN TAKE - its only man holds the rest - is
+        -- no reason to pulse (author, 2026-09-28).
         IC.court(F).offices[IC.OFFICES[1].slug] = nil
         pulses = {}
         ICUI.update_opener_tip()
+        assert(pulses[#pulses] and pulses[#pulses].on == false,
+            "an empty seat nobody can take started the button pulsing")
+        -- A SEAT HE CAN TAKE: free of the others, with the influence for it.
+        for i = 2, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 999 end
+        IC.court(F).standing[1] = 100000
+        pulses = {}
+        ICUI.update_opener_tip()
         assert(pulses[#pulses] and pulses[#pulses].on == true,
-            "an empty seat did not start the button pulsing")
+            "a seat a man can take did not start the button pulsing")
     end)
     find_uicomponent, is_uicomponent = saved_find, saved_is
     IC.terms_ending = saved_ending
@@ -24327,8 +24360,10 @@ check("the court button is greyed while other factions take their turns", functi
     make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
     IC.add_house(F, IC.CROWN)
     IC.add_house(F, "forge")
-    -- AN EMPTY SEAT, so on his turn the button has a reason to pulse.
+    -- A SEAT HE CAN TAKE, so on his turn the button has a reason to pulse:
+    -- empty, and a man with the influence for it.
     for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = nil end
+    IC.court(F).standing[1] = 100000
     local btn = fake_component(ICUI.BTN)
     function btn:SetDisabled(on)
         IC_NEED_BOOL("SetDisabled", on); self.disabled = on end
@@ -24481,6 +24516,118 @@ check("the influence plate follows the man the panel shows and fits its words", 
     end)
     cm.get_human_factions = saved
     ICUI.selected_cqi = nil
+end)
+
+check("the button's tooltip leads with why it pulses, and where to go", function()
+    -- THE AUTHOR, 2026-09-28: "the button is pulsating, but no info why thats
+    -- shown". Every reason was in the summary, but as one more status line among
+    -- the rest - nothing said THIS is what the glow is for, or which tab.
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 1 end
+    local saved_ending = IC.terms_ending
+    local ending = {}
+    IC.terms_ending = function() return ending end
+    local ok, err = pcall(function()
+        local head = "[[col:yellow]]Waiting for you:[[/col]]"
+        -- NOTHING WAITING: no heading, and the button is still. The province's
+        -- governor is somebody else, so the one man stays free for a seat below.
+        IC.court(F).govs["prov_a"] = 999
+        assert(not ICUI.attention(F).any, "the fixture has something waiting")
+        assert(not string.find(ICUI.opener_tip(F), head, 1, true),
+            "a still button's tooltip says something is waiting")
+        -- EACH REASON THE BUTTON PULSES, under the heading and before the rest,
+        -- naming the tab it is on.
+        -- A SEAT HIS ONE MAN CAN TAKE: free of the others, with the influence,
+        -- and not a seat the Crown claims - that goes only to Crown men.
+        local open_i
+        for i = 1, #IC.OFFICES do
+            if not open_i and IC.OFFICES[i].affinity ~= IC.CROWN then open_i = i end
+        end
+        for i = 1, #IC.OFFICES do IC.court(F).offices[IC.OFFICES[i].slug] = 999 end
+        IC.court(F).offices[IC.OFFICES[open_i].slug] = nil
+        IC.court(F).standing[1] = 100000
+        ending[1] = IC.OFFICES[open_i == 2 and 3 or 2].slug
+        IC.court(F).houses["forge"].clock = 2
+        IC.agenda(F).demand = {slug = "forge", kind = "office", cqi = 1,
+                               key = IC.OFFICES[1].slug, was = 0, ends = 6}
+        assert(ICUI.attention(F).any)
+        local tip = ICUI.opener_tip(F)
+        local at = string.find(tip, head, 1, true)
+        assert(at, "the pulsing button's tooltip has no heading saying why:\n" .. tip)
+        local share = string.find(tip, "Your party holds", 1, true)
+        assert(share and at < share, "the reasons are not first:\n" .. tip)
+        for _, want in ipairs({
+            string.format("Seats you can fill now: %d (Offices tab).", #IC.fill_plan(F)),
+            "Terms ending next turn: " .. ICUI.office_name(ending[1]) .. " (Offices tab).",
+            ICUI.house_name("forge", F) .. " leaves the court in 2 turns (Court tab).",
+            "Petitions waiting for your answer: 1 (Petitions tab).",
+        }) do
+            local p = string.find(tip, want, 1, true)
+            assert(p and p > at and p < share,
+                "not listed under the heading: " .. want .. "\n" .. tip)
+        end
+        -- AN UNGOVERNED PROVINCE is marked on its tab but does not pulse the
+        -- button, so it is in the rest, with its tab, not under the heading.
+        IC.court(F).govs["prov_a"] = nil
+        tip = ICUI.opener_tip(F)
+        local g = string.find(tip, "Provinces with no governor: 1 (Governors tab).", 1, true)
+        assert(g and g > string.find(tip, "Your party holds", 1, true),
+            "the ungoverned province is not in the summary below:\n" .. tip)
+    end)
+    IC.terms_ending = saved_ending
+    IC.agenda(F).demand = nil
+    assert(ok, err)
+end)
+
+check("only a seat somebody can take now pulses the button", function()
+    -- THE AUTHOR, 2026-09-28: "only available empty seats should make the
+    -- button pulse since every seat is empty". A court with more seats than
+    -- men who may sit in them pulsed every turn of the campaign.
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local saved_ending = IC.terms_ending
+    IC.terms_ending = function() return {} end
+    local ok, err = pcall(as_player, function()
+        -- EVERY SEAT EMPTY AND NOBODY TO PUT IN ONE: still.
+        assert(#IC.fill_plan(F) == 0, "the fixture has a man for a seat")
+        -- AND THE AUTHOR'S OWN CASE: a man in the court, but without the
+        -- influence any seat asks of a player's man. Still.
+        make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+        IC.court(F).standing[1] = 0
+        assert(#IC.fill_plan(F) == 0, "a man with no influence can take a seat")
+        assert(not ICUI.attention(F).any,
+            "every seat empty and no man with the influence for one pulses the button")
+        local a = ICUI.attention(F)
+        assert(not a.offices and not a.any,
+            "every seat empty with nobody to take one pulses the button")
+        local tip = ICUI.opener_tip(F)
+        assert(not string.find(tip, "Waiting for you", 1, true),
+            "the tooltip says something is waiting with nothing to do:\n" .. tip)
+        -- THE SUMMARY STILL COUNTS THEM.
+        assert(string.find(tip, string.format("Empty seats: %d of %d.", #IC.OFFICES,
+                                              #IC.OFFICES), 1, true),
+            "the summary stopped counting empty seats:\n" .. tip)
+        -- A MAN WHO CAN TAKE ONE: the button pulses, and says how many seats he
+        -- and his fellows can fill - the Fill button's own plan.
+        IC.court(F).standing[1] = 100000
+        local n = #IC.fill_plan(F)
+        assert(n > 0, "the fixture's man can take no seat")
+        a = ICUI.attention(F)
+        assert(a.offices and a.any, "a seat a man can take now did not pulse the button")
+        tip = ICUI.opener_tip(F)
+        assert(string.find(tip, string.format("Seats you can fill now: %d (Offices tab).", n),
+                           1, true),
+            "the tooltip does not say how many seats can be filled:\n" .. tip)
+    end)
+    IC.terms_ending = saved_ending
+    assert(ok, err)
 end)
 
 check("no parties' turn failed anywhere in the run", function()

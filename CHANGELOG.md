@@ -5,6 +5,21 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-28 - build 3DFB28D1
+
+Deployed 2026-09-28. MD5 `3DFB28D14E443B25615B8C703993D221`, 9,382,627 bytes. It gathers
+62C28B4D; the detail is in the last addenda of
+`docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`.
+
+- **The court button says why it is glowing.** Its tooltip opens with "Waiting for you:"
+  and each reason with the tab to open, then the summary.
+- **Empty seats glow only when someone can take them.** The button and the Offices tab
+  follow the Fill button's own plan (rank, one post per man, the claimed-seat rule, and for
+  the player's men the seat's influence), so a young court whose every seat is empty for
+  want of influence no longer glows every turn. The summary still counts every empty seat.
+- **Tests.** A full mutation run (629 mutants) caught everything but two stale anchors,
+  both retargeted onto the rewritten lines and caught.
+
 ## 2026-09-28 - build B6E69375
 
 Deployed 2026-09-28. MD5 `B6E693757B1E83F2D9A88BAC946EE3B6`, 9,381,355 bytes. It gathers the

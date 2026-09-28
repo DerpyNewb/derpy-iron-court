@@ -1565,6 +1565,52 @@ end)"""),
      """ICUI.EDICT_NOTE_GAP = -2""",
      """ICUI.EDICT_NOTE_GAP = 6"""),
 
+    # ---- only a seat somebody can take pulses (author, 2026-09-28) ---------
+    ("every empty seat pulses the button again", U,
+     '''        offices = s.fillable > 0 or #s.ending > 0,''',
+     '''        offices = s.empty > 0 or #s.ending > 0,'''),
+    ("every empty seat listed as waiting", U,
+     '''    if s.fillable > 0 then
+        waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",''',
+     '''    if s.empty > 0 then
+        waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",'''),
+    ("the summary drops the empty seats it cannot fill", U,
+     '''    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)''',
+     '''    if s.fillable > 0 then
+        lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
+    end'''),
+
+    # ---- why the button pulses (author, 2026-09-28: "no info why") ----------
+    ("the court button's tooltip with no heading saying why it pulses", U,
+     '''        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"''',
+     '''        lines[1] = ""'''),
+    ("the waiting heading shown on a still button", U,
+     '''    if #waiting > 0 then
+        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"''',
+     '''    if true then
+        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"'''),
+    ("a party leaving listed without the tab to open", U,
+     '''"%s leaves the court in %d turn%s (Court tab)."''',
+     '''"%s leaves the court in %d turn%s."'''),
+    ("the reasons listed after the summary", U,
+     """    if #waiting > 0 then
+        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"
+        for i = 1, #waiting do lines[#lines + 1] = waiting[i] end
+        lines[#lines + 1] = ""
+    end
+    if court.houses[IC.CROWN] then
+        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
+            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+    end""",
+     """    if court.houses[IC.CROWN] then
+        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
+            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+    end
+    if #waiting > 0 then
+        lines[#lines + 1] = "[[col:yellow]]Waiting for you:[[/col]]"
+        for i = 1, #waiting do lines[#lines + 1] = waiting[i] end
+    end"""),
+
     # ---- the court button between turns (author, 2026-09-28) ---------------
     ("the court button lit whoever's turn it is", U,
      """    if live == nil then live = ICUI.player_turn() end""",
@@ -3830,8 +3876,8 @@ end"""),
     ("the pulse stopped only in the button's current state", U,
      """pulse_uicomponent(button, on, ICUI.PULSE_STRENGTH, false, state)""",
      """pulse_uicomponent(button, on, ICUI.PULSE_STRENGTH, false)"""),
-    ("the Offices tab not marked for an empty seat", U,
-     """        offices = s.empty > 0 or #s.ending > 0,""",
+    ("the Offices tab not marked for a seat somebody can take", U,
+     """        offices = s.fillable > 0 or #s.ending > 0,""",
      """        offices = #s.ending > 0,"""),
     ("the Petitions tab blind to a demand", U,
      """    s.petitions = a.demand ~= nil and 1 or 0""",
@@ -3848,8 +3894,8 @@ end"""),
      """    local _ = faction
 """),
     ("the button's pulse never stops", U,
-     """    ICUI.pulse_opener(ok2 and a.any == true)""",
-     """    ICUI.pulse_opener(true)"""),
+     """        ICUI.pulse_opener(waiting == true)""",
+     """        ICUI.pulse_opener(true)"""),
     ("a change coloured before any baseline", U,
      """    local d_loyalty = base and loyalty - base.loyalty or 0""",
      """    local d_loyalty = loyalty - (base and base.loyalty or 0)"""),
