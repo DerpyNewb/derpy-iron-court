@@ -355,3 +355,6 @@ the map probe waits. A fifth Intrigue column, **Missions**, with two moves:
     CA's order that moves OTHER's regard for the rebels, while its loop stops on the REBELS'
     `diplomatic_standing_with(other)` - if the two disagree, every souring runs all its steps.
     Which direction the secession meant is the author's call.
+- **Pushed** to GitHub on 2026-09-29 as c189ff7 (build CCF16A5E), together with D3712F85 and
+  A06C68A6. The repo README, DEVELOPMENT.md (804 checks, 833 mutants, thirteen save sections)
+  and CHANGELOG were updated with it.
