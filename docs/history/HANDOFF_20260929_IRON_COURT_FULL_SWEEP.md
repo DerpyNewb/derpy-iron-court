@@ -4,7 +4,7 @@ Author: "do a full sweep of the iron court mod". Read this after section 19's la
 ("The four leftovers") of `HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`. The starting build is
 16E76FC3 (deployed 15:05).
 
-**RESULT: build `B4BC14091DDAF79F835B5796FE46F8CB`, 9,498,698 bytes, 1,730 files, deployed to data/ at 16:50 (backup `derpy_iron_court.pack.bak_pre_auto_20260929_165035` holds 16E76FC3), all 1,709 Lua/XML/PNG byte-identical to `Modding Files/pack/`. Harness 786 checks; full mutation run 798 mutants, 0 unexplained. Not pushed; not seen in game.** Twenty faults fixed (sections 2, 3, 4b and 6); two findings ruled not to fix and two left open (section 7).
+**RESULT: build `B4BC14091DDAF79F835B5796FE46F8CB`, 9,498,698 bytes, 1,730 files, deployed to data/ at 16:50 (backup `derpy_iron_court.pack.bak_pre_auto_20260929_165035` holds 16E76FC3), all 1,709 Lua/XML/PNG byte-identical to `Modding Files/pack/`. Harness 786 checks; full mutation run 798 mutants, 0 unexplained. Pushed to GitHub 2026-09-29 as 260ee76, with 16E76FC3; not seen in game.** Twenty faults fixed (sections 2, 3, 4b and 6); two findings ruled not to fix and two left open (section 7).
 
 ## 1. Every gate, run against 16E76FC3's source, before any change
 
@@ -213,5 +213,5 @@ Still OPEN, needs an in-game look:
   province, then a governed one with an edict pending or unavailable, and see whether it lights.
 - `ICUI.confirm` reuses a card handle 1.5 s later (inside a pcall; noted by the UI reviewer, not
   in its slice).
-- The repo README still says "public order" (lines 27, 56, 68) and DEVELOPMENT.md 771 checks /
-  760 mutants; now 786 and 798. Repo-only files, for the next push.
+- (Closed at the push: the repo README's three "public order" lines now say control, and
+  DEVELOPMENT.md reads 786 checks and 798 mutants. The sync manifest now lists this handoff.)
