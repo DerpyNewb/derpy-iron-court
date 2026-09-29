@@ -276,21 +276,35 @@ def component(c):
     # A LAYER COLOUR MULTIPLIES. CA's masks are pure white where they mark (measured: one
     # distinct opaque colour, 255/255/255), so white times the faction colour is the faction
     # colour, and the mask's transparent 82% stays untouched.
+    # CALLBACKS. colour_from is the one with a shorthand; `callbacks` takes any
+    # other as {"id", "object"?, "function"?, "props": [(name, value)]} - the party
+    # map's markers carry CA's ContextWorldSpaceComponent and ContextOpacitySetter
+    # this way. The colour setter's output is byte-identical to before.
+    cbs = []
     cc = kw.get("colour_from")
     if cc:
-        out += ('\t\t\t<callbackwithcontextlist>\n'
-                '\t\t\t\t<callback_with_context\n'
-                '\t\t\t\t\tcallback_id="ContextColourSetter"\n'
-                '\t\t\t\t\tcontext_object_id="%s"\n'
-                '\t\t\t\t\tcontext_function_id="%s">\n'
-                '\t\t\t\t\t<child_m_user_properties>\n'
-                '\t\t\t\t\t\t<property\n'
-                '\t\t\t\t\t\t\tname="colour_index0"\n'
-                '\t\t\t\t\t\t\tvalue="%d"/>\n'
-                '\t\t\t\t\t</child_m_user_properties>\n'
-                '\t\t\t\t</callback_with_context>\n'
-                '\t\t\t</callbackwithcontextlist>\n'
-                % (_esc(cc["object"]), _esc(cc["function"]), cc["index"]))
+        cbs.append({"id": "ContextColourSetter", "object": cc["object"],
+                    "function": cc["function"],
+                    "props": [("colour_index0", str(cc["index"]))]})
+    cbs.extend(kw.get("callbacks") or [])
+    if cbs:
+        out += '\t\t\t<callbackwithcontextlist>\n'
+        for cb in cbs:
+            out += '\t\t\t\t<callback_with_context\n\t\t\t\t\tcallback_id="%s"' % cb["id"]
+            if cb.get("object"):
+                out += '\n\t\t\t\t\tcontext_object_id="%s"' % _esc(cb["object"])
+            if cb.get("function"):
+                out += '\n\t\t\t\t\tcontext_function_id="%s"' % _esc(cb["function"])
+            props = cb.get("props") or []
+            if not props:
+                out += '/>\n'
+                continue
+            out += '>\n\t\t\t\t\t<child_m_user_properties>\n'
+            for name, value in props:
+                out += ('\t\t\t\t\t\t<property\n\t\t\t\t\t\t\tname="%s"\n'
+                        '\t\t\t\t\t\t\tvalue="%s"/>\n' % (_esc(name), _esc(value)))
+            out += '\t\t\t\t\t</child_m_user_properties>\n\t\t\t\t</callback_with_context>\n'
+        out += '\t\t\t</callbackwithcontextlist>\n'
 
     # ONE component_image PER LAYER OF EVERY STATE, concatenated. <componentimages> is a
     # COMPONENT-level list and each state's <imagemetrics> picks the entries it draws by GUID -

@@ -258,14 +258,15 @@ ICUI.PANEL_XY = {
     ic_tab_court     = {18, 62, 240, 32},
     ic_tab_offices   = {262, 62, 240, 32},
     ic_tab_govs      = {506, 62, 240, 32},
-    ic_tab_intrigue  = {750, 62, 240, 32},
+    ic_tab_map       = {750, 62, 240, 32},
+    ic_tab_intrigue  = {994, 62, 240, 32},
     -- THE RECORD LAST: the one tab with nothing to act on (author, 2026-09-24).
-    ic_tab_petitions = {994, 62, 240, 32},
-    ic_tab_log       = {1238, 62, 240, 32},
+    ic_tab_petitions = {1238, 62, 240, 32},
+    ic_tab_log       = {1482, 62, 240, 32},
     ic_mark_court     = {224, 64, 28, 28},
     ic_mark_offices   = {468, 64, 28, 28},
     ic_mark_govs      = {712, 64, 28, 28},
-    ic_mark_petitions = {1200, 64, 28, 28},
+    ic_mark_petitions = {1444, 64, 28, 28},
     -- ITS HOME ON THE OTHER FOUR TABS. On the court it moves into the
     -- Crown's box, to ICUI.COURT_SECTION_XY below - the same trick the header
     -- reason a component gets two homes at all: one component, five views, and
@@ -1322,7 +1323,7 @@ function ICUI.court_state(faction)
         local house = court.houses[seated[i]]
         -- AT THE BREAKING POINT it leaves at the next turn start whatever its
         -- count says (audit and sweep 2026-09-29): tick_secession tests it first.
-        if IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then
+        if IC.at_breaking_point(faction, seated[i]) then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = 1}
         elseif seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
@@ -1711,7 +1712,7 @@ function ICUI.mood(house, slug)
         -- word is still the right answer on the turn the line is crossed and
         -- before the turn has run. NEITHER when the crown_split setting is off:
         -- there is no split to threaten, so it reads RESTLESS or LOYAL.
-        if IC.TUNE.crown_split ~= false then
+        if IC.TUNE.crown_split ~= false and IC.grace_left() == 0 then
             if (house.split or 0) > 0 then
                 return string.format("SPLITS %d", house.split)
             end
@@ -1719,7 +1720,7 @@ function ICUI.mood(house, slug)
         end
     -- THE BREAKING POINT: gone at the next turn start, whatever the count says -
     -- tick_secession tests it first (sweep 2026-09-29).
-    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then
+    elseif IC.secession_on() and house.loyalty <= IC.TUNE.secede_break then
         return "SECEDES 1"
     elseif (house.clock or 0) > 0 then
         return string.format("SECEDES %d", house.clock)
@@ -3997,6 +3998,12 @@ function ICUI.draw_court(panel, faction, court, px, py)
                                  house.clock == 1 and "" or "s")
         end
     end
+    -- THE GRACE PERIOD, which has no countdown to outrank (author, 2026-09-29).
+    local grace = IC.grace_left()
+    if IC.TUNE.secession ~= false and grace > 0 then
+        warn = string.format("The court is protected: no party can break with you "
+            .. "for %d more turn%s.", grace, grace == 1 and "" or "s")
+    end
     -- Sufferance outranks a rival's countdown: it is the player's own position,
     -- and it is the one a player cannot read off the bar without doing the sum.
     local own_share = IC.sufferance(faction)
@@ -4742,6 +4749,13 @@ function ICUI.intrigue_text(e)
     -- A PLOT THAT MISSED. Its own sentence, not a suffix on the four above: the
     -- standing went, the house worked out who tried, and nothing else happened.
     elseif e.kind == "plot_failed" then
+        -- A MISSION'S LINE carries where it went (plan ruling 3).
+        local mission, where = string.match(e.key or "", "^(%a+):(.+)$")
+        local sent = mission and IC.plot_by_key(mission)
+        if sent then
+            return string.format("%s to %s comes to nothing for %s. %d influence spent.",
+                sent.name, ICUI.mission_place(mission, where), house, e.n or 0)
+        end
         -- AN ERRAND'S LINE carries the errand, and an older save's none.
         local errand = not e.key or IC.plot_by_key(e.key)
         if errand then
@@ -4857,6 +4871,19 @@ function ICUI.intrigue_text(e)
         return string.format("%s spends %d influence holding the ash court, "
                              .. "and the whole room is heard out.", house,
                              e.n or 0)
+    elseif e.kind == "envoy" then
+        local province, task = IC.envoy_split(e.key)
+        if not province or not task then
+            return string.format("%s sends an envoy. %d influence spent.", house, e.n or 0)
+        end
+        return string.format("%s spends %d influence sending an envoy to %s: %s "
+            .. "for %d turns.", house, e.n or 0,
+            loc("provinces_onscreen_" .. province, province), IC.envoy_effect(task),
+            IC.TUNE.mission_turns)
+    elseif e.kind == "diplomats" then
+        return string.format("%s spends %d influence sending diplomats to %s. "
+            .. "Their regard for you rose.", house, e.n or 0,
+            loc("factions_screen_name_" .. tostring(e.key), tostring(e.key)))
     elseif e.kind == "circuit" then
         return string.format("%s spends %d influence riding the provinces, "
                              .. "ledger in hand. They are steadier for it.",
@@ -4890,6 +4917,9 @@ function ICUI.plot_label(plot_key, target)
     local plot = IC.plot_by_key(plot_key)
     if not plot then return tostring(plot_key) end
     if not target then return plot.name end
+    if plot.target then
+        return string.format("%s: %s", plot.name, ICUI.mission_place(plot_key, target))
+    end
     local victim = IC.character_by_cqi(ICUI.player(), tonumber(target))
     return string.format("%s: %s", plot.name,
                          victim and ICUI.character_name(victim) or "?")
@@ -5233,8 +5263,9 @@ ICUI.HELP = {
         "{@bullet}Moves on a party: {@provoke}provoke it, or {@purge}purge it. Moves on its posts: {@unseat}strike its seats, or {@recall}recall its governors.",
         "{@bullet}Bonds: {@oath}swear a blood-oath, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}pledge the forge to his party.",
         "{@bullet}Errands: {@embezzle}embezzle from the vaults, {@feast}hold a feast, {@audience}hold court, or {@circuit}ride the circuit of your provinces.",
+        "{@bullet}Missions: {@envoy}send an envoy to work in one of your provinces for a few turns, or {@diplomats}send diplomats to a faction you have met.",
         "{@loyalty}A failed move against a party costs {plot_fail_loyalty} of its loyalty toward you. They know what you tried.",
-        "{@crown}Only Crown men can act, and a man sent on an errand must not be leading an army.",
+        "{@crown}Only Crown men can act, and a man sent on an errand or a mission must not be leading an army.",
         "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge.",
     }},
     {title = "Petitions", icon = "petition", lines = {
@@ -5611,6 +5642,104 @@ ICUI.PICK_HEADERS = {"Character", "Party", "Rank", "Influence / Holds",
 
 -- The refusal codes IC.can_appoint and IC.assign_governor return, as sentences.
 -- An unmapped code still says something rather than vanishing.
+-- THE MISSION PICKERS' OWN HEADERS (plan ruling 8): a place or a faction per
+-- row, not a man, and no sort - so no arrows and no lit column either.
+ICUI.MISSION_PICKS = {
+    envoy_province    = {"Province", "Overseer", "Control", "Under way", ""},
+    envoy_task        = {"Task", "What it does", "", "", ""},
+    diplomats_faction = {"Faction", "At war", "Regard", "", ""},
+}
+
+-- A REFUSED ROW'S BUTTON, from the model's own refusal.
+function ICUI.mission_refusal(why, turns)
+    if why == "running" then return string.format("Running %d", turns or 0) end
+    if why == "resting" then return string.format("Rest %d", turns or 0) end
+    if why == "rebel" then return "Rebel" end
+    if why == "player" then return "Player" end
+    return "No"
+end
+
+-- WHERE A MISSION GOES, in words: "Gash Kadrak, Armaments", or a faction's name.
+function ICUI.mission_place(plot_key, target)
+    if plot_key == "envoy" then
+        local province, task = IC.envoy_split(target)
+        if not province then return tostring(target) end
+        local name = loc("provinces_onscreen_" .. province, province)
+        return task and (name .. ", " .. task.name) or name
+    end
+    return loc("factions_screen_name_" .. tostring(target), tostring(target))
+end
+
+-- THE ROWS OF THE OPEN MISSION PICKER, and the key each row sends (nil when
+-- refused). Every refusal is the model's: IC.may_target is asked with the
+-- exact target the click would send.
+function ICUI.mission_rows(faction)
+    local kind, plot = ICUI.pick.kind, ICUI.pick.plot
+    local lines, keys = {}, {}
+    local function add(cells, target)
+        local may, why, turns = true, nil, nil
+        if target then may, why, turns = IC.may_target(faction, plot, target) end
+        cells[5] = may and "Choose" or ICUI.red(ICUI.mission_refusal(why, turns))
+        cells.tip = (not may) and ICUI.reason_text(why, turns) or nil
+        lines[#lines + 1] = cells
+        keys[#lines] = may and (cells.key or target) or nil
+    end
+    if kind == "envoy_province" then
+        local court = IC.court(faction)
+        for _, province in ipairs(IC.seats(faction)) do
+            local cqi = court.govs[province]
+            local holder = cqi and IC.character_by_cqi(faction, cqi) or nil
+            local region = IC.held_region(faction, province)
+            local order = 0
+            if region then pcall(function() order = region:public_order() end) end
+            local running = {}
+            for _, task in ipairs(IC.ENVOY_TASKS) do
+                local left = IC.envoy_running(faction, province, task.bundle)
+                if left then running[#running + 1] = task.name .. " " .. left end
+            end
+            -- A PROVINCE IS NOT REFUSED: its tasks are, one list on.
+            add({loc("provinces_onscreen_" .. province, province),
+                 ICUI.gov_holder_text(faction, province, holder, cqi),
+                 tostring(order),
+                 #running > 0 and table.concat(running, ", ") or "None",
+                 key = province}, nil)
+        end
+    elseif kind == "envoy_task" then
+        for _, task in ipairs(IC.ENVOY_TASKS) do
+            add({task.name, IC.envoy_effect(task) .. string.format(" for %d turns",
+                 IC.TUNE.mission_turns), "", "",
+                 icon = "ui/campaign ui/effect_bundles/" .. task.icon, icon_kind = "crest"},
+                ICUI.pick.province .. ":" .. task.code)
+        end
+    elseif kind == "diplomats_faction" then
+        local me = cm:get_faction(faction)
+        local met = {}
+        pcall(function()
+            local list = me:factions_met()
+            for i = 0, list:num_items() - 1 do
+                local them = cm:get_faction(list:item_at(i):name())
+                -- THE DEAD ARE LEFT OFF (plan ruling 9).
+                if them and not them:is_null_interface() and not them:is_dead() then
+                    met[#met + 1] = {key = them:name(), faction = them,
+                                     name = loc("factions_screen_name_" .. them:name(), them:name())}
+                end
+            end
+        end)
+        table.sort(met, function(a, b)
+            if a.name ~= b.name then return a.name < b.name end
+            return a.key < b.key
+        end)
+        for _, m in ipairs(met) do
+            local war, regard = false, 0
+            pcall(function() war = me:at_war_with(m.faction) end)
+            pcall(function() regard = m.faction:diplomatic_attitude_towards(faction) end)
+            add({m.name, war and "At war" or "At peace",
+                 string.format("%d", math.floor((regard or 0) + 0.5)), ""}, m.key)
+        end
+    end
+    return lines, keys
+end
+
 function ICUI.reason_text(why, spare)
     if why == "gold" then
         return string.format("The treasury is %d gold short of that.", spare or 0)
@@ -5653,6 +5782,10 @@ function ICUI.reason_text(why, spare)
             spare or 0, (spare == 1) and "" or "s")
     elseif why == "commands" then
         return "He commands a force. Generals do not run errands."
+    elseif why == "grace" then
+        local left = IC.grace_left()
+        return string.format("The court is protected for %d more turn%s. There "
+            .. "is no countdown to start yet.", left, left == 1 and "" or "s")
     elseif why == "cold" then
         return string.format(
             "They will not swear to you at %d loyalty. Warm them up first.",
@@ -5714,6 +5847,22 @@ function ICUI.reason_text(why, spare)
         return "That demand is no longer open."
     elseif why == "taken" then
         return "Someone else holds that post now. Free it for their man this turn, or they count it as refused."
+    elseif why == "running" then
+        return string.format("That work is already under way there, for another "
+            .. "%d turn%s.", spare or 0, spare == 1 and "" or "s")
+    elseif why == "resting" then
+        return string.format("Your diplomats were there too recently. Send again "
+            .. "in %d turn%s.", spare or 0, spare == 1 and "" or "s")
+    elseif why == "lost" then
+        return "That province or faction is no longer there to send to."
+    elseif why == "unmet" then
+        return "You have not met them. Diplomats need somewhere to go."
+    elseif why == "rebel" then
+        return "Rebels keep no court to send diplomats to."
+    elseif why == "player" then
+        return "That is another player. Talk to them yourself."
+    elseif why == "no such task" then
+        return "No such task."
     end
     return "That cannot be done right now."
 end
@@ -5756,6 +5905,15 @@ function ICUI.pick_title()
         end
         return string.format("%s - its members, and what each has earned",
                              ICUI.house_name(ICUI.pick.slug))
+    end
+    local plot = ICUI.pick.plot and IC.plot_by_key(ICUI.pick.plot)
+    if ICUI.pick.kind == "envoy_province" then
+        return string.format("%s - to which province?", plot.name)
+    elseif ICUI.pick.kind == "envoy_task" then
+        return string.format("%s - what does he do in %s?", plot.name,
+            loc("provinces_onscreen_" .. ICUI.pick.province, ICUI.pick.province))
+    elseif ICUI.pick.kind == "diplomats_faction" then
+        return string.format("%s - to whom?", plot.name)
     end
     if ICUI.pick.kind == "plot_target" then
         return string.format("%s - who is it aimed at?",
@@ -5925,6 +6083,14 @@ end
 function ICUI.draw_picker(panel, faction, court)
     local lines = {}
     ICUI.pick_rows = {}
+    -- THE MISSION PICKERS draw places and factions, not men (spec 2026-09-29).
+    if ICUI.MISSION_PICKS[ICUI.pick.kind] then
+        local rows, keys = ICUI.mission_rows(faction)
+        ICUI.pick_rows = keys
+        if #rows == 0 then rows[1] = {"Nowhere to send.", "", "", "", ""} end
+        ICUI.fill_rows(panel, rows, "pick")
+        return ""
+    end
     -- NEITHER PLOT LIST IS PRICED HERE. Choosing a victim costs nothing - he is
     -- not the one paying - and the man who IS paying is priced by IC.can_plot,
     -- which is also the thing that will refuse him. `cost` below is the office
@@ -6222,6 +6388,18 @@ function ICUI.on_pick_click(context, faction)
     elseif ICUI.pick.kind == "house" then
         -- NOT SENT: a camera is one player's own, and nothing in the model moves.
         return ICUI.find(faction, chosen)
+    elseif ICUI.pick.kind == "envoy_province" then
+        -- THE FIRST OF THREE QUESTIONS: `chosen` is the province key.
+        ICUI.pick = {kind = "envoy_task", plot = ICUI.pick.plot, province = chosen}
+        ICUI.scroll.pick = 0
+        ICUI.notice = nil
+        return true
+    elseif ICUI.pick.kind == "envoy_task" or ICUI.pick.kind == "diplomats_faction" then
+        -- `chosen` IS THE TARGET the model splits: "province:code", or a faction.
+        ICUI.pick = {kind = "plot", plot = ICUI.pick.plot, key = chosen}
+        ICUI.scroll.pick = 0
+        ICUI.notice = nil
+        return true
     else
         ICUI.send(faction, "gov", ICUI.pick.key .. "|" .. tostring(chosen))
     end
@@ -6264,6 +6442,7 @@ function ICUI.refresh()
     set_text(comp("ic_tab_court", panel), "Court")
     set_text(comp("ic_tab_offices", panel), "Offices")
     set_text(comp("ic_tab_govs", panel), "Governors")
+    set_text(comp("ic_tab_map", panel), "Map")
     set_text(comp("ic_tab_intrigue", panel), "Intrigue")
     set_text(comp("ic_tab_log", panel), "Record")
     set_text(comp("ic_tab_petitions", panel), "Petitions")
@@ -6298,7 +6477,8 @@ function ICUI.refresh()
     local headers = ICUI.HEADERS[view]
     -- PICK_HEADERS IS THE CHARACTER LIST'S, and every picker is one now: the
     -- favour list that had its own row in HEADERS is gone (2026-09-24).
-    if ICUI.pick then headers = ICUI.HEADERS[view] or ICUI.PICK_HEADERS end
+    local mission = ICUI.pick and ICUI.MISSION_PICKS[ICUI.pick.kind]
+    if ICUI.pick then headers = mission or ICUI.HEADERS[view] or ICUI.PICK_HEADERS end
     -- ONE HOME FOR THE STRIP. It used to have a second, lower one for the
     -- court, whose list started below the pie; the court has no list and the
     -- pie is not above one.
@@ -6308,7 +6488,7 @@ function ICUI.refresh()
         -- THE ACTIVE COLUMN NAMES ITSELF. The arrows are identical to each
         -- other by design - see ICUI.SORT_LIT - so without this the player can
         -- see that the list is sorted and not by what.
-        local active = ICUI.sort_for_column(view, i)
+        local active = not mission and ICUI.sort_for_column(view, i)
                        and ICUI.sort[view] == ICUI.sort_for_column(view, i)
         if c then
             local xy = ICUI.PANEL_XY[ICUI.HDR_KEYS[i]]
@@ -6329,7 +6509,7 @@ function ICUI.refresh()
         -- cannot sort is the dead-button fault.
         local a = comp(ICUI.HSORT_KEYS[i], panel)
         if a then
-            local sortable = headers ~= nil
+            local sortable = not mission and headers ~= nil
                              and (headers[i] or "") ~= ""
                              and ICUI.sort_for_column(view, i) ~= nil
             if sortable then
@@ -6732,7 +6912,14 @@ function ICUI.on_plot_click(context)
     -- who it is aimed at would be a list of men none of whom is the answer.
     -- It opens the second picker directly, with a nil key - which
     -- may_target, can_plot, plot_chance and pick_title all already take.
-    if IC.plot_is_aimed(move.plot) then
+    -- A MISSION ASKS FOR ITS PLACE FIRST (spec 2026-09-29 section 5): a
+    -- province, then a task; or a faction. Then the man, as every move.
+    local plot = IC.plot_by_key(move.plot)
+    if plot and plot.target == "province" then
+        ICUI.pick = {kind = "envoy_province", plot = move.plot}
+    elseif plot and plot.target == "faction" then
+        ICUI.pick = {kind = "diplomats_faction", plot = move.plot}
+    elseif IC.plot_is_aimed(move.plot) then
         ICUI.pick = {kind = "plot_target", plot = move.plot}
     else
         ICUI.pick = {kind = "plot", plot = move.plot, key = nil}
@@ -7469,3 +7656,7 @@ function ICUI.apply_scale(bw)
     ICUI.SHARE_MIN_SLICES = ICUI.min_slices(ICUI.SHARE_R, ICUI.SHARE_INK)
     ICUI.CREST_MIN_SLICES = ICUI.min_slices(ICUI.CREST_R, ICUI.CREST_PX)
 end
+
+-- FOR zzz_derpy_iron_court_ui_map.lua, which loads after this file:
+-- script/campaign/mod loads in name order, and "_ui." sorts before "_ui_map".
+ICUI.comp, ICUI.set_text, ICUI.loc, ICUI.show, ICUI.root = comp, set_text, loc, show, root

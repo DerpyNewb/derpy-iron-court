@@ -82,153 +82,155 @@
 				<ic_plotcat_2 this="IC4000E2-D000-4000-B0000000000000E2"/>
 				<ic_plotcat_3 this="IC4000E5-D000-4000-B0000000000000E5"/>
 				<ic_plotcat_4 this="IC4000E8-D000-4000-B0000000000000E8"/>
-				<ic_tab_court this="IC4000EB-D000-4000-B0000000000000EB"/>
-				<ic_tab_govs this="IC4000EE-D000-4000-B0000000000000EE"/>
-				<ic_tab_intrigue this="IC4000F1-D000-4000-B0000000000000F1"/>
-				<ic_tab_log this="IC4000F4-D000-4000-B0000000000000F4"/>
-				<ic_tab_offices this="IC4000F7-D000-4000-B0000000000000F7"/>
-				<ic_tab_petitions this="IC4000FA-D000-4000-B0000000000000FA"/>
-				<ic_title this="IC4000FD-D000-4000-B0000000000000FD"/>
-				<ic_wedge_00 this="IC400100-D000-4000-B000000000000100"/>
-				<ic_wedge_01 this="IC400103-D000-4000-B000000000000103"/>
-				<ic_wedge_02 this="IC400106-D000-4000-B000000000000106"/>
-				<ic_wedge_03 this="IC400109-D000-4000-B000000000000109"/>
-				<ic_wedge_04 this="IC40010C-D000-4000-B00000000000010C"/>
-				<ic_wedge_05 this="IC40010F-D000-4000-B00000000000010F"/>
-				<ic_wedge_06 this="IC400112-D000-4000-B000000000000112"/>
-				<ic_wedge_07 this="IC400115-D000-4000-B000000000000115"/>
-				<ic_wedge_08 this="IC400118-D000-4000-B000000000000118"/>
-				<ic_wedge_09 this="IC40011B-D000-4000-B00000000000011B"/>
-				<ic_wedge_10 this="IC40011E-D000-4000-B00000000000011E"/>
-				<ic_wedge_11 this="IC400121-D000-4000-B000000000000121"/>
-				<ic_wedge_12 this="IC400124-D000-4000-B000000000000124"/>
-				<ic_wedge_13 this="IC400127-D000-4000-B000000000000127"/>
-				<ic_wedge_14 this="IC40012A-D000-4000-B00000000000012A"/>
-				<ic_wedge_15 this="IC40012D-D000-4000-B00000000000012D"/>
-				<ic_wedge_16 this="IC400130-D000-4000-B000000000000130"/>
-				<ic_wedge_17 this="IC400133-D000-4000-B000000000000133"/>
-				<ic_wedge_18 this="IC400136-D000-4000-B000000000000136"/>
-				<ic_wedge_19 this="IC400139-D000-4000-B000000000000139"/>
-				<ic_wedge_20 this="IC40013C-D000-4000-B00000000000013C"/>
-				<ic_wedge_21 this="IC40013F-D000-4000-B00000000000013F"/>
-				<ic_wedge_22 this="IC400142-D000-4000-B000000000000142"/>
-				<ic_wedge_23 this="IC400145-D000-4000-B000000000000145"/>
-				<ic_wedge_24 this="IC400148-D000-4000-B000000000000148"/>
-				<ic_wedge_25 this="IC40014B-D000-4000-B00000000000014B"/>
-				<ic_wedge_26 this="IC40014E-D000-4000-B00000000000014E"/>
-				<ic_wedge_27 this="IC400151-D000-4000-B000000000000151"/>
-				<ic_wedge_28 this="IC400154-D000-4000-B000000000000154"/>
-				<ic_wedge_29 this="IC400157-D000-4000-B000000000000157"/>
-				<ic_wedge_30 this="IC40015A-D000-4000-B00000000000015A"/>
-				<ic_wedge_31 this="IC40015D-D000-4000-B00000000000015D"/>
-				<ic_wedge_32 this="IC400160-D000-4000-B000000000000160"/>
-				<ic_wedge_33 this="IC400163-D000-4000-B000000000000163"/>
-				<ic_wedge_34 this="IC400166-D000-4000-B000000000000166"/>
-				<ic_wedge_35 this="IC400169-D000-4000-B000000000000169"/>
-				<ic_wedge_36 this="IC40016C-D000-4000-B00000000000016C"/>
-				<ic_wedge_37 this="IC40016F-D000-4000-B00000000000016F"/>
-				<ic_wedge_38 this="IC400172-D000-4000-B000000000000172"/>
-				<ic_wedge_39 this="IC400175-D000-4000-B000000000000175"/>
-				<ic_wedge_40 this="IC400178-D000-4000-B000000000000178"/>
-				<ic_wedge_41 this="IC40017B-D000-4000-B00000000000017B"/>
-				<ic_wedge_42 this="IC40017E-D000-4000-B00000000000017E"/>
-				<ic_wedge_43 this="IC400181-D000-4000-B000000000000181"/>
-				<ic_wedge_44 this="IC400184-D000-4000-B000000000000184"/>
-				<ic_wedge_45 this="IC400187-D000-4000-B000000000000187"/>
-				<ic_wedge_46 this="IC40018A-D000-4000-B00000000000018A"/>
-				<ic_wedge_47 this="IC40018D-D000-4000-B00000000000018D"/>
-				<ic_wedge_48 this="IC400190-D000-4000-B000000000000190"/>
-				<ic_wedge_49 this="IC400193-D000-4000-B000000000000193"/>
-				<ic_wedge_50 this="IC400196-D000-4000-B000000000000196"/>
-				<ic_wedge_51 this="IC400199-D000-4000-B000000000000199"/>
-				<ic_wedge_52 this="IC40019C-D000-4000-B00000000000019C"/>
-				<ic_wedge_53 this="IC40019F-D000-4000-B00000000000019F"/>
-				<ic_wedge_54 this="IC4001A2-D000-4000-B0000000000001A2"/>
-				<ic_wedge_55 this="IC4001A5-D000-4000-B0000000000001A5"/>
-				<ic_wedge_56 this="IC4001A8-D000-4000-B0000000000001A8"/>
-				<ic_wedge_57 this="IC4001AB-D000-4000-B0000000000001AB"/>
-				<ic_wedge_58 this="IC4001AE-D000-4000-B0000000000001AE"/>
-				<ic_wedge_59 this="IC4001B1-D000-4000-B0000000000001B1"/>
-				<ic_div_00 this="IC4001B4-D000-4000-B0000000000001B4"/>
-				<ic_div_01 this="IC4001B7-D000-4000-B0000000000001B7"/>
-				<ic_div_02 this="IC4001BA-D000-4000-B0000000000001BA"/>
-				<ic_div_03 this="IC4001BD-D000-4000-B0000000000001BD"/>
-				<ic_div_04 this="IC4001C0-D000-4000-B0000000000001C0"/>
-				<ic_div_05 this="IC4001C3-D000-4000-B0000000000001C3"/>
-				<ic_div_06 this="IC4001C6-D000-4000-B0000000000001C6"/>
-				<ic_div_07 this="IC4001C9-D000-4000-B0000000000001C9"/>
-				<ic_div_08 this="IC4001CC-D000-4000-B0000000000001CC"/>
-				<ic_div_09 this="IC4001CF-D000-4000-B0000000000001CF"/>
-				<ic_div_10 this="IC4001D2-D000-4000-B0000000000001D2"/>
-				<ic_div_11 this="IC4001D5-D000-4000-B0000000000001D5"/>
-				<ic_div_12 this="IC4001D8-D000-4000-B0000000000001D8"/>
-				<ic_div_13 this="IC4001DB-D000-4000-B0000000000001DB"/>
-				<ic_div_14 this="IC4001DE-D000-4000-B0000000000001DE"/>
-				<ic_div_15 this="IC4001E1-D000-4000-B0000000000001E1"/>
-				<ic_div_16 this="IC4001E4-D000-4000-B0000000000001E4"/>
-				<ic_div_17 this="IC4001E7-D000-4000-B0000000000001E7"/>
-				<ic_div_18 this="IC4001EA-D000-4000-B0000000000001EA"/>
-				<ic_div_19 this="IC4001ED-D000-4000-B0000000000001ED"/>
-				<ic_div_20 this="IC4001F0-D000-4000-B0000000000001F0"/>
-				<ic_div_21 this="IC4001F3-D000-4000-B0000000000001F3"/>
-				<ic_div_22 this="IC4001F6-D000-4000-B0000000000001F6"/>
-				<ic_div_23 this="IC4001F9-D000-4000-B0000000000001F9"/>
-				<ic_div_24 this="IC4001FC-D000-4000-B0000000000001FC"/>
-				<ic_dial_rim this="IC4001FF-D000-4000-B0000000000001FF"/>
-				<ic_barc_00 this="IC400202-D000-4000-B000000000000202"/>
-				<ic_barc_01 this="IC400205-D000-4000-B000000000000205"/>
-				<ic_barc_02 this="IC400208-D000-4000-B000000000000208"/>
-				<ic_barc_03 this="IC40020B-D000-4000-B00000000000020B"/>
-				<ic_barc_04 this="IC40020E-D000-4000-B00000000000020E"/>
-				<ic_barc_05 this="IC400211-D000-4000-B000000000000211"/>
-				<ic_barc_06 this="IC400214-D000-4000-B000000000000214"/>
-				<ic_barc_07 this="IC400217-D000-4000-B000000000000217"/>
-				<ic_barc_08 this="IC40021A-D000-4000-B00000000000021A"/>
-				<ic_barc_09 this="IC40021D-D000-4000-B00000000000021D"/>
-				<ic_barc_10 this="IC400220-D000-4000-B000000000000220"/>
-				<ic_barc_11 this="IC400223-D000-4000-B000000000000223"/>
-				<ic_barc_12 this="IC400226-D000-4000-B000000000000226"/>
-				<ic_barc_13 this="IC400229-D000-4000-B000000000000229"/>
-				<ic_barc_14 this="IC40022C-D000-4000-B00000000000022C"/>
-				<ic_barc_15 this="IC40022F-D000-4000-B00000000000022F"/>
-				<ic_barc_16 this="IC400232-D000-4000-B000000000000232"/>
-				<ic_barc_17 this="IC400235-D000-4000-B000000000000235"/>
-				<ic_barc_18 this="IC400238-D000-4000-B000000000000238"/>
-				<ic_barc_19 this="IC40023B-D000-4000-B00000000000023B"/>
-				<ic_barc_20 this="IC40023E-D000-4000-B00000000000023E"/>
-				<ic_barc_21 this="IC400241-D000-4000-B000000000000241"/>
-				<ic_barc_22 this="IC400244-D000-4000-B000000000000244"/>
-				<ic_barc_23 this="IC400247-D000-4000-B000000000000247"/>
-				<ic_barc_24 this="IC40024A-D000-4000-B00000000000024A"/>
-				<ic_barp_00 this="IC40024D-D000-4000-B00000000000024D"/>
-				<ic_barp_01 this="IC400250-D000-4000-B000000000000250"/>
-				<ic_barp_02 this="IC400253-D000-4000-B000000000000253"/>
-				<ic_barp_03 this="IC400256-D000-4000-B000000000000256"/>
-				<ic_barp_04 this="IC400259-D000-4000-B000000000000259"/>
-				<ic_barp_05 this="IC40025C-D000-4000-B00000000000025C"/>
-				<ic_barp_06 this="IC40025F-D000-4000-B00000000000025F"/>
-				<ic_barp_07 this="IC400262-D000-4000-B000000000000262"/>
-				<ic_barp_08 this="IC400265-D000-4000-B000000000000265"/>
-				<ic_barp_09 this="IC400268-D000-4000-B000000000000268"/>
-				<ic_barp_10 this="IC40026B-D000-4000-B00000000000026B"/>
-				<ic_barp_11 this="IC40026E-D000-4000-B00000000000026E"/>
-				<ic_barp_12 this="IC400271-D000-4000-B000000000000271"/>
-				<ic_barp_13 this="IC400274-D000-4000-B000000000000274"/>
-				<ic_barp_14 this="IC400277-D000-4000-B000000000000277"/>
-				<ic_barp_15 this="IC40027A-D000-4000-B00000000000027A"/>
-				<ic_barp_16 this="IC40027D-D000-4000-B00000000000027D"/>
-				<ic_barp_17 this="IC400280-D000-4000-B000000000000280"/>
-				<ic_barp_18 this="IC400283-D000-4000-B000000000000283"/>
-				<ic_barp_19 this="IC400286-D000-4000-B000000000000286"/>
-				<ic_barp_20 this="IC400289-D000-4000-B000000000000289"/>
-				<ic_barp_21 this="IC40028C-D000-4000-B00000000000028C"/>
-				<ic_barp_22 this="IC40028F-D000-4000-B00000000000028F"/>
-				<ic_barp_23 this="IC400292-D000-4000-B000000000000292"/>
-				<ic_barp_24 this="IC400295-D000-4000-B000000000000295"/>
-				<ic_mark_court this="IC400298-D000-4000-B000000000000298"/>
-				<ic_mark_govs this="IC40029B-D000-4000-B00000000000029B"/>
-				<ic_mark_offices this="IC40029E-D000-4000-B00000000000029E"/>
-				<ic_mark_petitions this="IC4002A1-D000-4000-B0000000000002A1"/>
+				<ic_plotcat_5 this="IC4000EB-D000-4000-B0000000000000EB"/>
+				<ic_tab_court this="IC4000EE-D000-4000-B0000000000000EE"/>
+				<ic_tab_govs this="IC4000F1-D000-4000-B0000000000000F1"/>
+				<ic_tab_intrigue this="IC4000F4-D000-4000-B0000000000000F4"/>
+				<ic_tab_log this="IC4000F7-D000-4000-B0000000000000F7"/>
+				<ic_tab_map this="IC4000FA-D000-4000-B0000000000000FA"/>
+				<ic_tab_offices this="IC4000FD-D000-4000-B0000000000000FD"/>
+				<ic_tab_petitions this="IC400100-D000-4000-B000000000000100"/>
+				<ic_title this="IC400103-D000-4000-B000000000000103"/>
+				<ic_wedge_00 this="IC400106-D000-4000-B000000000000106"/>
+				<ic_wedge_01 this="IC400109-D000-4000-B000000000000109"/>
+				<ic_wedge_02 this="IC40010C-D000-4000-B00000000000010C"/>
+				<ic_wedge_03 this="IC40010F-D000-4000-B00000000000010F"/>
+				<ic_wedge_04 this="IC400112-D000-4000-B000000000000112"/>
+				<ic_wedge_05 this="IC400115-D000-4000-B000000000000115"/>
+				<ic_wedge_06 this="IC400118-D000-4000-B000000000000118"/>
+				<ic_wedge_07 this="IC40011B-D000-4000-B00000000000011B"/>
+				<ic_wedge_08 this="IC40011E-D000-4000-B00000000000011E"/>
+				<ic_wedge_09 this="IC400121-D000-4000-B000000000000121"/>
+				<ic_wedge_10 this="IC400124-D000-4000-B000000000000124"/>
+				<ic_wedge_11 this="IC400127-D000-4000-B000000000000127"/>
+				<ic_wedge_12 this="IC40012A-D000-4000-B00000000000012A"/>
+				<ic_wedge_13 this="IC40012D-D000-4000-B00000000000012D"/>
+				<ic_wedge_14 this="IC400130-D000-4000-B000000000000130"/>
+				<ic_wedge_15 this="IC400133-D000-4000-B000000000000133"/>
+				<ic_wedge_16 this="IC400136-D000-4000-B000000000000136"/>
+				<ic_wedge_17 this="IC400139-D000-4000-B000000000000139"/>
+				<ic_wedge_18 this="IC40013C-D000-4000-B00000000000013C"/>
+				<ic_wedge_19 this="IC40013F-D000-4000-B00000000000013F"/>
+				<ic_wedge_20 this="IC400142-D000-4000-B000000000000142"/>
+				<ic_wedge_21 this="IC400145-D000-4000-B000000000000145"/>
+				<ic_wedge_22 this="IC400148-D000-4000-B000000000000148"/>
+				<ic_wedge_23 this="IC40014B-D000-4000-B00000000000014B"/>
+				<ic_wedge_24 this="IC40014E-D000-4000-B00000000000014E"/>
+				<ic_wedge_25 this="IC400151-D000-4000-B000000000000151"/>
+				<ic_wedge_26 this="IC400154-D000-4000-B000000000000154"/>
+				<ic_wedge_27 this="IC400157-D000-4000-B000000000000157"/>
+				<ic_wedge_28 this="IC40015A-D000-4000-B00000000000015A"/>
+				<ic_wedge_29 this="IC40015D-D000-4000-B00000000000015D"/>
+				<ic_wedge_30 this="IC400160-D000-4000-B000000000000160"/>
+				<ic_wedge_31 this="IC400163-D000-4000-B000000000000163"/>
+				<ic_wedge_32 this="IC400166-D000-4000-B000000000000166"/>
+				<ic_wedge_33 this="IC400169-D000-4000-B000000000000169"/>
+				<ic_wedge_34 this="IC40016C-D000-4000-B00000000000016C"/>
+				<ic_wedge_35 this="IC40016F-D000-4000-B00000000000016F"/>
+				<ic_wedge_36 this="IC400172-D000-4000-B000000000000172"/>
+				<ic_wedge_37 this="IC400175-D000-4000-B000000000000175"/>
+				<ic_wedge_38 this="IC400178-D000-4000-B000000000000178"/>
+				<ic_wedge_39 this="IC40017B-D000-4000-B00000000000017B"/>
+				<ic_wedge_40 this="IC40017E-D000-4000-B00000000000017E"/>
+				<ic_wedge_41 this="IC400181-D000-4000-B000000000000181"/>
+				<ic_wedge_42 this="IC400184-D000-4000-B000000000000184"/>
+				<ic_wedge_43 this="IC400187-D000-4000-B000000000000187"/>
+				<ic_wedge_44 this="IC40018A-D000-4000-B00000000000018A"/>
+				<ic_wedge_45 this="IC40018D-D000-4000-B00000000000018D"/>
+				<ic_wedge_46 this="IC400190-D000-4000-B000000000000190"/>
+				<ic_wedge_47 this="IC400193-D000-4000-B000000000000193"/>
+				<ic_wedge_48 this="IC400196-D000-4000-B000000000000196"/>
+				<ic_wedge_49 this="IC400199-D000-4000-B000000000000199"/>
+				<ic_wedge_50 this="IC40019C-D000-4000-B00000000000019C"/>
+				<ic_wedge_51 this="IC40019F-D000-4000-B00000000000019F"/>
+				<ic_wedge_52 this="IC4001A2-D000-4000-B0000000000001A2"/>
+				<ic_wedge_53 this="IC4001A5-D000-4000-B0000000000001A5"/>
+				<ic_wedge_54 this="IC4001A8-D000-4000-B0000000000001A8"/>
+				<ic_wedge_55 this="IC4001AB-D000-4000-B0000000000001AB"/>
+				<ic_wedge_56 this="IC4001AE-D000-4000-B0000000000001AE"/>
+				<ic_wedge_57 this="IC4001B1-D000-4000-B0000000000001B1"/>
+				<ic_wedge_58 this="IC4001B4-D000-4000-B0000000000001B4"/>
+				<ic_wedge_59 this="IC4001B7-D000-4000-B0000000000001B7"/>
+				<ic_div_00 this="IC4001BA-D000-4000-B0000000000001BA"/>
+				<ic_div_01 this="IC4001BD-D000-4000-B0000000000001BD"/>
+				<ic_div_02 this="IC4001C0-D000-4000-B0000000000001C0"/>
+				<ic_div_03 this="IC4001C3-D000-4000-B0000000000001C3"/>
+				<ic_div_04 this="IC4001C6-D000-4000-B0000000000001C6"/>
+				<ic_div_05 this="IC4001C9-D000-4000-B0000000000001C9"/>
+				<ic_div_06 this="IC4001CC-D000-4000-B0000000000001CC"/>
+				<ic_div_07 this="IC4001CF-D000-4000-B0000000000001CF"/>
+				<ic_div_08 this="IC4001D2-D000-4000-B0000000000001D2"/>
+				<ic_div_09 this="IC4001D5-D000-4000-B0000000000001D5"/>
+				<ic_div_10 this="IC4001D8-D000-4000-B0000000000001D8"/>
+				<ic_div_11 this="IC4001DB-D000-4000-B0000000000001DB"/>
+				<ic_div_12 this="IC4001DE-D000-4000-B0000000000001DE"/>
+				<ic_div_13 this="IC4001E1-D000-4000-B0000000000001E1"/>
+				<ic_div_14 this="IC4001E4-D000-4000-B0000000000001E4"/>
+				<ic_div_15 this="IC4001E7-D000-4000-B0000000000001E7"/>
+				<ic_div_16 this="IC4001EA-D000-4000-B0000000000001EA"/>
+				<ic_div_17 this="IC4001ED-D000-4000-B0000000000001ED"/>
+				<ic_div_18 this="IC4001F0-D000-4000-B0000000000001F0"/>
+				<ic_div_19 this="IC4001F3-D000-4000-B0000000000001F3"/>
+				<ic_div_20 this="IC4001F6-D000-4000-B0000000000001F6"/>
+				<ic_div_21 this="IC4001F9-D000-4000-B0000000000001F9"/>
+				<ic_div_22 this="IC4001FC-D000-4000-B0000000000001FC"/>
+				<ic_div_23 this="IC4001FF-D000-4000-B0000000000001FF"/>
+				<ic_div_24 this="IC400202-D000-4000-B000000000000202"/>
+				<ic_dial_rim this="IC400205-D000-4000-B000000000000205"/>
+				<ic_barc_00 this="IC400208-D000-4000-B000000000000208"/>
+				<ic_barc_01 this="IC40020B-D000-4000-B00000000000020B"/>
+				<ic_barc_02 this="IC40020E-D000-4000-B00000000000020E"/>
+				<ic_barc_03 this="IC400211-D000-4000-B000000000000211"/>
+				<ic_barc_04 this="IC400214-D000-4000-B000000000000214"/>
+				<ic_barc_05 this="IC400217-D000-4000-B000000000000217"/>
+				<ic_barc_06 this="IC40021A-D000-4000-B00000000000021A"/>
+				<ic_barc_07 this="IC40021D-D000-4000-B00000000000021D"/>
+				<ic_barc_08 this="IC400220-D000-4000-B000000000000220"/>
+				<ic_barc_09 this="IC400223-D000-4000-B000000000000223"/>
+				<ic_barc_10 this="IC400226-D000-4000-B000000000000226"/>
+				<ic_barc_11 this="IC400229-D000-4000-B000000000000229"/>
+				<ic_barc_12 this="IC40022C-D000-4000-B00000000000022C"/>
+				<ic_barc_13 this="IC40022F-D000-4000-B00000000000022F"/>
+				<ic_barc_14 this="IC400232-D000-4000-B000000000000232"/>
+				<ic_barc_15 this="IC400235-D000-4000-B000000000000235"/>
+				<ic_barc_16 this="IC400238-D000-4000-B000000000000238"/>
+				<ic_barc_17 this="IC40023B-D000-4000-B00000000000023B"/>
+				<ic_barc_18 this="IC40023E-D000-4000-B00000000000023E"/>
+				<ic_barc_19 this="IC400241-D000-4000-B000000000000241"/>
+				<ic_barc_20 this="IC400244-D000-4000-B000000000000244"/>
+				<ic_barc_21 this="IC400247-D000-4000-B000000000000247"/>
+				<ic_barc_22 this="IC40024A-D000-4000-B00000000000024A"/>
+				<ic_barc_23 this="IC40024D-D000-4000-B00000000000024D"/>
+				<ic_barc_24 this="IC400250-D000-4000-B000000000000250"/>
+				<ic_barp_00 this="IC400253-D000-4000-B000000000000253"/>
+				<ic_barp_01 this="IC400256-D000-4000-B000000000000256"/>
+				<ic_barp_02 this="IC400259-D000-4000-B000000000000259"/>
+				<ic_barp_03 this="IC40025C-D000-4000-B00000000000025C"/>
+				<ic_barp_04 this="IC40025F-D000-4000-B00000000000025F"/>
+				<ic_barp_05 this="IC400262-D000-4000-B000000000000262"/>
+				<ic_barp_06 this="IC400265-D000-4000-B000000000000265"/>
+				<ic_barp_07 this="IC400268-D000-4000-B000000000000268"/>
+				<ic_barp_08 this="IC40026B-D000-4000-B00000000000026B"/>
+				<ic_barp_09 this="IC40026E-D000-4000-B00000000000026E"/>
+				<ic_barp_10 this="IC400271-D000-4000-B000000000000271"/>
+				<ic_barp_11 this="IC400274-D000-4000-B000000000000274"/>
+				<ic_barp_12 this="IC400277-D000-4000-B000000000000277"/>
+				<ic_barp_13 this="IC40027A-D000-4000-B00000000000027A"/>
+				<ic_barp_14 this="IC40027D-D000-4000-B00000000000027D"/>
+				<ic_barp_15 this="IC400280-D000-4000-B000000000000280"/>
+				<ic_barp_16 this="IC400283-D000-4000-B000000000000283"/>
+				<ic_barp_17 this="IC400286-D000-4000-B000000000000286"/>
+				<ic_barp_18 this="IC400289-D000-4000-B000000000000289"/>
+				<ic_barp_19 this="IC40028C-D000-4000-B00000000000028C"/>
+				<ic_barp_20 this="IC40028F-D000-4000-B00000000000028F"/>
+				<ic_barp_21 this="IC400292-D000-4000-B000000000000292"/>
+				<ic_barp_22 this="IC400295-D000-4000-B000000000000295"/>
+				<ic_barp_23 this="IC400298-D000-4000-B000000000000298"/>
+				<ic_barp_24 this="IC40029B-D000-4000-B00000000000029B"/>
+				<ic_mark_court this="IC40029E-D000-4000-B00000000000029E"/>
+				<ic_mark_govs this="IC4002A1-D000-4000-B0000000000002A1"/>
+				<ic_mark_offices this="IC4002A4-D000-4000-B0000000000002A4"/>
+				<ic_mark_petitions this="IC4002A7-D000-4000-B0000000000002A7"/>
 			</derpy_ic_panel>
 		</root>
 	</hierarchy>
@@ -3951,7 +3953,7 @@
 				<standard
 					this="IC4000E0-D000-4000-B0000000000000E0"
 					name="standard"
-					width="383"
+					width="303"
 					height="37"
 					uniqueguid="IC4000E0-D000-4000-B0000000000000E0">
 					<imagemetrics>
@@ -3960,7 +3962,7 @@
 							uniqueguid="IC4000DF-D002-4000-B0000000000000DF"
 							componentimage="IC4000DF-D001-4000-B0000000000000DF"
 							offset="0.00,0.00"
-							width="383"
+							width="303"
 							height="37"
 							margin="0.00,34.00,0.00,34.00"/>
 					</imagemetrics>
@@ -3994,7 +3996,7 @@
 				<standard
 					this="IC4000E3-D000-4000-B0000000000000E3"
 					name="standard"
-					width="382"
+					width="303"
 					height="37"
 					uniqueguid="IC4000E3-D000-4000-B0000000000000E3">
 					<imagemetrics>
@@ -4003,7 +4005,7 @@
 							uniqueguid="IC4000E2-D002-4000-B0000000000000E2"
 							componentimage="IC4000E2-D001-4000-B0000000000000E2"
 							offset="0.00,0.00"
-							width="382"
+							width="303"
 							height="37"
 							margin="0.00,34.00,0.00,34.00"/>
 					</imagemetrics>
@@ -4037,7 +4039,7 @@
 				<standard
 					this="IC4000E6-D000-4000-B0000000000000E6"
 					name="standard"
-					width="382"
+					width="304"
 					height="37"
 					uniqueguid="IC4000E6-D000-4000-B0000000000000E6">
 					<imagemetrics>
@@ -4046,7 +4048,7 @@
 							uniqueguid="IC4000E5-D002-4000-B0000000000000E5"
 							componentimage="IC4000E5-D001-4000-B0000000000000E5"
 							offset="0.00,0.00"
-							width="382"
+							width="304"
 							height="37"
 							margin="0.00,34.00,0.00,34.00"/>
 					</imagemetrics>
@@ -4080,7 +4082,7 @@
 				<standard
 					this="IC4000E9-D000-4000-B0000000000000E9"
 					name="standard"
-					width="382"
+					width="303"
 					height="37"
 					uniqueguid="IC4000E9-D000-4000-B0000000000000E9">
 					<imagemetrics>
@@ -4089,7 +4091,7 @@
 							uniqueguid="IC4000E8-D002-4000-B0000000000000E8"
 							componentimage="IC4000E8-D001-4000-B0000000000000E8"
 							offset="0.00,0.00"
-							width="382"
+							width="303"
 							height="37"
 							margin="0.00,34.00,0.00,34.00"/>
 					</imagemetrics>
@@ -4106,11 +4108,10 @@
 				</standard>
 			</states>
 		</ic_plotcat_4>
-		<ic_tab_court
+		<ic_plotcat_5
 			this="IC4000EB-D000-4000-B0000000000000EB"
-			id="ic_tab_court"
+			id="ic_plotcat_5"
 			tooltipslocalised="true"
-			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000EB-D000-4000-B0000000000000EB"
 			currentstate="IC4000EC-D000-4000-B0000000000000EC"
 			defaultstate="IC4000EC-D000-4000-B0000000000000EC">
@@ -4118,19 +4119,14 @@
 				<component_image
 					this="IC4000EB-D001-4000-B0000000000000EB"
 					uniqueguid="IC4000EB-D001-4000-B0000000000000EB"
-					imagepath="ui/derpy_ic/chd_tab_active.png"/>
-				<component_image
-					this="IC4000EB-D003-4000-B0000000000000EB"
-					uniqueguid="IC4000EB-D003-4000-B0000000000000EB"
-					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
+					imagepath="ui/derpy_ic/chd_heading.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC4000EC-D000-4000-B0000000000000EC"
 					name="standard"
-					width="200"
-					height="26"
-					interactive="true"
+					width="303"
+					height="37"
 					uniqueguid="IC4000EC-D000-4000-B0000000000000EC">
 					<imagemetrics>
 						<image
@@ -4138,63 +4134,26 @@
 							uniqueguid="IC4000EB-D002-4000-B0000000000000EB"
 							componentimage="IC4000EB-D001-4000-B0000000000000EB"
 							offset="0.00,0.00"
-							width="200"
-							height="26"
-							margin="0.00,40.00,0.00,40.00"/>
+							width="303"
+							height="37"
+							margin="0.00,34.00,0.00,34.00"/>
 					</imagemetrics>
-					<transitionmap>
-						<transition
-							transition_m_target_state="IC4000ED-D000-4000-B0000000000000ED"/>
-					</transitionmap>
 					<component_text
 						texthalign="Center"
 						textvalign="Center"
 						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
+						textyoffset="0.00,4.00"
 						texthbehaviour="Never split"
 						font_m_size="16"
 						font_m_colour="#FFF8D7FF"
-						font_m_leading="0"
+						font_m_leading="3"
 						fontcat_name="header_16"/>
 				</standard>
-				<hover
-					this="IC4000ED-D000-4000-B0000000000000ED"
-					name="hover"
-					width="200"
-					height="26"
-					interactive="true"
-					uniqueguid="IC4000ED-D000-4000-B0000000000000ED">
-					<imagemetrics>
-						<image
-							this="IC4000EB-D004-4000-B0000000000000EB"
-							uniqueguid="IC4000EB-D004-4000-B0000000000000EB"
-							componentimage="IC4000EB-D003-4000-B0000000000000EB"
-							offset="0.00,0.00"
-							width="200"
-							height="26"
-							margin="0.00,40.00,0.00,40.00"/>
-					</imagemetrics>
-					<transitionmap>
-						<transition
-							index="1"
-							transition_m_target_state="IC4000EC-D000-4000-B0000000000000EC"/>
-					</transitionmap>
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="16"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="0"
-						fontcat_name="header_16"/>
-				</hover>
 			</states>
-		</ic_tab_court>
-		<ic_tab_govs
+		</ic_plotcat_5>
+		<ic_tab_court
 			this="IC4000EE-D000-4000-B0000000000000EE"
-			id="ic_tab_govs"
+			id="ic_tab_court"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000EE-D000-4000-B0000000000000EE"
@@ -4277,10 +4236,10 @@
 						fontcat_name="header_16"/>
 				</hover>
 			</states>
-		</ic_tab_govs>
-		<ic_tab_intrigue
+		</ic_tab_court>
+		<ic_tab_govs
 			this="IC4000F1-D000-4000-B0000000000000F1"
-			id="ic_tab_intrigue"
+			id="ic_tab_govs"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000F1-D000-4000-B0000000000000F1"
@@ -4363,10 +4322,10 @@
 						fontcat_name="header_16"/>
 				</hover>
 			</states>
-		</ic_tab_intrigue>
-		<ic_tab_log
+		</ic_tab_govs>
+		<ic_tab_intrigue
 			this="IC4000F4-D000-4000-B0000000000000F4"
-			id="ic_tab_log"
+			id="ic_tab_intrigue"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000F4-D000-4000-B0000000000000F4"
@@ -4449,10 +4408,10 @@
 						fontcat_name="header_16"/>
 				</hover>
 			</states>
-		</ic_tab_log>
-		<ic_tab_offices
+		</ic_tab_intrigue>
+		<ic_tab_log
 			this="IC4000F7-D000-4000-B0000000000000F7"
-			id="ic_tab_offices"
+			id="ic_tab_log"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000F7-D000-4000-B0000000000000F7"
@@ -4535,10 +4494,10 @@
 						fontcat_name="header_16"/>
 				</hover>
 			</states>
-		</ic_tab_offices>
-		<ic_tab_petitions
+		</ic_tab_log>
+		<ic_tab_map
 			this="IC4000FA-D000-4000-B0000000000000FA"
-			id="ic_tab_petitions"
+			id="ic_tab_map"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000FA-D000-4000-B0000000000000FA"
@@ -4621,11 +4580,12 @@
 						fontcat_name="header_16"/>
 				</hover>
 			</states>
-		</ic_tab_petitions>
-		<ic_title
+		</ic_tab_map>
+		<ic_tab_offices
 			this="IC4000FD-D000-4000-B0000000000000FD"
-			id="ic_title"
+			id="ic_tab_offices"
 			tooltipslocalised="true"
+			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC4000FD-D000-4000-B0000000000000FD"
 			currentstate="IC4000FE-D000-4000-B0000000000000FE"
 			defaultstate="IC4000FE-D000-4000-B0000000000000FE">
@@ -4633,20 +4593,191 @@
 				<component_image
 					this="IC4000FD-D001-4000-B0000000000000FD"
 					uniqueguid="IC4000FD-D001-4000-B0000000000000FD"
-					imagepath="ui/derpy_ic/chd_title.png"/>
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
+				<component_image
+					this="IC4000FD-D003-4000-B0000000000000FD"
+					uniqueguid="IC4000FD-D003-4000-B0000000000000FD"
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC4000FE-D000-4000-B0000000000000FE"
 					name="standard"
-					width="500"
-					height="47"
+					width="200"
+					height="26"
+					interactive="true"
 					uniqueguid="IC4000FE-D000-4000-B0000000000000FE">
 					<imagemetrics>
 						<image
 							this="IC4000FD-D002-4000-B0000000000000FD"
 							uniqueguid="IC4000FD-D002-4000-B0000000000000FD"
 							componentimage="IC4000FD-D001-4000-B0000000000000FD"
+							offset="0.00,0.00"
+							width="200"
+							height="26"
+							margin="0.00,40.00,0.00,40.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="IC4000FF-D000-4000-B0000000000000FF"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
+				</standard>
+				<hover
+					this="IC4000FF-D000-4000-B0000000000000FF"
+					name="hover"
+					width="200"
+					height="26"
+					interactive="true"
+					uniqueguid="IC4000FF-D000-4000-B0000000000000FF">
+					<imagemetrics>
+						<image
+							this="IC4000FD-D004-4000-B0000000000000FD"
+							uniqueguid="IC4000FD-D004-4000-B0000000000000FD"
+							componentimage="IC4000FD-D003-4000-B0000000000000FD"
+							offset="0.00,0.00"
+							width="200"
+							height="26"
+							margin="0.00,40.00,0.00,40.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="IC4000FE-D000-4000-B0000000000000FE"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
+				</hover>
+			</states>
+		</ic_tab_offices>
+		<ic_tab_petitions
+			this="IC400100-D000-4000-B000000000000100"
+			id="ic_tab_petitions"
+			tooltipslocalised="true"
+			soundcategory="UI_GBL_TMP_Round_Medium_Button"
+			uniqueguid="IC400100-D000-4000-B000000000000100"
+			currentstate="IC400101-D000-4000-B000000000000101"
+			defaultstate="IC400101-D000-4000-B000000000000101">
+			<componentimages>
+				<component_image
+					this="IC400100-D001-4000-B000000000000100"
+					uniqueguid="IC400100-D001-4000-B000000000000100"
+					imagepath="ui/derpy_ic/chd_tab_active.png"/>
+				<component_image
+					this="IC400100-D003-4000-B000000000000100"
+					uniqueguid="IC400100-D003-4000-B000000000000100"
+					imagepath="ui/derpy_ic/chd_tab_hover.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC400101-D000-4000-B000000000000101"
+					name="standard"
+					width="200"
+					height="26"
+					interactive="true"
+					uniqueguid="IC400101-D000-4000-B000000000000101">
+					<imagemetrics>
+						<image
+							this="IC400100-D002-4000-B000000000000100"
+							uniqueguid="IC400100-D002-4000-B000000000000100"
+							componentimage="IC400100-D001-4000-B000000000000100"
+							offset="0.00,0.00"
+							width="200"
+							height="26"
+							margin="0.00,40.00,0.00,40.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							transition_m_target_state="IC400102-D000-4000-B000000000000102"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
+				</standard>
+				<hover
+					this="IC400102-D000-4000-B000000000000102"
+					name="hover"
+					width="200"
+					height="26"
+					interactive="true"
+					uniqueguid="IC400102-D000-4000-B000000000000102">
+					<imagemetrics>
+						<image
+							this="IC400100-D004-4000-B000000000000100"
+							uniqueguid="IC400100-D004-4000-B000000000000100"
+							componentimage="IC400100-D003-4000-B000000000000100"
+							offset="0.00,0.00"
+							width="200"
+							height="26"
+							margin="0.00,40.00,0.00,40.00"/>
+					</imagemetrics>
+					<transitionmap>
+						<transition
+							index="1"
+							transition_m_target_state="IC400101-D000-4000-B000000000000101"/>
+					</transitionmap>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
+				</hover>
+			</states>
+		</ic_tab_petitions>
+		<ic_title
+			this="IC400103-D000-4000-B000000000000103"
+			id="ic_title"
+			tooltipslocalised="true"
+			uniqueguid="IC400103-D000-4000-B000000000000103"
+			currentstate="IC400104-D000-4000-B000000000000104"
+			defaultstate="IC400104-D000-4000-B000000000000104">
+			<componentimages>
+				<component_image
+					this="IC400103-D001-4000-B000000000000103"
+					uniqueguid="IC400103-D001-4000-B000000000000103"
+					imagepath="ui/derpy_ic/chd_title.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC400104-D000-4000-B000000000000104"
+					name="standard"
+					width="500"
+					height="47"
+					uniqueguid="IC400104-D000-4000-B000000000000104">
+					<imagemetrics>
+						<image
+							this="IC400103-D002-4000-B000000000000103"
+							uniqueguid="IC400103-D002-4000-B000000000000103"
+							componentimage="IC400103-D001-4000-B000000000000103"
 							offset="0.00,0.00"
 							width="500"
 							height="47"
@@ -4666,74 +4797,8 @@
 			</states>
 		</ic_title>
 		<ic_wedge_00
-			this="IC400100-D000-4000-B000000000000100"
-			id="ic_wedge_00"
-			tooltipslocalised="true"
-			uniqueguid="IC400100-D000-4000-B000000000000100"
-			currentstate="IC400101-D000-4000-B000000000000101"
-			defaultstate="IC400101-D000-4000-B000000000000101">
-			<componentimages>
-				<component_image
-					this="IC400100-D001-4000-B000000000000100"
-					uniqueguid="IC400100-D001-4000-B000000000000100"
-					imagepath="ui/derpy_ic/wedge_00_none.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="IC400101-D000-4000-B000000000000101"
-					name="standard"
-					width="718"
-					height="359"
-					uniqueguid="IC400101-D000-4000-B000000000000101">
-					<imagemetrics>
-						<image
-							this="IC400100-D002-4000-B000000000000100"
-							uniqueguid="IC400100-D002-4000-B000000000000100"
-							componentimage="IC400100-D001-4000-B000000000000100"
-							offset="0.00,0.00"
-							width="718"
-							height="359"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</ic_wedge_00>
-		<ic_wedge_01
-			this="IC400103-D000-4000-B000000000000103"
-			id="ic_wedge_01"
-			tooltipslocalised="true"
-			uniqueguid="IC400103-D000-4000-B000000000000103"
-			currentstate="IC400104-D000-4000-B000000000000104"
-			defaultstate="IC400104-D000-4000-B000000000000104">
-			<componentimages>
-				<component_image
-					this="IC400103-D001-4000-B000000000000103"
-					uniqueguid="IC400103-D001-4000-B000000000000103"
-					imagepath="ui/derpy_ic/wedge_01_none.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="IC400104-D000-4000-B000000000000104"
-					name="standard"
-					width="718"
-					height="359"
-					uniqueguid="IC400104-D000-4000-B000000000000104">
-					<imagemetrics>
-						<image
-							this="IC400103-D002-4000-B000000000000103"
-							uniqueguid="IC400103-D002-4000-B000000000000103"
-							componentimage="IC400103-D001-4000-B000000000000103"
-							offset="0.00,0.00"
-							width="718"
-							height="359"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</ic_wedge_01>
-		<ic_wedge_02
 			this="IC400106-D000-4000-B000000000000106"
-			id="ic_wedge_02"
+			id="ic_wedge_00"
 			tooltipslocalised="true"
 			uniqueguid="IC400106-D000-4000-B000000000000106"
 			currentstate="IC400107-D000-4000-B000000000000107"
@@ -4742,7 +4807,7 @@
 				<component_image
 					this="IC400106-D001-4000-B000000000000106"
 					uniqueguid="IC400106-D001-4000-B000000000000106"
-					imagepath="ui/derpy_ic/wedge_02_none.png"/>
+					imagepath="ui/derpy_ic/wedge_00_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4763,10 +4828,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_02>
-		<ic_wedge_03
+		</ic_wedge_00>
+		<ic_wedge_01
 			this="IC400109-D000-4000-B000000000000109"
-			id="ic_wedge_03"
+			id="ic_wedge_01"
 			tooltipslocalised="true"
 			uniqueguid="IC400109-D000-4000-B000000000000109"
 			currentstate="IC40010A-D000-4000-B00000000000010A"
@@ -4775,7 +4840,7 @@
 				<component_image
 					this="IC400109-D001-4000-B000000000000109"
 					uniqueguid="IC400109-D001-4000-B000000000000109"
-					imagepath="ui/derpy_ic/wedge_03_none.png"/>
+					imagepath="ui/derpy_ic/wedge_01_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4796,10 +4861,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_03>
-		<ic_wedge_04
+		</ic_wedge_01>
+		<ic_wedge_02
 			this="IC40010C-D000-4000-B00000000000010C"
-			id="ic_wedge_04"
+			id="ic_wedge_02"
 			tooltipslocalised="true"
 			uniqueguid="IC40010C-D000-4000-B00000000000010C"
 			currentstate="IC40010D-D000-4000-B00000000000010D"
@@ -4808,7 +4873,7 @@
 				<component_image
 					this="IC40010C-D001-4000-B00000000000010C"
 					uniqueguid="IC40010C-D001-4000-B00000000000010C"
-					imagepath="ui/derpy_ic/wedge_04_none.png"/>
+					imagepath="ui/derpy_ic/wedge_02_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4829,10 +4894,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_04>
-		<ic_wedge_05
+		</ic_wedge_02>
+		<ic_wedge_03
 			this="IC40010F-D000-4000-B00000000000010F"
-			id="ic_wedge_05"
+			id="ic_wedge_03"
 			tooltipslocalised="true"
 			uniqueguid="IC40010F-D000-4000-B00000000000010F"
 			currentstate="IC400110-D000-4000-B000000000000110"
@@ -4841,7 +4906,7 @@
 				<component_image
 					this="IC40010F-D001-4000-B00000000000010F"
 					uniqueguid="IC40010F-D001-4000-B00000000000010F"
-					imagepath="ui/derpy_ic/wedge_05_none.png"/>
+					imagepath="ui/derpy_ic/wedge_03_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4862,10 +4927,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_05>
-		<ic_wedge_06
+		</ic_wedge_03>
+		<ic_wedge_04
 			this="IC400112-D000-4000-B000000000000112"
-			id="ic_wedge_06"
+			id="ic_wedge_04"
 			tooltipslocalised="true"
 			uniqueguid="IC400112-D000-4000-B000000000000112"
 			currentstate="IC400113-D000-4000-B000000000000113"
@@ -4874,7 +4939,7 @@
 				<component_image
 					this="IC400112-D001-4000-B000000000000112"
 					uniqueguid="IC400112-D001-4000-B000000000000112"
-					imagepath="ui/derpy_ic/wedge_06_none.png"/>
+					imagepath="ui/derpy_ic/wedge_04_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4895,10 +4960,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_06>
-		<ic_wedge_07
+		</ic_wedge_04>
+		<ic_wedge_05
 			this="IC400115-D000-4000-B000000000000115"
-			id="ic_wedge_07"
+			id="ic_wedge_05"
 			tooltipslocalised="true"
 			uniqueguid="IC400115-D000-4000-B000000000000115"
 			currentstate="IC400116-D000-4000-B000000000000116"
@@ -4907,7 +4972,7 @@
 				<component_image
 					this="IC400115-D001-4000-B000000000000115"
 					uniqueguid="IC400115-D001-4000-B000000000000115"
-					imagepath="ui/derpy_ic/wedge_07_none.png"/>
+					imagepath="ui/derpy_ic/wedge_05_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4928,10 +4993,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_07>
-		<ic_wedge_08
+		</ic_wedge_05>
+		<ic_wedge_06
 			this="IC400118-D000-4000-B000000000000118"
-			id="ic_wedge_08"
+			id="ic_wedge_06"
 			tooltipslocalised="true"
 			uniqueguid="IC400118-D000-4000-B000000000000118"
 			currentstate="IC400119-D000-4000-B000000000000119"
@@ -4940,7 +5005,7 @@
 				<component_image
 					this="IC400118-D001-4000-B000000000000118"
 					uniqueguid="IC400118-D001-4000-B000000000000118"
-					imagepath="ui/derpy_ic/wedge_08_none.png"/>
+					imagepath="ui/derpy_ic/wedge_06_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4961,10 +5026,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_08>
-		<ic_wedge_09
+		</ic_wedge_06>
+		<ic_wedge_07
 			this="IC40011B-D000-4000-B00000000000011B"
-			id="ic_wedge_09"
+			id="ic_wedge_07"
 			tooltipslocalised="true"
 			uniqueguid="IC40011B-D000-4000-B00000000000011B"
 			currentstate="IC40011C-D000-4000-B00000000000011C"
@@ -4973,7 +5038,7 @@
 				<component_image
 					this="IC40011B-D001-4000-B00000000000011B"
 					uniqueguid="IC40011B-D001-4000-B00000000000011B"
-					imagepath="ui/derpy_ic/wedge_09_none.png"/>
+					imagepath="ui/derpy_ic/wedge_07_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -4994,10 +5059,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_09>
-		<ic_wedge_10
+		</ic_wedge_07>
+		<ic_wedge_08
 			this="IC40011E-D000-4000-B00000000000011E"
-			id="ic_wedge_10"
+			id="ic_wedge_08"
 			tooltipslocalised="true"
 			uniqueguid="IC40011E-D000-4000-B00000000000011E"
 			currentstate="IC40011F-D000-4000-B00000000000011F"
@@ -5006,7 +5071,7 @@
 				<component_image
 					this="IC40011E-D001-4000-B00000000000011E"
 					uniqueguid="IC40011E-D001-4000-B00000000000011E"
-					imagepath="ui/derpy_ic/wedge_10_none.png"/>
+					imagepath="ui/derpy_ic/wedge_08_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5027,10 +5092,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_10>
-		<ic_wedge_11
+		</ic_wedge_08>
+		<ic_wedge_09
 			this="IC400121-D000-4000-B000000000000121"
-			id="ic_wedge_11"
+			id="ic_wedge_09"
 			tooltipslocalised="true"
 			uniqueguid="IC400121-D000-4000-B000000000000121"
 			currentstate="IC400122-D000-4000-B000000000000122"
@@ -5039,7 +5104,7 @@
 				<component_image
 					this="IC400121-D001-4000-B000000000000121"
 					uniqueguid="IC400121-D001-4000-B000000000000121"
-					imagepath="ui/derpy_ic/wedge_11_none.png"/>
+					imagepath="ui/derpy_ic/wedge_09_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5060,10 +5125,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_11>
-		<ic_wedge_12
+		</ic_wedge_09>
+		<ic_wedge_10
 			this="IC400124-D000-4000-B000000000000124"
-			id="ic_wedge_12"
+			id="ic_wedge_10"
 			tooltipslocalised="true"
 			uniqueguid="IC400124-D000-4000-B000000000000124"
 			currentstate="IC400125-D000-4000-B000000000000125"
@@ -5072,7 +5137,7 @@
 				<component_image
 					this="IC400124-D001-4000-B000000000000124"
 					uniqueguid="IC400124-D001-4000-B000000000000124"
-					imagepath="ui/derpy_ic/wedge_12_none.png"/>
+					imagepath="ui/derpy_ic/wedge_10_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5093,10 +5158,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_12>
-		<ic_wedge_13
+		</ic_wedge_10>
+		<ic_wedge_11
 			this="IC400127-D000-4000-B000000000000127"
-			id="ic_wedge_13"
+			id="ic_wedge_11"
 			tooltipslocalised="true"
 			uniqueguid="IC400127-D000-4000-B000000000000127"
 			currentstate="IC400128-D000-4000-B000000000000128"
@@ -5105,7 +5170,7 @@
 				<component_image
 					this="IC400127-D001-4000-B000000000000127"
 					uniqueguid="IC400127-D001-4000-B000000000000127"
-					imagepath="ui/derpy_ic/wedge_13_none.png"/>
+					imagepath="ui/derpy_ic/wedge_11_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5126,10 +5191,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_13>
-		<ic_wedge_14
+		</ic_wedge_11>
+		<ic_wedge_12
 			this="IC40012A-D000-4000-B00000000000012A"
-			id="ic_wedge_14"
+			id="ic_wedge_12"
 			tooltipslocalised="true"
 			uniqueguid="IC40012A-D000-4000-B00000000000012A"
 			currentstate="IC40012B-D000-4000-B00000000000012B"
@@ -5138,7 +5203,7 @@
 				<component_image
 					this="IC40012A-D001-4000-B00000000000012A"
 					uniqueguid="IC40012A-D001-4000-B00000000000012A"
-					imagepath="ui/derpy_ic/wedge_14_none.png"/>
+					imagepath="ui/derpy_ic/wedge_12_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5159,10 +5224,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_14>
-		<ic_wedge_15
+		</ic_wedge_12>
+		<ic_wedge_13
 			this="IC40012D-D000-4000-B00000000000012D"
-			id="ic_wedge_15"
+			id="ic_wedge_13"
 			tooltipslocalised="true"
 			uniqueguid="IC40012D-D000-4000-B00000000000012D"
 			currentstate="IC40012E-D000-4000-B00000000000012E"
@@ -5171,7 +5236,7 @@
 				<component_image
 					this="IC40012D-D001-4000-B00000000000012D"
 					uniqueguid="IC40012D-D001-4000-B00000000000012D"
-					imagepath="ui/derpy_ic/wedge_15_none.png"/>
+					imagepath="ui/derpy_ic/wedge_13_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5192,10 +5257,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_15>
-		<ic_wedge_16
+		</ic_wedge_13>
+		<ic_wedge_14
 			this="IC400130-D000-4000-B000000000000130"
-			id="ic_wedge_16"
+			id="ic_wedge_14"
 			tooltipslocalised="true"
 			uniqueguid="IC400130-D000-4000-B000000000000130"
 			currentstate="IC400131-D000-4000-B000000000000131"
@@ -5204,7 +5269,7 @@
 				<component_image
 					this="IC400130-D001-4000-B000000000000130"
 					uniqueguid="IC400130-D001-4000-B000000000000130"
-					imagepath="ui/derpy_ic/wedge_16_none.png"/>
+					imagepath="ui/derpy_ic/wedge_14_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5225,10 +5290,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_16>
-		<ic_wedge_17
+		</ic_wedge_14>
+		<ic_wedge_15
 			this="IC400133-D000-4000-B000000000000133"
-			id="ic_wedge_17"
+			id="ic_wedge_15"
 			tooltipslocalised="true"
 			uniqueguid="IC400133-D000-4000-B000000000000133"
 			currentstate="IC400134-D000-4000-B000000000000134"
@@ -5237,7 +5302,7 @@
 				<component_image
 					this="IC400133-D001-4000-B000000000000133"
 					uniqueguid="IC400133-D001-4000-B000000000000133"
-					imagepath="ui/derpy_ic/wedge_17_none.png"/>
+					imagepath="ui/derpy_ic/wedge_15_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5258,10 +5323,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_17>
-		<ic_wedge_18
+		</ic_wedge_15>
+		<ic_wedge_16
 			this="IC400136-D000-4000-B000000000000136"
-			id="ic_wedge_18"
+			id="ic_wedge_16"
 			tooltipslocalised="true"
 			uniqueguid="IC400136-D000-4000-B000000000000136"
 			currentstate="IC400137-D000-4000-B000000000000137"
@@ -5270,7 +5335,7 @@
 				<component_image
 					this="IC400136-D001-4000-B000000000000136"
 					uniqueguid="IC400136-D001-4000-B000000000000136"
-					imagepath="ui/derpy_ic/wedge_18_none.png"/>
+					imagepath="ui/derpy_ic/wedge_16_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5291,10 +5356,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_18>
-		<ic_wedge_19
+		</ic_wedge_16>
+		<ic_wedge_17
 			this="IC400139-D000-4000-B000000000000139"
-			id="ic_wedge_19"
+			id="ic_wedge_17"
 			tooltipslocalised="true"
 			uniqueguid="IC400139-D000-4000-B000000000000139"
 			currentstate="IC40013A-D000-4000-B00000000000013A"
@@ -5303,7 +5368,7 @@
 				<component_image
 					this="IC400139-D001-4000-B000000000000139"
 					uniqueguid="IC400139-D001-4000-B000000000000139"
-					imagepath="ui/derpy_ic/wedge_19_none.png"/>
+					imagepath="ui/derpy_ic/wedge_17_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5324,10 +5389,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_19>
-		<ic_wedge_20
+		</ic_wedge_17>
+		<ic_wedge_18
 			this="IC40013C-D000-4000-B00000000000013C"
-			id="ic_wedge_20"
+			id="ic_wedge_18"
 			tooltipslocalised="true"
 			uniqueguid="IC40013C-D000-4000-B00000000000013C"
 			currentstate="IC40013D-D000-4000-B00000000000013D"
@@ -5336,7 +5401,7 @@
 				<component_image
 					this="IC40013C-D001-4000-B00000000000013C"
 					uniqueguid="IC40013C-D001-4000-B00000000000013C"
-					imagepath="ui/derpy_ic/wedge_20_none.png"/>
+					imagepath="ui/derpy_ic/wedge_18_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5357,10 +5422,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_20>
-		<ic_wedge_21
+		</ic_wedge_18>
+		<ic_wedge_19
 			this="IC40013F-D000-4000-B00000000000013F"
-			id="ic_wedge_21"
+			id="ic_wedge_19"
 			tooltipslocalised="true"
 			uniqueguid="IC40013F-D000-4000-B00000000000013F"
 			currentstate="IC400140-D000-4000-B000000000000140"
@@ -5369,7 +5434,7 @@
 				<component_image
 					this="IC40013F-D001-4000-B00000000000013F"
 					uniqueguid="IC40013F-D001-4000-B00000000000013F"
-					imagepath="ui/derpy_ic/wedge_21_none.png"/>
+					imagepath="ui/derpy_ic/wedge_19_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5390,10 +5455,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_21>
-		<ic_wedge_22
+		</ic_wedge_19>
+		<ic_wedge_20
 			this="IC400142-D000-4000-B000000000000142"
-			id="ic_wedge_22"
+			id="ic_wedge_20"
 			tooltipslocalised="true"
 			uniqueguid="IC400142-D000-4000-B000000000000142"
 			currentstate="IC400143-D000-4000-B000000000000143"
@@ -5402,7 +5467,7 @@
 				<component_image
 					this="IC400142-D001-4000-B000000000000142"
 					uniqueguid="IC400142-D001-4000-B000000000000142"
-					imagepath="ui/derpy_ic/wedge_22_none.png"/>
+					imagepath="ui/derpy_ic/wedge_20_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5423,10 +5488,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_22>
-		<ic_wedge_23
+		</ic_wedge_20>
+		<ic_wedge_21
 			this="IC400145-D000-4000-B000000000000145"
-			id="ic_wedge_23"
+			id="ic_wedge_21"
 			tooltipslocalised="true"
 			uniqueguid="IC400145-D000-4000-B000000000000145"
 			currentstate="IC400146-D000-4000-B000000000000146"
@@ -5435,7 +5500,7 @@
 				<component_image
 					this="IC400145-D001-4000-B000000000000145"
 					uniqueguid="IC400145-D001-4000-B000000000000145"
-					imagepath="ui/derpy_ic/wedge_23_none.png"/>
+					imagepath="ui/derpy_ic/wedge_21_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5456,10 +5521,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_23>
-		<ic_wedge_24
+		</ic_wedge_21>
+		<ic_wedge_22
 			this="IC400148-D000-4000-B000000000000148"
-			id="ic_wedge_24"
+			id="ic_wedge_22"
 			tooltipslocalised="true"
 			uniqueguid="IC400148-D000-4000-B000000000000148"
 			currentstate="IC400149-D000-4000-B000000000000149"
@@ -5468,7 +5533,7 @@
 				<component_image
 					this="IC400148-D001-4000-B000000000000148"
 					uniqueguid="IC400148-D001-4000-B000000000000148"
-					imagepath="ui/derpy_ic/wedge_24_none.png"/>
+					imagepath="ui/derpy_ic/wedge_22_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5489,10 +5554,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_24>
-		<ic_wedge_25
+		</ic_wedge_22>
+		<ic_wedge_23
 			this="IC40014B-D000-4000-B00000000000014B"
-			id="ic_wedge_25"
+			id="ic_wedge_23"
 			tooltipslocalised="true"
 			uniqueguid="IC40014B-D000-4000-B00000000000014B"
 			currentstate="IC40014C-D000-4000-B00000000000014C"
@@ -5501,7 +5566,7 @@
 				<component_image
 					this="IC40014B-D001-4000-B00000000000014B"
 					uniqueguid="IC40014B-D001-4000-B00000000000014B"
-					imagepath="ui/derpy_ic/wedge_25_none.png"/>
+					imagepath="ui/derpy_ic/wedge_23_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5522,10 +5587,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_25>
-		<ic_wedge_26
+		</ic_wedge_23>
+		<ic_wedge_24
 			this="IC40014E-D000-4000-B00000000000014E"
-			id="ic_wedge_26"
+			id="ic_wedge_24"
 			tooltipslocalised="true"
 			uniqueguid="IC40014E-D000-4000-B00000000000014E"
 			currentstate="IC40014F-D000-4000-B00000000000014F"
@@ -5534,7 +5599,7 @@
 				<component_image
 					this="IC40014E-D001-4000-B00000000000014E"
 					uniqueguid="IC40014E-D001-4000-B00000000000014E"
-					imagepath="ui/derpy_ic/wedge_26_none.png"/>
+					imagepath="ui/derpy_ic/wedge_24_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5555,10 +5620,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_26>
-		<ic_wedge_27
+		</ic_wedge_24>
+		<ic_wedge_25
 			this="IC400151-D000-4000-B000000000000151"
-			id="ic_wedge_27"
+			id="ic_wedge_25"
 			tooltipslocalised="true"
 			uniqueguid="IC400151-D000-4000-B000000000000151"
 			currentstate="IC400152-D000-4000-B000000000000152"
@@ -5567,7 +5632,7 @@
 				<component_image
 					this="IC400151-D001-4000-B000000000000151"
 					uniqueguid="IC400151-D001-4000-B000000000000151"
-					imagepath="ui/derpy_ic/wedge_27_none.png"/>
+					imagepath="ui/derpy_ic/wedge_25_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5588,10 +5653,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_27>
-		<ic_wedge_28
+		</ic_wedge_25>
+		<ic_wedge_26
 			this="IC400154-D000-4000-B000000000000154"
-			id="ic_wedge_28"
+			id="ic_wedge_26"
 			tooltipslocalised="true"
 			uniqueguid="IC400154-D000-4000-B000000000000154"
 			currentstate="IC400155-D000-4000-B000000000000155"
@@ -5600,7 +5665,7 @@
 				<component_image
 					this="IC400154-D001-4000-B000000000000154"
 					uniqueguid="IC400154-D001-4000-B000000000000154"
-					imagepath="ui/derpy_ic/wedge_28_none.png"/>
+					imagepath="ui/derpy_ic/wedge_26_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5621,10 +5686,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_28>
-		<ic_wedge_29
+		</ic_wedge_26>
+		<ic_wedge_27
 			this="IC400157-D000-4000-B000000000000157"
-			id="ic_wedge_29"
+			id="ic_wedge_27"
 			tooltipslocalised="true"
 			uniqueguid="IC400157-D000-4000-B000000000000157"
 			currentstate="IC400158-D000-4000-B000000000000158"
@@ -5633,7 +5698,7 @@
 				<component_image
 					this="IC400157-D001-4000-B000000000000157"
 					uniqueguid="IC400157-D001-4000-B000000000000157"
-					imagepath="ui/derpy_ic/wedge_29_none.png"/>
+					imagepath="ui/derpy_ic/wedge_27_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5654,10 +5719,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_29>
-		<ic_wedge_30
+		</ic_wedge_27>
+		<ic_wedge_28
 			this="IC40015A-D000-4000-B00000000000015A"
-			id="ic_wedge_30"
+			id="ic_wedge_28"
 			tooltipslocalised="true"
 			uniqueguid="IC40015A-D000-4000-B00000000000015A"
 			currentstate="IC40015B-D000-4000-B00000000000015B"
@@ -5666,7 +5731,7 @@
 				<component_image
 					this="IC40015A-D001-4000-B00000000000015A"
 					uniqueguid="IC40015A-D001-4000-B00000000000015A"
-					imagepath="ui/derpy_ic/wedge_30_none.png"/>
+					imagepath="ui/derpy_ic/wedge_28_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5687,10 +5752,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_30>
-		<ic_wedge_31
+		</ic_wedge_28>
+		<ic_wedge_29
 			this="IC40015D-D000-4000-B00000000000015D"
-			id="ic_wedge_31"
+			id="ic_wedge_29"
 			tooltipslocalised="true"
 			uniqueguid="IC40015D-D000-4000-B00000000000015D"
 			currentstate="IC40015E-D000-4000-B00000000000015E"
@@ -5699,7 +5764,7 @@
 				<component_image
 					this="IC40015D-D001-4000-B00000000000015D"
 					uniqueguid="IC40015D-D001-4000-B00000000000015D"
-					imagepath="ui/derpy_ic/wedge_31_none.png"/>
+					imagepath="ui/derpy_ic/wedge_29_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5720,10 +5785,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_31>
-		<ic_wedge_32
+		</ic_wedge_29>
+		<ic_wedge_30
 			this="IC400160-D000-4000-B000000000000160"
-			id="ic_wedge_32"
+			id="ic_wedge_30"
 			tooltipslocalised="true"
 			uniqueguid="IC400160-D000-4000-B000000000000160"
 			currentstate="IC400161-D000-4000-B000000000000161"
@@ -5732,7 +5797,7 @@
 				<component_image
 					this="IC400160-D001-4000-B000000000000160"
 					uniqueguid="IC400160-D001-4000-B000000000000160"
-					imagepath="ui/derpy_ic/wedge_32_none.png"/>
+					imagepath="ui/derpy_ic/wedge_30_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5753,10 +5818,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_32>
-		<ic_wedge_33
+		</ic_wedge_30>
+		<ic_wedge_31
 			this="IC400163-D000-4000-B000000000000163"
-			id="ic_wedge_33"
+			id="ic_wedge_31"
 			tooltipslocalised="true"
 			uniqueguid="IC400163-D000-4000-B000000000000163"
 			currentstate="IC400164-D000-4000-B000000000000164"
@@ -5765,7 +5830,7 @@
 				<component_image
 					this="IC400163-D001-4000-B000000000000163"
 					uniqueguid="IC400163-D001-4000-B000000000000163"
-					imagepath="ui/derpy_ic/wedge_33_none.png"/>
+					imagepath="ui/derpy_ic/wedge_31_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5786,10 +5851,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_33>
-		<ic_wedge_34
+		</ic_wedge_31>
+		<ic_wedge_32
 			this="IC400166-D000-4000-B000000000000166"
-			id="ic_wedge_34"
+			id="ic_wedge_32"
 			tooltipslocalised="true"
 			uniqueguid="IC400166-D000-4000-B000000000000166"
 			currentstate="IC400167-D000-4000-B000000000000167"
@@ -5798,7 +5863,7 @@
 				<component_image
 					this="IC400166-D001-4000-B000000000000166"
 					uniqueguid="IC400166-D001-4000-B000000000000166"
-					imagepath="ui/derpy_ic/wedge_34_none.png"/>
+					imagepath="ui/derpy_ic/wedge_32_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5819,10 +5884,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_34>
-		<ic_wedge_35
+		</ic_wedge_32>
+		<ic_wedge_33
 			this="IC400169-D000-4000-B000000000000169"
-			id="ic_wedge_35"
+			id="ic_wedge_33"
 			tooltipslocalised="true"
 			uniqueguid="IC400169-D000-4000-B000000000000169"
 			currentstate="IC40016A-D000-4000-B00000000000016A"
@@ -5831,7 +5896,7 @@
 				<component_image
 					this="IC400169-D001-4000-B000000000000169"
 					uniqueguid="IC400169-D001-4000-B000000000000169"
-					imagepath="ui/derpy_ic/wedge_35_none.png"/>
+					imagepath="ui/derpy_ic/wedge_33_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5852,10 +5917,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_35>
-		<ic_wedge_36
+		</ic_wedge_33>
+		<ic_wedge_34
 			this="IC40016C-D000-4000-B00000000000016C"
-			id="ic_wedge_36"
+			id="ic_wedge_34"
 			tooltipslocalised="true"
 			uniqueguid="IC40016C-D000-4000-B00000000000016C"
 			currentstate="IC40016D-D000-4000-B00000000000016D"
@@ -5864,7 +5929,7 @@
 				<component_image
 					this="IC40016C-D001-4000-B00000000000016C"
 					uniqueguid="IC40016C-D001-4000-B00000000000016C"
-					imagepath="ui/derpy_ic/wedge_36_none.png"/>
+					imagepath="ui/derpy_ic/wedge_34_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5885,10 +5950,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_36>
-		<ic_wedge_37
+		</ic_wedge_34>
+		<ic_wedge_35
 			this="IC40016F-D000-4000-B00000000000016F"
-			id="ic_wedge_37"
+			id="ic_wedge_35"
 			tooltipslocalised="true"
 			uniqueguid="IC40016F-D000-4000-B00000000000016F"
 			currentstate="IC400170-D000-4000-B000000000000170"
@@ -5897,7 +5962,7 @@
 				<component_image
 					this="IC40016F-D001-4000-B00000000000016F"
 					uniqueguid="IC40016F-D001-4000-B00000000000016F"
-					imagepath="ui/derpy_ic/wedge_37_none.png"/>
+					imagepath="ui/derpy_ic/wedge_35_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5918,10 +5983,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_37>
-		<ic_wedge_38
+		</ic_wedge_35>
+		<ic_wedge_36
 			this="IC400172-D000-4000-B000000000000172"
-			id="ic_wedge_38"
+			id="ic_wedge_36"
 			tooltipslocalised="true"
 			uniqueguid="IC400172-D000-4000-B000000000000172"
 			currentstate="IC400173-D000-4000-B000000000000173"
@@ -5930,7 +5995,7 @@
 				<component_image
 					this="IC400172-D001-4000-B000000000000172"
 					uniqueguid="IC400172-D001-4000-B000000000000172"
-					imagepath="ui/derpy_ic/wedge_38_none.png"/>
+					imagepath="ui/derpy_ic/wedge_36_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5951,10 +6016,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_38>
-		<ic_wedge_39
+		</ic_wedge_36>
+		<ic_wedge_37
 			this="IC400175-D000-4000-B000000000000175"
-			id="ic_wedge_39"
+			id="ic_wedge_37"
 			tooltipslocalised="true"
 			uniqueguid="IC400175-D000-4000-B000000000000175"
 			currentstate="IC400176-D000-4000-B000000000000176"
@@ -5963,7 +6028,7 @@
 				<component_image
 					this="IC400175-D001-4000-B000000000000175"
 					uniqueguid="IC400175-D001-4000-B000000000000175"
-					imagepath="ui/derpy_ic/wedge_39_none.png"/>
+					imagepath="ui/derpy_ic/wedge_37_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -5984,10 +6049,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_39>
-		<ic_wedge_40
+		</ic_wedge_37>
+		<ic_wedge_38
 			this="IC400178-D000-4000-B000000000000178"
-			id="ic_wedge_40"
+			id="ic_wedge_38"
 			tooltipslocalised="true"
 			uniqueguid="IC400178-D000-4000-B000000000000178"
 			currentstate="IC400179-D000-4000-B000000000000179"
@@ -5996,7 +6061,7 @@
 				<component_image
 					this="IC400178-D001-4000-B000000000000178"
 					uniqueguid="IC400178-D001-4000-B000000000000178"
-					imagepath="ui/derpy_ic/wedge_40_none.png"/>
+					imagepath="ui/derpy_ic/wedge_38_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6017,10 +6082,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_40>
-		<ic_wedge_41
+		</ic_wedge_38>
+		<ic_wedge_39
 			this="IC40017B-D000-4000-B00000000000017B"
-			id="ic_wedge_41"
+			id="ic_wedge_39"
 			tooltipslocalised="true"
 			uniqueguid="IC40017B-D000-4000-B00000000000017B"
 			currentstate="IC40017C-D000-4000-B00000000000017C"
@@ -6029,7 +6094,7 @@
 				<component_image
 					this="IC40017B-D001-4000-B00000000000017B"
 					uniqueguid="IC40017B-D001-4000-B00000000000017B"
-					imagepath="ui/derpy_ic/wedge_41_none.png"/>
+					imagepath="ui/derpy_ic/wedge_39_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6050,10 +6115,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_41>
-		<ic_wedge_42
+		</ic_wedge_39>
+		<ic_wedge_40
 			this="IC40017E-D000-4000-B00000000000017E"
-			id="ic_wedge_42"
+			id="ic_wedge_40"
 			tooltipslocalised="true"
 			uniqueguid="IC40017E-D000-4000-B00000000000017E"
 			currentstate="IC40017F-D000-4000-B00000000000017F"
@@ -6062,7 +6127,7 @@
 				<component_image
 					this="IC40017E-D001-4000-B00000000000017E"
 					uniqueguid="IC40017E-D001-4000-B00000000000017E"
-					imagepath="ui/derpy_ic/wedge_42_none.png"/>
+					imagepath="ui/derpy_ic/wedge_40_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6083,10 +6148,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_42>
-		<ic_wedge_43
+		</ic_wedge_40>
+		<ic_wedge_41
 			this="IC400181-D000-4000-B000000000000181"
-			id="ic_wedge_43"
+			id="ic_wedge_41"
 			tooltipslocalised="true"
 			uniqueguid="IC400181-D000-4000-B000000000000181"
 			currentstate="IC400182-D000-4000-B000000000000182"
@@ -6095,7 +6160,7 @@
 				<component_image
 					this="IC400181-D001-4000-B000000000000181"
 					uniqueguid="IC400181-D001-4000-B000000000000181"
-					imagepath="ui/derpy_ic/wedge_43_none.png"/>
+					imagepath="ui/derpy_ic/wedge_41_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6116,10 +6181,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_43>
-		<ic_wedge_44
+		</ic_wedge_41>
+		<ic_wedge_42
 			this="IC400184-D000-4000-B000000000000184"
-			id="ic_wedge_44"
+			id="ic_wedge_42"
 			tooltipslocalised="true"
 			uniqueguid="IC400184-D000-4000-B000000000000184"
 			currentstate="IC400185-D000-4000-B000000000000185"
@@ -6128,7 +6193,7 @@
 				<component_image
 					this="IC400184-D001-4000-B000000000000184"
 					uniqueguid="IC400184-D001-4000-B000000000000184"
-					imagepath="ui/derpy_ic/wedge_44_none.png"/>
+					imagepath="ui/derpy_ic/wedge_42_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6149,10 +6214,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_44>
-		<ic_wedge_45
+		</ic_wedge_42>
+		<ic_wedge_43
 			this="IC400187-D000-4000-B000000000000187"
-			id="ic_wedge_45"
+			id="ic_wedge_43"
 			tooltipslocalised="true"
 			uniqueguid="IC400187-D000-4000-B000000000000187"
 			currentstate="IC400188-D000-4000-B000000000000188"
@@ -6161,7 +6226,7 @@
 				<component_image
 					this="IC400187-D001-4000-B000000000000187"
 					uniqueguid="IC400187-D001-4000-B000000000000187"
-					imagepath="ui/derpy_ic/wedge_45_none.png"/>
+					imagepath="ui/derpy_ic/wedge_43_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6182,10 +6247,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_45>
-		<ic_wedge_46
+		</ic_wedge_43>
+		<ic_wedge_44
 			this="IC40018A-D000-4000-B00000000000018A"
-			id="ic_wedge_46"
+			id="ic_wedge_44"
 			tooltipslocalised="true"
 			uniqueguid="IC40018A-D000-4000-B00000000000018A"
 			currentstate="IC40018B-D000-4000-B00000000000018B"
@@ -6194,7 +6259,7 @@
 				<component_image
 					this="IC40018A-D001-4000-B00000000000018A"
 					uniqueguid="IC40018A-D001-4000-B00000000000018A"
-					imagepath="ui/derpy_ic/wedge_46_none.png"/>
+					imagepath="ui/derpy_ic/wedge_44_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6215,10 +6280,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_46>
-		<ic_wedge_47
+		</ic_wedge_44>
+		<ic_wedge_45
 			this="IC40018D-D000-4000-B00000000000018D"
-			id="ic_wedge_47"
+			id="ic_wedge_45"
 			tooltipslocalised="true"
 			uniqueguid="IC40018D-D000-4000-B00000000000018D"
 			currentstate="IC40018E-D000-4000-B00000000000018E"
@@ -6227,7 +6292,7 @@
 				<component_image
 					this="IC40018D-D001-4000-B00000000000018D"
 					uniqueguid="IC40018D-D001-4000-B00000000000018D"
-					imagepath="ui/derpy_ic/wedge_47_none.png"/>
+					imagepath="ui/derpy_ic/wedge_45_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6248,10 +6313,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_47>
-		<ic_wedge_48
+		</ic_wedge_45>
+		<ic_wedge_46
 			this="IC400190-D000-4000-B000000000000190"
-			id="ic_wedge_48"
+			id="ic_wedge_46"
 			tooltipslocalised="true"
 			uniqueguid="IC400190-D000-4000-B000000000000190"
 			currentstate="IC400191-D000-4000-B000000000000191"
@@ -6260,7 +6325,7 @@
 				<component_image
 					this="IC400190-D001-4000-B000000000000190"
 					uniqueguid="IC400190-D001-4000-B000000000000190"
-					imagepath="ui/derpy_ic/wedge_48_none.png"/>
+					imagepath="ui/derpy_ic/wedge_46_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6281,10 +6346,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_48>
-		<ic_wedge_49
+		</ic_wedge_46>
+		<ic_wedge_47
 			this="IC400193-D000-4000-B000000000000193"
-			id="ic_wedge_49"
+			id="ic_wedge_47"
 			tooltipslocalised="true"
 			uniqueguid="IC400193-D000-4000-B000000000000193"
 			currentstate="IC400194-D000-4000-B000000000000194"
@@ -6293,7 +6358,7 @@
 				<component_image
 					this="IC400193-D001-4000-B000000000000193"
 					uniqueguid="IC400193-D001-4000-B000000000000193"
-					imagepath="ui/derpy_ic/wedge_49_none.png"/>
+					imagepath="ui/derpy_ic/wedge_47_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6314,10 +6379,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_49>
-		<ic_wedge_50
+		</ic_wedge_47>
+		<ic_wedge_48
 			this="IC400196-D000-4000-B000000000000196"
-			id="ic_wedge_50"
+			id="ic_wedge_48"
 			tooltipslocalised="true"
 			uniqueguid="IC400196-D000-4000-B000000000000196"
 			currentstate="IC400197-D000-4000-B000000000000197"
@@ -6326,7 +6391,7 @@
 				<component_image
 					this="IC400196-D001-4000-B000000000000196"
 					uniqueguid="IC400196-D001-4000-B000000000000196"
-					imagepath="ui/derpy_ic/wedge_50_none.png"/>
+					imagepath="ui/derpy_ic/wedge_48_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6347,10 +6412,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_50>
-		<ic_wedge_51
+		</ic_wedge_48>
+		<ic_wedge_49
 			this="IC400199-D000-4000-B000000000000199"
-			id="ic_wedge_51"
+			id="ic_wedge_49"
 			tooltipslocalised="true"
 			uniqueguid="IC400199-D000-4000-B000000000000199"
 			currentstate="IC40019A-D000-4000-B00000000000019A"
@@ -6359,7 +6424,7 @@
 				<component_image
 					this="IC400199-D001-4000-B000000000000199"
 					uniqueguid="IC400199-D001-4000-B000000000000199"
-					imagepath="ui/derpy_ic/wedge_51_none.png"/>
+					imagepath="ui/derpy_ic/wedge_49_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6380,10 +6445,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_51>
-		<ic_wedge_52
+		</ic_wedge_49>
+		<ic_wedge_50
 			this="IC40019C-D000-4000-B00000000000019C"
-			id="ic_wedge_52"
+			id="ic_wedge_50"
 			tooltipslocalised="true"
 			uniqueguid="IC40019C-D000-4000-B00000000000019C"
 			currentstate="IC40019D-D000-4000-B00000000000019D"
@@ -6392,7 +6457,7 @@
 				<component_image
 					this="IC40019C-D001-4000-B00000000000019C"
 					uniqueguid="IC40019C-D001-4000-B00000000000019C"
-					imagepath="ui/derpy_ic/wedge_52_none.png"/>
+					imagepath="ui/derpy_ic/wedge_50_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6413,10 +6478,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_52>
-		<ic_wedge_53
+		</ic_wedge_50>
+		<ic_wedge_51
 			this="IC40019F-D000-4000-B00000000000019F"
-			id="ic_wedge_53"
+			id="ic_wedge_51"
 			tooltipslocalised="true"
 			uniqueguid="IC40019F-D000-4000-B00000000000019F"
 			currentstate="IC4001A0-D000-4000-B0000000000001A0"
@@ -6425,7 +6490,7 @@
 				<component_image
 					this="IC40019F-D001-4000-B00000000000019F"
 					uniqueguid="IC40019F-D001-4000-B00000000000019F"
-					imagepath="ui/derpy_ic/wedge_53_none.png"/>
+					imagepath="ui/derpy_ic/wedge_51_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6446,10 +6511,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_53>
-		<ic_wedge_54
+		</ic_wedge_51>
+		<ic_wedge_52
 			this="IC4001A2-D000-4000-B0000000000001A2"
-			id="ic_wedge_54"
+			id="ic_wedge_52"
 			tooltipslocalised="true"
 			uniqueguid="IC4001A2-D000-4000-B0000000000001A2"
 			currentstate="IC4001A3-D000-4000-B0000000000001A3"
@@ -6458,7 +6523,7 @@
 				<component_image
 					this="IC4001A2-D001-4000-B0000000000001A2"
 					uniqueguid="IC4001A2-D001-4000-B0000000000001A2"
-					imagepath="ui/derpy_ic/wedge_54_none.png"/>
+					imagepath="ui/derpy_ic/wedge_52_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6479,10 +6544,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_54>
-		<ic_wedge_55
+		</ic_wedge_52>
+		<ic_wedge_53
 			this="IC4001A5-D000-4000-B0000000000001A5"
-			id="ic_wedge_55"
+			id="ic_wedge_53"
 			tooltipslocalised="true"
 			uniqueguid="IC4001A5-D000-4000-B0000000000001A5"
 			currentstate="IC4001A6-D000-4000-B0000000000001A6"
@@ -6491,7 +6556,7 @@
 				<component_image
 					this="IC4001A5-D001-4000-B0000000000001A5"
 					uniqueguid="IC4001A5-D001-4000-B0000000000001A5"
-					imagepath="ui/derpy_ic/wedge_55_none.png"/>
+					imagepath="ui/derpy_ic/wedge_53_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6512,10 +6577,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_55>
-		<ic_wedge_56
+		</ic_wedge_53>
+		<ic_wedge_54
 			this="IC4001A8-D000-4000-B0000000000001A8"
-			id="ic_wedge_56"
+			id="ic_wedge_54"
 			tooltipslocalised="true"
 			uniqueguid="IC4001A8-D000-4000-B0000000000001A8"
 			currentstate="IC4001A9-D000-4000-B0000000000001A9"
@@ -6524,7 +6589,7 @@
 				<component_image
 					this="IC4001A8-D001-4000-B0000000000001A8"
 					uniqueguid="IC4001A8-D001-4000-B0000000000001A8"
-					imagepath="ui/derpy_ic/wedge_56_none.png"/>
+					imagepath="ui/derpy_ic/wedge_54_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6545,10 +6610,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_56>
-		<ic_wedge_57
+		</ic_wedge_54>
+		<ic_wedge_55
 			this="IC4001AB-D000-4000-B0000000000001AB"
-			id="ic_wedge_57"
+			id="ic_wedge_55"
 			tooltipslocalised="true"
 			uniqueguid="IC4001AB-D000-4000-B0000000000001AB"
 			currentstate="IC4001AC-D000-4000-B0000000000001AC"
@@ -6557,7 +6622,7 @@
 				<component_image
 					this="IC4001AB-D001-4000-B0000000000001AB"
 					uniqueguid="IC4001AB-D001-4000-B0000000000001AB"
-					imagepath="ui/derpy_ic/wedge_57_none.png"/>
+					imagepath="ui/derpy_ic/wedge_55_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6578,10 +6643,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_57>
-		<ic_wedge_58
+		</ic_wedge_55>
+		<ic_wedge_56
 			this="IC4001AE-D000-4000-B0000000000001AE"
-			id="ic_wedge_58"
+			id="ic_wedge_56"
 			tooltipslocalised="true"
 			uniqueguid="IC4001AE-D000-4000-B0000000000001AE"
 			currentstate="IC4001AF-D000-4000-B0000000000001AF"
@@ -6590,7 +6655,7 @@
 				<component_image
 					this="IC4001AE-D001-4000-B0000000000001AE"
 					uniqueguid="IC4001AE-D001-4000-B0000000000001AE"
-					imagepath="ui/derpy_ic/wedge_58_none.png"/>
+					imagepath="ui/derpy_ic/wedge_56_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6611,10 +6676,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_58>
-		<ic_wedge_59
+		</ic_wedge_56>
+		<ic_wedge_57
 			this="IC4001B1-D000-4000-B0000000000001B1"
-			id="ic_wedge_59"
+			id="ic_wedge_57"
 			tooltipslocalised="true"
 			uniqueguid="IC4001B1-D000-4000-B0000000000001B1"
 			currentstate="IC4001B2-D000-4000-B0000000000001B2"
@@ -6623,7 +6688,7 @@
 				<component_image
 					this="IC4001B1-D001-4000-B0000000000001B1"
 					uniqueguid="IC4001B1-D001-4000-B0000000000001B1"
-					imagepath="ui/derpy_ic/wedge_59_none.png"/>
+					imagepath="ui/derpy_ic/wedge_57_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6644,10 +6709,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_wedge_59>
-		<ic_div_00
+		</ic_wedge_57>
+		<ic_wedge_58
 			this="IC4001B4-D000-4000-B0000000000001B4"
-			id="ic_div_00"
+			id="ic_wedge_58"
 			tooltipslocalised="true"
 			uniqueguid="IC4001B4-D000-4000-B0000000000001B4"
 			currentstate="IC4001B5-D000-4000-B0000000000001B5"
@@ -6656,7 +6721,7 @@
 				<component_image
 					this="IC4001B4-D001-4000-B0000000000001B4"
 					uniqueguid="IC4001B4-D001-4000-B0000000000001B4"
-					imagepath="ui/derpy_ic/div_01.png"/>
+					imagepath="ui/derpy_ic/wedge_58_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6677,10 +6742,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_00>
-		<ic_div_01
+		</ic_wedge_58>
+		<ic_wedge_59
 			this="IC4001B7-D000-4000-B0000000000001B7"
-			id="ic_div_01"
+			id="ic_wedge_59"
 			tooltipslocalised="true"
 			uniqueguid="IC4001B7-D000-4000-B0000000000001B7"
 			currentstate="IC4001B8-D000-4000-B0000000000001B8"
@@ -6689,7 +6754,7 @@
 				<component_image
 					this="IC4001B7-D001-4000-B0000000000001B7"
 					uniqueguid="IC4001B7-D001-4000-B0000000000001B7"
-					imagepath="ui/derpy_ic/div_01.png"/>
+					imagepath="ui/derpy_ic/wedge_59_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -6710,10 +6775,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_01>
-		<ic_div_02
+		</ic_wedge_59>
+		<ic_div_00
 			this="IC4001BA-D000-4000-B0000000000001BA"
-			id="ic_div_02"
+			id="ic_div_00"
 			tooltipslocalised="true"
 			uniqueguid="IC4001BA-D000-4000-B0000000000001BA"
 			currentstate="IC4001BB-D000-4000-B0000000000001BB"
@@ -6743,10 +6808,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_02>
-		<ic_div_03
+		</ic_div_00>
+		<ic_div_01
 			this="IC4001BD-D000-4000-B0000000000001BD"
-			id="ic_div_03"
+			id="ic_div_01"
 			tooltipslocalised="true"
 			uniqueguid="IC4001BD-D000-4000-B0000000000001BD"
 			currentstate="IC4001BE-D000-4000-B0000000000001BE"
@@ -6776,10 +6841,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_03>
-		<ic_div_04
+		</ic_div_01>
+		<ic_div_02
 			this="IC4001C0-D000-4000-B0000000000001C0"
-			id="ic_div_04"
+			id="ic_div_02"
 			tooltipslocalised="true"
 			uniqueguid="IC4001C0-D000-4000-B0000000000001C0"
 			currentstate="IC4001C1-D000-4000-B0000000000001C1"
@@ -6809,10 +6874,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_04>
-		<ic_div_05
+		</ic_div_02>
+		<ic_div_03
 			this="IC4001C3-D000-4000-B0000000000001C3"
-			id="ic_div_05"
+			id="ic_div_03"
 			tooltipslocalised="true"
 			uniqueguid="IC4001C3-D000-4000-B0000000000001C3"
 			currentstate="IC4001C4-D000-4000-B0000000000001C4"
@@ -6842,10 +6907,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_05>
-		<ic_div_06
+		</ic_div_03>
+		<ic_div_04
 			this="IC4001C6-D000-4000-B0000000000001C6"
-			id="ic_div_06"
+			id="ic_div_04"
 			tooltipslocalised="true"
 			uniqueguid="IC4001C6-D000-4000-B0000000000001C6"
 			currentstate="IC4001C7-D000-4000-B0000000000001C7"
@@ -6875,10 +6940,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_06>
-		<ic_div_07
+		</ic_div_04>
+		<ic_div_05
 			this="IC4001C9-D000-4000-B0000000000001C9"
-			id="ic_div_07"
+			id="ic_div_05"
 			tooltipslocalised="true"
 			uniqueguid="IC4001C9-D000-4000-B0000000000001C9"
 			currentstate="IC4001CA-D000-4000-B0000000000001CA"
@@ -6908,10 +6973,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_07>
-		<ic_div_08
+		</ic_div_05>
+		<ic_div_06
 			this="IC4001CC-D000-4000-B0000000000001CC"
-			id="ic_div_08"
+			id="ic_div_06"
 			tooltipslocalised="true"
 			uniqueguid="IC4001CC-D000-4000-B0000000000001CC"
 			currentstate="IC4001CD-D000-4000-B0000000000001CD"
@@ -6941,10 +7006,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_08>
-		<ic_div_09
+		</ic_div_06>
+		<ic_div_07
 			this="IC4001CF-D000-4000-B0000000000001CF"
-			id="ic_div_09"
+			id="ic_div_07"
 			tooltipslocalised="true"
 			uniqueguid="IC4001CF-D000-4000-B0000000000001CF"
 			currentstate="IC4001D0-D000-4000-B0000000000001D0"
@@ -6974,10 +7039,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_09>
-		<ic_div_10
+		</ic_div_07>
+		<ic_div_08
 			this="IC4001D2-D000-4000-B0000000000001D2"
-			id="ic_div_10"
+			id="ic_div_08"
 			tooltipslocalised="true"
 			uniqueguid="IC4001D2-D000-4000-B0000000000001D2"
 			currentstate="IC4001D3-D000-4000-B0000000000001D3"
@@ -7007,10 +7072,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_10>
-		<ic_div_11
+		</ic_div_08>
+		<ic_div_09
 			this="IC4001D5-D000-4000-B0000000000001D5"
-			id="ic_div_11"
+			id="ic_div_09"
 			tooltipslocalised="true"
 			uniqueguid="IC4001D5-D000-4000-B0000000000001D5"
 			currentstate="IC4001D6-D000-4000-B0000000000001D6"
@@ -7040,10 +7105,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_11>
-		<ic_div_12
+		</ic_div_09>
+		<ic_div_10
 			this="IC4001D8-D000-4000-B0000000000001D8"
-			id="ic_div_12"
+			id="ic_div_10"
 			tooltipslocalised="true"
 			uniqueguid="IC4001D8-D000-4000-B0000000000001D8"
 			currentstate="IC4001D9-D000-4000-B0000000000001D9"
@@ -7073,10 +7138,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_12>
-		<ic_div_13
+		</ic_div_10>
+		<ic_div_11
 			this="IC4001DB-D000-4000-B0000000000001DB"
-			id="ic_div_13"
+			id="ic_div_11"
 			tooltipslocalised="true"
 			uniqueguid="IC4001DB-D000-4000-B0000000000001DB"
 			currentstate="IC4001DC-D000-4000-B0000000000001DC"
@@ -7106,10 +7171,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_13>
-		<ic_div_14
+		</ic_div_11>
+		<ic_div_12
 			this="IC4001DE-D000-4000-B0000000000001DE"
-			id="ic_div_14"
+			id="ic_div_12"
 			tooltipslocalised="true"
 			uniqueguid="IC4001DE-D000-4000-B0000000000001DE"
 			currentstate="IC4001DF-D000-4000-B0000000000001DF"
@@ -7139,10 +7204,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_14>
-		<ic_div_15
+		</ic_div_12>
+		<ic_div_13
 			this="IC4001E1-D000-4000-B0000000000001E1"
-			id="ic_div_15"
+			id="ic_div_13"
 			tooltipslocalised="true"
 			uniqueguid="IC4001E1-D000-4000-B0000000000001E1"
 			currentstate="IC4001E2-D000-4000-B0000000000001E2"
@@ -7172,10 +7237,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_15>
-		<ic_div_16
+		</ic_div_13>
+		<ic_div_14
 			this="IC4001E4-D000-4000-B0000000000001E4"
-			id="ic_div_16"
+			id="ic_div_14"
 			tooltipslocalised="true"
 			uniqueguid="IC4001E4-D000-4000-B0000000000001E4"
 			currentstate="IC4001E5-D000-4000-B0000000000001E5"
@@ -7205,10 +7270,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_16>
-		<ic_div_17
+		</ic_div_14>
+		<ic_div_15
 			this="IC4001E7-D000-4000-B0000000000001E7"
-			id="ic_div_17"
+			id="ic_div_15"
 			tooltipslocalised="true"
 			uniqueguid="IC4001E7-D000-4000-B0000000000001E7"
 			currentstate="IC4001E8-D000-4000-B0000000000001E8"
@@ -7238,10 +7303,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_17>
-		<ic_div_18
+		</ic_div_15>
+		<ic_div_16
 			this="IC4001EA-D000-4000-B0000000000001EA"
-			id="ic_div_18"
+			id="ic_div_16"
 			tooltipslocalised="true"
 			uniqueguid="IC4001EA-D000-4000-B0000000000001EA"
 			currentstate="IC4001EB-D000-4000-B0000000000001EB"
@@ -7271,10 +7336,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_18>
-		<ic_div_19
+		</ic_div_16>
+		<ic_div_17
 			this="IC4001ED-D000-4000-B0000000000001ED"
-			id="ic_div_19"
+			id="ic_div_17"
 			tooltipslocalised="true"
 			uniqueguid="IC4001ED-D000-4000-B0000000000001ED"
 			currentstate="IC4001EE-D000-4000-B0000000000001EE"
@@ -7304,10 +7369,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_19>
-		<ic_div_20
+		</ic_div_17>
+		<ic_div_18
 			this="IC4001F0-D000-4000-B0000000000001F0"
-			id="ic_div_20"
+			id="ic_div_18"
 			tooltipslocalised="true"
 			uniqueguid="IC4001F0-D000-4000-B0000000000001F0"
 			currentstate="IC4001F1-D000-4000-B0000000000001F1"
@@ -7337,10 +7402,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_20>
-		<ic_div_21
+		</ic_div_18>
+		<ic_div_19
 			this="IC4001F3-D000-4000-B0000000000001F3"
-			id="ic_div_21"
+			id="ic_div_19"
 			tooltipslocalised="true"
 			uniqueguid="IC4001F3-D000-4000-B0000000000001F3"
 			currentstate="IC4001F4-D000-4000-B0000000000001F4"
@@ -7370,10 +7435,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_21>
-		<ic_div_22
+		</ic_div_19>
+		<ic_div_20
 			this="IC4001F6-D000-4000-B0000000000001F6"
-			id="ic_div_22"
+			id="ic_div_20"
 			tooltipslocalised="true"
 			uniqueguid="IC4001F6-D000-4000-B0000000000001F6"
 			currentstate="IC4001F7-D000-4000-B0000000000001F7"
@@ -7403,10 +7468,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_22>
-		<ic_div_23
+		</ic_div_20>
+		<ic_div_21
 			this="IC4001F9-D000-4000-B0000000000001F9"
-			id="ic_div_23"
+			id="ic_div_21"
 			tooltipslocalised="true"
 			uniqueguid="IC4001F9-D000-4000-B0000000000001F9"
 			currentstate="IC4001FA-D000-4000-B0000000000001FA"
@@ -7436,10 +7501,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_23>
-		<ic_div_24
+		</ic_div_21>
+		<ic_div_22
 			this="IC4001FC-D000-4000-B0000000000001FC"
-			id="ic_div_24"
+			id="ic_div_22"
 			tooltipslocalised="true"
 			uniqueguid="IC4001FC-D000-4000-B0000000000001FC"
 			currentstate="IC4001FD-D000-4000-B0000000000001FD"
@@ -7469,10 +7534,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_div_24>
-		<ic_dial_rim
+		</ic_div_22>
+		<ic_div_23
 			this="IC4001FF-D000-4000-B0000000000001FF"
-			id="ic_dial_rim"
+			id="ic_div_23"
 			tooltipslocalised="true"
 			uniqueguid="IC4001FF-D000-4000-B0000000000001FF"
 			currentstate="IC400200-D000-4000-B000000000000200"
@@ -7481,20 +7546,86 @@
 				<component_image
 					this="IC4001FF-D001-4000-B0000000000001FF"
 					uniqueguid="IC4001FF-D001-4000-B0000000000001FF"
-					imagepath="ui/derpy_ic/dial_rim.png"/>
+					imagepath="ui/derpy_ic/div_01.png"/>
 			</componentimages>
 			<states>
 				<standard
 					this="IC400200-D000-4000-B000000000000200"
 					name="standard"
-					width="745"
-					height="386"
+					width="718"
+					height="359"
 					uniqueguid="IC400200-D000-4000-B000000000000200">
 					<imagemetrics>
 						<image
 							this="IC4001FF-D002-4000-B0000000000001FF"
 							uniqueguid="IC4001FF-D002-4000-B0000000000001FF"
 							componentimage="IC4001FF-D001-4000-B0000000000001FF"
+							offset="0.00,0.00"
+							width="718"
+							height="359"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_div_23>
+		<ic_div_24
+			this="IC400202-D000-4000-B000000000000202"
+			id="ic_div_24"
+			tooltipslocalised="true"
+			uniqueguid="IC400202-D000-4000-B000000000000202"
+			currentstate="IC400203-D000-4000-B000000000000203"
+			defaultstate="IC400203-D000-4000-B000000000000203">
+			<componentimages>
+				<component_image
+					this="IC400202-D001-4000-B000000000000202"
+					uniqueguid="IC400202-D001-4000-B000000000000202"
+					imagepath="ui/derpy_ic/div_01.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC400203-D000-4000-B000000000000203"
+					name="standard"
+					width="718"
+					height="359"
+					uniqueguid="IC400203-D000-4000-B000000000000203">
+					<imagemetrics>
+						<image
+							this="IC400202-D002-4000-B000000000000202"
+							uniqueguid="IC400202-D002-4000-B000000000000202"
+							componentimage="IC400202-D001-4000-B000000000000202"
+							offset="0.00,0.00"
+							width="718"
+							height="359"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_div_24>
+		<ic_dial_rim
+			this="IC400205-D000-4000-B000000000000205"
+			id="ic_dial_rim"
+			tooltipslocalised="true"
+			uniqueguid="IC400205-D000-4000-B000000000000205"
+			currentstate="IC400206-D000-4000-B000000000000206"
+			defaultstate="IC400206-D000-4000-B000000000000206">
+			<componentimages>
+				<component_image
+					this="IC400205-D001-4000-B000000000000205"
+					uniqueguid="IC400205-D001-4000-B000000000000205"
+					imagepath="ui/derpy_ic/dial_rim.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC400206-D000-4000-B000000000000206"
+					name="standard"
+					width="745"
+					height="386"
+					uniqueguid="IC400206-D000-4000-B000000000000206">
+					<imagemetrics>
+						<image
+							this="IC400205-D002-4000-B000000000000205"
+							uniqueguid="IC400205-D002-4000-B000000000000205"
+							componentimage="IC400205-D001-4000-B000000000000205"
 							offset="0.00,0.00"
 							width="745"
 							height="386"
@@ -7504,80 +7635,8 @@
 			</states>
 		</ic_dial_rim>
 		<ic_barc_00
-			this="IC400202-D000-4000-B000000000000202"
-			id="ic_barc_00"
-			tooltipslocalised="true"
-			soundcategory="UI_GBL_TMP_Round_Medium_Button"
-			uniqueguid="IC400202-D000-4000-B000000000000202"
-			currentstate="IC400203-D000-4000-B000000000000203"
-			defaultstate="IC400203-D000-4000-B000000000000203">
-			<componentimages>
-				<component_image
-					this="IC400202-D001-4000-B000000000000202"
-					uniqueguid="IC400202-D001-4000-B000000000000202"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="IC400203-D000-4000-B000000000000203"
-					name="standard"
-					width="33"
-					height="33"
-					interactive="true"
-					uniqueguid="IC400203-D000-4000-B000000000000203">
-					<imagemetrics>
-						<image
-							this="IC400202-D002-4000-B000000000000202"
-							uniqueguid="IC400202-D002-4000-B000000000000202"
-							componentimage="IC400202-D001-4000-B000000000000202"
-							offset="0.00,0.00"
-							width="33"
-							height="33"
-							colour="#FFFFFFFF"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</ic_barc_00>
-		<ic_barc_01
-			this="IC400205-D000-4000-B000000000000205"
-			id="ic_barc_01"
-			tooltipslocalised="true"
-			soundcategory="UI_GBL_TMP_Round_Medium_Button"
-			uniqueguid="IC400205-D000-4000-B000000000000205"
-			currentstate="IC400206-D000-4000-B000000000000206"
-			defaultstate="IC400206-D000-4000-B000000000000206">
-			<componentimages>
-				<component_image
-					this="IC400205-D001-4000-B000000000000205"
-					uniqueguid="IC400205-D001-4000-B000000000000205"
-					imagepath="ui/skins/default/1x1_blank_white.png"/>
-			</componentimages>
-			<states>
-				<standard
-					this="IC400206-D000-4000-B000000000000206"
-					name="standard"
-					width="33"
-					height="33"
-					interactive="true"
-					uniqueguid="IC400206-D000-4000-B000000000000206">
-					<imagemetrics>
-						<image
-							this="IC400205-D002-4000-B000000000000205"
-							uniqueguid="IC400205-D002-4000-B000000000000205"
-							componentimage="IC400205-D001-4000-B000000000000205"
-							offset="0.00,0.00"
-							width="33"
-							height="33"
-							colour="#FFFFFFFF"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
-				</standard>
-			</states>
-		</ic_barc_01>
-		<ic_barc_02
 			this="IC400208-D000-4000-B000000000000208"
-			id="ic_barc_02"
+			id="ic_barc_00"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400208-D000-4000-B000000000000208"
@@ -7610,10 +7669,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_02>
-		<ic_barc_03
+		</ic_barc_00>
+		<ic_barc_01
 			this="IC40020B-D000-4000-B00000000000020B"
-			id="ic_barc_03"
+			id="ic_barc_01"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40020B-D000-4000-B00000000000020B"
@@ -7646,10 +7705,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_03>
-		<ic_barc_04
+		</ic_barc_01>
+		<ic_barc_02
 			this="IC40020E-D000-4000-B00000000000020E"
-			id="ic_barc_04"
+			id="ic_barc_02"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40020E-D000-4000-B00000000000020E"
@@ -7682,10 +7741,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_04>
-		<ic_barc_05
+		</ic_barc_02>
+		<ic_barc_03
 			this="IC400211-D000-4000-B000000000000211"
-			id="ic_barc_05"
+			id="ic_barc_03"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400211-D000-4000-B000000000000211"
@@ -7718,10 +7777,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_05>
-		<ic_barc_06
+		</ic_barc_03>
+		<ic_barc_04
 			this="IC400214-D000-4000-B000000000000214"
-			id="ic_barc_06"
+			id="ic_barc_04"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400214-D000-4000-B000000000000214"
@@ -7754,10 +7813,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_06>
-		<ic_barc_07
+		</ic_barc_04>
+		<ic_barc_05
 			this="IC400217-D000-4000-B000000000000217"
-			id="ic_barc_07"
+			id="ic_barc_05"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400217-D000-4000-B000000000000217"
@@ -7790,10 +7849,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_07>
-		<ic_barc_08
+		</ic_barc_05>
+		<ic_barc_06
 			this="IC40021A-D000-4000-B00000000000021A"
-			id="ic_barc_08"
+			id="ic_barc_06"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40021A-D000-4000-B00000000000021A"
@@ -7826,10 +7885,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_08>
-		<ic_barc_09
+		</ic_barc_06>
+		<ic_barc_07
 			this="IC40021D-D000-4000-B00000000000021D"
-			id="ic_barc_09"
+			id="ic_barc_07"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40021D-D000-4000-B00000000000021D"
@@ -7862,10 +7921,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_09>
-		<ic_barc_10
+		</ic_barc_07>
+		<ic_barc_08
 			this="IC400220-D000-4000-B000000000000220"
-			id="ic_barc_10"
+			id="ic_barc_08"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400220-D000-4000-B000000000000220"
@@ -7898,10 +7957,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_10>
-		<ic_barc_11
+		</ic_barc_08>
+		<ic_barc_09
 			this="IC400223-D000-4000-B000000000000223"
-			id="ic_barc_11"
+			id="ic_barc_09"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400223-D000-4000-B000000000000223"
@@ -7934,10 +7993,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_11>
-		<ic_barc_12
+		</ic_barc_09>
+		<ic_barc_10
 			this="IC400226-D000-4000-B000000000000226"
-			id="ic_barc_12"
+			id="ic_barc_10"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400226-D000-4000-B000000000000226"
@@ -7970,10 +8029,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_12>
-		<ic_barc_13
+		</ic_barc_10>
+		<ic_barc_11
 			this="IC400229-D000-4000-B000000000000229"
-			id="ic_barc_13"
+			id="ic_barc_11"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400229-D000-4000-B000000000000229"
@@ -8006,10 +8065,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_13>
-		<ic_barc_14
+		</ic_barc_11>
+		<ic_barc_12
 			this="IC40022C-D000-4000-B00000000000022C"
-			id="ic_barc_14"
+			id="ic_barc_12"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40022C-D000-4000-B00000000000022C"
@@ -8042,10 +8101,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_14>
-		<ic_barc_15
+		</ic_barc_12>
+		<ic_barc_13
 			this="IC40022F-D000-4000-B00000000000022F"
-			id="ic_barc_15"
+			id="ic_barc_13"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40022F-D000-4000-B00000000000022F"
@@ -8078,10 +8137,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_15>
-		<ic_barc_16
+		</ic_barc_13>
+		<ic_barc_14
 			this="IC400232-D000-4000-B000000000000232"
-			id="ic_barc_16"
+			id="ic_barc_14"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400232-D000-4000-B000000000000232"
@@ -8114,10 +8173,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_16>
-		<ic_barc_17
+		</ic_barc_14>
+		<ic_barc_15
 			this="IC400235-D000-4000-B000000000000235"
-			id="ic_barc_17"
+			id="ic_barc_15"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400235-D000-4000-B000000000000235"
@@ -8150,10 +8209,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_17>
-		<ic_barc_18
+		</ic_barc_15>
+		<ic_barc_16
 			this="IC400238-D000-4000-B000000000000238"
-			id="ic_barc_18"
+			id="ic_barc_16"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400238-D000-4000-B000000000000238"
@@ -8186,10 +8245,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_18>
-		<ic_barc_19
+		</ic_barc_16>
+		<ic_barc_17
 			this="IC40023B-D000-4000-B00000000000023B"
-			id="ic_barc_19"
+			id="ic_barc_17"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40023B-D000-4000-B00000000000023B"
@@ -8222,10 +8281,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_19>
-		<ic_barc_20
+		</ic_barc_17>
+		<ic_barc_18
 			this="IC40023E-D000-4000-B00000000000023E"
-			id="ic_barc_20"
+			id="ic_barc_18"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40023E-D000-4000-B00000000000023E"
@@ -8258,10 +8317,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_20>
-		<ic_barc_21
+		</ic_barc_18>
+		<ic_barc_19
 			this="IC400241-D000-4000-B000000000000241"
-			id="ic_barc_21"
+			id="ic_barc_19"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400241-D000-4000-B000000000000241"
@@ -8294,10 +8353,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_21>
-		<ic_barc_22
+		</ic_barc_19>
+		<ic_barc_20
 			this="IC400244-D000-4000-B000000000000244"
-			id="ic_barc_22"
+			id="ic_barc_20"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400244-D000-4000-B000000000000244"
@@ -8330,10 +8389,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_22>
-		<ic_barc_23
+		</ic_barc_20>
+		<ic_barc_21
 			this="IC400247-D000-4000-B000000000000247"
-			id="ic_barc_23"
+			id="ic_barc_21"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400247-D000-4000-B000000000000247"
@@ -8366,10 +8425,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_23>
-		<ic_barc_24
+		</ic_barc_21>
+		<ic_barc_22
 			this="IC40024A-D000-4000-B00000000000024A"
-			id="ic_barc_24"
+			id="ic_barc_22"
 			tooltipslocalised="true"
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40024A-D000-4000-B00000000000024A"
@@ -8402,64 +8461,82 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barc_24>
-		<ic_barp_00
+		</ic_barc_22>
+		<ic_barc_23
 			this="IC40024D-D000-4000-B00000000000024D"
-			id="ic_barp_00"
+			id="ic_barc_23"
 			tooltipslocalised="true"
+			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC40024D-D000-4000-B00000000000024D"
 			currentstate="IC40024E-D000-4000-B00000000000024E"
 			defaultstate="IC40024E-D000-4000-B00000000000024E">
+			<componentimages>
+				<component_image
+					this="IC40024D-D001-4000-B00000000000024D"
+					uniqueguid="IC40024D-D001-4000-B00000000000024D"
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC40024E-D000-4000-B00000000000024E"
 					name="standard"
-					width="60"
-					height="20"
+					width="33"
+					height="33"
+					interactive="true"
 					uniqueguid="IC40024E-D000-4000-B00000000000024E">
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="16"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="0"
-						fontcat_name="header_16"/>
+					<imagemetrics>
+						<image
+							this="IC40024D-D002-4000-B00000000000024D"
+							uniqueguid="IC40024D-D002-4000-B00000000000024D"
+							componentimage="IC40024D-D001-4000-B00000000000024D"
+							offset="0.00,0.00"
+							width="33"
+							height="33"
+							colour="#FFFFFFFF"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barp_00>
-		<ic_barp_01
+		</ic_barc_23>
+		<ic_barc_24
 			this="IC400250-D000-4000-B000000000000250"
-			id="ic_barp_01"
+			id="ic_barc_24"
 			tooltipslocalised="true"
+			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC400250-D000-4000-B000000000000250"
 			currentstate="IC400251-D000-4000-B000000000000251"
 			defaultstate="IC400251-D000-4000-B000000000000251">
+			<componentimages>
+				<component_image
+					this="IC400250-D001-4000-B000000000000250"
+					uniqueguid="IC400250-D001-4000-B000000000000250"
+					imagepath="ui/skins/default/1x1_blank_white.png"/>
+			</componentimages>
 			<states>
 				<standard
 					this="IC400251-D000-4000-B000000000000251"
 					name="standard"
-					width="60"
-					height="20"
+					width="33"
+					height="33"
+					interactive="true"
 					uniqueguid="IC400251-D000-4000-B000000000000251">
-					<component_text
-						texthalign="Center"
-						textvalign="Center"
-						textxoffset="0.00,0.00"
-						textyoffset="0.00,0.00"
-						texthbehaviour="Never split"
-						font_m_size="16"
-						font_m_colour="#FFF8D7FF"
-						font_m_leading="0"
-						fontcat_name="header_16"/>
+					<imagemetrics>
+						<image
+							this="IC400250-D002-4000-B000000000000250"
+							uniqueguid="IC400250-D002-4000-B000000000000250"
+							componentimage="IC400250-D001-4000-B000000000000250"
+							offset="0.00,0.00"
+							width="33"
+							height="33"
+							colour="#FFFFFFFF"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
 				</standard>
 			</states>
-		</ic_barp_01>
-		<ic_barp_02
+		</ic_barc_24>
+		<ic_barp_00
 			this="IC400253-D000-4000-B000000000000253"
-			id="ic_barp_02"
+			id="ic_barp_00"
 			tooltipslocalised="true"
 			uniqueguid="IC400253-D000-4000-B000000000000253"
 			currentstate="IC400254-D000-4000-B000000000000254"
@@ -8483,10 +8560,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_02>
-		<ic_barp_03
+		</ic_barp_00>
+		<ic_barp_01
 			this="IC400256-D000-4000-B000000000000256"
-			id="ic_barp_03"
+			id="ic_barp_01"
 			tooltipslocalised="true"
 			uniqueguid="IC400256-D000-4000-B000000000000256"
 			currentstate="IC400257-D000-4000-B000000000000257"
@@ -8510,10 +8587,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_03>
-		<ic_barp_04
+		</ic_barp_01>
+		<ic_barp_02
 			this="IC400259-D000-4000-B000000000000259"
-			id="ic_barp_04"
+			id="ic_barp_02"
 			tooltipslocalised="true"
 			uniqueguid="IC400259-D000-4000-B000000000000259"
 			currentstate="IC40025A-D000-4000-B00000000000025A"
@@ -8537,10 +8614,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_04>
-		<ic_barp_05
+		</ic_barp_02>
+		<ic_barp_03
 			this="IC40025C-D000-4000-B00000000000025C"
-			id="ic_barp_05"
+			id="ic_barp_03"
 			tooltipslocalised="true"
 			uniqueguid="IC40025C-D000-4000-B00000000000025C"
 			currentstate="IC40025D-D000-4000-B00000000000025D"
@@ -8564,10 +8641,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_05>
-		<ic_barp_06
+		</ic_barp_03>
+		<ic_barp_04
 			this="IC40025F-D000-4000-B00000000000025F"
-			id="ic_barp_06"
+			id="ic_barp_04"
 			tooltipslocalised="true"
 			uniqueguid="IC40025F-D000-4000-B00000000000025F"
 			currentstate="IC400260-D000-4000-B000000000000260"
@@ -8591,10 +8668,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_06>
-		<ic_barp_07
+		</ic_barp_04>
+		<ic_barp_05
 			this="IC400262-D000-4000-B000000000000262"
-			id="ic_barp_07"
+			id="ic_barp_05"
 			tooltipslocalised="true"
 			uniqueguid="IC400262-D000-4000-B000000000000262"
 			currentstate="IC400263-D000-4000-B000000000000263"
@@ -8618,10 +8695,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_07>
-		<ic_barp_08
+		</ic_barp_05>
+		<ic_barp_06
 			this="IC400265-D000-4000-B000000000000265"
-			id="ic_barp_08"
+			id="ic_barp_06"
 			tooltipslocalised="true"
 			uniqueguid="IC400265-D000-4000-B000000000000265"
 			currentstate="IC400266-D000-4000-B000000000000266"
@@ -8645,10 +8722,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_08>
-		<ic_barp_09
+		</ic_barp_06>
+		<ic_barp_07
 			this="IC400268-D000-4000-B000000000000268"
-			id="ic_barp_09"
+			id="ic_barp_07"
 			tooltipslocalised="true"
 			uniqueguid="IC400268-D000-4000-B000000000000268"
 			currentstate="IC400269-D000-4000-B000000000000269"
@@ -8672,10 +8749,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_09>
-		<ic_barp_10
+		</ic_barp_07>
+		<ic_barp_08
 			this="IC40026B-D000-4000-B00000000000026B"
-			id="ic_barp_10"
+			id="ic_barp_08"
 			tooltipslocalised="true"
 			uniqueguid="IC40026B-D000-4000-B00000000000026B"
 			currentstate="IC40026C-D000-4000-B00000000000026C"
@@ -8699,10 +8776,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_10>
-		<ic_barp_11
+		</ic_barp_08>
+		<ic_barp_09
 			this="IC40026E-D000-4000-B00000000000026E"
-			id="ic_barp_11"
+			id="ic_barp_09"
 			tooltipslocalised="true"
 			uniqueguid="IC40026E-D000-4000-B00000000000026E"
 			currentstate="IC40026F-D000-4000-B00000000000026F"
@@ -8726,10 +8803,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_11>
-		<ic_barp_12
+		</ic_barp_09>
+		<ic_barp_10
 			this="IC400271-D000-4000-B000000000000271"
-			id="ic_barp_12"
+			id="ic_barp_10"
 			tooltipslocalised="true"
 			uniqueguid="IC400271-D000-4000-B000000000000271"
 			currentstate="IC400272-D000-4000-B000000000000272"
@@ -8753,10 +8830,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_12>
-		<ic_barp_13
+		</ic_barp_10>
+		<ic_barp_11
 			this="IC400274-D000-4000-B000000000000274"
-			id="ic_barp_13"
+			id="ic_barp_11"
 			tooltipslocalised="true"
 			uniqueguid="IC400274-D000-4000-B000000000000274"
 			currentstate="IC400275-D000-4000-B000000000000275"
@@ -8780,10 +8857,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_13>
-		<ic_barp_14
+		</ic_barp_11>
+		<ic_barp_12
 			this="IC400277-D000-4000-B000000000000277"
-			id="ic_barp_14"
+			id="ic_barp_12"
 			tooltipslocalised="true"
 			uniqueguid="IC400277-D000-4000-B000000000000277"
 			currentstate="IC400278-D000-4000-B000000000000278"
@@ -8807,10 +8884,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_14>
-		<ic_barp_15
+		</ic_barp_12>
+		<ic_barp_13
 			this="IC40027A-D000-4000-B00000000000027A"
-			id="ic_barp_15"
+			id="ic_barp_13"
 			tooltipslocalised="true"
 			uniqueguid="IC40027A-D000-4000-B00000000000027A"
 			currentstate="IC40027B-D000-4000-B00000000000027B"
@@ -8834,10 +8911,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_15>
-		<ic_barp_16
+		</ic_barp_13>
+		<ic_barp_14
 			this="IC40027D-D000-4000-B00000000000027D"
-			id="ic_barp_16"
+			id="ic_barp_14"
 			tooltipslocalised="true"
 			uniqueguid="IC40027D-D000-4000-B00000000000027D"
 			currentstate="IC40027E-D000-4000-B00000000000027E"
@@ -8861,10 +8938,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_16>
-		<ic_barp_17
+		</ic_barp_14>
+		<ic_barp_15
 			this="IC400280-D000-4000-B000000000000280"
-			id="ic_barp_17"
+			id="ic_barp_15"
 			tooltipslocalised="true"
 			uniqueguid="IC400280-D000-4000-B000000000000280"
 			currentstate="IC400281-D000-4000-B000000000000281"
@@ -8888,10 +8965,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_17>
-		<ic_barp_18
+		</ic_barp_15>
+		<ic_barp_16
 			this="IC400283-D000-4000-B000000000000283"
-			id="ic_barp_18"
+			id="ic_barp_16"
 			tooltipslocalised="true"
 			uniqueguid="IC400283-D000-4000-B000000000000283"
 			currentstate="IC400284-D000-4000-B000000000000284"
@@ -8915,10 +8992,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_18>
-		<ic_barp_19
+		</ic_barp_16>
+		<ic_barp_17
 			this="IC400286-D000-4000-B000000000000286"
-			id="ic_barp_19"
+			id="ic_barp_17"
 			tooltipslocalised="true"
 			uniqueguid="IC400286-D000-4000-B000000000000286"
 			currentstate="IC400287-D000-4000-B000000000000287"
@@ -8942,10 +9019,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_19>
-		<ic_barp_20
+		</ic_barp_17>
+		<ic_barp_18
 			this="IC400289-D000-4000-B000000000000289"
-			id="ic_barp_20"
+			id="ic_barp_18"
 			tooltipslocalised="true"
 			uniqueguid="IC400289-D000-4000-B000000000000289"
 			currentstate="IC40028A-D000-4000-B00000000000028A"
@@ -8969,10 +9046,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_20>
-		<ic_barp_21
+		</ic_barp_18>
+		<ic_barp_19
 			this="IC40028C-D000-4000-B00000000000028C"
-			id="ic_barp_21"
+			id="ic_barp_19"
 			tooltipslocalised="true"
 			uniqueguid="IC40028C-D000-4000-B00000000000028C"
 			currentstate="IC40028D-D000-4000-B00000000000028D"
@@ -8996,10 +9073,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_21>
-		<ic_barp_22
+		</ic_barp_19>
+		<ic_barp_20
 			this="IC40028F-D000-4000-B00000000000028F"
-			id="ic_barp_22"
+			id="ic_barp_20"
 			tooltipslocalised="true"
 			uniqueguid="IC40028F-D000-4000-B00000000000028F"
 			currentstate="IC400290-D000-4000-B000000000000290"
@@ -9023,10 +9100,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_22>
-		<ic_barp_23
+		</ic_barp_20>
+		<ic_barp_21
 			this="IC400292-D000-4000-B000000000000292"
-			id="ic_barp_23"
+			id="ic_barp_21"
 			tooltipslocalised="true"
 			uniqueguid="IC400292-D000-4000-B000000000000292"
 			currentstate="IC400293-D000-4000-B000000000000293"
@@ -9050,10 +9127,10 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_23>
-		<ic_barp_24
+		</ic_barp_21>
+		<ic_barp_22
 			this="IC400295-D000-4000-B000000000000295"
-			id="ic_barp_24"
+			id="ic_barp_22"
 			tooltipslocalised="true"
 			uniqueguid="IC400295-D000-4000-B000000000000295"
 			currentstate="IC400296-D000-4000-B000000000000296"
@@ -9077,82 +9154,64 @@
 						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_barp_24>
-		<ic_mark_court
+		</ic_barp_22>
+		<ic_barp_23
 			this="IC400298-D000-4000-B000000000000298"
-			id="ic_mark_court"
+			id="ic_barp_23"
 			tooltipslocalised="true"
 			uniqueguid="IC400298-D000-4000-B000000000000298"
 			currentstate="IC400299-D000-4000-B000000000000299"
 			defaultstate="IC400299-D000-4000-B000000000000299">
-			<componentimages>
-				<component_image
-					this="IC400298-D001-4000-B000000000000298"
-					uniqueguid="IC400298-D001-4000-B000000000000298"
-					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
-			</componentimages>
 			<states>
 				<standard
 					this="IC400299-D000-4000-B000000000000299"
 					name="standard"
-					width="23"
-					height="23"
+					width="60"
+					height="20"
 					uniqueguid="IC400299-D000-4000-B000000000000299">
-					<imagemetrics>
-						<image
-							this="IC400298-D002-4000-B000000000000298"
-							uniqueguid="IC400298-D002-4000-B000000000000298"
-							componentimage="IC400298-D001-4000-B000000000000298"
-							offset="0.00,0.00"
-							width="23"
-							height="23"
-							colour="#FFFFFFD0"
-							shader_name="glow_pulse_t0"
-							shadertechnique_vars="0.80,1.50,0.80,0.00"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_mark_court>
-		<ic_mark_govs
+		</ic_barp_23>
+		<ic_barp_24
 			this="IC40029B-D000-4000-B00000000000029B"
-			id="ic_mark_govs"
+			id="ic_barp_24"
 			tooltipslocalised="true"
 			uniqueguid="IC40029B-D000-4000-B00000000000029B"
 			currentstate="IC40029C-D000-4000-B00000000000029C"
 			defaultstate="IC40029C-D000-4000-B00000000000029C">
-			<componentimages>
-				<component_image
-					this="IC40029B-D001-4000-B00000000000029B"
-					uniqueguid="IC40029B-D001-4000-B00000000000029B"
-					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
-			</componentimages>
 			<states>
 				<standard
 					this="IC40029C-D000-4000-B00000000000029C"
 					name="standard"
-					width="24"
-					height="24"
+					width="60"
+					height="20"
 					uniqueguid="IC40029C-D000-4000-B00000000000029C">
-					<imagemetrics>
-						<image
-							this="IC40029B-D002-4000-B00000000000029B"
-							uniqueguid="IC40029B-D002-4000-B00000000000029B"
-							componentimage="IC40029B-D001-4000-B00000000000029B"
-							offset="0.00,0.00"
-							width="24"
-							height="24"
-							colour="#FFFFFFD0"
-							shader_name="glow_pulse_t0"
-							shadertechnique_vars="0.80,1.50,0.80,0.00"
-							margin="0.00,0.00,0.00,0.00"/>
-					</imagemetrics>
+					<component_text
+						texthalign="Center"
+						textvalign="Center"
+						textxoffset="0.00,0.00"
+						textyoffset="0.00,0.00"
+						texthbehaviour="Never split"
+						font_m_size="16"
+						font_m_colour="#FFF8D7FF"
+						font_m_leading="0"
+						fontcat_name="header_16"/>
 				</standard>
 			</states>
-		</ic_mark_govs>
-		<ic_mark_offices
+		</ic_barp_24>
+		<ic_mark_court
 			this="IC40029E-D000-4000-B00000000000029E"
-			id="ic_mark_offices"
+			id="ic_mark_court"
 			tooltipslocalised="true"
 			uniqueguid="IC40029E-D000-4000-B00000000000029E"
 			currentstate="IC40029F-D000-4000-B00000000000029F"
@@ -9185,10 +9244,10 @@
 					</imagemetrics>
 				</standard>
 			</states>
-		</ic_mark_offices>
-		<ic_mark_petitions
+		</ic_mark_court>
+		<ic_mark_govs
 			this="IC4002A1-D000-4000-B0000000000002A1"
-			id="ic_mark_petitions"
+			id="ic_mark_govs"
 			tooltipslocalised="true"
 			uniqueguid="IC4002A1-D000-4000-B0000000000002A1"
 			currentstate="IC4002A2-D000-4000-B0000000000002A2"
@@ -9203,8 +9262,8 @@
 				<standard
 					this="IC4002A2-D000-4000-B0000000000002A2"
 					name="standard"
-					width="23"
-					height="23"
+					width="24"
+					height="24"
 					uniqueguid="IC4002A2-D000-4000-B0000000000002A2">
 					<imagemetrics>
 						<image
@@ -9212,8 +9271,80 @@
 							uniqueguid="IC4002A1-D002-4000-B0000000000002A1"
 							componentimage="IC4002A1-D001-4000-B0000000000002A1"
 							offset="0.00,0.00"
+							width="24"
+							height="24"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_govs>
+		<ic_mark_offices
+			this="IC4002A4-D000-4000-B0000000000002A4"
+			id="ic_mark_offices"
+			tooltipslocalised="true"
+			uniqueguid="IC4002A4-D000-4000-B0000000000002A4"
+			currentstate="IC4002A5-D000-4000-B0000000000002A5"
+			defaultstate="IC4002A5-D000-4000-B0000000000002A5">
+			<componentimages>
+				<component_image
+					this="IC4002A4-D001-4000-B0000000000002A4"
+					uniqueguid="IC4002A4-D001-4000-B0000000000002A4"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC4002A5-D000-4000-B0000000000002A5"
+					name="standard"
+					width="23"
+					height="23"
+					uniqueguid="IC4002A5-D000-4000-B0000000000002A5">
+					<imagemetrics>
+						<image
+							this="IC4002A4-D002-4000-B0000000000002A4"
+							uniqueguid="IC4002A4-D002-4000-B0000000000002A4"
+							componentimage="IC4002A4-D001-4000-B0000000000002A4"
+							offset="0.00,0.00"
 							width="23"
 							height="23"
+							colour="#FFFFFFD0"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="0.80,1.50,0.80,0.00"
+							margin="0.00,0.00,0.00,0.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</ic_mark_offices>
+		<ic_mark_petitions
+			this="IC4002A7-D000-4000-B0000000000002A7"
+			id="ic_mark_petitions"
+			tooltipslocalised="true"
+			uniqueguid="IC4002A7-D000-4000-B0000000000002A7"
+			currentstate="IC4002A8-D000-4000-B0000000000002A8"
+			defaultstate="IC4002A8-D000-4000-B0000000000002A8">
+			<componentimages>
+				<component_image
+					this="IC4002A7-D001-4000-B0000000000002A7"
+					uniqueguid="IC4002A7-D001-4000-B0000000000002A7"
+					imagepath="ui/skins/default/dlc23_chd_hell_forge/heat_glow.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="IC4002A8-D000-4000-B0000000000002A8"
+					name="standard"
+					width="24"
+					height="24"
+					uniqueguid="IC4002A8-D000-4000-B0000000000002A8">
+					<imagemetrics>
+						<image
+							this="IC4002A7-D002-4000-B0000000000002A7"
+							uniqueguid="IC4002A7-D002-4000-B0000000000002A7"
+							componentimage="IC4002A7-D001-4000-B0000000000002A7"
+							offset="0.00,0.00"
+							width="24"
+							height="24"
 							colour="#FFFFFFD0"
 							shader_name="glow_pulse_t0"
 							shadertechnique_vars="0.80,1.50,0.80,0.00"

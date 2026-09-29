@@ -78,6 +78,15 @@ def _strip(src):
     # table key is reported and the packer refuses to build on a false positive - which
     # is worse than not checking, because the next person just bypasses the gate.
     declared |= set(re.findall(r"\b([A-Z][A-Z0-9_]{2,})\s*=(?!=)", code))
+    # AND EVERY TARGET OF A MULTI-ASSIGNMENT: `T.AAA, T.BBB = 0, 1` declares both, and
+    # the pattern above sees only the name beside the '='. Anchored at a statement's
+    # start, so a positional value in a table constructor is not taken for a target -
+    # and [ \t], not \s, so a target list cannot run down the lines of one.
+    for m in re.finditer(r"(?m)^[ \t]*((?:[A-Za-z_][\w.]*[ \t]*,[ \t]*)+[A-Za-z_][\w.]*)[ \t]*=(?!=)", code):
+        for target in m.group(1).split(","):
+            name = target.strip().split(".")[-1]
+            if re.match(r"[A-Z][A-Z0-9_]{2,}$", name):
+                declared.add(name)
     used = set(re.findall(r"\b([A-Z][A-Z0-9_]{2,})\b", code))
     return code, declared, used
 
@@ -153,6 +162,15 @@ if __name__ == "__main__":
         # AN ESCAPED QUOTE DOES NOT END THE STRING. Without the escape skip the scanner
         # closes at the backslash-quote and reads the rest of the literal as code.
         assert undeclared('local a = "A \\\" MISSING"') == []
+        # A MULTI-ASSIGNMENT DECLARES EVERY TARGET, not only the one next to its '='
+        # (the party map's ICUI.MK_PLATE, ICUI.MK_CREST, ... = 0, 1, ...).
+        assert undeclared('local T = {}\nT.MK_AA, T.MK_BB = 0, 1\nreturn T.MK_AA + T.MK_BB') == []
+        # and still reports a read that no list declares
+        assert undeclared('local T = {}\nT.MK_AA, T.MK_BB = 0, 1\nreturn MISSING') == ["MISSING"]
+        # A TARGET LIST STAYS ON ONE LINE. Positional reads down a multi-line table
+        # constructor, ending at a `key =`, are reads and not targets.
+        assert undeclared('local t = {\n    READ_AA,\n    READ_BB,\n    key = 1,\n}') == [
+            "READ_AA", "READ_BB"], undeclared('local t = {\n    READ_AA,\n    READ_BB,\n    key = 1,\n}')
         print("selftest ok")
         sys.exit(0)
     sys.exit(main(args or sorted(glob.glob("Modding Files/pack/script/campaign/mod/*.lua"))))

@@ -134,6 +134,18 @@ derpy_ic_effects_derpy_ic_gov_house_road	Movement range +4%	false
 effect_bundles_localised_title_derpy_ic_gov_house_hearth	Overseer: The Hearth	false
 effect_bundles_localised_description_derpy_ic_gov_house_hearth	The old clans hold it, and men come back to the muster faster.	false
 derpy_ic_effects_derpy_ic_gov_house_hearth	Replenishment +8%	false
+effect_bundles_localised_title_derpy_ic_envoy_ctl	Envoy: Control	false
+effect_bundles_localised_description_derpy_ic_envoy_ctl	An envoy of the court is keeping order here.	false
+derpy_ic_effects_derpy_ic_envoy_ctl	Control +6	false
+effect_bundles_localised_title_derpy_ic_envoy_arm	Envoy: Armaments	false
+effect_bundles_localised_description_derpy_ic_envoy_arm	An envoy of the court is driving the forges here.	false
+derpy_ic_effects_derpy_ic_envoy_arm	Armaments +20%	false
+effect_bundles_localised_title_derpy_ic_envoy_raw	Envoy: Raw materials	false
+effect_bundles_localised_description_derpy_ic_envoy_raw	An envoy of the court is working the mines here harder.	false
+derpy_ic_effects_derpy_ic_envoy_raw	Raw Materials +20%	false
+effect_bundles_localised_title_derpy_ic_envoy_lab	Envoy: Labour	false
+effect_bundles_localised_description_derpy_ic_envoy_lab	An envoy of the court is seeing that fewer labourers are worked to death here.	false
+derpy_ic_effects_derpy_ic_envoy_lab	Labour loss -15%	false
 derpy_ic_office_name_priest	High Priest of Hashut	false
 derpy_ic_office_name_forge	Grand Overseer of the Forge	false
 derpy_ic_office_name_ledger	Keeper of the Black Ledger	false
@@ -889,24 +901,28 @@ event_feed_strings_text_derpy_ic_move_purge_ok	PURGE THE HOUSE - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_purge_fail	PURGE THE HOUSE - FAILURE	false
 event_feed_strings_text_derpy_ic_move_unseat_ok	STRIKE THEIR SEATS - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_unseat_fail	STRIKE THEIR SEATS - FAILURE	false
-event_feed_strings_text_derpy_ic_move_recall_ok	RECALL THEIR GOVERNORS - SUCCESS	false
-event_feed_strings_text_derpy_ic_move_recall_fail	RECALL THEIR GOVERNORS - FAILURE	false
-event_feed_strings_text_derpy_ic_move_oath_ok	BLOOD-OATH ON THE ANVIL - SUCCESS	false
-event_feed_strings_text_derpy_ic_move_oath_fail	BLOOD-OATH ON THE ANVIL - FAILURE	false
+event_feed_strings_text_derpy_ic_move_recall_ok	RECALL GOVERNORS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_recall_fail	RECALL GOVERNORS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_oath_ok	BLOOD-OATH - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_oath_fail	BLOOD-OATH - FAILURE	false
 event_feed_strings_text_derpy_ic_move_patron_ok	STAND HIS PATRON - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_patron_fail	STAND HIS PATRON - FAILURE	false
 event_feed_strings_text_derpy_ic_move_kinsman_ok	NAME HIM KINSMAN - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_kinsman_fail	NAME HIM KINSMAN - FAILURE	false
 event_feed_strings_text_derpy_ic_move_pledge_ok	PLEDGE OF THE FORGE - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_pledge_fail	PLEDGE OF THE FORGE - FAILURE	false
-event_feed_strings_text_derpy_ic_move_embezzle_ok	EMBEZZLE FROM THE VAULTS - SUCCESS	false
-event_feed_strings_text_derpy_ic_move_embezzle_fail	EMBEZZLE FROM THE VAULTS - FAILURE	false
+event_feed_strings_text_derpy_ic_move_embezzle_ok	EMBEZZLE - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_embezzle_fail	EMBEZZLE - FAILURE	false
 event_feed_strings_text_derpy_ic_move_feast_ok	A FEAST OF ASH - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_feast_fail	A FEAST OF ASH - FAILURE	false
 event_feed_strings_text_derpy_ic_move_audience_ok	HOLD THE ASH COURT - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_audience_fail	HOLD THE ASH COURT - FAILURE	false
 event_feed_strings_text_derpy_ic_move_circuit_ok	RIDE THE CIRCUIT - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_circuit_fail	RIDE THE CIRCUIT - FAILURE	false
+event_feed_strings_text_derpy_ic_move_envoy_ok	SEND AN ENVOY - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_envoy_fail	SEND AN ENVOY - FAILURE	false
+event_feed_strings_text_derpy_ic_move_diplomats_ok	SEND DIPLOMATS - SUCCESS	false
+event_feed_strings_text_derpy_ic_move_diplomats_fail	SEND DIPLOMATS - FAILURE	false
 missions_localised_title_derpy_ic_demand_office	A Party Demands an Office	false
 missions_localised_description_derpy_ic_demand_office	One of the court's parties wants one of its men seated in a vacant office. Their party card names the man and the office. Seat him before the time runs out and their loyalty rises; let it run out, or give the office to someone else, and it falls.	false
 missions_localised_mission_completed_text_derpy_ic_demand_office	The office is filled as they asked, and the party is satisfied.	false

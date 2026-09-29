@@ -39,6 +39,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MOD = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod")
 M = os.path.join(MOD, "zzz_derpy_iron_court.lua")
 U = os.path.join(MOD, "zzz_derpy_iron_court_ui.lua")
+UM = os.path.join(MOD, "zzz_derpy_iron_court_ui_map.lua")
 P = os.path.join(MOD, "zzz_derpy_iron_court_parties.lua")
 S = os.path.join(ROOT, "Modding Files", "pack", "script", "mct", "settings",
                  "derpy_iron_court.lua")
@@ -1063,12 +1064,14 @@ end"""),
      """      if true then"""),
 
     ("a civil mission opening the victim picker anyway", U,
-     """    if IC.plot_is_aimed(move.plot) then
+     """    elseif IC.plot_is_aimed(move.plot) then
         ICUI.pick = {kind = "plot_target", plot = move.plot}
     else
         ICUI.pick = {kind = "plot", plot = move.plot, key = nil}
     end""",
-     """    ICUI.pick = {kind = "plot_target", plot = move.plot}"""),
+     """    else
+        ICUI.pick = {kind = "plot_target", plot = move.plot}
+    end"""),
 
     ("a move's icon painted into the porthole's layer, not the icon cell's", U,
      """            ICUI.set_crest(card, "ic_plot_icon", plot.icon, ICUI.PLOT_ICON_PX)""",
@@ -2629,12 +2632,12 @@ end"""),
     # The pressure exemption removed. The court still fills and every party is
     # content; the strongest one is pressed anyway and leaves at full loyalty.
     ("an AI court pressed like a player's", M,
-     """    if not IC.TUNE.pressure or not IC.is_human(faction_key) then
+     """    if not IC.TUNE.pressure or IC.grace_left() > 0 or not IC.is_human(faction_key) then
         for _slug, house in pairs(court.houses) do house.pressed = nil end
         return 0
     end
     local chance = IC.control_pressure(faction_key)""",
-     """    if not IC.TUNE.pressure then
+     """    if not IC.TUNE.pressure or IC.grace_left() > 0 then
         for _slug, house in pairs(court.houses) do house.pressed = nil end
         return 0
     end
@@ -3360,17 +3363,17 @@ end"""),
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)"""),
     ("mct: secession with secession off", M,
-     """    if not IC.TUNE.secession then
+     """    if not IC.secession_on() then
         for _slug, house in pairs(court.houses) do house.clock = 0 end""",
      """    if false then
         for _slug, house in pairs(court.houses) do house.clock = 0 end"""),
     ("mct: pressure with pressure off", M,
-     "    if not IC.TUNE.pressure or not IC.is_human(faction_key) then",
-     "    if not IC.is_human(faction_key) then"),
+     "    if not IC.TUNE.pressure or IC.grace_left() > 0 or not IC.is_human(faction_key) then",
+     "    if IC.grace_left() > 0 or not IC.is_human(faction_key) then"),
     ("mct: the Crown splitting with crown_split off", M,
-     """    if not IC.TUNE.crown_split then
+     """    if not IC.TUNE.crown_split or IC.grace_left() > 0 then
 """,
-     """    if false then
+     """    if IC.grace_left() > 0 then
 """),
     ("live: a split countdown left running with crown_split off", M,
      """        if crown then crown.split = 0 end
@@ -3784,7 +3787,7 @@ end"""),
                and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then""",
      """if (now <= 0 or now > IC.TUNE.plot_provoke_clock) then"""),
     ("the Crown's card threatens a split the settings switched off", U,
-     """if IC.TUNE.crown_split ~= false then
+     """if IC.TUNE.crown_split ~= false and IC.grace_left() == 0 then
             if (house.split""",
      """if true then
             if (house.split"""),
@@ -4228,8 +4231,8 @@ end"""),
      """                local set = PRESET_VALUES[preset] or {}""",
      """                local set = {}"""),
     ("a failed errand logged against a party", M,
-     """               IC.plot_is_aimed(plot_key) and against or plot_key, cost)""",
-     """               against, cost)"""),
+     """               or plot_key, cost)""",
+     """               or against, cost)"""),
     ("a failed errand's line naming no errand", U,
      """        local errand = not e.key or IC.plot_by_key(e.key)""",
      """        local errand = not e.key"""),
@@ -4260,13 +4263,13 @@ end"""),
      """    if done then IC.apply_control_bundle(faction_key) end""",
      """"""),
     ("a party at the breaking point on no list", U,
-     """        if IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then""",
+     """        if IC.at_breaking_point(faction, seated[i]) then""",
      """        if false then"""),
-    ("a breaking party counted with secession off", U,
-     """        if IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then""",
-     """        if IC.at_breaking_point(faction, seated[i]) then"""),
+    ("a breaking party counted with secession off", M,
+     """    if not IC.secession_on() or not slug or slug == IC.CROWN then return false end""",
+     """    if not slug or slug == IC.CROWN then return false end"""),
     ("a breaking party's card reading PLOTTING", U,
-     """    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then""",
+     """    elseif IC.secession_on() and house.loyalty <= IC.TUNE.secede_break then""",
      """    elseif false then"""),
     ("a busy man free to take his old seat", U,
      """            local man = last and not posted[last.cqi]""",
@@ -4402,23 +4405,23 @@ end"""),
      """now = a:diplomatic_standing_with(other)""",
      """now = a:diplomatic_standing_with(b)"""),
     ("a counting party at the breaking point drawn with its count", U,
-     """    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then
+     """    elseif IC.secession_on() and house.loyalty <= IC.TUNE.secede_break then
         return "SECEDES 1"
     elseif (house.clock or 0) > 0 then
         return string.format("SECEDES %d", house.clock)
 """,
      """    elseif (house.clock or 0) > 0 then
         return string.format("SECEDES %d", house.clock)
-    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then
+    elseif IC.secession_on() and house.loyalty <= IC.TUNE.secede_break then
         return "SECEDES 1"
 """),
     ("the summary giving a breaking party its count", U,
-     """        if IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then
+     """        if IC.at_breaking_point(faction, seated[i]) then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = 1}
         elseif seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then""",
      """        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
-        elseif IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then"""),
+        elseif IC.at_breaking_point(faction, seated[i]) then"""),
     ("a breaking party's card drawn with its business", U,
      """string.match(word, "^SECEDES")""",
      """(house.clock or 0) > 0"""),
@@ -4561,6 +4564,120 @@ end"""),
 end""",
      """    IC.end_feuds(faction_key)
 end"""),
+    # THE GRACE PERIOD (author, 2026-09-29).
+    ("the grace period one turn short", M,
+     """    return math.max(0, IC.TUNE.grace_turns + 1 - cm:model():turn_number())""",
+     """    return math.max(0, IC.TUNE.grace_turns - cm:model():turn_number())"""),
+    ("secession on in the grace period", M,
+     """    return IC.TUNE.secession ~= false and IC.grace_left() == 0""",
+     """    return IC.TUNE.secession ~= false"""),
+    ("a countdown started in the grace period", M,
+     """    if not IC.secession_on() then
+        for _slug, house in pairs(court.houses) do house.clock = 0 end""",
+     """    if not IC.TUNE.secession then
+        for _slug, house in pairs(court.houses) do house.clock = 0 end"""),
+    ("a party pressed in the grace period", M,
+     """    if not IC.TUNE.pressure or IC.grace_left() > 0 or not IC.is_human(faction_key) then""",
+     """    if not IC.TUNE.pressure or not IC.is_human(faction_key) then"""),
+    ("the Crown split in the grace period", M,
+     """    if not IC.TUNE.crown_split or IC.grace_left() > 0 then""",
+     """    if not IC.TUNE.crown_split then"""),
+    ("the Crown's card threatening a split in the grace period", U,
+     """if IC.TUNE.crown_split ~= false and IC.grace_left() == 0 then""",
+     """if IC.TUNE.crown_split ~= false then"""),
+    ("the protection never said", U,
+     """    if IC.TUNE.secession ~= false and grace > 0 then""",
+     """    if false then"""),
+    ("the protection said with secession switched off", U,
+     """    if IC.TUNE.secession ~= false and grace > 0 then""",
+     """    if grace > 0 then"""),
+    ("Provoke sent in the grace period", M,
+     """    if plot_key == "provoke" and IC.TUNE.secession ~= false
+            and IC.grace_left() > 0 then""",
+     """    if false then"""),
+    ("Provoke refused in the grace period with secession off", M,
+     """    if plot_key == "provoke" and IC.TUNE.secession ~= false
+            and IC.grace_left() > 0 then""",
+     """    if plot_key == "provoke" and IC.grace_left() > 0 then"""),
+    ("Provoke's refusal counting the wrong turns", U,
+     """            .. "is no countdown to start yet.", left, left == 1 and "" or "s")""",
+     """            .. "is no countdown to start yet.", 10, left == 1 and "" or "s")"""),
+    ("the protection said to last one turn longer", U,
+     """            .. "for %d more turn%s.", grace, grace == 1 and "" or "s")""",
+     """            .. "for %d more turn%s.", grace + 1, grace == 1 and "" or "s")"""),
+    # THE CIVIL MISSIONS (plan 2026-09-29).
+    ("an envoy's work on the wrong province", M,
+     """            IC.held_region(faction_key, province), IC.TUNE.mission_turns)""",
+     """            IC.held_region(faction_key, IC.seats(faction_key)[1]), IC.TUNE.mission_turns)"""),
+    ("an envoy's work forever", M,
+     """            IC.held_region(faction_key, province), IC.TUNE.mission_turns)""",
+     """            IC.held_region(faction_key, province), -1)"""),
+    ("the same work sent twice", M,
+     """    if left then return false, "running", left end""",
+     """"""),
+    ("a lost province still sent to", M,
+     """    if not held then return false, "lost" end""",
+     """"""),
+    ("an unknown task sent", M,
+     """    if not task then return false, "no such task" end
+    local left""",
+     """    local left"""),
+    # NOT the return line: "if not ok then return false, why, short end" is
+    # already in the model twice before can_plot gains a third.
+    ("a refusal's turns dropped by can_plot", M,
+     """    local ok, why, short = IC.may_target(faction_key, plot_key, target)""",
+     """    local ok, why = IC.may_target(faction_key, plot_key, target)"""),
+    ("a failed mission logged without its place", M,
+     """               or (plot.target and (plot_key .. ":" .. tostring(target)))""",
+     """               or (plot.target and plot_key)"""),
+    ("a mission's success logged without its place", M,
+     """    IC.log(faction_key, plot_key, slug, plot.target and target or against, cost)""",
+     """    IC.log(faction_key, plot_key, slug, against, cost)"""),
+    ("the diplomatic bonus the wrong way round", M,
+     """        cm:apply_dilemma_diplomatic_bonus(faction_key, target, IC.TUNE.diplomats_bonus)""",
+     """        cm:apply_dilemma_diplomatic_bonus(target, faction_key, IC.TUNE.diplomats_bonus)"""),
+    ("diplomats never resting", M,
+     """        court.sent[target] = cm:model():turn_number()""",
+     """"""),
+    ("the rest one turn long", M,
+     """        local left = sent + IC.TUNE.diplomats_rest - cm:model():turn_number()""",
+     """        local left = sent + IC.TUNE.diplomats_rest + 1 - cm:model():turn_number()"""),
+    ("diplomats to the unmet", M,
+     """    if not met then return false, "unmet" end""",
+     """"""),
+    ("diplomats to rebels", M,
+     """    if them:is_rebel() then return false, "rebel" end""",
+     """"""),
+    ("diplomats to another player", M,
+     """    if them:is_human() then return false, "player" end""",
+     """"""),
+    ("diplomats to the dead", M,
+     """    if not them or them:is_null_interface() or them:is_dead() then""",
+     """    if not them or them:is_null_interface() then"""),
+    ("the rest not saved", M,
+     """                 join(stalled, ";"), join(news, ";"), join(sent, ";")}, "|")""",
+     """                 join(stalled, ";"), join(news, ";")}, "|")"""),
+    ("an ended rest saved", M,
+     """        if t + IC.TUNE.diplomats_rest > now then""",
+     """        if true then"""),
+    ("the Envoy's card opening the man's picker", U,
+     """    if plot and plot.target == "province" then""",
+     """    if false then"""),
+    ("a running task's row clickable", U,
+     """        keys[#lines] = may and (cells.key or target) or nil""",
+     """        keys[#lines] = cells.key or target"""),
+    ("the dead listed for diplomats", U,
+     """                if them and not them:is_null_interface() and not them:is_dead() then""",
+     """                if them and not them:is_null_interface() then"""),
+    ("sort arrows over a mission list", U,
+     """    if ICUI.pick then headers = mission or ICUI.HEADERS[view] or ICUI.PICK_HEADERS end""",
+     """    if ICUI.pick then headers = ICUI.HEADERS[view] or ICUI.PICK_HEADERS end"""),
+    ("the task target written wrong", U,
+     """                ICUI.pick.province .. ":" .. task.code)""",
+     """                ICUI.pick.province .. "|" .. task.code)"""),
+    ("a failed mission's Record line losing its place", U,
+     """        local mission, where = string.match(e.key or "", "^(%a+):(.+)$")""",
+     """        local mission, where = nil, nil"""),
 ]
 
 

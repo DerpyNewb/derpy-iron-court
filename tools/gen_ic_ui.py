@@ -104,6 +104,10 @@ GUID_PREFIXES = {
     "derpy_ic_row_compact.twui.xml":   "IC42",
     "derpy_ic_party_compact.twui.xml": "IC43",
     "derpy_ic_plot_compact.twui.xml":  "IC44",
+    # IC45-IC46 - THE PARTY MAP (spec 2026-09-29): the root-level layer with the
+    # legend, and the marker created into it once per province. Never scaled.
+    "derpy_ic_map.twui.xml":        "IC45",
+    "derpy_ic_map_marker.twui.xml": "IC46",
 }
 
 # Base file -> its compact copy. The opener and the influence plate are HUD
@@ -204,23 +208,26 @@ PANEL_LAYOUT = {
     "ic_tab_court": (18, 62, 240, 32),
     "ic_tab_offices": (262, 62, 240, 32),
     "ic_tab_govs": (506, 62, 240, 32),
-    "ic_tab_intrigue": (750, 62, 240, 32),
+    # THE PARTY MAP (spec 2026-09-29): after Governors, its sibling. Not a view -
+    # its click closes the court (zzz_derpy_iron_court_ui_map.lua).
+    "ic_tab_map": (750, 62, 240, 32),
+    "ic_tab_intrigue": (994, 62, 240, 32),
     # WHAT THE PARTIES ASK OF YOU, on a tab of its own (author, 2026-09-24).
     # Offers were answered from a party's favour list and demands from nowhere
     # at all - the player had to find the seat and fill it by hand.
-    "ic_tab_petitions": (994, 62, 240, 32),
+    "ic_tab_petitions": (1238, 62, 240, 32),
     # The RECORD, on its own tab, and LAST (author, 2026-09-24): it is the one
     # tab with nothing to act on. It shared the Intrigue list with the live
     # secession clocks, and a page of history pushed the one thing a player
     # can still act on off the screen.
-    "ic_tab_log": (1238, 62, 240, 32),
+    "ic_tab_log": (1482, 62, 240, 32),
     # THE ATTENTION MARKERS (spec 2026-09-28 section 4.4): a heat glow over
     # each tab's right-hand skull, the cap's centre 20px in from the end
     # (TAB_CAP 40), shown by ICUI.draw_marks while that tab has business.
     "ic_mark_court": (18 + 240 - 34, 64, 28, 28),
     "ic_mark_offices": (262 + 240 - 34, 64, 28, 28),
     "ic_mark_govs": (506 + 240 - 34, 64, 28, 28),
-    "ic_mark_petitions": (994 + 240 - 34, 64, 28, 28),
+    "ic_mark_petitions": (1238 + 240 - 34, 64, 28, 28),
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
@@ -2616,6 +2623,15 @@ def build_plates():
     # THE WEDGES ARE NOT HERE. There are 1560 of them at 320KB apiece and this
     # function returns a dict; wedge_art() yields them one at a time instead,
     # and art_paths() is what anything needing only the NAMES should ask.
+    # THE PARTY MAP'S PLATES AND RINGS (spec 2026-09-29): a disc per party and
+    # per absorbed faction, one for no governor, and the two rings.
+    out[map_disc_path(None)] = map_disc_pixels(MAP_DISC_NONE)
+    for p in IC.PARTIES:
+        out[map_disc_path(p[0])] = map_disc_pixels(HOUSE_COLOUR[p[0]])
+    for slug in CONFED_SEATS:
+        out[map_disc_path(slug)] = map_disc_pixels(CONFED_COLOUR[slug])
+    out[MAP_RING_CAPITAL] = map_ring_pixels(MAP_RING_CAPITAL_COLOUR)
+    out[MAP_RING_OUTLINE] = map_ring_pixels(MAP_RING_OUTLINE_COLOUR)
     out[MASK_NONE] = mask_pixels()
     out[RIM_ART] = seat_rim_pixels()
     out[RIM_ROW_ART] = seat_rim_pixels(RIM_ROW_MARGIN, RIM_ROW_PX)
@@ -3687,6 +3703,11 @@ NOT_GEOMETRY = [
     "BTN_PLATE_MARGIN", "PARTY_LAYERS", "PARTY_SEL_INDEX", "SEATS_LAYERS",
     "RIM_ART", "RIM_MARGIN", "RIM_FAIL_ART", "RIM_FAIL_RGB", "RIM_ROW_ART", "RIM_ROW_MARGIN", "RIM_ROW_PX", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "ROW_RIM", "ROW_FULL_LAYERS", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
     "BURST_FILE", "BURST_FRAMES", "BURST_LAST", "BURST_MS", "BURST_SIZE",
+    "MAP_FILE", "MARKER_FILE", "MAP_DISC", "MAP_CREST", "MAP_RING", "MAP_NAME_W",
+    "MAP_NAME_H", "MARKER_W", "MARKER_H", "MAP_DISC_NONE", "MAP_RING_CAPITAL",
+    "MAP_RING_OUTLINE", "MAP_RING_CAPITAL_COLOUR", "MAP_RING_OUTLINE_COLOUR",
+    "MAP_PIN", "MAP_FADE", "MAP_LAYOUT", "MAP_ROW_X", "MAP_ROW_Y", "MAP_ROW_W",
+    "MAP_ROW_H", "MAP_ROWS", "MAP_ROW_CHILD", "MARKER_LAYERS",
     "SEATS_PAD",
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
     # built it.
@@ -3924,7 +3945,7 @@ def _small():
 
 def ui_file_names():
     """Every .twui.xml this generator writes, base files and compact copies."""
-    return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE]
+    return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE, MAP_FILE, MARKER_FILE]
             + sorted(COMPACT_FILES.values()))
 
 
@@ -4269,6 +4290,247 @@ def check_burst(text, assets=None):
     return out
 
 
+# ---------------------------------------------------------------------------
+# THE PARTY MAP (spec 2026-09-29-iron-court-party-map-design.md). Two files, both
+# created at runtime and never scaled (ruling 7). The layer is a root child that
+# holds the legend; each marker is created inside it, one per province, and
+# pinned to its settlement by CA's own world-space callback.
+MAP_FILE = "derpy_ic_map.twui.xml"
+MARKER_FILE = "derpy_ic_map_marker.twui.xml"
+MAP_DISC = 48                       # the plate
+MAP_CREST = 28
+MAP_RING = 60                       # both rings, around the plate
+MAP_NAME_W, MAP_NAME_H = 200, 24
+MARKER_W, MARKER_H = MAP_NAME_W, MAP_RING + MAP_NAME_H
+MAP_DISC_NONE = "#6B5A3AFF"         # bronze: a province with no governor
+MAP_RING_CAPITAL = PLATE_DIR + "/map_ring_capital.png"
+MAP_RING_OUTLINE = PLATE_DIR + "/map_ring_outline.png"
+MAP_RING_CAPITAL_COLOUR = "#C9A45AFF"
+MAP_RING_OUTLINE_COLOUR = "#D0342AFF"
+# CA'S TWO CALLBACKS, VERBATIM from dlc25_black_towers.twui.xml's
+# template_black_tower_slot. check_map() holds the emitted file to these.
+MAP_PIN = {"id": "ContextWorldSpaceComponent", "object": "CcoCampaignSettlement",
+           "function": "Position", "props": [("depth_disabled", "1")]}
+MAP_FADE = {"id": "ContextOpacitySetter",
+            "function": ("(pos = self.Position.y) => {pos | CampaignRoot.IsTacticalViewActive"
+                         " => 1 | pos < 0 => 0 | pos < 50 => pos/50.0 | 1}"),
+            "props": [("propagate", ""), ("update_constant", "")]}
+# THE LEGEND, top-left (ruling 6). Must match ICUI.MAP_XY and ICUI.MAP_ROW_* in
+# zzz_derpy_iron_court_ui_map.lua; check_map() holds the two together.
+MAP_LAYOUT = {
+    "ic_map_legend": (16, 16, 455, 556),
+    "ic_map_title": (32, 26, 360, 30),
+    "ic_map_close": (411, 20, 48, 48),
+    # THE COURT'S PAGER, same sizes (ruling 12): 136 holds "Previous", 159 holds
+    # "Page 99 of 99". Under the seventh row (76 + 7 * 56 = 468).
+    "ic_map_prev": (24, 470, 136, 34),
+    "ic_map_page": (164, 474, 159, 26),
+    "ic_map_next": (327, 470, 136, 34),
+    "ic_map_hint_1": (32, 512, 423, 24),
+    "ic_map_hint_2": (32, 536, 423, 24),
+}
+MAP_ROW_X, MAP_ROW_Y, MAP_ROW_W, MAP_ROW_H, MAP_ROWS = 24, 76, 439, 56, 7
+MAP_ROW_CHILD = {
+    "ic_map_sw": (8, 8, 36, 36),
+    "ic_map_name": (56, 2, 375, 24),
+    "ic_map_gov": (56, 28, 170, 22),
+    "ic_map_take": (232, 28, 200, 22),
+}
+# CHECK 7'S NAMES: every component of the two files is placed by the map Lua
+# (MAP_XY, the rows, MAP_ROW_CHILD) or is its file's root.
+LAYOUT_TABLES[MAP_FILE] = dict(
+    list(MAP_LAYOUT.items()) + list(MAP_ROW_CHILD.items())
+    + [("ic_map_row_%d" % _i, (MAP_ROW_X, MAP_ROW_Y + (_i - 1) * MAP_ROW_H,
+                               MAP_ROW_W, MAP_ROW_H)) for _i in range(1, MAP_ROWS + 1)])
+LAYOUT_TABLES[MARKER_FILE] = {"derpy_ic_map_marker": (0, 0, MARKER_W, MARKER_H)}
+
+
+def map_disc_path(slug):
+    return "%s/map_disc_%s.png" % (PLATE_DIR, slug or "none")
+
+
+def _map_supersample(size, inside_fn):
+    """Coverage of each pixel by a shape, 4x4 supersampled: 0..16."""
+    rows = []
+    for y in range(size):
+        row = []
+        for x in range(size):
+            n = 0
+            for sy in range(4):
+                for sx in range(4):
+                    if inside_fn(x + (sx + 0.5) / 4.0, y + (sy + 0.5) / 4.0):
+                        n += 1
+            row.append(n)
+        rows.append(row)
+    return rows
+
+
+def map_disc_pixels(hexcol, size=MAP_DISC):
+    """A round plate in one colour with a darker 3px rim."""
+    r, g, b = int(hexcol[1:3], 16), int(hexcol[3:5], 16), int(hexcol[5:7], 16)
+    c = size / 2.0
+    rad = size / 2.0 - 0.5
+    cover = _map_supersample(size, lambda x, y: ((x - c) ** 2 + (y - c) ** 2) ** 0.5 <= rad)
+    rim = _map_supersample(size, lambda x, y: rad - 3 < ((x - c) ** 2 + (y - c) ** 2) ** 0.5 <= rad)
+    out = []
+    for y in range(size):
+        row = bytearray()
+        for x in range(size):
+            k = 0.55 if rim[y][x] * 2 > cover[y][x] > 0 else 1.0
+            row += bytearray((int(r * k), int(g * k), int(b * k), cover[y][x] * 255 // 16))
+        out.append(bytes(row))
+    return out
+
+
+def map_ring_pixels(hexcol, size=MAP_RING, width=4):
+    """A ring of `width` px at the edge of a `size` square, transparent inside."""
+    r, g, b = int(hexcol[1:3], 16), int(hexcol[3:5], 16), int(hexcol[5:7], 16)
+    c = size / 2.0
+    outer = size / 2.0 - 0.5
+    cover = _map_supersample(
+        size, lambda x, y: outer - width < ((x - c) ** 2 + (y - c) ** 2) ** 0.5 <= outer)
+    return [bytes(bytearray(v for n in row for v in (r, g, b, n * 255 // 16)))
+            for row in cover]
+
+
+def _map_layer(path, size):
+    """A square image of `size`, centred across the marker, its centre MAP_RING/2 down."""
+    return {"path": path, "offset": ((MARKER_W - size) / 2.0, (MAP_RING - size) / 2.0),
+            "dw": size - MARKER_W, "dh": size - MARKER_H, "margin": 0, "dock": None}
+
+
+# THE MARKER'S LAYERS THE LUA REPAINTS, IN ORDER. Must match
+# ICUI.MK_PLATE/CREST/CAPITAL/OUTLINE. The name's plate follows them and is
+# never repainted.
+MARKER_LAYERS = ["plate", "crest", "capital", "outline"]
+
+
+def _map_marker():
+    # ONE COMPONENT, NO CHILDREN (plan ruling 9). CA's slot docks its art in
+    # children; a runtime child ignores its offset and draws at the corner of
+    # something the engine moves every frame. So the art is image layers placed
+    # by their own offsets, and the name is the marker's own text, on a dark
+    # plate at the bottom so it reads over any terrain. Written from Lua, never a
+    # live ContextTextLabel, which would re-render over it.
+    root = EU.C("root", MARKER_W, MARKER_H)
+    root.add(EU.C(
+        "derpy_ic_map_marker", MARKER_W, MARKER_H, interactive=True,
+        sound=OPENER_SOUND, callbacks=[MAP_PIN, MAP_FADE],
+        layers=[_map_layer(map_disc_path(None), MAP_DISC),
+                _map_layer(MASK_NONE, MAP_CREST),
+                _map_layer(MASK_NONE, MAP_RING),
+                _map_layer(MASK_NONE, MAP_RING),
+                {"path": plate_path(None), "offset": (0, MAP_RING), "dw": 0,
+                 "dh": MAP_NAME_H - MARKER_H, "margin": 0, "dock": None}],
+        **style("ic_mk_name", align="Center", valign="Bottom",
+                tx="0.00,0.00", ty="0.00,0.00")))
+    return root
+
+
+def _map_layer_file():
+    root = EU.C("root", 1920, 1080)
+    layer = root.add(EU.C("derpy_ic_map", 1920, 1080))
+    # THE LAYER ITSELF IS NOT INTERACTIVE: the bare map around the legend must
+    # still take clicks and drags. THE LEGEND IS - a click on its blank plate
+    # would otherwise fall through and select whatever stands under it.
+    x, y, w, h = MAP_LAYOUT["ic_map_legend"]
+    # AND WITH THE COURT'S CLICK SOUND: check 4 refuses a silent interactive
+    # component, and no CA category is a silent one.
+    layer.add(EU.C("ic_map_legend", w, h, image=plate_path(None), interactive=True,
+                   sound=OPENER_SOUND))
+    x, y, w, h = MAP_LAYOUT["ic_map_title"]
+    layer.add(EU.C("ic_map_title", w, h, **style("ic_map_title", valign="Center")))
+    x, y, w, h = MAP_LAYOUT["ic_map_close"]
+    layer.add(EU.C("ic_map_close", w, h, interactive=True, sound=OPENER_SOUND,
+                   layers=CLOSE_LAYERS, hover=CLOSE_HOVER, tooltip="Back to the court"))
+    for key in ("ic_map_prev", "ic_map_next"):
+        x, y, w, h = MAP_LAYOUT[key]
+        layer.add(EU.C(key, w, h, interactive=True, sound=OPENER_SOUND,
+                       layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
+    x, y, w, h = MAP_LAYOUT["ic_map_page"]
+    layer.add(EU.C("ic_map_page", w, h, **style("ic_map_page", align="Center",
+                                                   valign="Center", tx="0.00,0.00")))
+    for key in ("ic_map_hint_1", "ic_map_hint_2"):
+        x, y, w, h = MAP_LAYOUT[key]
+        layer.add(EU.C(key, w, h, **style(key, valign="Center")))
+    for i in range(1, MAP_ROWS + 1):
+        row = layer.add(EU.C(
+            "ic_map_row_%d" % i, MAP_ROW_W, MAP_ROW_H, interactive=True,
+            sound=OPENER_SOUND,
+            layers=[{"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
+                     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]))
+        cx, cy, cw, ch = MAP_ROW_CHILD["ic_map_sw"]
+        row.add(EU.C("ic_map_sw", cw, ch, layers=[
+            {"path": map_disc_path(None), "offset": (0, 0), "dw": 0, "dh": 0,
+             "margin": 0, "dock": None},
+            {"path": MASK_NONE, "offset": (6, 6), "dw": -12, "dh": -12,
+             "margin": 0, "dock": None}]))
+        for key in ("ic_map_name", "ic_map_gov", "ic_map_take"):
+            cx, cy, cw, ch = MAP_ROW_CHILD[key]
+            row.add(EU.C(key, cw, ch, **style(key, valign="Center")))
+    return root
+
+
+def map_xml():
+    return EU.layout(EU.assign(_map_layer_file(), GUID_PREFIXES[MAP_FILE]),
+                     "derpy: the Iron Court's party map layer and legend. Created at "
+                     "runtime at the ui root; generated by tools/gen_ic_ui.py.")
+
+
+def marker_xml():
+    return EU.layout(EU.assign(_map_marker(), GUID_PREFIXES[MARKER_FILE]),
+                     "derpy: one Iron Court party map marker, pinned to a settlement "
+                     "by CA's ContextWorldSpaceComponent; generated by tools/gen_ic_ui.py.")
+
+
+def _lua_map_tables():
+    ui = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                      "zzz_derpy_iron_court_ui_map.lua")
+    return io.open(ui, encoding="utf-8").read()
+
+
+def check_map(marker_text=None, lua_text=None):
+    """CA's callbacks verbatim on the marker, and the Lua's numbers equal to ours."""
+    out = []
+    t = marker_text if marker_text is not None else marker_xml()
+    for cb in (MAP_PIN, MAP_FADE):
+        if 'callback_id="%s"' % cb["id"] not in t:
+            out.append("%s: no %s callback" % (MARKER_FILE, cb["id"]))
+        if cb.get("function") and 'context_function_id="%s"' % EU._esc(cb["function"]) not in t:
+            out.append("%s: %s's function is not CA's" % (MARKER_FILE, cb["id"]))
+    if 'context_object_id="CcoCampaignSettlement"' not in t:
+        out.append("%s: the pin is not on CcoCampaignSettlement" % MARKER_FILE)
+    if 'name="depth_disabled"' not in t:
+        out.append("%s: the pin lost depth_disabled" % MARKER_FILE)
+    # ROOT AND MARKER, NOTHING ELSE (ruling 9): a child would draw at the corner.
+    ids = re.findall(r'\n\t\t\tid="([^"]+)"', t)
+    if ids != ["root", "derpy_ic_map_marker"]:
+        out.append("%s: components %r - the marker may have no children" % (MARKER_FILE, ids))
+    lua = lua_text if lua_text is not None else _lua_map_tables()
+    for i, name in enumerate(MARKER_LAYERS):
+        if not re.search(r"ICUI\.MK_%s\b[^\n]*" % name.upper(), lua):
+            out.append("the map Lua declares no ICUI.MK_%s" % name.upper())
+    m = re.search(r"ICUI\.MK_PLATE,\s*ICUI\.MK_CREST,\s*ICUI\.MK_CAPITAL,\s*"
+                  r"ICUI\.MK_OUTLINE\s*=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", lua)
+    if not m or [int(v) for v in m.groups()] != list(range(len(MARKER_LAYERS))):
+        out.append("ICUI.MK_* do not name the marker's layers 0..3 in order")
+    for key, box in MAP_LAYOUT.items():
+        got = re.search(r"\b%s\s*=\s*\{\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\}" % key, lua)
+        if not got or tuple(int(v) for v in got.groups()) != box:
+            out.append("ICUI.MAP_XY.%s is not %r" % (key, box))
+    for key, box in MAP_ROW_CHILD.items():
+        got = re.search(r"\b%s\s*=\s*\{\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\}" % key, lua)
+        if not got or tuple(int(v) for v in got.groups()) != box:
+            out.append("ICUI.MAP_ROW_CHILD.%s is not %r" % (key, box))
+    rows = re.search(r"ICUI\.MAP_ROW_X,\s*ICUI\.MAP_ROW_Y,\s*ICUI\.MAP_ROW_W,\s*"
+                     r"ICUI\.MAP_ROW_H,\s*ICUI\.MAP_ROWS\s*=\s*(\d+),\s*(\d+),\s*(\d+),"
+                     r"\s*(\d+),\s*(\d+)", lua)
+    if not rows or tuple(int(v) for v in rows.groups()) != (
+            MAP_ROW_X, MAP_ROW_Y, MAP_ROW_W, MAP_ROW_H, MAP_ROWS):
+        out.append("ICUI.MAP_ROW_* are not the generator's")
+    return out
+
+
 def check_rim_slots():
     """ICUI.RIMS in the panel Lua must name the layers this file emits."""
     ui = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
@@ -4315,6 +4577,8 @@ def build_xml():
         out[fname] = EU.layout(root, comment)
     out[FIRE_FILE] = fire_xml()
     out[BURST_FILE] = burst_xml()
+    out[MAP_FILE] = map_xml()
+    out[MARKER_FILE] = marker_xml()
     # THE COMPACT COPIES are built by the copy of this module at a 1600 box,
     # whose fonts are already one size down and whose cells are already the
     # sizes a 1600x900 player gets. Only the base module writes them: a copy
@@ -4555,6 +4819,7 @@ def check():
     # 1c. The claim burst: its sprite frames exist and nothing pauses it.
     out.extend(check_burst(all_files.get(BURST_FILE, ""),
                            set(p.lower() for p in _assets())))
+    out.extend(check_map(all_files.get(MARKER_FILE, "")))
     # 1d. The rim layers the Lua writes are the ones the files emit.
     out.extend(check_rim_slots())
     # 1e. The rim's corners are as bright as its edges (author, 2026-09-28:
@@ -5845,6 +6110,7 @@ def check():
             _bar = dict((_k, [_v]) for _k, _v in _act.items())
             _bar["ic_act_hint"] = _hints
             _bar["ic_tab_petitions"] = ["Petitions"]
+            _bar["ic_tab_map"] = ["Map"]
             _bar["ic_fill"] = [_fill.group(1)] if _fill else []
             if not _fill:
                 out.append("the panel Lua declares no ICUI.FILL_LABEL, so the "
@@ -6686,9 +6952,11 @@ def selftest_compact():
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
     assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
-    # +2: FIRE_FILE and BURST_FILE, which hold no text and so have no compact twin.
-    assert len(files) == len(FILES) + len(COMPACT_FILES) + 2
+    # +4: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
+    # twin, and the party map's two, which are never scaled (map plan ruling 7).
+    assert len(files) == len(FILES) + len(COMPACT_FILES) + 4
     assert FIRE_FILE not in COMPACT_FILES and BURST_FILE not in COMPACT_FILES
+    assert MAP_FILE not in COMPACT_FILES and MARKER_FILE not in COMPACT_FILES
     assert "derpy_ic_opener_compact.twui.xml" not in files
     assert "derpy_ic_standing_compact.twui.xml" not in files
     for base, compact in COMPACT_FILES.items():
@@ -6706,6 +6974,13 @@ def selftest():
     # null the emitter dereferences on panel open, so the check has to be seen
     # catching one, and seen passing the shipped file.
     assert not check_burst(burst_xml()), check_burst(burst_xml())
+    assert not check_map(), check_map()
+    assert check_map(marker_xml().replace("ContextWorldSpaceComponent", "ContextX")), \
+        "check_map passed a marker with no world-space pin"
+    assert check_map(lua_text=_lua_map_tables().replace("ic_map_close  = {411", "ic_map_close  = {412")), \
+        "check_map passed a legend the Lua places elsewhere"
+    assert any("no children" in e for e in check_map(map_xml())), \
+        "check_map passed a marker file with children in it"
     _rim = [bytearray(r) for r in seat_rim_pixels()]
     for _y in range(RIM_MARGIN):
         for _x in range(RIM_MARGIN):

@@ -85,10 +85,40 @@ E_RAID = ("wh_main_effect_force_all_campaign_raid_income",
 E_HOBGOBLIN = ("wh3_dlc23_effect_upkeep_hobgoblins",
                "faction_to_force_own", False)
 
+# THE ENVOY'S FOUR (spec 2026-09-29 section 6): CA's province-bundle shape, every
+# effect province_to_province_own_unseen - the scope CA's Higher Quotas and Smoke
+# Stacks edicts and its mood bundles give them. Signs measured off the vanilla
+# cache 2026-09-29: labour loss is the one where less is better.
+E_ENVOY_CTL = ("wh_main_effect_public_order_edict",
+               "province_to_province_own_unseen", True)
+E_ENVOY_ARM = ("wh3_dlc23_pooled_resource_chd_armaments_modifier",
+               "province_to_province_own_unseen", True)
+E_ENVOY_RAW = ("wh3_dlc23_pooled_resource_chd_raw_material_efficiency",
+               "province_to_province_own_unseen", True)
+E_ENVOY_LAB = ("wh3_dlc23_pooled_resource_chd_increased_labour_loss",
+               "province_to_province_own_unseen", False)
+ENVOY_EFFECT = {"ctl": E_ENVOY_CTL, "arm": E_ENVOY_ARM,
+                "raw": E_ENVOY_RAW, "lab": E_ENVOY_LAB}
+ENVOY_BLURB = {
+    "ctl": "An envoy of the court is keeping order here.",
+    "arm": "An envoy of the court is driving the forges here.",
+    "raw": "An envoy of the court is working the mines here harder.",
+    "lab": "An envoy of the court is seeing that fewer labourers are worked to death here.",
+}
+# ONE PAIR CA DOES NOT SHIP, KEPT ON PURPOSE (plan ruling 5). CA's only province
+# bundle scope for raw materials is province_to_province_own_factionwide - every
+# province - so the edict's scope is borrowed. Only the game can say it moves
+# (spec section 8, look 3); check 2 refuses every OTHER unshipped pair.
+BORROWED_SCOPES = {
+    (E_ENVOY_RAW[0], E_ENVOY_RAW[1]):
+        "spec 2026-09-29 section 6: the edict scope, borrowed for one province",
+}
+
 ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_GROWTH,
                E_UPKEEP, E_REPLEN, E_PB_LABOUR,
                E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID,
-               E_HOBGOBLIN]
+               E_HOBGOBLIN,
+               E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB]
 
 # ---------------------------------------------------------------------------
 # THE ZIGGURAT.
@@ -331,6 +361,8 @@ BG_COLOUR = {
 # from the same signed_value() the data rows use, so the tooltip cannot disagree
 # with the effect it describes.
 EFFECT_TEXT = {
+    E_ENVOY_CTL[0]: "Control: %+n",
+    E_ENVOY_LAB[0]: "%n% Labour loss per turn (minimum of 5)",
     E_ARMAMENTS[0]: "Armaments output: %+n%",
     E_WORKLOAD[0]:  "Workload requirement for Raw Materials: %+n%",
     # CA writes this one as {{tr:public_order_effect}}, which resolves to
@@ -364,6 +396,8 @@ EFFECT_TEXT = {
 # a number. The trait tooltip and the Faction Effects panel still read CA's own
 # sentence; check() refuses an effect that has no short form.
 EFFECT_SHORT = {
+    E_ENVOY_CTL[0]: "Control",
+    E_ENVOY_LAB[0]: "Labour loss",
     E_ARMAMENTS[0]: "Armaments",
     E_WORKLOAD[0]:  "Workload",
     E_ORDER[0]:     "Control",
@@ -385,6 +419,7 @@ EFFECT_SHORT = {
 # Which of them are percentages, so the short line does not put a % on Control
 # or Growth, which are flat numbers.
 EFFECT_PERCENT = {
+    E_ENVOY_CTL[0]: False,
     E_ORDER[0]: False,
     E_GROWTH[0]: False,
     E_RESEARCH[0]: False,
@@ -402,6 +437,7 @@ def effect_short(effect, magnitude, intent):
 # The {{tr:}} tokens resolved above, so check() can prove the resolution rather
 # than trust it. ui_text_replacements_localised_text_<key>.
 EFFECT_TEXT_TR = {
+    E_ENVOY_CTL[0]: ("public_order_effect", "Control"),
     E_ORDER[0]: ("public_order_effect", "Control"),
     E_RESEARCH[0]: ("effect_technology_research_points_description",
                     "Research rate"),
@@ -1156,6 +1192,37 @@ def model_moves():
     return moves
 
 
+def _model_lua():
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Modding Files", "pack", "script", "campaign", "mod",
+        "zzz_derpy_iron_court.lua")
+    return io.open(path, encoding="utf-8").read()
+
+
+# RAISES RATHER THAN FALLING BACK, like model_moves: these feed build(), and a
+# silent default is a bundle whose value is not the card's.
+def model_tune(name):
+    """IC.TUNE[name] as the shipped Lua declares it."""
+    m = re.search(r"\n\s+%s\s*=\s*(\d+)\s*," % re.escape(name), _model_lua())
+    if not m:
+        raise RuntimeError("the model Lua declares no IC.TUNE.%s" % name)
+    return int(m.group(1))
+
+
+def model_envoy_tasks():
+    """[(code, name, knob, bundle, icon)] from IC.ENVOY_TASKS, in its order."""
+    block = re.search(r"IC\.ENVOY_TASKS = \{(.*?)\n\}", _model_lua(), re.S)
+    if not block:
+        raise RuntimeError("the model Lua declares no IC.ENVOY_TASKS")
+    tasks = re.findall(
+        r'\{code = "(\w+)", name = "([^"]+)", knob = "(\w+)", fmt = "[^"]*",\s*'
+        r'bundle = "(\w+)", icon = "([^"]+)"\}', block.group(1))
+    if len(tasks) != 4:
+        raise RuntimeError("IC.ENVOY_TASKS parsed to %d tasks, not 4" % len(tasks))
+    return tasks
+
+
 # THE PARTY NAME TAILS, READ OUT OF THE SHIPPED LUA for the same reason as the
 # moves: IC.NAME_TAILS is what the roll lands on and what the panel draws, and a
 # party trait is keyed by the tail's position in it (IC.member_trait).
@@ -1204,7 +1271,7 @@ def build():
     junctions = []
     loc = []
 
-    def emit(key, title, description, target, effects):
+    def emit(key, title, description, target, effects, icon=None):
         """One bundle: the DB row, its effect junctions, and BOTH loc entries.
 
         The row text and the loc are written from the same two strings on
@@ -1218,7 +1285,7 @@ def build():
             "localised_title": title,
             "bundle_target": target,
             "priority": "1",
-            "ui_icon": BUNDLE_ICON,
+            "ui_icon": icon or BUNDLE_ICON,
             # A live bundle with is_global_effect false is hidden from the
             # Faction Effects panel. These are all meant to be read.
             "is_global_effect": "true",
@@ -1279,6 +1346,13 @@ def build():
         emit(bundle_key("gov_house", slug),
              "Overseer: " + display, PARTY_GOV_BLURB[slug],
              "faction", [(effect, magnitude, BOON)])
+
+    # THE ENVOY'S FOUR (spec 2026-09-29 section 6): one province, for
+    # IC.TUNE.mission_turns, in CA's province-bundle shape. The value is the
+    # model's own knob (plan ruling 4).
+    for code, name, knob, bundle, icon in model_envoy_tasks():
+        emit(bundle, "Envoy: " + name, ENVOY_BLURB[code], "province",
+             [(ENVOY_EFFECT[code], model_tune(knob), BOON)], icon=icon)
 
     # Office and house names are read by the panel at draw time, never from a
     # turn handler - a loc call inside one is a turn-1 CTD that pcall does not
@@ -2118,7 +2192,8 @@ def check():
                 e2, s2 = f2.index("effect"), f2.index("effect_scope")
                 pairs |= set((r[e2], r[s2]) for r in r2)
         for effect in ALL_EFFECTS:
-            if (effect[0], effect[1]) not in pairs:
+            if ((effect[0], effect[1]) not in pairs
+                    and (effect[0], effect[1]) not in BORROWED_SCOPES):
                 out.append("(effect, scope) pair not shipped by CA: %s / %s"
                            % (effect[0], effect[1]))
 
@@ -2132,6 +2207,21 @@ def check():
     for row in tables["effect_bundles_to_effects_junctions"]:
         if row["effect_bundle_key"] not in defined:
             out.append("junction for undefined bundle: %s" % row["effect_bundle_key"])
+
+    # 4b. EVERY BUNDLE'S ICON EXISTS (plan ruling 6). ui_icon is a bare name
+    #     under ui/campaign ui/effect_bundles/; a wrong one draws a blank square
+    #     with no error, and nothing checked it before 2026-09-29.
+    try:
+        import gen_iron_court_emitter as _EU
+        assets = _EU._game_assets()
+    except Exception as exc:
+        out.append("game ui assets unreadable, cannot verify bundle icons: %r" % (exc,))
+    else:
+        for row in tables["effect_bundles"]:
+            path = "ui/campaign ui/effect_bundles/" + row["ui_icon"]
+            if path.lower() not in assets and path not in assets:
+                out.append("bundle %s wears an icon the game does not have: %s"
+                           % (row["key"], row["ui_icon"]))
 
     # 5. Every bundle has both loc entries, and no loc key is duplicated.
     lockeys = [r["key"] for r in tables["loc"]]
@@ -2736,11 +2826,14 @@ def selftest():
     keys = [r["key"] for r in tables["effect_bundles"]]
     assert len(keys) == len(set(keys)), "no duplicate bundle keys"
     n_parties = len(PARTIES)
-    assert len(keys) == n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS), \
+    # AND ONE PER ENVOY TASK (spec 2026-09-29 section 6).
+    n_envoy = len(model_envoy_tasks())
+    assert len(keys) == n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy, \
         ("one office and one vacancy bundle per office, one governor base, and "
          "one governor flavour per PARTY - it was per house, and there were "
-         "sixteen of those, plus one per control band: expected %d, got %d"
-         % (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS), len(keys)))
+         "sixteen of those, plus one per control band and one per envoy task: "
+         "expected %d, got %d"
+         % (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy, len(keys)))
 
     # Every office's boon and its vacancy penalty must land on opposite sides of
     # zero. A vacancy that helps you is the sign bug wearing a different hat.
@@ -2881,6 +2974,21 @@ def selftest():
     ALL_EFFECTS[3] = ("wh_main_effect_public_order_faction", "faction_to_force_own", True)
     injected("a scope CA never pairs with that effect",
              lambda: ALL_EFFECTS.__setitem__(3, saved), "not shipped by CA")
+
+    # A BUNDLE ICON THE GAME DOES NOT SHIP (plan ruling 6). emit() reads the
+    # module's BUNDLE_ICON at build time, and check() builds afresh.
+    _icon = BUNDLE_ICON
+    globals()["BUNDLE_ICON"] = "no_such_icon.png"
+    injected("a bundle icon the game does not ship",
+             lambda: globals().__setitem__("BUNDLE_ICON", _icon),
+             "an icon the game does not have")
+
+    # THE BORROWED SCOPE IS EXEMPT BY PAIR, NOT BY EFFECT (plan ruling 5): the
+    # same effect on any other unshipped scope is still refused.
+    _i = ALL_EFFECTS.index(E_ENVOY_RAW)
+    ALL_EFFECTS[_i] = (E_ENVOY_RAW[0], "province_to_region_own_unseen_TYPO", True)
+    injected("the borrowed scope's exemption stretched to another scope",
+             lambda: ALL_EFFECTS.__setitem__(_i, E_ENVOY_RAW), "not shipped by CA")
 
     ALL_EFFECTS[3] = ("wh_main_effect_public_order_faction",
                       "faction_to_province_own", False)

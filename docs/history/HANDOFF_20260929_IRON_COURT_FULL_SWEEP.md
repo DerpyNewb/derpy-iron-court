@@ -215,3 +215,143 @@ Still OPEN, needs an in-game look:
   in its slice).
 - (Closed at the push: the repo README's three "public order" lines now say control, and
   DEVELOPMENT.md reads 786 checks and 798 mutants. The sync manifest now lists this handoff.)
+
+## 8. The grace period (evening, build D3712F85)
+
+Asked for after the Rome 2 comparison: "Grace periods for 10 turns". Designed in chat and approved
+("Yes, build it", which the author chose over "Yes, but allow Provoke").
+
+- `IC.TUNE.grace_turns = 10`, a fixed value, NOT an MCT setting and NOT in `TUNE_ORDER` (so no save
+  string changes). `IC.grace_left()` is the turns left counting this one: 10 on turn 1, 1 on turn
+  10, 0 from turn 11. `IC.secession_on()` is the switch AND no grace.
+- **One gate for the floor.** `IC.at_breaking_point` now returns false unless `secession_on()`, so
+  every caller agrees: `tick_secession`, the Secure Loyalty refusal, the Court summary and the oath
+  tooltip. Side effect, deliberate: with secession switched off, Secure Loyalty is no longer refused
+  at 0 loyalty and the tooltip no longer says they leave next turn (both were wrong before).
+- `tick_secession` and `splinter` take the off path in grace (clocks and split counts zeroed, no
+  card); `tick_pressure` presses nobody. Plots, demands, feuds, offers and purges run as normal.
+- **Provoke is refused** in grace, in `IC.may_target` (why = `"grace"`), which both `can_plot` and the
+  Court card's `act_check` already ask - and only the player ever reaches Provoke. With secession
+  switched OFF it stays the loyalty cost it always was. `IC.plot`'s Provoke branch is unchanged: a
+  first pass gated it and changed the no-secession text, both reverted once the refusal was in.
+- Panel: no SECEDES / SPLITS / SPLINTERING in grace (`ICUI.mood`), nobody in the summary's leaving
+  list, and the Court tab's line reads "The court is protected: no party can break with you for N
+  more turns." (not with the switch off; sufferance still outranks it).
+- **The harness sets `grace_turns = 0` where it loads the model**: nearly every check runs on turn
+  1. The three grace checks set it to 10 through `in_grace()`. A new secession check that forgets
+  this is testing nothing on turns 1-10.
+- 789 checks; mutants: 810 (21 grace ones, 11 stale anchors retargeted onto the new gate lines).
+- **Deployed** to data/ at 19:19, 9,500,274 bytes, byte-identical to the build; backup `derpy_iron_court.pack.bak_pre_auto_20260929_191940` holds B4BC1409. Full mutation run 810 mutants, 0 unexplained; `gen_ic_ui.py --selftest` ok. Not pushed, not seen in game.
+
+## 9. The party map, Phase 0 (night, build A06C68A6)
+
+Plan `docs/superpowers/plans/2026-09-29-iron-court-party-map.md`, Task 1 only, executed inline
+("go native"). Task 1 is the spec's Phase 0 probe built as a real slice: a **Map** tab that closes
+the court, hides the HUD and pins one party-coloured disc with the governor's party name to every
+province capital you hold, through CA's Gardens of Morr callbacks copied verbatim from
+`template_black_tower_slot` (`ContextWorldSpaceComponent` on `CcoCampaignSettlement.Position`,
+cco id `settlement:cqi()`, and the `ContextOpacitySetter` that fades a marker near the screen top).
+A legend in the top-left corner carries the close button. Tasks 2-5 (choosing a party, the marker
+click, paging, docs) wait on the author's look.
+
+- New files: `zzz_derpy_iron_court_ui_map.lua` (sorts after `_ui.lua`, so `ICUI` exists),
+  `derpy_ic_map.twui.xml` (IC45), `derpy_ic_map_marker.twui.xml` (IC46), 26 generated discs and
+  2 rings. Tabs moved: map 750, intrigue 994, petitions 1238, log 1482.
+- A marker is ONE component with image layers, no children - the engine ignores offsets on
+  runtime children and nothing can `MoveTo` a child of something the engine moves every frame.
+- Rulings made while executing (ledger `.superpowers/sdd/2026-09-29-iron-court-party-map/progress.md`):
+  `selftest_compact` counts +4 uncompacted files, not +2; the two map layouts got
+  `LAYOUT_TABLES` entries; the legend is interactive (so a click on its blank plate does not reach
+  the map) and so carries the court's click sound; the harness's tab list names `ic_tab_map`; the
+  map's twelve layout numbers are declared never-scaled; the layer is sized through `ICUI.resize`
+  (which passes `false` for CA's resize-children default) instead of a raw `Resize`; and
+  **`check_lua_undeclared.py` now declares every target of a statement-start multi-assignment**
+  (`ICUI.MK_PLATE, ICUI.MK_CREST, ... = 0, 1, ...` read as undeclared), fixed at the root with a
+  selftest case watched to fail first.
+- Harness 789 -> 792. Deployed 22:04, 1761 files byte-identical in data/ (the prior pack held
+  1730; the difference is exactly the 31 new files). Backup `.bak_pre_auto_20260929_220400`.
+- **Owed by the author, in game** (the plan's Step 14): load a Chaos Dwarf campaign, open the
+  court, click Map. (1) Does each disc sit ON its capital, not beside it? (2) Do the markers stay
+  on their settlements while the camera pans and zooms? (3) Do markers fade near the top of the
+  screen? (4) Can you still drag the camera and click an army or settlement beside a marker?
+  (5) Does the close button bring the court back, and the HUD back after the court closes?
+  1 or 2 failing sends the map to the spec's section 10 (schematic in the tab); 1 landing offset
+  but tracking is a one-attribute fix (`component_anchor_point`, the plan spells it out).
+
+## 10. Civil missions (night, build C334A61D, then CCF16A5E after the final review)
+
+Plan `docs/superpowers/plans/2026-09-29-iron-court-civil-missions.md`, all five tasks, run while
+the map probe waits. A fifth Intrigue column, **Missions**, with two moves:
+
+- **Send an Envoy** (120 influence, 80%): pick one of your provinces, then one of four works for
+  `mission_turns` = 5 turns - control +6, armaments +20%, raw materials +20%, labourers lost -15%.
+  Each is a DB effect bundle (`derpy_ic_envoy_ctl/arm/raw/lab`) applied with
+  `cm:apply_effect_bundle_to_faction_province`. The values live ONCE, in `IC.TUNE.envoy_*`;
+  `gen_iron_court.py` reads them out of the shipped Lua, so card text and effect cannot disagree.
+  The same work in the same province again is refused with its turns left, before the price.
+- **Send Diplomats** (100 influence, 75%): pick a faction you have met; +4 on CA's own -6..+6
+  diplomatic bonus, and that faction rests for `diplomats_rest` = 5 turns. The rest is the one new
+  saved field (field 13 of the court string, `key,turn;...`); a save from before this build loads
+  with nobody resting. Dead factions are left off the list.
+- A lost province or dead faction at click time is refused `lost`. A failed send pays, applies
+  nothing and rests nobody, and logs `plot_key:target` so the Record says where it failed.
+- The ten planning rulings stand as written in the plan (refusal `lost`; the Record names the
+  party; values in `IC.TUNE`; raw materials keeps its borrowed scope
+  `province_to_province_own_unseen` by an exact one-pair exemption in check 2; bundle icons
+  checked to exist, new check 4b; the two card icons are CA's veteran overseer and Cathay
+  diplomat ancillary art; mission pickers do not sort; dead factions left off; the help page has
+  its own Missions line). Execution rulings (ledger
+  `.superpowers/sdd/2026-09-29-iron-court-civil-missions/progress.md`): `diplomats` joined
+  `LOG_KINDS` in Task 2 beside its sentence, not Task 1; the generator selftest's bundle count
+  adds one per envoy task; the two built-pack checks ran after the build.
+- **The cards were rewritten to fit five columns.** At 364px cards the text check (20d) failed
+  17 of 18 cards, not the few the spec foresaw. Every effect sentence and number is kept; each
+  flavour line was cut to one short sentence and three names were shortened. Bribe is
+  unchanged. The originals are in the pre-change snapshot
+  `.superpowers/sdd/2026-09-29-iron-court-party-map/base/zzz_derpy_iron_court.lua`. For the
+  author to review:
+
+  | Move | Was | Now |
+  |---|---|---|
+  | Discredit | His ore comes up short and his contracts are challenged. His party falls with him. | His ore comes up short. |
+  | Spread Rumours | A few paid tongues can ruin one name without starting a feud. | Paid tongues ruin one name. |
+  | A Forge Accident | The Tower claims another victim. His party will know who arranged it. | His party will know who arranged it. |
+  | Provoke | Give them an insult they cannot ignore, then choose when the reckoning begins. | An insult they cannot ignore. |
+  | Purge the House | Erase their name. The court remembers. | The court watches. |
+  | Strike Their Seats | Strip every title from them in one sitting. They keep only their name. | They keep only their name. |
+  | Recall Their Governors -> **Recall Governors** | Call their overseers home. The provinces answer to the Tower again. | The Tower takes back its provinces. |
+  | Blood-Oath on the Anvil -> **Blood-Oath** | Score two names into hot iron. They must trust you before they swear. | Two names in hot iron. |
+  | Stand His Patron | Put your name behind his and an office within reach. He will remember. | He will remember. |
+  | Name Him Kinsman | Take him under your standard. His party loses influence. | His party loses influence. |
+  | Pledge of the Forge | Promise them the next work of the forge. | Forge-sworn. |
+  | Embezzle from the Vaults -> **Embezzle** | The ledgers will balance before the audit. The court will still smell theft. | The court will still smell theft. |
+  | A Feast of Ash | Labourers, fire, and a long feast. The court learns his name. | The court learns his name. |
+  | Hold the Ash Court | Hear every grievance through a day of smoke. The court leaves less bitter. | A day of smoke and grievances. |
+  | Ride the Circuit | Inspect the provinces with a ledger and an armed escort. Order improves. | A ledger and an armed escort. |
+
+- Harness 792 -> 804 (twelve checks, each watched to fail first). Mutants 810 -> 833 (23
+  missions mutants); the filtered run found one stale anchor on an OLD mutant (the plot click's
+  `if` became an `elseif`), retargeted, caught. Full run: 833 mutants, 0 unexplained after a second stale anchor on an old mutant (the failed-plot log call, split for the mission key) was retargeted and caught.
+- **Five looks only the game can answer** (spec section 8): (1) the bundle shows in the province's
+  effects with its turns; (2) the control breakdown's label - if it names an edict, the control
+  row moves to `wh_main_effect_public_order_faction` and its bundle to the governor's faction
+  target; (3) armaments and raw materials move (raw materials rides the borrowed scope); (4) the
+  labour figure moves; (5) the diplomacy screen shows the +4 - on THEIR attitude towards you.
+- **Final review** (one fresh reviewer over both plans' whole diff; every Review Focus item held).
+  Two fixes, each with a check watched to fail first, deployed as **CCF16A5E** (23:34, backup
+  `.bak_pre_auto_20260929_233414` holds C334A61D, which never left data/):
+  - **The Diplomats bonus was the wrong way round.** The spec wrote
+    `apply_dilemma_diplomatic_bonus(target, player, n)`. CA's doc names the arguments only "first"
+    and "second", but all five of CA's calls put the one who ACTS first and the faction whose regard
+    MOVES second - Neferata's treasury theft is `(neferata, victim, -3)`, the Intrigue at the Court
+    slot penalty `(new occupier, displaced, n)`. So the old order moved the player's regard for
+    the target and left the target's where it was: 100 influence for nothing. Now
+    `(player, target, n)`; inferred from CA's usage, not measured - look 5 above is the check.
+  - `check_lua_undeclared.py`'s multi-assignment pattern (section 9) used `\s`, so a target list
+    could run down the lines of a table constructor and declare every positional ALL_CAPS read
+    before a `key =`. Now `[ \t]`, selftest case added.
+  - Deferred: `IC.may_send_diplomats` scans `factions_met()` to the end, once per met faction.
+  - **Open, not this plan's code:** `IC.rebel_sour` calls the bonus as `(rebels, other, step)`. By
+    CA's order that moves OTHER's regard for the rebels, while its loop stops on the REBELS'
+    `diplomatic_standing_with(other)` - if the two disagree, every souring runs all its steps.
+    Which direction the secession meant is the author's call.

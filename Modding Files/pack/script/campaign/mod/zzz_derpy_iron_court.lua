@@ -526,6 +526,21 @@ IC.TUNE = {
     plot_circuit_prov     = 8,
     plot_chance_circuit   = 80,
 
+    -- THE CIVIL MISSIONS (spec 2026-09-29 section 3). NOT MCT settings and not
+    -- in IC.TUNE_ORDER. The envoy_* values are ALSO the bundles' effect values:
+    -- tools/gen_iron_court.py reads them out of this file.
+    mission_turns         = 5,    -- how long an envoy's work lasts
+    plot_envoy_cost       = 120,
+    plot_chance_envoy     = 80,
+    envoy_ctl             = 6,    -- control
+    envoy_arm             = 20,   -- % armaments
+    envoy_raw             = 20,   -- % raw materials
+    envoy_lab             = 15,   -- % fewer labourers lost
+    plot_diplomats_cost   = 100,
+    plot_chance_diplomats = 75,
+    diplomats_bonus       = 4,    -- CA's own -6..+6 scale
+    diplomats_rest        = 5,    -- turns before the same faction again
+
 
     pressure_below      = IC.CONTROL[#IC.CONTROL - 1].floor,
     pressure_per_point  = 8,    -- chance, in percent, per point below
@@ -535,6 +550,9 @@ IC.TUNE = {
     secede_loyalty      = 20,   -- loyalty <= this starts the clock
     secede_break        = 0,
     secede_turns        = 5,
+    -- THE GRACE PERIOD (author, 2026-09-29): for this many turns from the start
+    -- of a campaign nobody leaves and the Crown does not split. Not a setting.
+    grace_turns         = 10,
     sufferance_share    = 20,   -- the player's own party below this
 
     -- THE COURT'S SIZE IS THE DIFFICULTY (author, 2026-09-25): one fixed
@@ -851,6 +869,7 @@ local function new_court()
         log      = {},
         stalled  = {},   -- [office slug] = {ends, of, by, cause} (spec 2026-09-27)
         news     = {},   -- {turn, kind, faction, a, b}, newest last
+        sent     = {},   -- [faction key] = turn diplomats went (spec 2026-09-29)
     }
 end
 
@@ -871,6 +890,7 @@ IC.LOG_KINDS = {
     embezzle = true, feast = true,
     unseat = true, recall = true, patron = true, kinsman = true,
     pledge = true, audience = true, circuit = true,
+    envoy = true, diplomats = true,
     splinter = true,
     pressed = true, dissolve = true,
     party_warn = true, party_dropped = true, party_unseat = true,
@@ -1202,11 +1222,21 @@ function IC.pack(faction_key)
         news[#news + 1] = string.format("%d,%s,%s,%s,%s", n.turn or 0,
             clean(n.kind), clean(n.faction), clean(n.a), clean(n.b))
     end
+    -- WHERE DIPLOMATS WENT (spec 2026-09-29 section 4.3): only the rests still
+    -- running, so the field never outgrows diplomats_rest turns of sending.
+    local sent = {}
+    local now = cm:model():turn_number()
+    for key, t in pairs(court.sent or {}) do
+        if t + IC.TUNE.diplomats_rest > now then
+            sent[#sent + 1] = key .. "," .. tostring(t)
+        end
+    end
+    table.sort(sent)
     return join({join(houses, ";"), join(offices, ";"), join(govs, ";"),
                  join(terms, ";"), join(standing, ";"),
                  join(logged, ";"), join(prov, ";"), join(ambition, ";"),
                  court.rolled and "1" or "", join(last, ";"),
-                 join(stalled, ";"), join(news, ";")}, "|")
+                 join(stalled, ";"), join(news, ";"), join(sent, ";")}, "|")
 end
 
 local function split(text, sep)
@@ -1343,6 +1373,12 @@ function IC.unpack(faction_key, packed)
             court.news[#court.news + 1] = {turn = tonumber(b[1]) or 0,
                 kind = b[2], faction = b[3], a = b[4], b = b[5]}
         end
+    end
+    -- Field 13 is optional: a save from before the missions rests nobody.
+    for _, entry in ipairs(split(fields[13] or "", ";")) do
+        local b = split(entry, ",")
+        local t = tonumber(b[2])
+        if b[1] and t then court.sent[b[1]] = t end
     end
     IC.state[faction_key] = court
     return court
@@ -3283,8 +3319,8 @@ function IC.tick_pressure(faction_key)
     -- the seats filling from turn 1, forge left on turn 11 and legion on turn
     -- 17, both at 100 loyalty, because a pressed house secedes whatever it
     -- thinks of you.
-    -- AND NOBODY'S AT ALL with the pressure setting off.
-    if not IC.TUNE.pressure or not IC.is_human(faction_key) then
+    -- AND NOBODY'S AT ALL with the pressure setting off, or in the grace period.
+    if not IC.TUNE.pressure or IC.grace_left() > 0 or not IC.is_human(faction_key) then
         for _slug, house in pairs(court.houses) do house.pressed = nil end
         return 0
     end
@@ -3871,8 +3907,9 @@ function IC.splinter(faction_key)
     local court = IC.court(faction_key)
     local crown = court.houses[IC.CROWN]
     -- THE crown_split SETTING OFF: the Crown never splits, and gives no notice.
-    -- A count already running stops, or the card reads SPLITS for good.
-    if not IC.TUNE.crown_split then
+    -- A count already running stops, or the card reads SPLITS for good. The
+    -- same in the grace period.
+    if not IC.TUNE.crown_split or IC.grace_left() > 0 then
         if crown then crown.split = 0 end
         return nil
     end
@@ -3948,8 +3985,18 @@ function IC.splinter(faction_key)
     return slug
 end
 
+-- TURNS OF GRACE LEFT, counting this one: 10 on turn 1, 1 on turn 10, 0 after.
+function IC.grace_left()
+    return math.max(0, IC.TUNE.grace_turns + 1 - cm:model():turn_number())
+end
+
+-- WHETHER ANYBODY MAY BREAK WITH YOU THIS TURN: the setting, and the grace period.
+function IC.secession_on()
+    return IC.TUNE.secession ~= false and IC.grace_left() == 0
+end
+
 function IC.at_breaking_point(faction_key, slug)
-    if not slug or slug == IC.CROWN then return false end
+    if not IC.secession_on() or not slug or slug == IC.CROWN then return false end
     local house = IC.court(faction_key).houses[slug]
     if not house then return false end
     return (house.loyalty or IC.TUNE.loyalty_start) <= IC.TUNE.secede_break
@@ -3957,9 +4004,9 @@ end
 
 function IC.tick_secession(faction_key)
     local court = IC.court(faction_key)
-    -- THE secession SETTING OFF: no countdown runs, so nothing is warned and
-    -- nobody leaves. A clock already running from before is stopped.
-    if not IC.TUNE.secession then
+    -- THE secession SETTING OFF, OR THE GRACE PERIOD: no countdown runs, so
+    -- nothing is warned and nobody leaves. A clock already running is stopped.
+    if not IC.secession_on() then
         for _slug, house in pairs(court.houses) do house.clock = 0 end
         return {}
     end
@@ -4178,6 +4225,7 @@ IC.PLOT_CATS = {
     {key = "house",  name = "Against a House"},
     {key = "bond",   name = "Bonds"},
     {key = "errand", name = "Errands"},
+    {key = "mission", name = "Missions"},
 }
 
 function IC.plots_in(cat)
@@ -4206,7 +4254,7 @@ IC.PLOTS = {
          "-%d influence for him. -%d influence from his party.",
          IC.TUNE.plot_discredit_standing,
          IC.TUNE.plot_discredit_weight),
-     blurb = "His ore comes up short and his contracts are challenged. His party falls with him."},
+     blurb = "His ore comes up short."},
     {key = "rumour", name = "Spread Rumours",
      icon = "ui/campaign ui/skills/wh3_main_lord_passive_whispers_in_the_darkness.png",
      cat = "man",
@@ -4214,7 +4262,7 @@ IC.PLOTS = {
      effect = string.format(
          "-%d influence for him. His party is unaffected.",
          IC.TUNE.plot_rumour_damage),
-     blurb = "A few paid tongues can ruin one name without starting a feud."},
+     blurb = "Paid tongues ruin one name."},
     {key = "murder", name = "A Forge Accident",
      icon = "ui/campaign ui/skills/wh3_dlc23_character_ability_reforge.png",
      cat = "man",
@@ -4223,7 +4271,7 @@ IC.PLOTS = {
      effect = string.format(
          "He dies. -%d loyalty from his house.",
          IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died),
-     blurb = "The Tower claims another victim. His party will know who arranged it."},
+     blurb = "His party will know who arranged it."},
     -- Rome II-style actions against an entire party.
     -- PROVOKE AND PURGE ARE cat "party", which IC.PLOT_CATS does not list, so
     -- the Intrigue grid never draws them. They are the court tab's action bar:
@@ -4242,7 +4290,7 @@ IC.PLOTS = {
      effect_no_secession = string.format(
          "-%d loyalty. With secession switched off, no countdown starts.",
          IC.TUNE.plot_provoke_loyalty),
-     blurb = "Give them an insult they cannot ignore, then choose when the reckoning begins."},
+     blurb = "An insult they cannot ignore."},
     {key = "purge", name = "Purge the House",
      icon = "ui/campaign ui/skills/wh3_dlc23_character_abilities_skjalandirs_fall.png",
      cat = "party",
@@ -4251,7 +4299,7 @@ IC.PLOTS = {
          "Removes the party. -%d loyalty to all others. Failure: another -%d to the target.",
          IC.TUNE.plot_purge_witness,
          IC.TUNE.plot_purge_backfire),
-     blurb = "Erase their name. The court remembers."},
+     blurb = "The court watches."},
     {key = "unseat", name = "Strike Their Seats",
      icon = "ui/campaign ui/skills/wh2_dlc11_forgery.png",
      cat = "house",
@@ -4259,16 +4307,16 @@ IC.PLOTS = {
      effect = string.format(
          "Empties every office they hold. -%d loyalty.",
          IC.TUNE.plot_unseat_loyalty),
-     blurb = "Strip every title from them in one sitting. They keep only their name."},
-    {key = "recall", name = "Recall Their Governors",
+     blurb = "They keep only their name."},
+    {key = "recall", name = "Recall Governors",
      icon = "ui/campaign ui/skills/wh3_dlc24_hero_passive_assume_command.png",
      cat = "house",
      cost = "plot_recall_cost",
      effect = string.format(
          "Recalls every governor from their party. -%d loyalty.",
          IC.TUNE.plot_recall_loyalty),
-     blurb = "Call their overseers home. The provinces answer to the Tower again."},
-    {key = "oath", name = "Blood-Oath on the Anvil",
+     blurb = "The Tower takes back its provinces."},
+    {key = "oath", name = "Blood-Oath",
      icon = "ui/campaign ui/skills/wh3_dlc23_character_abilities_by_our_blood.png",
      cat = "bond",
      cost = "plot_oath_cost",
@@ -4276,7 +4324,7 @@ IC.PLOTS = {
          "+%d loyalty each turn while both men live. Requires %d loyalty.",
          IC.TUNE.plot_oath_loyalty,
          IC.TUNE.plot_oath_min_loyalty),
-     blurb = "Score two names into hot iron. They must trust you before they swear."},
+     blurb = "Two names in hot iron."},
     {key = "patron", name = "Stand His Patron",
      icon = "ui/campaign ui/skills/character_diplomacy.png",
      cat = "bond",
@@ -4285,7 +4333,7 @@ IC.PLOTS = {
          "+%d influence for him. +%d loyalty for his party.",
          IC.TUNE.plot_patron_standing,
          IC.TUNE.plot_patron_loyalty),
-     blurb = "Put your name behind his and an office within reach. He will remember."},
+     blurb = "He will remember."},
     {key = "kinsman", name = "Name Him Kinsman",
      icon = "ui/campaign ui/ancillaries/wh3_dlc23_anc_banner_chd_standard_of_zharr.png",
      cat = "bond",
@@ -4294,7 +4342,7 @@ IC.PLOTS = {
          "Moves up to %d influence to the Crown. Requires %d loyalty.",
          IC.TUNE.plot_kinsman_weight,
          IC.TUNE.plot_kinsman_min_loyalty),
-     blurb = "Take him under your standard. His party loses influence."},
+     blurb = "His party loses influence."},
     {key = "pledge", name = "Pledge of the Forge",
      icon = "ui/campaign ui/skills/mount_anvil_of_doom.png",
      cat = "bond",
@@ -4303,8 +4351,8 @@ IC.PLOTS = {
          "+%d loyalty. Stops their secession countdown. Costs the Crown %d influence.",
          IC.TUNE.plot_pledge_loyalty,
          IC.TUNE.plot_pledge_weight),
-     blurb = "Promise them the next work of the forge."},
-    {key = "embezzle", name = "Embezzle from the Vaults", aimed = false,
+     blurb = "Forge-sworn."},
+    {key = "embezzle", name = "Embezzle", aimed = false,
      icon = "ui/campaign ui/ancillaries/wh_main_anc_human_spy.png",
      cat = "errand",
      cost = "plot_embezzle_cost",
@@ -4312,7 +4360,7 @@ IC.PLOTS = {
          "+%d gold. -%d loyalty across the whole court.",
          IC.TUNE.plot_embezzle_gold,
          IC.TUNE.plot_embezzle_loyalty),
-     blurb = "The ledgers will balance before the audit. The court will still smell theft."},
+     blurb = "The court will still smell theft."},
     {key = "feast", name = "A Feast of Ash", aimed = false,
      icon = "ui/campaign ui/skills/wh3_main_unit_passive_gorefeast.png",
      cat = "errand",
@@ -4322,7 +4370,7 @@ IC.PLOTS = {
          .. "the court.",
          IC.TUNE.plot_feast_standing,
          IC.TUNE.plot_feast_loyalty),
-     blurb = "Labourers, fire, and a long feast. The court learns his name."},
+     blurb = "The court learns his name."},
     {key = "audience", name = "Hold the Ash Court", aimed = false,
      icon = "ui/campaign ui/skills/campaign_public_order.png",
      cat = "errand",
@@ -4330,7 +4378,7 @@ IC.PLOTS = {
      effect = string.format(
          "+%d loyalty to every house in the court.",
          IC.TUNE.plot_audience_loyalty),
-     blurb = "Hear every grievance through a day of smoke. The court leaves less bitter."},
+     blurb = "A day of smoke and grievances."},
     {key = "circuit", name = "Ride the Circuit", aimed = false,
      icon = "ui/campaign ui/ancillaries/wh3_dlc23_anc_follower_convoy_enforcer.png",
      cat = "errand",
@@ -4338,7 +4386,26 @@ IC.PLOTS = {
      effect = string.format(
          "+%d control in every province you hold.",
          IC.TUNE.plot_circuit_prov),
-     blurb = "Inspect the provinces with a ledger and an armed escort. Order improves."},
+     blurb = "A ledger and an armed escort."},
+    -- THE CIVIL MISSIONS (spec 2026-09-29): aimed at a PLACE, not a man.
+    -- `target` says which kind; IC.may_target reads it, and the panel opens the
+    -- matching picker. The four envoy tasks are IC.ENVOY_TASKS.
+    {key = "envoy", name = "Send an Envoy", aimed = false, target = "province",
+     icon = "ui/campaign ui/ancillaries/wh3_dlc23_anc_follower_veteran_overseer.png",
+     cat = "mission",
+     cost = "plot_envoy_cost",
+     effect = string.format(
+         "One of your provinces, for %d turns: control, armaments, raw materials "
+         .. "or labour.", IC.TUNE.mission_turns),
+     blurb = "He sees it done."},
+    {key = "diplomats", name = "Send Diplomats", aimed = false, target = "faction",
+     icon = "ui/campaign ui/ancillaries/wh3_main_anc_cathay_diplomat.png",
+     cat = "mission",
+     cost = "plot_diplomats_cost",
+     effect = string.format(
+         "A faction you have met regards you better. Not there again for %d turns.",
+         IC.TUNE.diplomats_rest),
+     blurb = "Gifts and a long table."},
 }
 
 function IC.plot_is_aimed(plot_key)
@@ -4459,6 +4526,96 @@ function IC.plot_by_key(key)
     return nil
 end
 
+-- THE ENVOY'S FOUR TASKS (spec 2026-09-29 section 2.1), in display order. The
+-- bundle's VALUE is IC.TUNE[knob]: tools/gen_iron_court.py reads both out of
+-- this file, so the text and the effect are one number. `icon` is the bundle's,
+-- under ui/campaign ui/effect_bundles/.
+IC.ENVOY_TASKS = {
+    {code = "ctl", name = "Control", knob = "envoy_ctl", fmt = "+%d control",
+     bundle = "derpy_ic_envoy_ctl", icon = "wh3_dlc23_edict_chd_smoke_stacks.png"},
+    {code = "arm", name = "Armaments", knob = "envoy_arm", fmt = "+%d%% armaments",
+     bundle = "derpy_ic_envoy_arm", icon = "wh3_dlc23_edict_chd_higher_quotas.png"},
+    {code = "raw", name = "Raw materials", knob = "envoy_raw", fmt = "+%d%% raw materials",
+     bundle = "derpy_ic_envoy_raw", icon = "chd_toz_district_industry.png"},
+    {code = "lab", name = "Labour", knob = "envoy_lab", fmt = "-%d%% labourers lost",
+     bundle = "derpy_ic_envoy_lab", icon = "public_order_jubilant.png"},
+}
+
+function IC.envoy_task(code)
+    for i = 1, #IC.ENVOY_TASKS do
+        if IC.ENVOY_TASKS[i].code == code then return IC.ENVOY_TASKS[i] end
+    end
+    return nil
+end
+
+function IC.envoy_effect(task)
+    return string.format(task.fmt, IC.TUNE[task.knob])
+end
+
+-- "province:code" -> the province key and the task; either is nil when the
+-- target is malformed. Province keys never hold a ":".
+function IC.envoy_split(target)
+    local province, code = string.match(tostring(target or ""), "^(.+):(%a+)$")
+    return province, IC.envoy_task(code)
+end
+
+-- THE TURNS LEFT on a bundle already on the faction province, or nil.
+function IC.envoy_running(faction_key, province_key, bundle)
+    local region = IC.held_region(faction_key, province_key)
+    if not region then return nil end
+    local left = nil
+    pcall(function()
+        if not region:faction_province_has_effect_bundle(bundle) then return end
+        left = 0
+        local list = region:faction_province_effect_bundles()
+        for i = 0, list:num_items() - 1 do
+            local b = list:item_at(i)
+            if b:key() == bundle then left = b:duration() end
+        end
+    end)
+    return left
+end
+
+function IC.may_send_envoy(faction_key, target)
+    local province, task = IC.envoy_split(target)
+    if not province then return false, "no such task" end
+    local held = false
+    for _, p in ipairs(IC.seats(faction_key)) do
+        if p == province then held = true end
+    end
+    if not held then return false, "lost" end
+    if not task then return false, "no such task" end
+    local left = IC.envoy_running(faction_key, province, task.bundle)
+    if left then return false, "running", left end
+    return true
+end
+
+-- ANY FACTION YOU HAVE MET that is alive, not a rebel, not a player and not
+-- resting from the last send (spec 2026-09-29 section 4.1).
+function IC.may_send_diplomats(faction_key, target)
+    if not target or target == faction_key then return false, "lost" end
+    local them = cm:get_faction(target)
+    if not them or them:is_null_interface() or them:is_dead() then
+        return false, "lost"
+    end
+    local met = false
+    pcall(function()
+        local list = cm:get_faction(faction_key):factions_met()
+        for i = 0, list:num_items() - 1 do
+            if list:item_at(i):name() == target then met = true end
+        end
+    end)
+    if not met then return false, "unmet" end
+    if them:is_rebel() then return false, "rebel" end
+    if them:is_human() then return false, "player" end
+    local sent = IC.court(faction_key).sent[target]
+    if sent then
+        local left = sent + IC.TUNE.diplomats_rest - cm:model():turn_number()
+        if left > 0 then return false, "resting", left end
+    end
+    return true
+end
+
 function IC.plot_cost(key)
     local plot = IC.plot_by_key(key)
     -- A PARTY-ONLY MOVE has no IC.PLOTS row; its price is on the tune.
@@ -4506,7 +4663,19 @@ end
 function IC.may_target(faction_key, plot_key, cqi)
     local plot = IC.plot_by_key(plot_key)
     if not plot then return false, "no such plot" end
+    -- A CIVIL MISSION'S TARGET IS A PLACE (spec 2026-09-29): the third argument
+    -- is a "province:code" or a faction key, not a cqi, and a refusal that waits
+    -- on turns returns them third.
+    if plot.target == "province" then return IC.may_send_envoy(faction_key, cqi) end
+    if plot.target == "faction" then return IC.may_send_diplomats(faction_key, cqi) end
     if not IC.plot_is_aimed(plot_key) then return true end
+    -- NOTHING TO START IN THE GRACE PERIOD (author, 2026-09-29): Provoke is a
+    -- countdown, and none may run yet. With secession switched off it stays a
+    -- loyalty cost, as it always was.
+    if plot_key == "provoke" and IC.TUNE.secession ~= false
+            and IC.grace_left() > 0 then
+        return false, "grace"
+    end
     local victim = IC.character_by_cqi(faction_key, tonumber(cqi))
     if not victim then return false, "no such target" end
     if plot_key == "murder" and IC.is_legend(victim) then
@@ -4571,8 +4740,8 @@ function IC.may_plot_as(faction_key, actor_cqi)
 end
 
 function IC.can_plot(faction_key, plot_key, actor_cqi, target)
-    local ok, why = IC.may_target(faction_key, plot_key, target)
-    if not ok then return false, why end
+    local ok, why, short = IC.may_target(faction_key, plot_key, target)
+    if not ok then return false, why, short end
     local actor = IC.character_by_cqi(faction_key, actor_cqi)
     if not actor then return false, "no such character" end
     if not IC.may_plot_as(faction_key, actor_cqi) then
@@ -4661,6 +4830,7 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
     local ok, why, short = IC.can_plot(faction_key, plot_key, actor_cqi, target)
     if not ok then return false, why, short end
     local court = IC.court(faction_key)
+    local plot = IC.plot_by_key(plot_key)
     local cost = IC.plot_cost(plot_key)
     local slug = IC.house_of_cqi(faction_key, actor_cqi)
     local cqi = tonumber(target)
@@ -4682,8 +4852,12 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         end
         -- AN ERRAND HAS NO TARGET, so its line names the errand (audit
         -- 2026-09-29 - it read "moves against A party").
+        -- A MISSION'S LINE carries where it went (plan ruling 3); an errand's
+        -- its own key, an aimed move's the party it was aimed at.
         IC.log(faction_key, "plot_failed", slug,
-               IC.plot_is_aimed(plot_key) and against or plot_key, cost)
+               IC.plot_is_aimed(plot_key) and against
+               or (plot.target and (plot_key .. ":" .. tostring(target)))
+               or plot_key, cost)
         IC.feed(faction_key, "plot_fail",
                 IC.move_result_key(plot_key, false))
         IC.enforce_bars(faction_key)
@@ -4793,6 +4967,17 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
                 IC.province_loyalty(faction_key, province_key)
                 + IC.TUNE.plot_circuit_prov)
         end
+    elseif plot_key == "envoy" then
+        local province, task = IC.envoy_split(target)
+        cm:apply_effect_bundle_to_faction_province(task.bundle,
+            IC.held_region(faction_key, province), IC.TUNE.mission_turns)
+    elseif plot_key == "diplomats" then
+        -- (PLAYER, TARGET): CA's order, the one who acts first and the faction
+        -- whose regard moves second (Neferata's theft is (neferata, victim, -3)).
+        -- The rest is set on SUCCESS only - a failed send bought nothing, and
+        -- resting too would charge twice.
+        cm:apply_dilemma_diplomatic_bonus(faction_key, target, IC.TUNE.diplomats_bonus)
+        court.sent[target] = cm:model():turn_number()
     elseif plot_key == "murder" then
         local victim = IC.character_by_cqi(faction_key, cqi)
         IC.move_loyalty(faction_key, against, -IC.TUNE.plot_murder_loyalty)
@@ -4800,7 +4985,8 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         cm:kill_character(cm:char_lookup_str(victim), false)
     end
 
-    IC.log(faction_key, plot_key, slug, against, cost)
+    -- A MISSION'S TARGET IS ITS PLACE, which is what its Record line names.
+    IC.log(faction_key, plot_key, slug, plot.target and target or against, cost)
     IC.feed(faction_key, "plot_ok", IC.move_result_key(plot_key, true))
     IC.enforce_bars(faction_key)
     IC.apply_office_bundles(faction_key)

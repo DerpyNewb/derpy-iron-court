@@ -56,6 +56,8 @@ _DOCS = [
     ("docs/superpowers/specs/2026-09-25-iron-court-mct-multiplayer-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-27-iron-court-living-courts-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-28-iron-court-ui-feedback-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-09-29-iron-court-civil-missions-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-09-29-iron-court-party-map-design.md", "docs/design/"),
     ("docs/IRON_COURT_VS_ROME2.md", "docs/design/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-ambition.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-edict-loyalty.md", "docs/plans/"),
@@ -65,6 +67,8 @@ _DOCS = [
     ("docs/superpowers/plans/2026-09-25-iron-court-mct-multiplayer.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-27-iron-court-living-courts.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-28-iron-court-ui-feedback.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-09-29-iron-court-party-map.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-09-29-iron-court-civil-missions.md", "docs/plans/"),
 ] + [("docs/sessions/" + n, "docs/history/") for n in [
     "HANDOFF_20260911_IRON_COURT_DESIGN.md",
     "HANDOFF_20260914_IRON_COURT_SAVE_BUG_AND_FONT_PASS.md",
@@ -91,6 +95,7 @@ def manifest(root=ROOT):
         _MOD + "zzz_derpy_iron_court.lua",
         _MOD + "zzz_derpy_iron_court_parties.lua",
         _MOD + "zzz_derpy_iron_court_ui.lua",
+        _MOD + "zzz_derpy_iron_court_ui_map.lua",
         "Modding Files/pack/script/mct/settings/derpy_iron_court.lua",
     ] + [_UI + "derpy_ic_%s%s.twui.xml" % (n, c)
          for n in ("panel", "card", "row", "party", "plot") for c in ("", "_compact")] + [
@@ -99,6 +104,8 @@ def manifest(root=ROOT):
         _UI + "derpy_ic_edict_note.twui.xml",
         _UI + "derpy_ic_fire.twui.xml",
         _UI + "derpy_ic_burst.twui.xml",
+        _UI + "derpy_ic_map.twui.xml",
+        _UI + "derpy_ic_map_marker.twui.xml",
     ] + _tsvs(root) + ["tools/" + n for n in (
         "_iron_court_harness.lua",
         "gen_iron_court.py",

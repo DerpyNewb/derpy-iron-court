@@ -43,3 +43,7 @@ derpy_ic_gov_house_ledger	Brokers take the province's books in hand, and the tri
 derpy_ic_gov_house_tower	Tower clerks read everything that passes through, and pass it on.	Overseer: The Tower	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_road	The caravan men keep the roads open whatever the season.	Overseer: The Road	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_hearth	The old clans hold it, and men come back to the muster faster.	Overseer: The Hearth	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_envoy_ctl	An envoy of the court is keeping order here.	Envoy: Control	province	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
+derpy_ic_envoy_arm	An envoy of the court is driving the forges here.	Envoy: Armaments	province	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
+derpy_ic_envoy_raw	An envoy of the court is working the mines here harder.	Envoy: Raw materials	province	1	chd_toz_district_industry.png	true	false	true
+derpy_ic_envoy_lab	An envoy of the court is seeing that fewer labourers are worked to death here.	Envoy: Labour	province	1	public_order_jubilant.png	true	false	true

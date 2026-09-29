@@ -67,6 +67,8 @@ SCRIPTS = [
      "script/campaign/mod/zzz_derpy_iron_court.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua",
      "script/campaign/mod/zzz_derpy_iron_court_ui.lua"),
+    ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua",
+     "script/campaign/mod/zzz_derpy_iron_court_ui_map.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua",
      "script/campaign/mod/zzz_derpy_iron_court_parties.lua"),
     # MCT loads every .lua under script/mct/settings/. Listed here, it is also in

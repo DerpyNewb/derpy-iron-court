@@ -29,7 +29,7 @@
 				<standard
 					this="IC440002-D000-4000-B000000000000002"
 					name="standard"
-					width="383"
+					width="303"
 					height="147"
 					uniqueguid="IC440002-D000-4000-B000000000000002">
 				</standard>
@@ -56,7 +56,7 @@
 				<standard
 					this="IC440005-D000-4000-B000000000000005"
 					name="standard"
-					width="383"
+					width="303"
 					height="147"
 					uniqueguid="IC440005-D000-4000-B000000000000005">
 					<imagemetrics>
@@ -65,7 +65,7 @@
 							uniqueguid="IC440004-D002-4000-B000000000000004"
 							componentimage="IC440004-D001-4000-B000000000000004"
 							offset="0.00,0.00"
-							width="383"
+							width="303"
 							height="147"
 							margin="4.00,4.00,4.00,4.00"/>
 						<image
@@ -73,7 +73,7 @@
 							uniqueguid="IC440004-D004-4000-B000000000000004"
 							componentimage="IC440004-D003-4000-B000000000000004"
 							offset="0.00,0.00"
-							width="383"
+							width="303"
 							height="147"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -91,7 +91,7 @@
 				<standard
 					this="IC440008-D000-4000-B000000000000008"
 					name="standard"
-					width="343"
+					width="263"
 					height="15"
 					uniqueguid="IC440008-D000-4000-B000000000000008">
 					<component_text
@@ -118,7 +118,7 @@
 				<standard
 					this="IC44000B-D000-4000-B00000000000000B"
 					name="standard"
-					width="343"
+					width="263"
 					height="15"
 					uniqueguid="IC44000B-D000-4000-B00000000000000B">
 					<component_text
@@ -145,7 +145,7 @@
 				<standard
 					this="IC44000E-D000-4000-B00000000000000E"
 					name="standard"
-					width="343"
+					width="263"
 					height="15"
 					uniqueguid="IC44000E-D000-4000-B00000000000000E">
 					<component_text
@@ -172,7 +172,7 @@
 				<standard
 					this="IC440011-D000-4000-B000000000000011"
 					name="standard"
-					width="343"
+					width="263"
 					height="15"
 					uniqueguid="IC440011-D000-4000-B000000000000011">
 					<component_text
@@ -346,7 +346,7 @@
 				<standard
 					this="IC44001D-D000-4000-B00000000000001D"
 					name="standard"
-					width="303"
+					width="223"
 					height="17"
 					uniqueguid="IC44001D-D000-4000-B00000000000001D">
 					<component_text

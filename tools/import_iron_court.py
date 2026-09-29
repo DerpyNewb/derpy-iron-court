@@ -20,9 +20,10 @@ import gen_iron_court as G            # noqa: E402
 SRC = "Modding Files/source/iron_court"
 MODEL_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua"
 UI_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua"
+MAP_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua"
 PARTIES_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
 MCT_LUA = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
-SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA, MCT_LUA]
+SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA, MCT_LUA, MAP_LUA]
 # The UI file legitimately reads other mods' globals (EX.BUTTON_SIZE,
 # GGUI.BTN_SIZE) and our own model's (IC.HOUSES). check_lua_undeclared does not
 # resolve TABLE.FIELD, so the union of what the whole pack AND its optional

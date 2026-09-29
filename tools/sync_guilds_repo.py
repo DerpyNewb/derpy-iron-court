@@ -123,6 +123,12 @@ MANIFEST = [(p, p) for p in [
      "docs/plans/2026-09-29-great-guilds-service-pools-stage1.md"),
     ("docs/sessions/HANDOFF_20260929_GUILDS_POOLS_STAGE1.md",
      "docs/history/HANDOFF_20260929_GUILDS_POOLS_STAGE1.md"),
+    ("docs/superpowers/plans/2026-09-29-great-guilds-stage2-race-mechanics.md",
+     "docs/plans/2026-09-29-great-guilds-stage2-race-mechanics.md"),
+    ("docs/sessions/HANDOFF_20260929_GUILDS_STAGE2_RACES.md",
+     "docs/history/HANDOFF_20260929_GUILDS_STAGE2_RACES.md"),
+    ("docs/sessions/HANDOFF_20260929_GUILDS_LOGIC_AUDIT.md",
+     "docs/history/HANDOFF_20260929_GUILDS_LOGIC_AUDIT.md"),
 ]
 
 

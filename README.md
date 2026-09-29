@@ -82,10 +82,15 @@ in as a party of their own.
 - **Pressure.** While the Crown holds under 10% of the court, the strongest rival may be
   pushed onto that countdown whatever its loyalty. If the Crown's own loyalty falls to 25,
   your own men split off into a new party after a three-turn warning.
-- **Intrigue.** Fourteen moves in four columns: Against a Man, Against a House, Bonds and
-  Errands. Bribes, rumours, a forge accident, a blood-oath, a feast of ash and more. Each is
-  paid from the acting man's influence and each can fail; a failed move against a party
-  costs loyalty with it.
+- **A quiet start.** For the first 10 turns of a campaign no party can break with you and your
+  own party cannot split. Provoke waits until then; the Court tab counts the turns down.
+- **Intrigue.** Sixteen moves in five columns: Against a Man, Against a House, Bonds,
+  Errands and Missions. Bribes, rumours, a forge accident, a blood-oath, a feast of ash and
+  more. Each is paid from the acting man's influence and each can fail; a failed move
+  against a party costs loyalty with it.
+- **Missions.** Send an Envoy to one of your provinces for five turns of better control,
+  armaments, raw materials or fewer labourers lost, or Send Diplomats to a faction you have
+  met to improve how they regard you (not the same faction again for five turns).
 - **The party bar.** Choose a rival's card and four buttons act on that party: Provoke and
   Purge the House (moves aimed at its leader), Send a Gift (600 gold, +2 loyalty, once per
   party per turn) and Secure Loyalty (2,500 gold, no countdown for five turns). A button the court will not allow is
@@ -111,8 +116,10 @@ in as a party of their own.
   loyal as its own court was (held between 25 and 75).
 
 The panel opens from a round button on the top resource strip, beside the buttons of The
-Great Guilds and the Zharr Exchange when those mods are present. It has six tabs: Court,
-Offices, Governors, Intrigue, Petitions and Record. It is sized to the screen, from 1600x900
+Great Guilds and the Zharr Exchange when those mods are present. It has seven tabs: Court,
+Offices, Governors, Map, Intrigue, Petitions and Record. The Map tab is a first slice, not
+yet checked in game: it closes the court and marks each province you hold on the campaign map
+with the colour of the party that governs it. It is sized to the screen, from 1600x900
 up to 2560x1440; below 1920 wide it uses a compact layout one font size down. A man's exact
 influence also shows beside his rank on the character details panel. Event cards raised
 while the panel is open wait until it closes. The button's tooltip sums up the court: your
@@ -160,7 +167,8 @@ mirrors the in-pack paths, so the tools run from the repo root unchanged.
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, overseers, loyalty, intrigue, secession, save state |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua` | the rival parties' own acts, demands and offers |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, the HUD opener and the influence plate |
-| `Modding Files/pack/ui/campaign ui/` | the fifteen `derpy_ic_*.twui.xml` layouts (generated): ten layouts, five of them with a `_compact` copy |
+| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua` | the Map tab: party markers pinned to settlements on the campaign map |
+| `Modding Files/pack/ui/campaign ui/` | the seventeen `derpy_ic_*.twui.xml` layouts (generated): twelve layouts, five of them with a `_compact` copy |
 | `Modding Files/source/iron_court/` | the DB rows and loc as TSV (generated), except the `factions` override (see below) |
 | `tools/` | generators, checks, the Lua test harness, the mutation runner, the preview renderer, the art tools and the packer |
 | `docs/design/` | design specs, and the gap analysis against Rome II's politics |

@@ -5,6 +5,38 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-29 - build CCF16A5E
+
+Deployed 2026-09-29. MD5 `CCF16A5E6C166FD8DE703E9C7D1185CD`, 9,605,693 bytes, 1,761 files. It
+gathers three builds since B4BC1409: D3712F85 (the grace period), A06C68A6 (the party map's
+first slice) and the civil missions. The detail is in sections 8 to 10 of
+`docs/history/HANDOFF_20260929_IRON_COURT_FULL_SWEEP.md`; the plans are in `docs/plans/` and
+the specs in `docs/design/`.
+
+- **A quiet start** (D3712F85). For the first 10 turns no party can break with you and your
+  own party cannot split; Provoke is refused until then. A fixed value, not a setting, so the
+  save format did not change.
+- **Civil missions.** A fifth Intrigue column. Send an Envoy (120 influence) to one of your
+  provinces for five turns of +6 control, +20% armaments, +20% raw materials or 15% fewer
+  labourers lost - four new effect bundles whose values the generator reads out of
+  `IC.TUNE`. Send Diplomats (100 influence) to a faction you have met for +4 on CA's -6..+6
+  diplomatic bonus; that faction then rests for five turns, the court string's new
+  thirteenth section.
+- **Shorter move cards.** Five columns left 17 of 18 cards overflowing, so every flavour
+  line was cut to one short sentence and three names shortened (Recall Governors,
+  Blood-Oath, Embezzle). Every number and effect sentence is unchanged.
+- **The Map tab, a first slice** (A06C68A6), not yet checked in game: it closes the court
+  and pins a party-coloured marker to each province you hold on the live campaign map, with
+  CA's own world-space callbacks. Choosing a party, clicking a marker and closing on turn end
+  are still to come.
+- **Found by the final review:** the Diplomats bonus was first written with its factions the
+  wrong way round, which would have raised your regard for them instead of theirs for you.
+  All five of CA's own calls put the one who acts first; fixed before this build left the
+  author's machine.
+- Harness 786 -> 804 checks, 798 -> 833 mutants, 0 unexplained.
+  `check_lua_undeclared.py` now counts every target of a one-line multi-assignment as
+  declared.
+
 ## 2026-09-29 - build B4BC1409
 
 Deployed 2026-09-29. MD5 `B4BC14091DDAF79F835B5796FE46F8CB`, 9,498,698 bytes. It gathers

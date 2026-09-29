@@ -16,6 +16,11 @@ local saved = {}
 local province_edicts = {}
 local applied = {}          -- bundle key -> count of live applications
 local province_applied = {}
+-- WHAT A TIMED PROVINCE BUNDLE LEFT BEHIND: [province key] = {[bundle] = turns}.
+-- Filled by apply_effect_bundle_to_faction_province for any positive duration and
+-- read back by the region's faction_province_* calls, so a second envoy to the
+-- same work sees the first one running.
+local prov_bundles = {}
 -- Every custom bundle applied to a province: base key -> {effects, region, duration}.
 local custom_applied = {}
 -- Every province bundle removed, as "bundle@region".
@@ -246,6 +251,20 @@ local function make_faction(name, subculture, characters, provinces)
             assert(type(other) == "string", "diplomatic_standing_with takes a faction key")
             return standing_of(name, other)
         end,
+        -- THE REGARD ON THE DIPLOMACY SCREEN. A faction KEY, as every CA use
+        -- passes it (faction:name() in ogre contracts and the web of power).
+        -- Answers what the bonuses applied between the two sum to.
+        diplomatic_attitude_towards = function(_self, other)
+            assert(type(other) == "string", "diplomatic_attitude_towards takes a faction key")
+            return standing_of(name, other)
+        end,
+        -- AN INTERFACE, as CA's own calls pass it (episode_chaos_invasion).
+        at_war_with = function(_self, other)
+            assert(type(other) == "table" and other.name, "at_war_with takes a faction interface")
+            return (f._wars or {})[other:name()] == true
+        end,
+        is_rebel = function() return f._rebel == true end,
+        is_human = function() return IC.is_human(name) end,
         character_list = function()
             return {
                 num_items = function() return #characters end,
@@ -305,11 +324,35 @@ local function make_faction(name, subculture, characters, provinces)
                 end,
             }
         end,
-        -- One region per province, which is the shape IC.seats dedupes over.
+        -- One region per province, which is the shape IC.seats dedupes over,
+        -- plus f._extra_regions ({province, name, cqi}) listed FIRST: a minor
+        -- region ahead of its province's capital is the case the party map's
+        -- marker has to get right. (home_region answers item 0, so it is the
+        -- extra region while one is set - same province, so the capital
+        -- province does not change.)
         region_list = function()
+            local extra = f._extra_regions or {}
             return {
-                num_items = function() return #provinces end,
+                num_items = function() return #extra + #provinces end,
                 item_at = function(_, i)
+                    if i < #extra then
+                        local e = extra[i + 1]
+                        return {
+                            is_null_interface = function() return false end,
+                            name = function() return e.name end,
+                            province_name = function() return e.province end,
+                            is_province_capital = function() return false end,
+                            province = function()
+                                return {is_null_interface = function() return false end,
+                                        key = function() return e.province end}
+                            end,
+                            settlement = function()
+                                return {is_null_interface = function() return false end,
+                                        cqi = function() return e.cqi end}
+                            end,
+                        }
+                    end
+                    i = i - #extra
                     local key = provinces[i + 1]
                     return {
                         is_null_interface = function() return false end,
@@ -345,6 +388,21 @@ local function make_faction(name, subculture, characters, provinces)
                                 item_at = function(_, i) return slots[i + 1] end,
                             }
                         end,
+                        -- THE FACTION PROVINCE'S TIMED BUNDLES, off prov_bundles.
+                        faction_province_has_effect_bundle = function(_, b)
+                            return (prov_bundles[key] or {})[b] ~= nil
+                        end,
+                        faction_province_effect_bundles = function()
+                            local out = {}
+                            for b, n in pairs(prov_bundles[key] or {}) do
+                                out[#out + 1] = {key = function() return b end,
+                                                 duration = function() return n end}
+                            end
+                            return {num_items = function() return #out end,
+                                    item_at = function(_, i) return out[i + 1] end}
+                        end,
+                        -- CONTROL, off f._order[province]; 0 if a check set none.
+                        public_order = function() return (f._order or {})[key] or 0 end,
                         -- A BUNDLE HELD BY THE REGION, off f._region_bundles[province].
                         has_effect_bundle = function(_, b)
                             return ((f._region_bundles or {})[key] or {})[b] == true
@@ -355,10 +413,15 @@ local function make_faction(name, subculture, characters, provinces)
                                 key = function() return key end,
                             }
                         end,
+                        -- THE PROVINCE CAPITAL unless f._not_capital says otherwise.
+                        is_province_capital = function()
+                            return not (f._not_capital or {})[key]
+                        end,
                         settlement = function()
                             return {
                                 is_null_interface = function() return false end,
                                 _region = key,
+                                cqi = function() return 700 + i end,
                                 logical_position_x = function() return 100 end,
                                 logical_position_y = function() return 200 end,
                             }
@@ -858,9 +921,20 @@ cm = {
         assert(type(region) == "table" and region.name, "a region interface")
         province_removed[#province_removed + 1] = bundle .. "@" .. region:name()
     end,
-    apply_effect_bundle_to_faction_province = function(_, bundle, _region, turns)
-        assert(turns == -1, "indefinite must be -1")
+    -- -1 IS INDEFINITE (the governors); a count of turns is a civil mission
+    -- (spec 2026-09-29). Zero is neither - CA's duration() reads 0 as infinite.
+    apply_effect_bundle_to_faction_province = function(_, bundle, region, turns)
+        assert(turns == -1 or (type(turns) == "number" and turns > 0),
+            "turns must be -1 or a positive count, got " .. tostring(turns))
         province_applied[bundle] = (province_applied[bundle] or 0) + 1
+        if turns > 0 then
+            -- province_name() IS A KEY (CA: "Key of the province containing
+            -- the region").
+            assert(type(region) == "table" and region.province_name, "a region interface")
+            local p = region:province_name()
+            prov_bundles[p] = prov_bundles[p] or {}
+            prov_bundles[p][bundle] = turns
+        end
     end,
     -- CA's own note (corruption_swing.lua) says is_null_interface is broken on a
     -- custom bundle, so the stub has none: calling it is a failure here too.
@@ -1055,6 +1129,9 @@ local chunk, err = loadfile(FILE)
 assert(chunk, "could not load " .. FILE .. ": " .. tostring(err))
 chunk()
 assert(IC, "the file must define IC")
+-- NO GRACE PERIOD HERE. Nearly every check runs on turn 1, which the grace
+-- period protects; the checks that are about it set it themselves.
+IC.TUNE.grace_turns = 0
 
 local PARTIES_FILE = (arg and arg[3])
     or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
@@ -3829,6 +3906,12 @@ local ui_chunk, ui_err = loadfile(UI_FILE)
 assert(ui_chunk, "could not load the panel file: " .. tostring(ui_err))
 ui_chunk()
 assert(ICUI, "the panel file must define ICUI")
+local MAP_FILE = (arg and arg[4])
+    or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua"
+local map_chunk, map_err = loadfile(MAP_FILE)
+assert(map_chunk, "could not load the party map file: " .. tostring(map_err))
+map_chunk()
+assert(ICUI.map_open, "the party map file must define ICUI.map_open")
 
 local function with_neighbours(has_ex, has_gg)
     EX = has_ex and {BUTTON = "derpy_chd_ex_button", BUTTON_SIZE = 48, BUTTON_GAP = 4} or nil
@@ -4332,6 +4415,8 @@ check("every panel, row and card cell has a layout offset", function()
         "ic_help",
         "ic_tab_court", "ic_tab_offices", "ic_tab_govs", "ic_tab_intrigue",
         "ic_tab_log",
+        -- THE PARTY MAP'S TAB (spec 2026-09-29): not a view, but a cell.
+        "ic_tab_map",
         "ic_lbl_section",
         "ic_hdr_a", "ic_hdr_b", "ic_hdr_c", "ic_hdr_d", "ic_hdr_e",
         -- ONE ARROW PER HEADER, placed by hand like every other cell, so a
@@ -5386,6 +5471,69 @@ local function with_fake_panel(fn)
     find_uicomponent, is_uicomponent = saved_find, saved_is
     cm.get_human_factions = saved_human
     if not ok then error(err, 0) end
+end
+
+-- THE PARTY MAP'S LAYER ON THE FAKE ROOT. with_fake_root answers the panel and
+-- the HUD; this adds the map layer (with the legend's components, as its
+-- .twui.xml declares them) and markers created inside it. `layer()` hands back
+-- the live layer, nil once destroyed.
+--
+-- AND A COURT THAT IS REALLY GONE. with_fake_root keeps answering the panel
+-- after close() destroyed it, so a reopen there only refreshes and never runs
+-- open()'s own work - the HUD hide included. The map's round trips close and
+-- reopen the court, so here a destroyed panel is gone and a new one is built.
+local function with_fake_map(fn)
+    with_fake_root(function(hud, panel, extra)
+        local r = extra.root
+        local court_create = r.CreateComponent
+        local layer = nil
+        function r:CreateComponent(name, path)
+            if name == ICUI.PANEL then panel.destroyed = nil end
+            if name ~= ICUI.MAP then return court_create(self, name, path) end
+            extra.paths[name] = path
+            layer = fake_component(ICUI.MAP)
+            layer.parent = r
+            for n in pairs(ICUI.MAP_XY) do layer:CreateComponent(n) end
+            for i = 1, ICUI.MAP_ROWS do
+                layer:CreateComponent(ICUI.MAP_ROW .. "_" .. i)
+                local row = layer.children[ICUI.MAP_ROW .. "_" .. i]
+                for n in pairs(ICUI.MAP_ROW_CHILD) do row:CreateComponent(n) end
+            end
+            local make = layer.CreateComponent
+            function layer:CreateComponent(n, p)
+                extra.paths[n] = p
+                return make(self, n, p)
+            end
+            r.children[name] = layer
+            r.order[#r.order + 1] = layer
+        end
+        local find = find_uicomponent
+        find_uicomponent = function(parent, name)
+            if parent == nil or parent == r then
+                if name == ICUI.MAP then
+                    return (layer and not layer.destroyed) and layer or false
+                end
+                if name == ICUI.PANEL and panel.destroyed then return false end
+            end
+            return find(parent, name)
+        end
+        ICUI.register()
+        local ok, err = pcall(fn, hud, panel, extra, function()
+            return (layer and not layer.destroyed) and layer or nil
+        end)
+        find_uicomponent = find
+        if not ok then error(err, 0) end
+    end)
+end
+
+-- A CLICK, as the engine reports it: every ComponentLClickUp listener sees it.
+-- core.listeners keeps one function per name, so the court's and the map's are
+-- fired by name, the court's first.
+local function map_click(id)
+    for _, name in ipairs({"ic_click", "ic_map_click"}) do
+        local fire = core.listeners[name]
+        if fire then fire({string = id}) end
+    end
 end
 
 -- THE k-th PARTY CARD THAT ACTUALLY DREW. The court tab pages a grid of ten
@@ -23535,6 +23683,144 @@ check("with the Crown's split off, its card does not threaten one", function()
     assert(ok, err)
 end)
 
+-- THE GRACE PERIOD (author, 2026-09-29): for the first grace_turns turns of a
+-- campaign nobody leaves, nothing counts down and the Crown does not split.
+-- Every other check runs with it at 0 (set where the model is loaded), so these
+-- are the only ones that see it.
+local function in_grace(fn)
+    local keep_g, keep_h = IC.TUNE.grace_turns, cm.get_human_factions
+    IC.TUNE.grace_turns = 10
+    cm.get_human_factions = function() return {F} end
+    local ok, err = pcall(fn)
+    IC.TUNE.grace_turns, cm.get_human_factions = keep_g, keep_h
+    turn = 1
+    assert(ok, err)
+end
+
+check("for the first ten turns nobody leaves and the Crown does not split",
+function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(74, ANY_SEAT, "forge", nil)}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.add_house(F, "tower")
+    local court = IC.court(F)
+    local crown = court.houses[IC.CROWN]
+    crown.weight, crown.loyalty = 100, IC.TUNE.splinter_loyalty - 1
+    court.houses["legion"].weight, court.houses["legion"].loyalty = 100, 5
+    court.houses["tower"].loyalty = IC.TUNE.secede_break
+    in_grace(function()
+        turn = 10
+        assert(IC.grace_left() == 1, "turn 10 has " .. tostring(IC.grace_left())
+            .. " turns of grace left, not 1")
+        assert(not IC.at_breaking_point(F, "tower"),
+            "a party at the floor is at the breaking point in the grace period")
+        IC.tick_secession(F)
+        assert(court.houses["tower"], "a party left in the grace period")
+        assert((court.houses["legion"].clock or 0) == 0,
+            "a countdown started in the grace period")
+        IC.splinter(F)
+        assert((crown.split or 0) == 0, "the Crown began to split in the grace period")
+        crown.weight = 1
+        court.houses["legion"].weight = 999
+        assert(IC.control_pressure(F) > 0, "the fixture put the court under no pressure")
+        local roll = cm.random_number
+        cm.random_number = function() return 1 end
+        local pressed = IC.tick_pressure(F)
+        cm.random_number = roll
+        assert(pressed == 0 and not court.houses["legion"].pressed,
+            "the strongest party was pressed in the grace period")
+        -- AND IT ENDS. Turn 11 is the first turn anything may happen.
+        turn = 11
+        assert(IC.grace_left() == 0, "the grace period ran past turn 10")
+        assert(IC.at_breaking_point(F, "tower"), "the floor never came back")
+        court.houses["tower"].loyalty = 50
+        crown.weight = 100
+        court.houses["legion"].weight = 100
+        IC.tick_secession(F)
+        assert(court.houses["legion"].clock == IC.TUNE.secede_turns,
+            "no countdown started after the grace period")
+        IC.splinter(F)
+        assert((crown.split or 0) > 0, "the Crown could not split after the grace period")
+    end)
+end)
+
+check("with the court protected, Provoke is refused, and says why",
+function()
+    IC.state = {}
+    local actor = make_character(976, ANY_SEAT, "crown")
+    local victim = make_character(977, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {actor, victim}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "legion")
+    IC.court(F).standing[976] = 5000
+    IC.court(F).standing[977] = 100
+    local house = IC.court(F).houses["legion"]
+    house.loyalty, house.clock = 80, 0
+    in_grace(function()
+        turn = 3
+        local ok, why = IC.plot(F, "provoke", 976, "977")
+        assert(not ok and why == "grace",
+            "Provoke was not refused in the grace period: " .. tostring(why))
+        assert((house.clock or 0) == 0 and house.loyalty == 80,
+            "a refused Provoke still did something")
+        local may, text = ICUI.act_check(F, "ic_act_provoke", "legion")
+        assert(not may and text:find("8 more turns", 1, true),
+            "the Provoke button says: " .. tostring(text))
+        -- WITH SECESSION SWITCHED OFF it is the loyalty cost it always was.
+        local keep = IC.TUNE.secession
+        IC.TUNE.secession = false
+        local ok2, why2 = pcall(IC.may_target, F, "provoke", 977)
+        IC.TUNE.secession = keep
+        assert(ok2, why2)
+        assert(why2 == true, "with secession off Provoke was refused in the grace period")
+        -- AND AFTER THE GRACE PERIOD it may be sent.
+        turn = 11
+        assert(IC.may_target(F, "provoke", 977) == true,
+            "Provoke is still refused after the grace period")
+    end)
+end)
+
+check("in the grace period the panel threatens nothing and says how long", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(978, ANY_SEAT, IC.CROWN),
+                                       make_character(979, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local court = IC.court(F)
+    court.houses["legion"].loyalty = IC.TUNE.secede_break
+    court.houses[IC.CROWN].loyalty = IC.TUNE.splinter_loyalty - 1
+    in_grace(function()
+        turn = 4
+        local legion = ICUI.mood(court.houses["legion"], "legion")
+        assert(not legion:find("SECEDES", 1, true),
+            "a party's card reads " .. legion .. " in the grace period")
+        local crown = ICUI.mood(court.houses[IC.CROWN], IC.CROWN)
+        assert(crown ~= "SPLINTERING" and not crown:find("SPLITS", 1, true),
+            "the Crown's card reads " .. crown .. " in the grace period")
+        assert(#ICUI.court_state(F).leaving == 0,
+            "the opener counts a party leaving in the grace period")
+        with_fake_panel(function(panel)
+            ICUI.view, ICUI.pick, ICUI.notice = "court", nil, nil
+            ICUI.refresh()
+            local bar = bare(panel.children.ic_alert.text or "")
+            assert(bar:find("7 more turns", 1, true), "the Court tab says: " .. bar)
+            -- AND NOT WITH SECESSION SWITCHED OFF, where nobody ever may.
+            local keep = IC.TUNE.secession
+            IC.TUNE.secession = false
+            local ok, err = pcall(ICUI.refresh)
+            IC.TUNE.secession = keep
+            assert(ok, err)
+            local off = bare(panel.children.ic_alert.text or "")
+            assert(not off:find("more turn", 1, true),
+                "with secession off the Court tab counts down a protection: " .. off)
+        end)
+        turn = 11
+        assert(ICUI.mood(court.houses["legion"], "legion") == "SECEDES 1",
+            "the card never threatened again after the grace period")
+    end)
+end)
+
 check("an AI court switched off takes its effects off with it", function()
     -- MCT review 2026-09-25, deferred: an older save loaded with AI courts off
     -- stopped running them and left their office, control and governor bonuses
@@ -26771,6 +27057,409 @@ check("a governor's tooltip calls public order what the game calls it: control",
         assert(not tip:lower():find("public order", 1, true) and tip:find("control", 1, true),
             "the governor's tooltip reads: " .. tip)
     end
+end)
+
+check("the Map tab opens the party map: one pinned marker per province, HUD hidden",
+function()
+    IC.state = {}
+    turn = 1
+    local gov = make_character(801, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {gov}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 801
+    with_fake_map(function(hud, panel, extra, layer)
+        ICUI.open()
+        map_click(ICUI.MAP_TAB)
+        assert(panel.destroyed, "the court stayed open under the map")
+        local l = layer()
+        assert(l, "no map layer was created")
+        assert(extra.paths[ICUI.MAP] == ICUI.PATH_MAP, "the layer came from " .. tostring(extra.paths[ICUI.MAP]))
+        assert(l.resized and l.w == extra.root.w and l.h == extra.root.h,
+            "the layer kept its file's size, not the screen's")
+        assert(l.visible == true, "the map hid its own layer")
+        assert(hud.visible == false, "the HUD shows over the party map")
+        local a, b = l.children[ICUI.MARKER .. "_1"], l.children[ICUI.MARKER .. "_2"]
+        assert(a and b, "not one marker per province")
+        assert(extra.paths[ICUI.MARKER .. "_1"] == ICUI.PATH_MARKER, "a marker from the wrong file")
+        -- PINNED: the settlement's own context, the id form Fortified Camps attests.
+        assert(a.context and a.context.cco == "CcoCampaignSettlement" and a.context.id == "700",
+            "the first marker was given " .. tostring(a.context and a.context.id))
+        assert(b.context.id == "701", "the second marker was given " .. tostring(b.context.id))
+        assert(a.images[ICUI.MK_PLATE] == ICUI.map_disc("legion"), "prov_a's plate: " .. tostring(a.images[ICUI.MK_PLATE]))
+        assert(b.images[ICUI.MK_PLATE] == ICUI.map_disc(nil), "ungoverned prov_b's plate: " .. tostring(b.images[ICUI.MK_PLATE]))
+        assert(a.images[ICUI.MK_CAPITAL] == ICUI.MK_RING_CAPITAL, "the capital's province wears no ring")
+        assert(b.images[ICUI.MK_CAPITAL] == ICUI.MASK_NONE, "another province wears the capital ring")
+        -- THE NAME IS THE MARKER'S OWN TEXT (ruling 9); the loc stub answers
+        -- nothing, so the province key is the fallback.
+        assert(a.text == "prov_a", "the name reads " .. tostring(a.text))
+        assert(next(a.children) == nil, "a marker grew a child, which the engine would draw at its corner")
+        assert(ICUI.map_keys[1] == "prov_a" and ICUI.map_keys[2] == "prov_b", "the click keys do not follow the markers")
+    end)
+end)
+
+check("a province's marker stands on its capital settlement, else the first held one",
+function()
+    IC.state = {}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    -- A MINOR REGION OF prov_a LISTED FIRST: a first-found search answers it,
+    -- the map must not.
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 950}}
+    local r = ICUI.map_region(F, "prov_a")
+    assert(r and r:name() == "region_prov_a", "prov_a's marker stands on " .. tostring(r and r:name()))
+    -- NO CAPITAL HELD: the first region of the province.
+    f._not_capital = {prov_b = true}
+    local s = ICUI.map_region(F, "prov_b")
+    assert(s and s:name() == "region_prov_b", "prov_b fell back to " .. tostring(s and s:name()))
+    f._extra_regions, f._not_capital = nil, nil
+end)
+
+check("closing the party map returns to the court on Governors and gives the HUD back",
+function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_map(function(hud, panel, extra, layer)
+        -- THE WAY A PLAYER GETS THERE: the court, then its Map tab.
+        ICUI.open()
+        ICUI.view = "intrigue"
+        map_click(ICUI.MAP_TAB)
+        -- AND A SECOND OPEN over the first: one layer, not two stacked.
+        local first = layer()
+        ICUI.map_open()
+        assert(layer() and layer() ~= first, "the second open did not replace the first")
+        assert(first.destroyed, "the first layer is still on the root under the second")
+        assert(hud.visible == false, "the HUD came back while the map was up")
+        map_click("ic_map_close")
+        assert(not layer(), "the map layer outlived its close button")
+        assert(not panel.destroyed, "the court did not come back")
+        assert(ICUI.view == "govs", "the court came back on " .. tostring(ICUI.view))
+        assert(hud.visible == false, "the HUD shows over the court")
+        ICUI.close()
+        assert(hud.visible == true, "the HUD stayed hidden after the map and the court both closed")
+        assert(extra.menu.visible == true and extra.icons.visible == true,
+            "a sibling of the HUD stayed hidden")
+        assert(extra.asleep.visible == false, "a panel that was already closed was opened")
+    end)
+end)
+
+check("an envoy puts the chosen work on that province for mission_turns", function()
+    IC.state = {}
+    prov_bundles = {}
+    turn = 1
+    local man = make_character(1301, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1301] = 1000
+    rng({1})
+    assert(IC.plot(F, "envoy", 1301, "prov_b:arm"), "the envoy was refused")
+    rng(nil)
+    assert(prov_bundles.prov_b and prov_bundles.prov_b.derpy_ic_envoy_arm == IC.TUNE.mission_turns,
+        "prov_b holds " .. tostring(prov_bundles.prov_b and prov_bundles.prov_b.derpy_ic_envoy_arm))
+    assert(not prov_bundles.prov_a, "the work went to the wrong province")
+    assert(IC.court(F).standing[1301] == 1000 - IC.TUNE.plot_envoy_cost, "the price was not paid")
+    -- THE RECORD SAYS WHERE AND WHAT.
+    local last = IC.court(F).log[#IC.court(F).log]
+    assert(last.kind == "envoy" and last.key == "prov_b:arm", "logged " .. tostring(last.key))
+    local line = ICUI.intrigue_text(last)
+    assert(line:find("prov_b", 1, true) and line:find("+20% armaments", 1, true)
+           and line:find("for " .. IC.TUNE.mission_turns .. " turns", 1, true), line)
+    -- A MALFORMED KEY STILL SAYS SOMETHING (the every-move check passes "legion").
+    assert(ICUI.intrigue_text({turn = 1, kind = "envoy", slug = "crown", key = "legion", n = 1}))
+end)
+
+check("an envoy is refused for work already running, a lost province, a bad task, a general",
+function()
+    IC.state = {}
+    prov_bundles = {}
+    turn = 1
+    local man = make_character(1311, ANY_SEAT, "crown")
+    local general = make_character(1312, ANY_SEAT, "crown")
+    general._force = true
+    make_faction(F, IC.CHD_SUBCULTURE, {man, general}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1311] = 1000
+    IC.court(F).standing[1312] = 1000
+    prov_bundles.prov_a = {derpy_ic_envoy_ctl = 3}
+    local ok, why, left = IC.may_target(F, "envoy", "prov_a:ctl")
+    assert(not ok and why == "running" and left == 3, tostring(why) .. " " .. tostring(left))
+    -- AND THE CLICK REFUSES THE SAME, WITHOUT TAKING THE PRICE.
+    ok, why, left = IC.plot(F, "envoy", 1311, "prov_a:ctl")
+    assert(not ok and why == "running" and left == 3, "the click said " .. tostring(why))
+    assert(IC.court(F).standing[1311] == 1000, "a refused envoy was charged")
+    -- ANOTHER TASK IN THE SAME PROVINCE IS FREE.
+    assert(IC.may_target(F, "envoy", "prov_a:raw"), "one task running blocked the others")
+    assert(select(2, IC.may_target(F, "envoy", "prov_z:ctl")) == "lost", "a province not held")
+    assert(select(2, IC.may_target(F, "envoy", "prov_a:xyz")) == "no such task", "an unknown task")
+    assert(select(2, IC.may_target(F, "envoy", "prov_a")) == "no such task", "a target with no task")
+    assert(select(2, IC.can_plot(F, "envoy", 1312, "prov_a:raw")) == "commands",
+        "a general was sent on a mission")
+end)
+
+check("a failed envoy pays and puts nothing on the province", function()
+    IC.state = {}
+    prov_bundles = {}
+    turn = 1
+    local man = make_character(1321, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1321] = 1000
+    rng({100})
+    local ok, how = IC.plot(F, "envoy", 1321, "prov_a:lab")
+    rng(nil)
+    assert(ok and how == "failed", "the roll did not fail: " .. tostring(how))
+    assert(not prov_bundles.prov_a, "a failed envoy still did the work")
+    assert(IC.court(F).standing[1321] == 1000 - IC.TUNE.plot_envoy_cost, "a failure was free")
+    -- RULING 3: the Record can say where it failed.
+    local last = IC.court(F).log[#IC.court(F).log]
+    assert(last.kind == "plot_failed" and last.key == "envoy:prov_a:lab",
+        "a failed mission logged " .. tostring(last.key))
+end)
+
+check("an envoy to the longest vanilla province crosses the multiplayer wire", function()
+    IC.state = {}
+    prov_bundles = {}
+    turn = 1
+    -- 56 characters; the spec's measured longest, and the cqi at its widest.
+    local province = "wh3_main_combi_province_southlands_worlds_edge_mountains"
+    local id = IC.MP_TAG .. "|plot|envoy|4294967295|" .. province .. ":ctl"
+    assert(#id <= IC.MP_MAX, #id .. " characters, over " .. IC.MP_MAX)
+    -- AND THE TARGET SURVIVES fields()' SPLIT ON "|" AND envoy_split's ON ":",
+    -- through the same op a second machine runs.
+    local man = make_character(1331, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {province})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1331] = 1000
+    rng({1})
+    local done = IC.MP_OPS.plot(F, "envoy|1331|" .. province .. ":ctl")
+    rng(nil)
+    assert(done, "the envoy was refused over the wire")
+    assert(prov_bundles[province] and prov_bundles[province].derpy_ic_envoy_ctl,
+        "the work did not reach " .. province)
+end)
+
+local THEM = "wh3_main_emp_empire"
+
+-- A FACTION `me` HAS MET, registered by make_faction so cm:get_faction finds
+-- it. Returns its stub, for the check to set _rebel or _dead on.
+local function met_faction(me, key)
+    local them = make_faction(key, "wh_main_sc_emp_empire", {}, {})
+    me._met = me._met or {}
+    me._met[#me._met + 1] = key
+    return them
+end
+
+check("diplomats raise a met faction's regard, then rest it", function()
+    IC.state = {}
+    bonuses = {}
+    turn = 3
+    local man = make_character(1401, ANY_SEAT, "crown")
+    local me = make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
+    met_faction(me, THEM)
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1401] = 1000
+    rng({1})
+    assert(IC.plot(F, "diplomats", 1401, THEM), "the diplomats were refused")
+    rng(nil)
+    -- (PLAYER, TARGET, n): CA's order - the one who acts first, the faction
+    -- whose regard moves second. All five of CA's calls read that way (Neferata's
+    -- treasury theft is (neferata, victim, -3)); the spec's (target, player)
+    -- would move YOUR regard for them and leave theirs where it was.
+    assert(#bonuses == 1 and bonuses[1].a == F and bonuses[1].b == THEM
+           and bonuses[1].n == IC.TUNE.diplomats_bonus, "the bonus call was wrong")
+    assert(IC.court(F).sent[THEM] == 3, "no rest was set")
+    -- THE RECORD NAMES THE FACTION (plan ruling 2: and the party that sent).
+    local line = ICUI.intrigue_text(IC.court(F).log[#IC.court(F).log])
+    assert(line:find(THEM, 1, true) and line:find("regard", 1, true), line)
+    local ok, why, left = IC.may_target(F, "diplomats", THEM)
+    assert(not ok and why == "resting" and left == IC.TUNE.diplomats_rest,
+        tostring(why) .. " " .. tostring(left))
+    -- ONE TURN SHORT is still resting; the turn it ends is free.
+    turn = 3 + IC.TUNE.diplomats_rest - 1
+    assert(select(2, IC.may_target(F, "diplomats", THEM)) == "resting", "rested one turn short")
+    turn = 3 + IC.TUNE.diplomats_rest
+    assert(IC.may_target(F, "diplomats", THEM), "still resting after the rest")
+    turn = 1
+end)
+
+check("a failed send pays, moves nobody and rests nobody", function()
+    IC.state = {}
+    bonuses = {}
+    turn = 1
+    local man = make_character(1411, ANY_SEAT, "crown")
+    local me = make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
+    met_faction(me, THEM)
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1411] = 1000
+    rng({100})
+    local ok, how = IC.plot(F, "diplomats", 1411, THEM)
+    rng(nil)
+    assert(ok and how == "failed", "the roll did not fail")
+    assert(#bonuses == 0, "a failed send still moved them")
+    assert(IC.court(F).sent[THEM] == nil, "a failed send rested the faction")
+    assert(IC.court(F).standing[1411] == 1000 - IC.TUNE.plot_diplomats_cost, "a failure was free")
+end)
+
+check("diplomats are refused for the unmet, rebels, players, the dead and yourself",
+function()
+    IC.state = {}
+    turn = 1
+    local me = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    local function why(key) return select(2, IC.may_target(F, "diplomats", key)) end
+    make_faction("wh3_main_ksl_kislev", "wh3_main_sc_ksl_kislev", {}, {})
+    assert(why("wh3_main_ksl_kislev") == "unmet", "an unmet faction: " .. tostring(why("wh3_main_ksl_kislev")))
+    met_faction(me, "wh2_main_rebels")._rebel = true
+    assert(why("wh2_main_rebels") == "rebel", "a rebel: " .. tostring(why("wh2_main_rebels")))
+    met_faction(me, "wh3_main_cth_cathay")
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F, "wh3_main_cth_cathay"} end
+    local human = why("wh3_main_cth_cathay")
+    cm.get_human_factions = saved
+    assert(human == "player", "another player: " .. tostring(human))
+    met_faction(me, "wh3_main_dae_daemon_prince")._dead = true
+    assert(why("wh3_main_dae_daemon_prince") == "lost", "the dead")
+    assert(why(F) == "lost", "yourself")
+    assert(why("no_such_faction") == "lost", "a faction that is not there")
+end)
+
+check("who is resting survives a save, and an older save rests nobody", function()
+    IC.state = {}
+    turn = 10
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).sent = {[THEM] = 8, ["wh_old_faction"] = 2}
+    local packed = IC.pack(F)
+    local back = IC.unpack(F, packed)
+    assert(back.sent[THEM] == 8, "the rest was lost on save")
+    -- PRUNED: a rest that ended turns ago is not carried forward.
+    assert(back.sent["wh_old_faction"] == nil, "an ended rest was saved")
+    -- AN OLDER SAVE: twelve fields, no thirteenth.
+    local old = string.gsub(packed, "|[^|]*$", "")
+    assert(select(2, string.gsub(old, "|", "")) == 11, "the fixture is not a twelve-field save")
+    local legacy = IC.unpack(F, old)
+    assert(legacy.sent and next(legacy.sent) == nil, "an older save rests somebody")
+    turn = 1
+end)
+
+-- THE ACTION CELLS AND FIRST CELLS OF EVERY DRAWN ROW, markup stripped.
+local function picker_rows(panel)
+    local out = {}
+    for i = 1, ICUI.MAX_ROWS do
+        local row = panel.children[ICUI.ROW .. "_" .. i]
+        if row and row.visible and row.children.ic_row_a.text ~= "" then
+            out[#out + 1] = {a = plain(row.children.ic_row_a.text),
+                             d = plain(row.children.ic_row_d.text),
+                             e = plain(row.children.ic_row_e.text)}
+        end
+    end
+    return out
+end
+
+check("the Envoy walks province, then task, then the man who goes", function()
+    IC.state = {}
+    prov_bundles = {}
+    turn = 1
+    local man = make_character(1501, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).standing[1501] = 1000
+    prov_bundles.prov_b = {derpy_ic_envoy_arm = 2}
+    ICUI.pick = nil
+    -- THE ROW OR CARD A CLICK LANDED ON, as the card-click checks set it: the
+    -- fake tree has no parent chain for clicked_index to read.
+    local at = nil
+    local saved_idx = ICUI.clicked_index
+    ICUI.clicked_index = function() return at end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "intrigue"
+        ICUI.refresh()
+        -- THE ENVOY'S CARD opens the province list.
+        for i, move in pairs(ICUI.plot_keys) do if move.plot == "envoy" then at = i end end
+        assert(at, "no Envoy card on the grid")
+        ICUI.on_plot_click({component = {}})
+        assert(ICUI.pick and ICUI.pick.kind == "envoy_province", "the card opened " .. tostring(ICUI.pick and ICUI.pick.kind))
+        local rows = picker_rows(panel)
+        assert(#rows == 2 and rows[1].a == "prov_a" and rows[2].a == "prov_b", "the provinces listed")
+        assert(rows[2].d:find("Armaments 2", 1, true), "prov_b's running work reads " .. rows[2].d)
+        -- PROVINCE -> TASK.
+        at = 2
+        ICUI.on_pick_click({component = {}}, F)
+        assert(ICUI.pick.kind == "envoy_task" and ICUI.pick.province == "prov_b", "no task list for prov_b")
+        ICUI.refresh()
+        rows = picker_rows(panel)
+        assert(#rows == 4, #rows .. " tasks")
+        assert(rows[2].a == "Armaments" and rows[2].e == "Running 2", "the running task reads " .. rows[2].e)
+        assert(rows[1].e == "Choose", "a free task reads " .. rows[1].e)
+        -- A REFUSED TASK DOES NOTHING ON CLICK.
+        at = 2
+        assert(not ICUI.on_pick_click({component = {}}, F), "a running task answered the click")
+        assert(ICUI.pick.kind == "envoy_task", "a running task was taken")
+        -- TASK -> MAN, the target written the way the model splits it.
+        at = 1
+        ICUI.on_pick_click({component = {}}, F)
+        assert(ICUI.pick.kind == "plot" and ICUI.pick.plot == "envoy" and ICUI.pick.key == "prov_b:ctl",
+            "the man's picker carries " .. tostring(ICUI.pick.key))
+        assert(ICUI.pick_title():find("prov_b", 1, true), ICUI.pick_title())
+    end)
+    ICUI.clicked_index = saved_idx
+    ICUI.pick = nil
+    assert(ok, err)
+end)
+
+check("Diplomats list the factions met, refused ones say why", function()
+    IC.state = {}
+    turn = 1
+    local man = make_character(1511, ANY_SEAT, "crown")
+    local me = make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    me._met = {"wh3_main_emp_empire", "wh2_main_rebels", "wh3_main_dae_daemon_prince"}
+    make_faction("wh3_main_emp_empire", "wh_main_sc_emp_empire", {}, {})
+    make_faction("wh2_main_rebels", "wh_main_sc_grn_orcs", {}, {})._rebel = true
+    make_faction("wh3_main_dae_daemon_prince", "wh3_main_sc_dae_daemons", {}, {})._dead = true
+    IC.court(F).sent = {["wh3_main_emp_empire"] = 1}
+    ICUI.pick = {kind = "diplomats_faction", plot = "diplomats"}
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.refresh()
+        local rows = picker_rows(panel)
+        -- THE DEAD ARE LEFT OFF (ruling 9); the rest are drawn, refused or not.
+        assert(#rows == 2, #rows .. " factions listed")
+        local by = {}
+        for _, r in ipairs(rows) do by[r.a] = r.e end
+        assert(by["wh3_main_emp_empire"] == "Rest " .. IC.TUNE.diplomats_rest, tostring(by["wh3_main_emp_empire"]))
+        assert(by["wh2_main_rebels"] == "Rebel", tostring(by["wh2_main_rebels"]))
+        assert(plain(panel.children.ic_hdr_a.text) == ICUI.MISSION_PICKS.diplomats_faction[1],
+            "the headers are the character list's")
+        assert(not panel.children.ic_hsort_a.visible, "a sort arrow over a list that does not sort")
+    end)
+    ICUI.pick = nil
+    assert(ok, err)
+end)
+
+check("every mission refusal has a sentence and a label", function()
+    for _, why in ipairs({"running", "resting", "lost", "unmet", "rebel", "player", "no such task"}) do
+        local text = ICUI.reason_text(why, 3)
+        assert(text ~= "That cannot be done right now.", why .. " has no sentence")
+        assert(not text:find("%d", 1, true), why .. " printed a raw format")
+    end
+    assert(ICUI.mission_refusal("running", 3) == "Running 3")
+    assert(ICUI.mission_refusal("resting", 2) == "Rest 2")
+    assert(ICUI.mission_refusal("rebel") == "Rebel" and ICUI.mission_refusal("player") == "Player")
+    assert(ICUI.mission_refusal("lost") == "No")
+end)
+
+check("a failed mission's Record line names where it went", function()
+    local line = ICUI.intrigue_text({turn = 1, kind = "plot_failed", slug = "crown",
+                                     key = "envoy:prov_a:lab", n = 120})
+    assert(line:find("Send an Envoy", 1, true) and line:find("prov_a", 1, true), line)
+    line = ICUI.intrigue_text({turn = 1, kind = "plot_failed", slug = "crown",
+                               key = "diplomats:wh3_main_emp_empire", n = 100})
+    assert(line:find("Send Diplomats", 1, true)
+           and line:find("wh3_main_emp_empire", 1, true), line)
+    -- AN ERRAND'S FAILURE still reads as it did (its key has no ":").
+    line = ICUI.intrigue_text({turn = 1, kind = "plot_failed", slug = "crown",
+                               key = "circuit", n = 110})
+    assert(line:find("Ride the Circuit", 1, true), line)
 end)
 
 check("no parties' turn failed anywhere in the run", function()
