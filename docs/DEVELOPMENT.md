@@ -134,15 +134,16 @@ tracked in the save; each turn removes and re-applies them from the court.
 | Office and vacancy bundles | `derpy_ic_office_<office>`, `derpy_ic_vacant_<office>` |
 | Control bands | `derpy_ic_control_<band>` |
 | Overseer bundles | `derpy_ic_gov_base`, `derpy_ic_gov_house_<party>`, applied to the faction's part of the province |
-| Traits | `derpy_ic_bg_*` (27 backgrounds), `derpy_ic_house_*` (24 origins), `derpy_ic_standing_*` (5 influence bands), `derpy_ic_title_*` (14 offices), `derpy_ic_ambition_*` (3) |
+| Traits | `derpy_ic_bg_*` (27 backgrounds), `derpy_ic_house_*` (24 origins), `derpy_ic_standing_*` (5 influence bands), `derpy_ic_title_*` (14 offices), `derpy_ic_ambition_*` (3), `derpy_ic_member_*` (73, the party a man sits with now) |
+| Trait pictures | `trait_categories` rows `derpy_ic_cat_<kind>` (origin, confed, office, standing, ambition) and `derpy_ic_cat_party_<party>` (the party's own sigil); `character_traits.icon` names one |
 | Demand missions | `derpy_ic_demand_office`, `derpy_ic_demand_province`, issued with `cm:trigger_custom_mission_from_string` and a `SCRIPTED` objective |
-| Feed events | `derpy_ic_event_<name>`, indexes 2600 to 2621, derived from position in the generator's list, so new ones are appended |
+| Feed events | `derpy_ic_event_<name>`, indexes 2600 to 2628, derived from position in the generator's list, so new ones are appended |
 | Rebel banners | `factions` rows for the four pool factions, `flags_path` pointed at `ui/flags/derpy_ic_rising_0N` |
 | Panel text | resolved by the panel at draw time; the model stores keys and numbers only |
 
-The DB side is twelve tables plus the loc: `effect_bundles`,
+The DB side is thirteen tables plus the loc: `effect_bundles`,
 `effect_bundles_to_effects_junctions`, `character_traits`, `character_trait_levels`,
-`trait_info`, `missions`, `campaign_payload_ui_details`, `event_feed_message_events`,
+`trait_info`, `trait_categories`, `missions`, `campaign_payload_ui_details`, `event_feed_message_events`,
 `campaign_groups`, `campaign_group_members`, `campaign_group_member_criteria_values` and
 `factions`.
 
@@ -150,9 +151,9 @@ The DB side is twelve tables plus the loc: `effect_bundles`,
 
 The panel is **our own `.twui.xml`, created at runtime**. No CA layout is overridden.
 
-- `tools/gen_ic_ui.py` writes seven layouts (panel, card, row, party, plot, opener,
-  standing) and a `_compact` copy of five of them. **One GUID prefix per file**: `IC30` to
-  `IC36`, and `IC40` to `IC44` for the compact copies.
+- `tools/gen_ic_ui.py` writes ten layouts (panel, card, row, party, plot, opener,
+  standing, fire, burst, edict_note) and a `_compact` copy of five of them. **One GUID
+  prefix per file**: `IC30` to `IC39`, and `IC40` to `IC44` for the compact copies.
 - The engine ignores offsets on a runtime-created component, so the files carry none and
   `ICUI` places everything with `MoveTo`. Every layout number is typed at 1920x1080.
 - **Scale.** The box is the widest 16:9 fit, clamped to 1600..2560 wide. `ICUI.apply_scale`
@@ -169,6 +170,14 @@ The panel is **our own `.twui.xml`, created at runtime**. No CA layout is overri
   was still building at first tick.
 - While the panel is open, `IC.hold_feed` holds event cards (up to 10) and releases them on
   close.
+- **Pictures inside text** are CA's `[[img:<path>]][[/img]]` markup. `ICUI.units` puts the
+  influence, gold, loyalty or hourglass picture in front of "N influence / gold / loyalty /
+  turn(s)" in the Record, the notice bar, the Petitions tab and the tooltips, and skips a
+  figure that already wears one, so a second pass changes nothing. The help page writes
+  `{@name}` for a picture the way it writes `{name}` for a number. **Never into a card or
+  picker cell:** those are measured to the pixel by `gen_ic_ui.py`, or fitted and cut on
+  spaces, and CA's picture paths contain spaces. `gen_ic_ui.py` check 23 holds every path
+  the markup names to a picture that ships.
 
 ## 6. Build pipeline
 
@@ -181,10 +190,10 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the three scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (687 checks)`. |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 519 mutants, each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all three shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (771 checks)` (2026-09-29). |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 760 mutants (2026-09-29), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
-| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 12 files, 478 components`. |
+| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 15 files, 556 components`. |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |
@@ -264,6 +273,13 @@ Each of these cost a bug or a build to learn. Most fail silently.
   compares every empty column against vanilla.
 - **A trait needs a `trait_info` row** as well as its two trait tables, and its loc is keyed
   off the level key in `character_trait_levels`.
+- **A trait's picture is its category's.** `character_traits.icon` is a `trait_categories`
+  key, not a path, and every trait here once used CA's `chaos_dwarfs` category, so every one
+  drew the same Chaos Dwarf helmet. Each kind now has a category of its own.
+- **`PanelClosedCampaign` fires while the panel still reads visible.** The close handler
+  found the character panel open and drew the influence plate again, and the close button's
+  own click had already queued two redraws that land after the close. A shut flag, set on
+  close and cleared on the next open, is what keeps the plate down.
 - **The screen a script sees is the window divided by UI Scale, floored at 1600x900.** No
   script can set a font size, so the small end is a second set of layouts. `Resize` scales
   children by default; the panel passes `false`.
@@ -287,12 +303,16 @@ Each of these cost a bug or a build to learn. Most fail silently.
 - [docs/design/IRON_COURT_VS_ROME2.md](design/IRON_COURT_VS_ROME2.md): the gap analysis
   against Rome II's politics, and what was built from it.
 - The 2026-09-20 specs (ambition, Military Doctrine loyalty), the 2026-09-23 spec (rival
-  parties that act on their own) and the 2026-09-24 spec (screen scaling), with their plans
-  in `docs/plans/`.
+  parties that act on their own), the 2026-09-24 spec (screen scaling), the 2026-09-25 spec
+  (MCT settings and multiplayer), the 2026-09-27 spec (living courts, rebel armies) and the
+  2026-09-28 spec (the panel's answers, glows and bursts), with their plans in
+  `docs/plans/`.
 - `docs/history/`: dated handoffs, the most recent last. When a handoff and the code
   disagree, the code wins.
 
 Still owed in game, as of the last build: a card taking a click through its children, the
 gold frame's nine-slice, the Petitions label fitting at 1600x900, and Send a Gift charging
-and turning red at 100 loyalty. Thin light lines over the dial and move cards were seen at
+and turning red at 100 loyalty. From build 1BE494B4: whether the Trait Gained card shows the
+trait's own picture (if it keeps the helmet, that card does not read the category), and the
+pictures in the help page and tooltips. Thin light lines over the dial and move cards were seen at
 1600x900 on 2026-09-24; their cause was not found.

@@ -1064,3 +1064,231 @@ button's pulse never stops" aimed at lines this session rewrote (`attention.offi
 pulse call moved into `ICUI.gate_opener`). Both retargeted and caught. Generated files regenerated after the run;
 the scripts, MCT settings and all 15 layouts match the deployed pack byte for byte.
 Pushed to GitHub 2026-09-28 with build 3DFB28D1 (62C28B4D and 3DFB28D1 together).
+
+**Three silent events carded, a party trait, a sound per answer (2026-09-29).** Author, choosing from a list
+of gaps: "add event cards to the three, instead of the birth of origin place trait, do #4, do 5 as well", then
+"there is no place indicating the character's party".
+- Cards, appended so the index-by-position rule holds: `officer_died` 2626 (names the seat when he held one;
+  not routine), `threat_over` 2627 (a party's secession count stopping AND the Crown's split count stopping -
+  the split's reset was as silent as the secession's; the Crown's now logs `snub_off` too), `stall_end` 2628
+  (only when the stall ran its turns with its man still seated; a stall ended by the man leaving is not "back
+  at work"). The last two are routine and both log. New log kinds `died` (n = 1 is a province) and `stall_end`.
+- `IC.arranged_deaths[cqi]`: the two murder sites (the player's plot, a party's strike) mark the victim before
+  `cm:kill_character`, and `ic_dead` reads and clears the mark, so a murder raises its own card and not a second
+  one. The secession's kill sites are NOT marked, on the belief that their posts are cleared before the kill.
+  **WRONG - withdrawn the same day by the 2026-09-29 audit:** `IC.remove_house` deletes the house before its
+  own clean-up loops ask `house_of_cqi(...) == slug`, which can then never match, so a seceding party's men
+  keep their posts; and every man the secession kills reads as a Crown death in `ic_dead` (-8 Crown loyalty
+  each, and an `officer_died` card for a post). Open; see the audit list in the session.
+- Party trait `derpy_ic_member_<crown | origin | interest_N>`, 73 rows. A rolled name lives in the save and a
+  trait's text in the DB, so there is one trait per TAIL ("Party: The Cold Anvil" for "Covenant of the Cold
+  Anvil"), N wrapped exactly as `IC.party_name` wraps it; a confederate party uses the origin's display, as
+  `ICUI.house_name` does. `tools/gen_iron_court.py model_tails()` reads `IC.NAME_TAILS` out of the shipped Lua,
+  and a harness check reads the generated loc to prove key N names tail N. Stamped by `IC.stamp_members` at the
+  END of `IC.turn` (after secession and split). Stateless: a man already wearing the right trait costs one
+  `has_trait`; only a man missing it is swept for the rest. A confederation mid-turn shows on the next turn.
+- `ICUI.SOUNDS`, 14 distinct Wwise names from `audio_base_bnk.pack`'s list, and every refused click now plays
+  `UI_CLICK_Cancel_Decline` (the Fill button's own refusal had no sound at all). Whether each name plays from
+  `common.trigger_soundevent` is not yet heard in game; an unknown name is silence.
+Harness 732 (10 new checks, two old sound assertions moved to `ICUI.SOUNDS`). Full mutation run: 663 mutants,
+660 caught, 3 STALE ANCHORS on lines this change moved ("a split count that pauses", "your own house coming
+apart on no turn at all", "a stall outliving the man") - retargeted and caught; "a filled seat back to the
+generic chime" and "a party murder that kills nobody" retargeted before the run. Generated files regenerated
+after. Build `C0E394F5B749138276C09B6471C4E5E6`, 9,467,424 bytes, deployed (backup
+`.bak_pre_auto_20260929_090123` holds 3DFB28D1), byte-verified. Not pushed; not yet seen in game.
+
+**The 2026-09-29 audit, and its first four fixes.** Author: "what bugs and logic errors are in the mod?", then
+"go ahead". Five read-only reviewers (model 1-2800, model 2800-end, parties + MCT, UI 1-3600, UI 3600-end), each
+finding reproduced against the harness stubs where it could be; the game's script logs and the bridge's error log
+were clean for the Iron Court, so none of these announces itself. The four fixed, each with a check watched to
+fail first:
+1. `IC.remove_house` asked `house_of_cqi(...) == slug` AFTER deleting the house, so it never matched: a leaving
+   party's men kept their seats and provinces as Crown men, and a term ending took the seat's weight off a Crown
+   that never had it. Now collected first; terms cleared; office and governor bundles redrawn when anything moved.
+2. The secession's two kill sites (a defecting lord, a departing hero) now mark `IC.arranged_deaths[cqi] = "left"`,
+   and `ic_dead` charges `loyalty_member_died` to nobody for a man who left (a murder, marked `true`, still costs
+   his party it). Measured before: 60 -> 28 Crown loyalty from one secession, past the split line.
+3. `apply_governor_bundles` asked where the man STOOD; `governor_active` (and the panel) say only a lord leading an
+   army can be away. The bonus now goes on `IC.held_region(faction, province)` whenever `governor_active` says so.
+   The check meant to hold the two together had been inert: its loop rebuilt `govs` from the previous pass's
+   filtered table, so its "away" case ran on an empty province. Repaired, with a third case (a hero elsewhere) and
+   an assertion that the bonus lands on the governed province's own region. The older "a governor outside his
+   province applies nothing" check now uses a lord in the field, which is what it always meant.
+4. `house.gov_weight` is derived and was not saved, and `IC.turn` reloads the court before its drift: `IC.load` now
+   rebuilds it (`pcall(IC.refresh_gov_weight)`).
+Harness 736; 12 new mutants caught. Full mutation run: 674 mutants, 673 caught, 1 STALE ANCHOR ("a hero who
+changes sides and stays on yours as well", aimed at the kill step the mark now opens) - retargeted and caught.
+Build `D3924CECF45C8DB11E82D6971FBC6A80`, 9,469,789 bytes, deployed (backup `.bak_pre_auto_20260929_094906` holds
+C0E394F5), byte-verified. Not pushed; not yet seen in game.
+
+**The audit's second round.** Author: "update stale docs, then do another round of findings". The eight medium
+items of the open list below, each with a check watched to fail first:
+1. Provoke: a saved `house.provoked` (house field 19; older saves read none) keeps `angry` true in
+   `tick_secession`, so a content party still runs out the count. It lasts exactly as long as its count: the tick
+   clears it whenever the clock is 0, so a bribe, Secure Loyalty, a calm offer or the switch ends it with no
+   other code. Before, the next tick called the count off and raised `threat_over`.
+2. `IC.secede` calls `IC.forget_court(rebels)` when it wakes a dead faction. A living rising a party joins keeps
+   its court (checked both ways).
+3. `IC.settle_switches(faction)` runs the off path of each switch that is off; `refresh_live_tune` loops it over
+   `IC.state`, and `IC.load` runs it on every court it reads, which covers the courts still on disk at a load.
+   The save after a mid-turn flip is still load-bearing (off, then on again before anything saved, brought the
+   old count back); the mid-turn check now reads back with the switches on, since a load with them off clears
+   the counts itself and would pass on an unsaved flip.
+4. `IC.drop_party_business(faction, slug)` (parties file), called by `IC.remove_house` after the delete - the one
+   place a party is ever deleted, so purge, dissolve and secession all go through it: the party's demand is
+   voided (mission cancelled), its plot dropped with the upkeep's own log and card, then `expire_offers` and
+   `end_feuds`, which already handle a missing house. The three older checks that proved that upkeep now delete
+   the house behind `remove_house`'s back, since a save from before this build still needs it; `can_arbitrate`
+   was left alone because no feud can outlive its party now.
+5. `IC.plot_costs_seat(faction, plot, actor)`: the office the price would leave him under the bar of. The picker
+   draws that row's influence cell red and puts the sentence on its button; the move itself is unchanged
+   (`enforce_bars` still unseats him at once, as the check proves). Price alone, since a move can fail and pay
+   nothing back - the feast's refund is not counted. Help: the seat-loss line says at once for his own move and
+   next turn for a rival's plot; the false vacancy-penalty and card-odds lines are gone; the Governors line that
+   said every governor must stand in his province (untrue since fix 3 of the first round) now names the lord
+   leading an army. `gen_ic_ui.py --check` measured the first wording 19px over the row.
+6. `ICUI.mood` RESTLESS reads `IC.TUNE.party_intrigue_line`. PLOTTING stays 25: that is the unseat and recall
+   line in `IC.PARTY_MOVES`, which no difficulty moves.
+7. Log entries carry `sw` / `kw` (fields 6 and 7; older five-field lines read none): `IC.who_was` gives a rolled
+   party's `head.tail`, `"c"` for a confederate one, nil for the Crown. A line written after its party has gone
+   (a secession's own line runs in the last step; the drop in 4 ends feuds after the delete) reads
+   `IC.departed`, which `remove_house` fills before the delete - in memory only, since every such line is written
+   in the same session. `ICUI.logged_name` resolves them; `IC.party_name` now wraps a new `IC.rolled_name`.
+8. `ICUI.show_standing` returns before anything asks for a court unless `ICUI.court_player()`.
+Also: the patch-note draft's Steward line claimed an empty office raises Hobgoblin upkeep 5%; no vacancy bundle
+is ever applied (only removed), so the sentence is gone.
+Harness 745 (9 new checks; three older ones that proved the upkeep now delete the party behind `remove_house`,
+and the mid-turn switch check reads back with the switches on). Full mutation run: 702 mutants, 698 caught, 4
+STALE ANCHORS on lines this round moved or duplicated (the name wrap now in `IC.rolled_name`, the house pack's
+new last field, a second `expire_offers` call, a second `if not IC.TUNE.secession`) - retargeted and caught; the
+live-switch set was retargeted onto `settle_switches` before the run. Generated files regenerated after.
+Build `607ABD91BC60B22F7D690B1FF7AAE605`, 9,475,880 bytes, deployed (backup `.bak_pre_auto_20260929_104441` holds
+D3924CEC), byte-verified. Not pushed; not yet seen in game.
+
+**The audit's low items.** Author: "continue on the low priority issues". All eighteen, each with a check watched
+to fail first:
+1. `IC.dismiss` (not the quiet path) writes `court.last[office] = {cqi, turn}`, so the same man re-seated waits
+   `renew_wait` like a lapsed term. The old appointment check re-seated a sacked man; it now advances the turn.
+2. House field 20 is `snub_key` (`"-"` for none; older saves read none).
+3. Bribe and Pledge reset only `house.clock`. They used to clear `snubbed` / `snub_key` too, so the next check
+   announced the same insult again; `house.snubbed` drives only the announcement and the alert, and the per-turn
+   snub cost comes from the seat, so keeping it costs nothing. Two older checks asserted the clearing and now
+   assert the opposite.
+4. `ic_dead` re-applies the governor bundles when the dead man governed.
+5. The Court tab's warning names the soonest countdown and says "turn" for one.
+6. A demand in the `refused` state (its post given to someone else this turn) greys Accept: `can_grant_demand`
+   returns `false, "taken"`, and the row's tooltip tells the player to free the post that turn. Ruling: not
+   settling the demand at appointment time - that changed seven checks and closed the same-turn window in which
+   the player can still free the post.
+7. The calm offer keeps the spec's +7 net. The row and tooltip now print the net (`o.n - party_offer_envy`) and
+   say the countdown starts again next turn if the party is still angry.
+8. MCT: a greyed slider's lock reason names the preset's value, from `PRESET_VALUES` in the settings file, a copy
+   of `IC.PRESETS`' fourteen numbers (the check reads `IC.PRESETS` itself, so a drifted copy fails). Ruling:
+   reasons, not values - `set_selected_setting` no-ops on a locked option, and writing values would overwrite a
+   Custom player's own.
+9. A failed plot that aims at nobody logs its plot key; the Log line reads "<errand> comes to nothing for X" and
+   the notice "It did not work. The influence is spent." It used to read "moves against A party".
+10. The picker's influence refusal reads "He is N influence short." It named a seat.
+11. Provoke carries `effect_no_secession`; `ICUI.act_tip` shows it when secession is off.
+12. `demand_state` returns `"void"` with `gone` / `lost` / `short`; `settle_demand` logs it through
+    `IC.VOID_REASONS` into the entry's number, and the Log gives each its own sentence.
+13. `answer()` - where every player move lands, single player and MP alike - applies the control bundle when
+    the move succeeded, so the worn band is the one the panel names.
+14. A party at the breaking point with no count yet is listed as leaving in one turn, and its card reads
+    SECEDES 1 (both gated on the secession switch). A party dropped there mid-turn used to show nothing.
+15. The Crown's split tooltip promises no share: `splinter_weight` is a weight, not a percent.
+16. "Free to take their old seat" skips a man who holds another office or governs.
+17. `IC.party_turn_due` adds `IC.REBEL_POOL` to the rotation's candidates, so risings take turns like origins.
+    Ruling: the pool rather than a walk of the world's factions, which the mod never does and the harness cannot
+    stub.
+18. `party_placate` sets `placated` fresh each turn, nil when the party is not calmed.
+Left alone: the MCT file's `derpy_ic_mct_ready` one-shot listener. Its effect has never been measured, and
+nothing in this round depends on it.
+Harness 762 (17 new checks; five older ones changed: the appointment check advances past the wait, bribe and
+pledge now assert the insult stays, and the calm-offer and Crown-split checks read the new sentences). Full
+mutation run: 732 mutants, 725 caught. Six STALE ANCHORS - five in `demand_state` / `settle_demand`, whose void
+returns now carry a reason, and the leaving party's governor line, which fix 4 copied into `ic_dead` - retargeted
+and caught. One SURVIVOR, "a new man leaves the old one's renewal standing": the renewal check reached the empty
+seat through a player's dismissal, which since fix 1 makes the second man the one who waits and hid the first
+man's leftover claim; it now seats the first man straight over the second, and catches it. Generated files
+regenerated after.
+Build `3E2F85705C0A33D74DD4C16879064B43`, 9,483,013 bytes, deployed (backup `.bak_pre_auto_20260929_112111` holds
+607ABD91), byte-verified. Not pushed; not yet seen in game.
+
+The audit's list is now empty.
+
+**The UI-effects round's four deferred minors, and two dead functions.** Author: "fix the leftovers and cleanup
+code". Each with a check watched to fail first:
+- M2: `ICUI.burst` and `ICUI.flash` number every call per host / per party (`ICUI.burst_n`, `ICUI.flash_n`), and a
+  timer that is not the newest returns. The older burst check had asserted the fault (the first burst's timer
+  taking the second burst away) and now asserts the opposite.
+- M3: the governor answer redraws before it looks the row up (`ICUI.refresh()`, then `ICUI.gov_row`). One extra
+  redraw on that click, and no held state. The check sorts by overseer so the province moves rows, and asserts
+  that it moved, since a fixture that stays put proves nothing.
+- M5: `ui/derpy_ic/seat_rim_fail.png`, the rim's edge profile in ash (200, 196, 188), under the look renamed
+  `fail` (it was `red`); the layer carries no tint. A layer colour multiplies, so over CA's pure-red art it could
+  only ever draw a darker red. `check_rim_slots` now checks `ICUI.RIM_ART_FAIL` and measures that the art's peak
+  pixel is not red.
+- M6: `ICUI.flash` holds nothing for a card that is not drawn, which is the spec's "when it is on screen". The
+  flash waited out its 1.5 s and went off if the Court tab was opened inside it. Ruling: no new effect for the
+  Petitions tab - answering removes the row and the tab draws no party card, so a petition's answer stays its
+  sound and its sentence, as it always was in practice.
+- Cleanup: `IC.house_in_court` and `ICUI.gov_effect` deleted. The one check that called `gov_effect` keeps its
+  overseer "(away)" assertions and is renamed.
+Harness 765 (3 new checks; the burst and fail-flash checks changed, and the `gov_effect` one lost its two
+assertions). Full mutation run: 738 mutants, 737 caught, 1 STALE ANCHOR ("an assigned governor draws no burst",
+on the line M3 rewrote) - retargeted and caught. Generated files regenerated after.
+Build `EE3EF1D5703EC0CABD1BA559CB4CBD39`, 9,484,204 bytes, deployed (backup `.bak_pre_auto_20260929_120407` holds
+3E2F8570), byte-verified. Not pushed; not yet seen in game.
+
+**Pictures on the panel's figures and help page, a picture per trait kind, and the stuck influence plate.**
+Author: "add markers and icons whenever possible" (the help page), then "not only help pages, check if there
+are applicable text where it needs to have an icon"; "traits gain also defaults to chaos dwarf warrior"; "influence
+panel stayed after closing character ui".
+- The plate: `PanelClosedCampaign` fires while `character_details_panel` is still found and still reads visible,
+  so the close handler redrew the plate from it; and the close button's own `ComponentLClickUp` had already
+  queued `ic_char_switch`'s two redraws (`STANDING_DELAYS`, 0.1 s and 0.5 s), which land after the close. Now
+  `ic_char_panel_shut` sets `ICUI.standing_shut`, `show_standing` hides and returns while it is set, and
+  `ic_char_panel` (the next open) clears it. The check runs the queued callbacks after the close and asserts the
+  plate stays down, then that the next open draws it.
+- Traits: every trait the pack mints used CA's `chaos_dwarfs` category, and `character_traits.icon` is a
+  `trait_categories` key, so every card wore CA's Chaos Dwarf helmet. `gen_iron_court.py` now ships
+  `trait_categories` (v0, `category` + `icon_path`) with one category per kind: `derpy_ic_cat_origin` (CA's
+  settlement bundle icon), `_confed` (CA's confederation icon), `_office` (`icon_offices.png`), `_standing`
+  (`icon_secure_loyalty.png`), `_ambition` (CA's Conclave influence icon), and `derpy_ic_cat_party_<slug>` for
+  each of the nine parties, pointing at that party's own sigil. A background trait and a member trait wear their
+  party's sigil; a confederate's member trait wears the confederation icon. Check 13 now asserts each category is
+  ours or vanilla's, flags any trait still wearing a vanilla category, and holds each of our paths to a picture
+  this pack or CA ships. **Not seen in game.** If the Trait Gained card still shows the helmet, its medallion is
+  not the category icon but a portrait fallback, and this change only reaches the character panel's trait list.
+- The selftest had failed since C0E394F5: its trait count never learned the member traits (expected 73 against
+  146). It now counts one per party a man can sit with, and asserts every trait wears a category the pack ships
+  and every category is worn.
+- Help page: each topic has an `icon`, drawn in front of its button and heading; every point starts with a
+  `{@name}` marker and names the picture of the move, tab or figure it talks about (`ICUI.HELP_ICONS`, or a
+  move's own card picture by its key via `IC.plot_by_key`). `ICUI.help_fill` turns a `{@name}` into CA's
+  `[[img:]]` markup before it fills numbers, and leaves a name it lacks on screen as written. `fit_plate` gained a
+  `pics` count, charged the line box each, because the heading is measured without its markup.
+- Figures: `ICUI.units` puts the influence, gold, loyalty or hourglass picture in front of "N influence / gold /
+  loyalty / turn(s)", once - a figure straight after `]` (already marked) is skipped, so a second pass changes
+  nothing. Applied to the Record, the notice bar, the Petitions tab's second column, a row button's tooltip, and
+  the opener, agenda, move and loyalty tooltips; a trait named in a loyalty breakdown wears the trait picture its
+  card cell does; the character plate and the opener's share use `ICUI.cost`.
+- Ruling - left bare: party cards, office cards and picker cells (measured to the pixel by `gen_ic_ui.py`, or
+  fitted and cut on spaces - a path with a space in it would be cut in half), the MCT settings, and event cards.
+- `gen_ic_ui.py`: the 20c-help measurer charges a `{@name}` as one picture (it had measured the marker's own
+  characters), and check 23 accepts `ICUI.help_icon(` as an indirection. It found one help line 15px over at
+  1600 (the Leaving the court countdown line, reworded) and the opener's share line, whose icon argument sat on
+  the next line where the check cannot see it (now `ICUI.cost`).
+Harness 771 (6 new checks; about twenty older ones now read a cell's words without its pictures through `bare()`,
+count a picture as two characters of a row, or expect the picture in front of a figure). One restated assertion
+was replaced: the petition check had marked an offer by calling `ICUI.units` itself, so it now reads the drawn
+demand row and the Back Them button's tooltip off the panel. Full mutation run: 760 mutants (22 new), 759
+caught, 1 STALE ANCHOR ("the reasons listed after the summary", which quoted the opener's share line) -
+retargeted and caught. The first runs of the new mutants found four anchors whose `\n` had become a real
+newline and one SURVIVOR, the loyalty breakdown's `ICUI.units`: no check read its headline figure. Both fixed.
+Generated files regenerated after.
+Build `1BE494B489E18A1E4F42B7601B66331B`, 9,493,022 bytes, deployed (backup `.bak_pre_auto_20260929_132240` holds
+EE3EF1D5), byte-verified; `db/trait_categories_tables/derpy_iron_court` is in it. Not pushed; not yet seen in game.
+Not changed, and could be: on turn 1 `stamp_origin` and `stamp_bg` give every man his traits with
+`show_message` on, so a new campaign opens on a run of Trait Gained cards.

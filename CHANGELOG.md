@@ -5,6 +5,42 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-29 - build 1BE494B4
+
+Deployed 2026-09-29. MD5 `1BE494B489E18A1E4F42B7601B66331B`, 9,493,022 bytes. It gathers the
+builds since 3DFB28D1 (C0E394F5, D3924CEC, 607ABD91, 3E2F8570, EE3EF1D5); the detail is in
+the last six addenda of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`.
+
+- **Three new messages** (C0E394F5): an officer who dies and leaves his office or province
+  empty, a party that stops preparing to leave (or your own party that stops preparing to
+  split), and a stopped office going back to work. Each is written to the Record too.
+- **Every man shows his party** (C0E394F5): a `derpy_ic_member_*` trait names the party he
+  sits with, and changes when his party forms, breaks away or breaks up.
+- **A sound for each answer** (C0E394F5): appointing, dismissing, a province given or
+  released, a plot that works or fails, a demand, an offer, a feud, a gift and Fill Empty
+  Seats each have their own, and a refused click plays one too.
+- **Pictures** (1BE494B4): influence, gold, loyalty and turns carry their icons in the
+  Record, the Petitions tab, the notice bar and the tooltips; the help page marks each
+  point and topic. Each kind of trait has its own `trait_categories` row, so a trait card
+  shows the party's sigil, the origin, the office, the influence band or the ambition
+  instead of CA's Chaos Dwarf helmet.
+- **A five-reviewer audit and every finding fixed** (D3924CEC to EE3EF1D5), 34 of them
+  in the patch notes. The larger ones: a party that leaves takes its offices, provinces and business
+  with it; men who leave in a secession no longer count as your party's dead; every
+  governor gives his bonus from wherever he is, and still does after a load; Provoke keeps
+  its countdown; a move that would cost its own man his seat says so; the Record keeps each
+  party's name; a dismissed man waits as long as a renewed one before he is re-seated; a
+  lapsed demand says why; the Crown's band changes the moment a move changes it; rebel
+  courts join the rotation; a failed plot flashes ash grey, not the red of a held seat; two
+  flashes or bursts in quick succession no longer cut each other short.
+- **Fixed** (1BE494B4): the influence plate stayed on screen after the character panel
+  closed.
+- **Tests.** Harness 771 checks, mutation runner 760 mutants, all caught. `gen_iron_court.py
+  --selftest` had failed since C0E394F5 on a trait count that never learned the member
+  traits; it now counts them and checks every trait wears a category the pack ships.
+  Not yet seen in game: the trait pictures (the Trait Gained card may not read the
+  category) and the icons.
+
 ## 2026-09-28 - build 3DFB28D1
 
 Deployed 2026-09-28. MD5 `3DFB28D14E443B25615B8C703993D221`, 9,382,627 bytes. It gathers

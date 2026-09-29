@@ -48,8 +48,10 @@ m:add_new_section("numbers", "Custom numbers")
 m:add_new_section("debug", "Debug")
 
 -- ----------------------------------------------------------------- difficulty --
--- ONE DROPDOWN THAT OWNS THE NUMBERS. Pick anything but Custom and it sets all
--- fourteen and greys them. The switches are read on every difficulty.
+-- ONE DROPDOWN THAT OWNS THE NUMBERS. Pick anything but Custom and it decides
+-- all fourteen and greys them; each greyed slider's reason names its number,
+-- since MCT cannot write one into a locked slider. The switches are read on
+-- every difficulty.
 local o_preset = m:add_new_option("preset", "dropdown")
 o_preset:set_text("Difficulty")
 o_preset:set_tooltip_text("How many rival parties your court starts with, how loyal "
@@ -164,20 +166,52 @@ for i = 1, #NUMBERS do
     o:set_assigned_section("numbers")
 end
 
+-- WHAT EACH DIFFICULTY SETS, said on the greyed slider (audit 2026-09-29).
+-- MCT will not write a value into a locked option, so the slider goes on
+-- showing its own number and the lock's reason carries the difficulty's. A copy
+-- of IC.PRESETS, which this file cannot see from the main menu; the court
+-- harness holds the two together. Default is each slider's own default.
+local PRESET_VALUES = {
+    gentle = {
+        loyalty_start = 65, loyalty_drift_none = 0, secede_loyalty = 15,
+        secede_share = 30, secede_turns = 7, pressure_below = 5,
+        influence_trickle = 7, settlement_influence = 30,
+        favour_gift_cost = 400, favour_secure_cost = 1800,
+        party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
+    },
+    harsh = {
+        loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
+        secede_share = 20, secede_turns = 4, pressure_below = 15,
+        influence_trickle = 4, settlement_influence = 20,
+        favour_gift_cost = 800, favour_secure_cost = 3200,
+        party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+    },
+    ruthless = {
+        loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
+        secede_share = 15, secede_turns = 3, pressure_below = 15,
+        influence_trickle = 3, settlement_influence = 16,
+        favour_gift_cost = 1000, favour_secure_cost = 4000,
+        party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
+    },
+}
+
 -- -------------------------------------------------------------------- locking --
 -- LAST: get_option_by_key answers nil for an option not yet registered, and the
 -- loop below would then lock nothing. Every number belongs to the difficulty
 -- unless it is Custom. In a campaign only the live switches stay open.
-local CUSTOM_ONLY = "Set by the difficulty above. Choose Custom to edit it."
-
-local function relock(custom)
+local function relock(preset)
+    local custom = preset == "custom"
     for i = 1, #NUMBERS do
         local o = m:get_option_by_key(NUMBERS[i][1])
         if o then
             if IN_CAMPAIGN then
                 o:set_locked(true, LOCK_REASON)
             elseif not custom then
-                o:set_locked(true, CUSTOM_ONLY)
+                local set = PRESET_VALUES[preset] or {}
+                local v = set[NUMBERS[i][1]]
+                if v == nil then v = NUMBERS[i][3] end
+                o:set_locked(true, string.format("The difficulty above sets this to "
+                    .. "%s. Choose Custom to edit it.", tostring(v)))
             else
                 o:set_locked(false)
             end
@@ -202,15 +236,15 @@ end
 -- The callback fires BEFORE the value is finalized, so it reads the selected one.
 o_preset:add_option_set_callback(function(opt)
     if IN_CAMPAIGN then return end
-    relock(opt:get_selected_setting() == "custom")
+    relock(opt:get_selected_setting())
 end)
 core:add_listener("derpy_ic_mct_ready", "MctFinalized", true, function()
-    relock(o_preset:get_finalized_setting() == "custom")
+    relock(o_preset:get_finalized_setting())
 end, false)
 -- MCT'S load_game PUTS BACK EVERY LOCK THE SAVE WAS WRITTEN WITH, after this
 -- file has run - and every save before 2026-09-25 locked all seven switches.
 core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function(context)
     in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true
-    relock(o_preset:get_finalized_setting() == "custom")
+    relock(o_preset:get_finalized_setting())
 end, true)
-relock(o_preset:get_finalized_setting() == "custom")
+relock(o_preset:get_finalized_setting())

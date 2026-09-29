@@ -26,3 +26,6 @@ derpy_ic_event_term_soon	2622
 derpy_ic_event_party_sabotage	2623
 derpy_ic_event_party_withhold	2624
 derpy_ic_event_realm_secede	2625
+derpy_ic_event_officer_died	2626
+derpy_ic_event_threat_over	2627
+derpy_ic_event_stall_end	2628

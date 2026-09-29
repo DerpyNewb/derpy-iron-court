@@ -107,6 +107,18 @@ MANIFEST = [(p, p) for p in [
      "docs/history/HANDOFF_20260927_GUILDS_BOUNTIES_V2.md"),
     ("docs/sessions/HANDOFF_20260928_GUILDS_BAR_AND_REACHABLE_JOBS.md",
      "docs/history/HANDOFF_20260928_GUILDS_BAR_AND_REACHABLE_JOBS.md"),
+    ("docs/superpowers/specs/2026-09-29-great-guilds-ai-bounties-design.md",
+     "docs/design/2026-09-29-great-guilds-ai-bounties-design.md"),
+    ("docs/superpowers/plans/2026-09-29-great-guilds-ai-bounties.md",
+     "docs/plans/2026-09-29-great-guilds-ai-bounties.md"),
+    ("docs/sessions/HANDOFF_20260929_GUILDS_AI_BOUNTIES.md",
+     "docs/history/HANDOFF_20260929_GUILDS_AI_BOUNTIES.md"),
+    ("docs/superpowers/specs/2026-09-29-great-guilds-service-pools-and-races-design.md",
+     "docs/design/2026-09-29-great-guilds-service-pools-and-races-design.md"),
+    ("docs/superpowers/plans/2026-09-29-great-guilds-service-pools-stage1.md",
+     "docs/plans/2026-09-29-great-guilds-service-pools-stage1.md"),
+    ("docs/sessions/HANDOFF_20260929_GUILDS_POOLS_STAGE1.md",
+     "docs/history/HANDOFF_20260929_GUILDS_POOLS_STAGE1.md"),
 ]
 
 

@@ -728,10 +728,13 @@ ICUI.RIM_ART = "ui/derpy_ic/seat_rim.png"
 -- A LIST ROW'S OWN, narrower: the card rim's 40px margin is more than half a
 -- 61px row, and its top and bottom slices overlapped into a red wash.
 ICUI.RIM_ART_ROW = "ui/derpy_ic/seat_rim_row.png"
+-- A FAILED PLOT'S, in ash: the lit rim is CA's red, and a colour on the layer
+-- can only darken a picture, so the fail look drew the same red as success.
+ICUI.RIM_ART_FAIL = "ui/derpy_ic/seat_rim_fail.png"
 ICUI.RIMS = {
     card = {lit = 2, dim = 3},
     row = {lit = 1, dim = 2},
-    party = {lit = 3, red = 4},
+    party = {lit = 3, fail = 4},
 }
 
 -- THE CLAIM BURST: CA's seat-claimed starburst (tools/gen_ic_ui.py BURST_FILE).
@@ -1092,9 +1095,47 @@ function ICUI.gold(n)
     return string.format("[[img:%s]][[/img]]%d", ICUI.GOLD_ICON, n)
 end
 
+-- AND LOYALTY AND TURNS: CA's loyalty effect picture, and the hourglass its turn
+-- counters wear. The loyalty one lives under "campaign ui/", and a space in a
+-- path is torn in two by fit_two / fit_lines / fit_cut, which split on spaces -
+-- so it goes only where ICUI.units goes.
+ICUI.LOYALTY_ICON = "ui/campaign ui/effect_bundles/loyalty.png"
+ICUI.TURNS_ICON = "ui/skins/default/icon_hourglass.png"
+
+-- A FIGURE WEARS ITS UNIT (author, 2026-09-29: "check if there are applicable
+-- text where it needs to have an icon"). "40 influence", "600 gold", "+8
+-- loyalty", "3 turns": the picture goes in front of the number and the word
+-- stays, so a picture that fails to resolve leaves the line as it read before.
+-- ONCE: a figure already wearing one (ICUI.cost, ICUI.gold) has the markup's
+-- "]]" right before its number and is left alone, so a second pass changes
+-- nothing. A number followed by any other word - "level 5 and" - is not a
+-- quantity and wears nothing.
+--
+-- ONLY WHERE TEXT IS WRITTEN AS IT IS: the Record, the notice, a petition's
+-- row, a tooltip. Never into a card or picker cell - those are measured to the
+-- pixel by gen_ic_ui.py, or fitted and cut on spaces.
+ICUI.UNIT_ICONS = {
+    influence = ICUI.COST_ICON,
+    gold = ICUI.GOLD_ICON,
+    loyalty = ICUI.LOYALTY_ICON,
+    turn = ICUI.TURNS_ICON,
+    turns = ICUI.TURNS_ICON,
+}
+
+function ICUI.units(text)
+    -- A SPACE IN FRONT so a figure opening the text has something before it to
+    -- test, taken off again at the end.
+    local s = string.gsub(" " .. tostring(text or ""), "([^%]%d%%%.%+%-])([%+%-]?%d+) (%a+)",
+        function(pre, n, unit)
+            if not ICUI.UNIT_ICONS[unit] then return nil end
+            return pre .. string.format("[[img:%s]][[/img]]", ICUI.UNIT_ICONS[unit]) .. n .. " " .. unit
+        end)
+    return string.sub(s, 2)
+end
+
 
 function ICUI.standing_text(faction_key, cqi)
-    return string.format("%d influence", IC.standing(faction_key, cqi))
+    return ICUI.cost(IC.standing(faction_key, cqi)) .. " influence"
 end
 
 function ICUI.ambition_tip(faction_key, cqi)
@@ -1173,9 +1214,18 @@ function ICUI.show_standing()
         return false
     end
 
+    -- SHUT MEANS SHUT (author, 2026-09-29: "influence panel stayed after
+    -- closing character ui"). The panel is still found, and still reads
+    -- visible, while it closes - and a click on its close button has queued
+    -- redraws that land after the close. Until it opens again, every call here
+    -- puts the plate away.
+    if ICUI.standing_shut then return hide() end
+
     local cqi = ICUI.standing_cqi()
     local faction = ICUI.player()
-    if not faction then return hide() end
+    -- A CHAOS DWARF PLAYER'S, before anything asks for a court (audit
+    -- 2026-09-29): IC.court builds one for whoever it is asked about.
+    if not faction or not ICUI.court_player() then return hide() end
     -- ONLY A MAN OF OUR OWN COURT, and this ONE test covers both "nobody is
     -- selected" and "the selected man is somebody else's". There used to be a
     -- `not cqi` early-out above it, which could never be seen to fail: a nil cqi
@@ -1239,12 +1289,18 @@ end
 function ICUI.court_state(faction)
     local court = IC.court(faction)
     local s = {empty = 0, back = {}, ending = {}, leaving = {}}
+    -- ONE POST AT A TIME: a man seated elsewhere since is not free to take his
+    -- old seat back (audit 2026-09-29), whatever his wait says.
+    local posted = {}
+    for _, cqi in pairs(court.offices) do posted[cqi] = true end
+    for _, cqi in pairs(court.govs) do posted[cqi] = true end
     for i = 1, #IC.OFFICES do
         local slug = IC.OFFICES[i].slug
         if not court.offices[slug] then
             s.empty = s.empty + 1
             local last = court.last[slug]
-            local man = last and IC.renew_wait(faction, slug, last.cqi) == 0
+            local man = last and not posted[last.cqi]
+                        and IC.renew_wait(faction, slug, last.cqi) == 0
                         and IC.character_by_cqi(faction, last.cqi) or nil
             if man then
                 s.back[#s.back + 1] = string.format("%s (%s)",
@@ -1263,6 +1319,10 @@ function ICUI.court_state(faction)
         local house = court.houses[seated[i]]
         if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
+        -- AT THE BREAKING POINT it leaves at the next turn start with no count,
+        -- and was on no list at all (audit 2026-09-29).
+        elseif IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then
+            s.leaving[#s.leaving + 1] = {slug = seated[i], clock = 1}
         end
     end
     local a = IC.agenda(faction)
@@ -1330,8 +1390,8 @@ function ICUI.opener_tip(faction)
         lines[#lines + 1] = ""
     end
     if court.houses[IC.CROWN] then
-        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
-            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+        lines[#lines + 1] = string.format("Your party holds %s%% of the court: %s.",
+            ICUI.cost(IC.control(faction)), ICUI.band_name(IC.control_band(faction)))
     end
     -- EVERY EMPTY SEAT, fillable or not: the seats are always worth a look.
     lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
@@ -1344,7 +1404,7 @@ function ICUI.opener_tip(faction)
         lines[#lines + 1] = "Free to take their old seat again: "
             .. table.concat(back, ", ") .. "."
     end
-    return "The Iron Court||" .. table.concat(lines, "\n")
+    return "The Iron Court||" .. ICUI.units(table.concat(lines, "\n"))
 end
 
 function ICUI.update_opener_tip()
@@ -1653,10 +1713,14 @@ function ICUI.mood(house, slug)
         end
     elseif (house.clock or 0) > 0 then
         return string.format("SECEDES %d", house.clock)
+    -- THE BREAKING POINT: gone at the next turn start, with no count to show.
+    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then
+        return "SECEDES 1"
     elseif house.loyalty <= 25 then
         return "PLOTTING"
     end
-    if house.loyalty <= 55 then return "RESTLESS" end
+    -- THE LINE THE PARTIES ACT AT, which the difficulty sets (audit 2026-09-29).
+    if house.loyalty <= IC.TUNE.party_intrigue_line then return "RESTLESS" end
     return "LOYAL"
 end
 
@@ -1705,12 +1769,16 @@ function ICUI.offer_what(faction, slug, o, row)
         return string.format("%d influence for %s", o.n,
                              man and ICUI.character_name(man) or "one of your men")
     elseif o.kind == "calm" then
+        -- WHAT IT NETS: the calmed party is a rival too, and feels the envy
+        -- every other one does (audit 2026-09-29 - this said the gross figure).
+        local net = o.n - IC.TUNE.party_offer_envy
         if row then
             return string.format("calm %s (+%d loyalty)",
-                                 ICUI.house_name(o.target, faction), o.n)
+                                 ICUI.house_name(o.target, faction), net)
         end
         return string.format("to calm %s. Their countdown stops and their "
-            .. "loyalty rises by %d", ICUI.house_name(o.target, faction), o.n)
+            .. "loyalty rises by %d. If they are still angry, it starts again "
+            .. "next turn", ICUI.house_name(o.target, faction), net)
     end
     local units = loc("land_units_onscreen_name_" .. IC.troop_key(slug), "warriors")
     if row then return string.format("%d %s", o.n, units) end
@@ -1767,7 +1835,7 @@ function ICUI.agenda_tip(faction, slug)
             ICUI.offer_what(faction, slug, o), turns_left(o.ends - now),
             IC.TUNE.party_offer_envy)
     end
-    return table.concat(parts, "\n\n")
+    return ICUI.units(table.concat(parts, "\n\n"))
 end
 
 -- The warned move, for the Intrigue tab's one alert line.
@@ -2468,14 +2536,18 @@ ICUI.TITLE_CAP = 111
 ICUI.HEADING_CAP = 34
 ICUI.PLATE_GAP = 14
 ICUI.PLATE_EST = 14
-function ICUI.fit_plate(c, key, text, cap, left)
+function ICUI.fit_plate(c, key, text, cap, left, pics)
     local xy = ICUI.PANEL_XY[key]
     local panel = comp(ICUI.PANEL)
     if not c or not xy or not panel then return end
     text = tostring(text or "")
-    local got = nil
-    pcall(function() got = c:TextDimensionsForText(text) end)
+    local got, line_h = nil, nil
+    pcall(function() got, line_h = c:TextDimensionsForText(text) end)
     if not got or got <= 0 then got = #text * ICUI.PLATE_EST end
+    -- PICTURES IN FRONT OF THE WORDS, which are measured without them: an
+    -- inline picture draws as a square of the line box (TextDimensionsForText's
+    -- second return), so each one is charged its height.
+    got = got + (pics or 0) * (line_h or ICUI.PLATE_EST * 2)
     local w = math.min(xy[3], math.ceil(got) + 2 * (cap + ICUI.PLATE_GAP))
     local x = left and xy[1] or xy[1] + math.floor((xy[3] - w) / 2)
     local px, py = panel:Position()
@@ -2672,6 +2744,32 @@ end
 -- engine does not know fails as silence. It cannot fail as anything worse.
 ICUI.SOUND_OK = "UI_CAM_POPUP_Message_Event_Positive"
 ICUI.SOUND_BAD = "UI_CAM_POPUP_Message_Event_Negative"
+-- A SOUND OF ITS OWN FOR EACH KIND OF ANSWER (author, 2026-09-29): every yes
+-- shared one chime and every no another. Each name is a Wwise event listed in
+-- data/audio_base_bnk.pack (docs/sessions/CA_CHD_UI_FX_20260928.md section 4),
+-- chosen for what CA plays it on: a mission stamp for a demand, the diplomacy
+-- answers for an offer, a disband for a sacking. Same limit as the two above.
+ICUI.SOUNDS = {
+    appoint     = ICUI.SOUND_SEAT,
+    gov         = "UI_CAMPAIGN_EDICT_ISSUED",
+    ungov       = "UI_CAMPAIGN_RECRUITMENT_CANCEL",
+    dismiss     = "UI_CAMPAIGN_UNIT_DISBAND",
+    fill        = "UI_CAM_ANI_Quest_Complete_Stamp",
+    plot        = "UI_CLICK_Intrigue_Improve",
+    plot_failed = "UI_CAM_ANI_Quest_Failed_Stamp",
+    favour      = "UI_CAM_HUD_Diplomacy_Response_Gift_Given",
+    grant       = "UI_CAM_ANI_Mission_Complete_Stamp",
+    refuse      = "UI_CAM_EVENT_Mission_Failed",
+    accept      = "UI_CAM_HUD_Diplomacy_Response_Deal_Accepted",
+    decline     = "UI_CAM_HUD_Diplomacy_Response_Deal_Declined",
+    arbit       = "UI_CAM_HUD_Diplomacy_Response_Unilateral_Action",
+    -- A CLICK THE COURT REFUSED: it had no sound at all, only the red line.
+    refused     = "UI_CLICK_Cancel_Decline",
+}
+
+function ICUI.play(sound)
+    pcall(function() common.trigger_soundevent(sound) end)
+end
 -- How long the card keeps pulsing. Long enough to catch the eye on a panel the
 -- player is already looking at, short enough not to still be going when he
 -- clicks the next seat.
@@ -2691,12 +2789,10 @@ function ICUI.office_card(office_slug)
     return nil
 end
 
--- Confirm a click on `c`. `good` picks the sound; nil `c` still plays it, so a
--- card that has scrolled away does not swallow the confirmation.
-function ICUI.confirm(c, good)
-    pcall(function()
-        common.trigger_soundevent(good and ICUI.SOUND_OK or ICUI.SOUND_BAD)
-    end)
+-- Confirm a click on `c`. `good` picks the sound unless `sound` names one; nil
+-- `c` still plays it, so a card that has scrolled away does not swallow it.
+function ICUI.confirm(c, good, sound)
+    ICUI.play(sound or (good and ICUI.SOUND_OK or ICUI.SOUND_BAD))
     if not c then return end
     -- PROPAGATE FALSE. CA's own warning: the effect stacks through children, and
     -- a card is nine cells deep - propagating would light every one of them
@@ -2788,6 +2884,8 @@ function ICUI.loyalty_tip(faction, court, slug)
         if terms[i].leader then
             label = label .. " (their leader)"
         end
+        -- THE PICTURE THE CARD'S TRAIT CELLS WEAR (2026-09-29).
+        if terms[i].trait then label = ICUI.trait_line(label) end
         out[#out + 1] = string.format("%s: %s", label, ICUI.signed(terms[i].n))
         if terms[i].note then
             notes[#notes + 1] = string.format("%s - %s", terms[i].label,
@@ -2801,7 +2899,7 @@ function ICUI.loyalty_tip(faction, court, slug)
         out[#out + 1] = ""
         for i = 1, #notes do out[#out + 1] = notes[i] end
     end
-    return table.concat(out, "\n")
+    return ICUI.units(table.concat(out, "\n"))
 end
 
 function ICUI.fill_rows(panel, lines, view)
@@ -2847,7 +2945,7 @@ function ICUI.fill_rows(panel, lines, view)
                         -- EVERY PASS, so a recycled row loses the last one.
                         if j == 5 then
                             pcall(function()
-                                c:SetTooltipText(line.tip or "", "", true)
+                                c:SetTooltipText(ICUI.units(line.tip), "", true)
                             end)
                         end
                     end
@@ -3518,10 +3616,12 @@ function ICUI.secession_tip(faction, court, slug)
         -- YOUR OWN HOUSE TAKES NO LAND. IC.splinter moves weight and men and
         -- never touches a province, so a province count here would be a threat
         -- the model does not make.
-        return string.format(
-            "Your own house does not secede. If its loyalty runs out, a piece "
-            .. "of it breaks away as a party of its own and takes %d%% of the "
-            .. "court off your share.", IC.TUNE.splinter_weight)
+        -- NO FIGURE: the new party is drawn at random and its trade's men go
+        -- with it, so the share it takes is not known until it rises (audit
+        -- 2026-09-29 - this printed splinter_weight, a weight, as a percent).
+        return "Your own house does not secede. If its loyalty runs out, a piece "
+            .. "of it breaks away as a party of its own, and the men whose trade "
+            .. "belongs to that party go with it, out of your share of the court."
     end
     local doomed = IC.defecting_provinces(faction, slug) or {}
     local seats = IC.seats(faction) or {}
@@ -3666,14 +3766,15 @@ function ICUI.act_tip(faction, key, slug)
         local leader = IC.party_leader(faction, slug)
         local man = leader and IC.character_by_cqi(faction, leader) or nil
         lines[1] = string.format("%s: %s", plot.name, name)
-        lines[2] = plot.effect
+        lines[2] = IC.TUNE.secession == false and plot.effect_no_secession
+                   or plot.effect
         lines[3] = string.format("The man you send spends %d influence. "
             .. "Aimed at %s, who speaks for them.", IC.plot_cost(move.plot),
             man and ICUI.character_name(man) or "their leader")
     end
     local may, why = ICUI.act_check(faction, key, slug)
     if not may then lines[#lines + 1] = "\n" .. ICUI.red(why) end
-    return table.concat(lines, "\n")
+    return ICUI.units(table.concat(lines, "\n"))
 end
 
 -- THE BAR ITSELF. Three buttons for a chosen rival; one line of help for no
@@ -3755,6 +3856,7 @@ function ICUI.on_fill_click()
     if not faction or ICUI.pick then return false end
     if #IC.fill_plan(faction) == 0 then
         ICUI.notice = ICUI.reason_text("no fill")
+        ICUI.play(ICUI.SOUNDS.refused)
         ICUI.refresh()
         return false
     end
@@ -3866,13 +3968,17 @@ function ICUI.draw_court(panel, faction, court, px, py)
     -- acts on a different party. This used to assign `slugs` here; the
     -- assignment moved rather than being duplicated, because two of them is one
     -- that will be forgotten.
-    local warn = ""
+    -- THE SOONEST, as the Intrigue tab's does (audit 2026-09-29: this named
+    -- whichever came last in court order).
+    local warn, soonest = "", nil
     for i = 1, #slugs do
         local slug = slugs[i]
         local house = court.houses[slug]
-        if (house.clock or 0) > 0 then
-            warn = string.format("%s will break with you in %d turns.",
-                                 ICUI.house_name(slug), house.clock)
+        if (house.clock or 0) > 0 and (not soonest or house.clock < soonest) then
+            soonest = house.clock
+            warn = string.format("%s will break with you in %d turn%s.",
+                                 ICUI.house_name(slug), house.clock,
+                                 house.clock == 1 and "" or "s")
         end
     end
     -- Sufferance outranks a rival's countdown: it is the player's own position,
@@ -3978,7 +4084,8 @@ function ICUI.set_rim(c, kind, look)
     if not c then return end
     local art = (kind == "row") and ICUI.RIM_ART_ROW or ICUI.RIM_ART
     for name, index in pairs(ICUI.RIMS[kind]) do
-        local path = (name == look) and art or ICUI.MASK_NONE
+        local path = (name == look) and (name == "fail" and ICUI.RIM_ART_FAIL or art)
+                     or ICUI.MASK_NONE
         pcall(function() c:SetImagePath(path, index) end)
     end
 end
@@ -3987,7 +4094,12 @@ end
 -- one per claim, so a finished sprite never has to replay. HOST BY NAME: the
 -- callback re-finds everything under the panel, because the panel may be shut
 -- before it fires, and a component kept from before is then a dead address.
+-- THE NEWEST BURST'S TIMER TAKES IT AWAY, and only that one: an older timer
+-- found the new sprite by the same name and cut it short.
+ICUI.burst_n = {}
 function ICUI.burst(host_name)
+    local n = (ICUI.burst_n[host_name] or 0) + 1
+    ICUI.burst_n[host_name] = n
     local ok, err = pcall(function()
         local panel = comp(ICUI.PANEL)
         local host = panel and comp(host_name, panel)
@@ -4005,6 +4117,7 @@ function ICUI.burst(host_name)
     end)
     if not ok then IC.warn("IRON COURT: the claim burst failed: " .. tostring(err)) end
     cm:callback(function()
+        if ICUI.burst_n[host_name] ~= n then return end
         pcall(function()
             local panel = comp(ICUI.PANEL)
             local host = panel and comp(host_name, panel)
@@ -4204,19 +4317,6 @@ function ICUI.gov_holder_text(faction, province_key, holder, cqi)
     return name .. " (away)"
 end
 
--- What the Effect column says for one province.
-function ICUI.gov_effect(faction, province_key, cqi)
-    if not cqi then return "None" end
-    if not IC.governor_active(faction, province_key) then
-        -- What it COSTS, not just where he is. "Away from the province" named
-        -- the state without saying it had switched the effect off.
-        return "None - he must stand in the province to govern it"
-    end
-    local text = loc("effect_bundles_localised_description_" .. IC.gov_bundle_base(), "")
-    if text == "" then return "Governing" end
-    return text
-end
-
 -- WHAT HIS RANK ADDS (spec 2026-09-27 section 7) - and NOTHING while he is
 -- away, since apply_governor_bundles skips an absent governor entirely.
 function ICUI.gov_rank_tip(faction, province_key, holder)
@@ -4358,17 +4458,25 @@ function ICUI.party_card(slug)
     return nil
 end
 
--- A SHORT RIM ON A PARTY'S CARD: lit for a party an answer pleased, red for the
--- target of a plot that failed. HELD IN ICUI.flashes, not only painted: in
+-- A SHORT RIM ON A PARTY'S CARD: lit for a party an answer pleased, fail for
+-- the target of a plot that failed. ONLY A CARD ON SCREEN: a petition is
+-- answered on a tab that draws no party card, and a flash held for it went off
+-- if the Court tab was opened inside its time. HELD IN ICUI.flashes, not only painted: in
 -- single player the click redraws the whole panel straight after its answer,
 -- and fill_party repaints every card's rim from this table - a flash painted
 -- and not remembered would be wiped by that redraw before a frame of it drew.
 ICUI.FLASH_SECONDS = 1.5
 ICUI.flashes = {}
+ICUI.flash_n = {}
 function ICUI.flash(slug, look)
+    local card = ICUI.party_card(slug)
+    if not card then return end
+    local n = (ICUI.flash_n[slug] or 0) + 1
+    ICUI.flash_n[slug] = n
     ICUI.flashes[slug] = look
-    ICUI.set_rim(ICUI.party_card(slug), "party", look)
+    ICUI.set_rim(card, "party", look)
     cm:callback(function()
+        if ICUI.flash_n[slug] ~= n then return end
         ICUI.flashes[slug] = nil
         pcall(function() ICUI.set_rim(ICUI.party_card(slug), "party", nil) end)
     end, ICUI.FLASH_SECONDS)
@@ -4520,6 +4628,21 @@ function ICUI.snub_line(name, key)
                          name, ICUI.snub_name(key))
 end
 
+-- A PARTY AS IT WAS WHEN THE LINE WAS WRITTEN: IC.log keeps its rolled name's
+-- numbers, or "c" for a confederate one (IC.who_was). A line with neither - the
+-- Crown, or one from an older save - is named as the court stands now.
+function ICUI.logged_name(slug, who)
+    if who == "c" then
+        local came_from = IC.faction_for_origin(slug)
+        local name = came_from and loc("factions_screen_name_" .. came_from, "") or ""
+        if name ~= "" then return name end
+        return loc("derpy_ic_origin_name_" .. tostring(slug), slug)
+    end
+    local head, tail = string.match(who or "", "(%d+)%.(%d+)")
+    return IC.rolled_name(slug, tonumber(head), tonumber(tail))
+           or ICUI.house_name(slug)
+end
+
 -- ONE ENTRY, RESOLVED AT DRAW TIME. The log stores slugs and keys and no names
 -- at all: it is written from inside IC.turn, and resolving a localised string in
 -- a turn handler is a turn-1 CTD that pcall cannot catch. Everything readable is
@@ -4529,7 +4652,7 @@ end
 -- log written by a newer build and read by an older one should lose the line it
 -- cannot describe, not print an empty one.
 function ICUI.intrigue_text(e)
-    local house = ICUI.house_name(e.slug)
+    local house = ICUI.logged_name(e.slug, e.sw)
     if e.kind == "appoint" then
         return string.format("%s takes %s.", house, ICUI.office_name(e.key))
     elseif e.kind == "dismiss" then
@@ -4588,36 +4711,42 @@ function ICUI.intrigue_text(e)
     -- what it cost him - the one place in the record where standing goes down.
     elseif e.kind == "bribe" then
         return string.format("%s buys the goodwill of %s for %d influence.",
-                             house, ICUI.house_name(e.key), e.n or 0)
+                             house, ICUI.logged_name(e.key, e.kw), e.n or 0)
     elseif e.kind == "discredit" then
         return string.format("%s spends %d influence tearing down %s.",
-                             house, e.n or 0, ICUI.house_name(e.key))
+                             house, e.n or 0, ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "rumour" then
         return string.format("%s spends %d influence on whispers, and somebody "
                              .. "in %s is worth less for it.",
-                             house, e.n or 0, ICUI.house_name(e.key))
+                             house, e.n or 0, ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "murder" then
         return string.format("%s pays %d influence, and %s has an accident at "
                              .. "the forge.", house, e.n or 0,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     -- A PLOT THAT MISSED. Its own sentence, not a suffix on the four above: the
     -- standing went, the house worked out who tried, and nothing else happened.
     elseif e.kind == "plot_failed" then
+        -- AN ERRAND'S LINE carries the errand, and an older save's none.
+        local errand = not e.key or IC.plot_by_key(e.key)
+        if errand then
+            return string.format("%s comes to nothing for %s. %d influence spent.",
+                errand == true and "An errand" or errand.name, house, e.n or 0)
+        end
         return string.format("%s moves against %s, and is found out. %d "
                              .. "influence spent, and nothing to show for it.",
-                             house, ICUI.house_name(e.key), e.n or 0)
+                             house, ICUI.logged_name(e.key, e.kw), e.n or 0)
     -- THE FIVE NEW MOVES, one sentence each.
     elseif e.kind == "provoke" then
         return string.format("%s pays %d influence to make %s an enemy on a day "
                              .. "of your choosing.", house, e.n or 0,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "purge" then
         return string.format("%s spends %d influence, and %s is struck from the "
                              .. "rolls. The court watched.", house, e.n or 0,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "oath" then
         return string.format("%s and %s put two names on the hot iron for %d "
-                             .. "influence.", house, ICUI.house_name(e.key),
+                             .. "influence.", house, ICUI.logged_name(e.key, e.kw),
                              e.n or 0)
     elseif e.kind == "oath_broken" then
         -- e.key IS THE CAUSE, not a house: an oath ends two ways and they read
@@ -4649,20 +4778,20 @@ function ICUI.intrigue_text(e)
                              .. "called home.", house, e.n or 0)
     elseif e.kind == "feud" then
         return string.format("%s begins a feud with %s.", house,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "arbit_side" then
         return string.format("You back %s in its feud with %s.", house,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "arbit_peace" then
         return string.format("You pay to end the feud between %s and %s.", house,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "withhold" then
         return string.format("%s withholds its officers' service.", house)
     elseif e.kind == "sabotage" then
         return string.format("%s sabotages %s.", house, ICUI.office_name(e.key))
     elseif e.kind == "feud_end" then
         return string.format("The feud between %s and %s is over.", house,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "demand" then
         return string.format("%s demands a post for one of their men.", house)
     elseif e.kind == "demand_met" then
@@ -4671,6 +4800,13 @@ function ICUI.intrigue_text(e)
         return string.format("%s's demand goes unmet, and they will remember it.",
                              house)
     elseif e.kind == "demand_void" then
+        if e.n == IC.VOID_REASONS.lost then
+            return string.format("%s's demand lapses: the province is no longer yours.",
+                                 house)
+        elseif e.n == IC.VOID_REASONS.short then
+            return string.format("%s's demand lapses: their man never had the "
+                .. "influence or rank for that seat.", house)
+        end
         return string.format("%s's demand lapses: the man or the party is gone.",
                              house)
     elseif e.kind == "offer" then
@@ -4684,23 +4820,23 @@ function ICUI.intrigue_text(e)
     elseif e.kind == "unseat" then
         return string.format("%s spends %d influence, and every seat %s held "
                              .. "is empty by evening.", house, e.n or 0,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "recall" then
         return string.format("%s pays %d influence to call the overseers of "
                              .. "%s home. The provinces answer to the Tower.",
-                             house, e.n or 0, ICUI.house_name(e.key))
+                             house, e.n or 0, ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "patron" then
         return string.format("%s spends %d influence raising a man of %s, and "
                              .. "everybody saw whose name did it.", house,
-                             e.n or 0, ICUI.house_name(e.key))
+                             e.n or 0, ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "kinsman" then
         return string.format("%s pays %d influence, and a man of %s stands "
                              .. "under your standard now.", house, e.n or 0,
-                             ICUI.house_name(e.key))
+                             ICUI.logged_name(e.key, e.kw))
     elseif e.kind == "pledge" then
         return string.format("%s pledges the forge to %s for %d influence. "
                              .. "The court heard you promise it.", house,
-                             ICUI.house_name(e.key), e.n or 0)
+                             ICUI.logged_name(e.key, e.kw), e.n or 0)
     elseif e.kind == "audience" then
         return string.format("%s spends %d influence holding the ash court, "
                              .. "and the whole room is heard out.", house,
@@ -4714,6 +4850,18 @@ function ICUI.intrigue_text(e)
         -- for, which is a third way out of an office and reads as neither.
         return string.format("%s no longer has the influence for %s, and is out "
                              .. "of it.", house, ICUI.office_name(e.key))
+    elseif e.kind == "died" then
+        -- n = 1 is a province; anything else is a seat.
+        if e.n == 1 then
+            return string.format("%s's overseer of %s is dead. The province has "
+                .. "no governor.", house,
+                loc("provinces_onscreen_" .. tostring(e.key), e.key))
+        end
+        return string.format("%s's man in %s is dead, and the seat stands empty.",
+                             house, ICUI.office_name(e.key))
+    elseif e.kind == "stall_end" then
+        return string.format("%s is back at work in %s.", house,
+                             ICUI.office_name(e.key))
     end
     return nil
 end
@@ -4930,7 +5078,7 @@ function ICUI.draw_log(panel, faction, court)
         return x.at > y.at
     end)
     local lines = {}
-    for i = 1, #all do lines[i] = {tostring(all[i].turn), all[i].text, "", "", ""} end
+    for i = 1, #all do lines[i] = {tostring(all[i].turn), ICUI.units(all[i].text), "", "", ""} end
     if #lines == 0 then
         lines[1] = {"-", "The court has no record yet. Fill an office and "
                     .. "the houses will begin to take notice.", "", "", ""}
@@ -4949,109 +5097,146 @@ end
 -- fails a name the model does not have, and tools/gen_ic_ui.py measures every
 -- line at its widest against the row.
 ICUI.HELP_TITLE = "How the court works"
+-- A {@name} IN A LINE IS A PICTURE (author, 2026-09-29: "add markers and
+-- icons whenever possible"), filled when the page draws the way a {name} is a
+-- number: one of these, or a move's own card picture by its key (IC.PLOTS), so
+-- no move's path is copied here. A point starts with one - its marker, the
+-- picture of what the point is about, and CA's own Chaos Dwarf bullet (the
+-- faction-select screen's) when it is about nothing in particular; a line
+-- indented with spaces carries on the point above and has none. A name no
+-- picture answers stays on screen as written, and the harness fails it.
+ICUI.HELP_ICONS = {
+    bullet   = "ui/frontend ui/faction_bullets/bullet_chd_tower_of_zharr.png",
+    court    = ICUI.TRAIT_ICON,
+    trait    = ICUI.TRAIT_ICON,
+    party    = "ui/skins/default/icon_politician.png",
+    influence = ICUI.COST_ICON,
+    loyalty  = ICUI.LOYALTY_ICON,
+    secure   = ICUI.LOYALTY_ICON,
+    gold     = ICUI.GOLD_ICON,
+    gift     = ICUI.GOLD_ICON,
+    turns    = ICUI.TURNS_ICON,
+    crown    = ICUI.BAND_ICON,
+    offices  = "ui/skins/default/icon_offices.png",
+    governor = "ui/skins/default/icon_governor.png",
+    province = "ui/campaign ui/effect_bundles/settlement.png",
+    confed   = "ui/campaign ui/effect_bundles/confederation.png",
+    petition = "ui/campaign ui/effect_bundles/diplomacy.png",
+    rebel    = "ui/campaign ui/effect_bundles/cotw_force_rebellion.png",
+    death    = "ui/skins/default/icon_killed_small.png",
+    battle   = "ui/skins/default/icon_stat_attack.png",
+    level    = "ui/skins/default/icon_level_up.png",
+    settings = "ui/skins/default/icon_options.png",
+}
+
+function ICUI.help_icon(name)
+    local move = IC.plot_by_key and IC.plot_by_key(name)
+    return ICUI.HELP_ICONS[name] or (move and move.icon) or nil
+end
 ICUI.HELP = {
-    {title = "The court", lines = {
-        "Every lord and hero in your faction belongs to a party. Your own party is the Crown; the others are rival parties.",
-        "A court rolls its rival parties once, on its first turn. Each has a name, two party traits and a leader with a trait of his own.",
-        "A party's weight comes from the seats it holds, the provinces it governs and the influence of its men.",
-        "A party's share of the court is its weight against everyone's. The Crown's share is your control of the court.",
-        "Each party card shows its share and its loyalty. Click a rival's card to choose it, then act on it from the bar under the cards.",
-        "A Chaos Dwarf house you confederate joins your court as a party of its own, keeping roughly the loyalty it had.",
-        "Court: the parties and the Crown. Offices: the seats. Governors: your provinces. Intrigue: moves you can pay for.",
-        "Record: what has happened, newest first. Petitions: what the parties are asking of you.",
-        "A marker on a tab means something there waits for you. The opener glows while anything in the court does.",
+    {title = "The court", icon = "court", lines = {
+        "{@party}Every lord and hero in your faction belongs to a party. Your own party is the Crown; the others are rival parties.",
+        "{@trait}A court rolls its rival parties once, on its first turn. Each has a name, two party traits and a leader with a trait of his own.",
+        "{@bullet}A party's weight comes from the seats it holds, the provinces it governs and the influence of its men.",
+        "{@crown}A party's share of the court is its weight against everyone's. The Crown's share is your control of the court.",
+        "{@bullet}Each party card shows its share and its loyalty. Click a rival's card to choose it, then act on it from the bar under the cards.",
+        "{@confed}A Chaos Dwarf house you confederate joins your court as a party of its own, keeping roughly the loyalty it had.",
+        "{@court}Court: the parties and the Crown. {@offices}Offices: the seats. {@governor}Governors: your provinces. {@rumour}Intrigue: moves you can pay for.",
+        "{@bullet}Record: what has happened, newest first. {@petition}Petitions: what the parties are asking of you.",
+        "{@bullet}A marker on a tab means something there waits for you. The opener glows while anything in the court does.",
     }},
-    {title = "Influence", lines = {
-        "Influence belongs to each man, not to his party. It seats men in offices and pays for moves on the Intrigue tab.",
-        "Every man earns {influence_trickle} a turn while he is not leading an army. A lord in the field with an army earns {influence_trickle_general}.",
-        "A seat pays its tier's wage every turn, and a governor earns {governor_income} a turn.",
-        "Winning a battle pays the victor, more for a better victory. Taking a settlement pays {settlement_influence}, and each level gained pays {rank_influence}.",
-        "A lord or hero recruited mid-campaign starts with the influence his level buys:",
-        "    {low_influence} up to level {low_rank}, rising with each level to {top_influence} at level {top_rank}.",
-        "Lords and heroes are recruited from the normal recruitment panel. The court does not hire men of its own.",
-        "Influence never goes below zero. A move is paid for whether it works or not.",
+    {title = "Influence", icon = "influence", lines = {
+        "{@influence}Influence belongs to each man, not to his party. It seats men in offices and pays for moves on the Intrigue tab.",
+        "{@turns}Every man earns {@influence}{influence_trickle} a turn while he is not leading an army. A lord in the field with an army earns {@influence}{influence_trickle_general}.",
+        "{@offices}A seat pays its tier's wage every turn, and a governor earns {@influence}{governor_income} a turn.",
+        "{@battle}Winning a battle pays the victor, more for a better victory. Taking a settlement pays {@influence}{settlement_influence}, and each level gained pays {@influence}{rank_influence}.",
+        "{@level}A lord or hero recruited mid-campaign starts with the influence his level buys:",
+        "    {@influence}{low_influence} up to level {low_rank}, rising with each level to {@influence}{top_influence} at level {top_rank}.",
+        "{@bullet}Lords and heroes are recruited from the normal recruitment panel. The court does not hire men of its own.",
+        "{@bullet}Influence never goes below zero. A move is paid for whether it works or not.",
     }},
-    {title = "Loyalty", lines = {
-        "Every party has a loyalty from 0 to 100, starting at {loyalty_start}. It changes every turn by the sum of what the party has.",
-        "Each seat or province it holds: +{loyalty_gain_office} a turn. Holding none at all: {loyalty_drift_none} a turn.",
-        "An outsider sitting in the seat a party claims: {loyalty_affinity_snub} a turn, and {loyalty_snubbed} at once when you seat him.",
-        "Its two party traits and its leader's trait each add or take a little every turn. Hover a trait to see what it is worth now.",
-        "Seating one of its men: +{loyalty_appointed} once. Dismissing one of its officers: {loyalty_dismissed}. A term ending costs nothing.",
-        "One of its men dying: {loyalty_member_died}. One of its men winning a battle: +{loyalty_battle_won}.",
-        "Hover a party's loyalty on its card for this turn's change, line by line.",
-        "At {loyalty_warn} or below a party is unhappy and you are warned. Its card's word says its mood: Loyal, Restless or Plotting.",
+    {title = "Loyalty", icon = "loyalty", lines = {
+        "{@loyalty}Every party has a loyalty from 0 to 100, starting at {loyalty_start}. It changes every turn by the sum of what the party has.",
+        "{@offices}Each seat or province it holds: +{loyalty_gain_office} a turn. Holding none at all: {loyalty_drift_none} a turn.",
+        "{@offices}An outsider sitting in the seat a party claims: {loyalty_affinity_snub} a turn, and {loyalty_snubbed} at once when you seat him.",
+        "{@trait}Its two party traits and its leader's trait each add or take a little every turn. Hover a trait to see what it is worth now.",
+        "{@offices}Seating one of its men: +{loyalty_appointed} once. Dismissing one of its officers: {loyalty_dismissed}. A term ending costs nothing.",
+        "{@death}One of its men dying: {loyalty_member_died}. {@battle}One of its men winning a battle: +{loyalty_battle_won}.",
+        "{@loyalty}Hover a party's loyalty on its card for this turn's change, line by line.",
+        "{@loyalty}At {loyalty_warn} or below a party is unhappy and you are warned. Its card's word says its mood: Loyal, Restless or Plotting.",
     }},
-    {title = "Offices", lines = {
-        "The court has {seats} seats in {tiers} tiers. A higher tier asks more of a man and pays him more.",
-        "To take a seat a man needs its level and its influence, both shown on the seat's card.",
-        "    The lowest tier asks level {low_rank} and {low_influence} influence; the highest asks level {top_rank} and {top_influence}.",
-        "A term lasts {term_turns} turns. When it ends the seat empties at no cost, and that man waits {renew_wait} turns to take it again.",
-        "Most seats are claimed by a party. Seating that party's man pleases it; anyone else in that seat angers it every turn.",
-        "An empty seat has a penalty of its own, shown on its card. Leaving seats empty costs you.",
-        "Fill Empty Seats puts the man with the most influence in each empty seat, and keeps a claimed seat for its own party.",
-        "Fill a seat by hand to choose anyone you like.",
-        "A man whose influence falls below his seat's need, which a rival's plot can do, loses the seat at the next turn.",
-        "A seat a rival sabotages keeps its man but loses its effect for a few turns.",
+    {title = "Offices", icon = "offices", lines = {
+        "{@offices}The court has {seats} seats in {tiers} tiers. A higher tier asks more of a man and pays him more.",
+        "{@level}To take a seat a man needs its level and its influence, both shown on the seat's card.",
+        "    The lowest tier asks level {low_rank} and {@influence}{low_influence} influence; the highest asks level {top_rank} and {@influence}{top_influence}.",
+        "{@turns}A term lasts {term_turns} turns. When it ends the seat empties at no cost, and that man waits {renew_wait} turns to take it again.",
+        "{@party}Most seats are claimed by a party. Seating that party's man pleases it; anyone else in that seat angers it every turn.",
+        "{@bullet}An empty seat costs you nothing, but its bonus is lost until you fill it.",
+        "{@bullet}Fill Empty Seats puts the man with the most influence in each empty seat, and keeps a claimed seat for its own party.",
+        "{@bullet}Fill a seat by hand to choose anyone you like.",
+        "{@influence}A man under his seat's influence need loses it: at once if his own move's price did it, next turn if a rival's plot did.",
+        "{@unseat}A seat a rival sabotages keeps its man but loses its effect for a few turns.",
     }},
-    {title = "Governors", lines = {
-        "Any free man can govern a province. It needs no level or influence, but a man holds one post at a time.",
-        "A governor adds order to his province, more the higher his level, and income once he is level 2 or more.",
-        "His party adds a bonus of its own on top, different for each party.",
-        "He must stand in his province for any of it to apply. The Governors tab shows who is there and who is away.",
-        "A province with no governor cannot issue edicts: its edict buttons are greyed out until you appoint one.",
-        "Every province has a loyalty, starting at {prov_loyalty_start}. Governed by a content party: +{prov_gain_governed} a turn. No governor: {prov_drift_none}.",
-        "Governed by a party that is counting down to leave you: {prov_drift_angry} a turn.",
-        "When a party leaves, it takes any province at {prov_defect_floor} loyalty or below, and every province its men govern.",
-        "Your capital's province never leaves. Ride the Circuit, on the Intrigue tab, raises every province's loyalty at once.",
-        "A governorship counts toward his party's weight and loyalty the way a seat does.",
+    {title = "Governors", icon = "governor", lines = {
+        "{@governor}Any free man can govern a province. It needs no level or influence, but a man holds one post at a time.",
+        "{@level}A governor adds order to his province, more the higher his level, and income once he is level 2 or more.",
+        "{@party}His party adds a bonus of its own on top, different for each party.",
+        "{@governor}A lord leading an army must stand in his province for any of it to apply; any other governor governs from wherever he is.",
+        "{@province}A province with no governor cannot issue edicts: its edict buttons are greyed out until you appoint one.",
+        "{@loyalty}Every province has a loyalty, starting at {prov_loyalty_start}. Governed by a content party: +{prov_gain_governed} a turn. No governor: {prov_drift_none}.",
+        "{@rebel}Governed by a party that is counting down to leave you: {prov_drift_angry} a turn.",
+        "{@rebel}When a party leaves, it takes any province at {prov_defect_floor} loyalty or below, and every province its men govern.",
+        "{@crown}Your capital's province never leaves. {@circuit}Ride the Circuit, on the Intrigue tab, raises every province's loyalty at once.",
+        "{@bullet}A governorship counts toward his party's weight and loyalty the way a seat does.",
     }},
-    {title = "The Crown", lines = {
-        "The Crown's share of the court is your control of it. The box under the dial shows your share, its band and what the band does.",
-        "There are five bands, from An Iron Grip on the Court down to The Court Is Not Yours.",
+    {title = "The Crown", icon = "crown", lines = {
+        "{@crown}The Crown's share of the court is your control of it. The box under the dial shows your share, its band and what the band does.",
+        "{@crown}There are five bands, from An Iron Grip on the Court down to The Court Is Not Yours.",
         "    The high bands add order and income and cut upkeep; the low ones take order away and raise upkeep.",
-        "Control rises as the Crown gains weight: seats and provinces held by Crown men, and influence in Crown hands.",
-        "It falls as rivals gain weight, or as Crown men lose seats, provinces or influence.",
-        "Below {pressure_below}% control the strongest rival may be pressed each turn: it acts as if it means to leave, whatever its loyalty.",
-        "A party you have sworn with Secure Loyalty cannot be pressed.",
-        "If the Crown's own loyalty falls to {splinter_loyalty} or below, your house begins to split, and after a warning a new rival party forms from it.",
+        "{@bullet}Control rises as the Crown gains weight: seats and provinces held by Crown men, and influence in Crown hands.",
+        "{@bullet}It falls as rivals gain weight, or as Crown men lose seats, provinces or influence.",
+        "{@rebel}Below {pressure_below}% control the strongest rival may be pressed each turn: it acts as if it means to leave, whatever its loyalty.",
+        "{@secure}A party you have sworn with Secure Loyalty cannot be pressed.",
+        "{@rebel}If the Crown's own loyalty falls to {splinter_loyalty} or below, your house begins to split, and after a warning a new rival party forms from it.",
     }},
-    {title = "Intrigue", lines = {
-        "A move is paid for in influence by the man who makes it, and paid whether it works or not.",
-        "Each card shows its price, its chance and what it does. The chance is better the more your man's influence outweighs his target's.",
-        "No chance is ever below {plot_chance_min}% or above {plot_chance_max}%.",
-        "Moves on a man: bribe him, discredit him, spread rumours, or arrange an accident at the forge.",
-        "Moves on a party: provoke it, or purge it from the court. Moves on its posts: strike its seats, or recall its governors.",
-        "Bonds: swear a blood-oath, stand as a man's patron, name him kinsman, or pledge the forge to his party.",
-        "Errands your own men run: embezzle from the vaults, hold a feast, hold court for every party, or ride the circuit of your provinces.",
-        "A failed move against a party costs {plot_fail_loyalty} of its loyalty toward you. They know what you tried.",
-        "Only Crown men can act, and a man sent on an errand must not be leading an army.",
-        "On the Court tab, a chosen rival's bar offers Provoke, Send a Gift, Secure Loyalty and Purge.",
+    {title = "Intrigue", icon = "rumour", lines = {
+        "{@influence}A move is paid for in influence by the man who makes it, and paid whether it works or not.",
+        "{@bullet}Each card shows its price and what it does. When you choose who makes the move, each man's button shows his chance.",
+        "{@bullet}The chance is better the more his influence outweighs his target's. A man whose seat the price would cost him is shown in red.",
+        "{@bullet}No chance is ever below {plot_chance_min}% or above {plot_chance_max}%.",
+        "{@bullet}Moves on a man: {@bribe}bribe him, {@discredit}discredit him, {@rumour}spread rumours, or {@murder}arrange an accident at the forge.",
+        "{@bullet}Moves on a party: {@provoke}provoke it, or {@purge}purge it. Moves on its posts: {@unseat}strike its seats, or {@recall}recall its governors.",
+        "{@bullet}Bonds: {@oath}swear a blood-oath, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}pledge the forge to his party.",
+        "{@bullet}Errands: {@embezzle}embezzle from the vaults, {@feast}hold a feast, {@audience}hold court, or {@circuit}ride the circuit of your provinces.",
+        "{@loyalty}A failed move against a party costs {plot_fail_loyalty} of its loyalty toward you. They know what you tried.",
+        "{@crown}Only Crown men can act, and a man sent on an errand must not be leading an army.",
+        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge.",
     }},
-    {title = "Petitions", lines = {
-        "The parties ask things of you. Answer them on the Petitions tab.",
-        "A demand asks for a named post for one of the party's men. Grant it: +{party_demand_met} loyalty. Refuse it: {party_demand_refused} less.",
-        "A demand waits {party_demand_turns} turns. One that can no longer be granted lapses at no cost.",
-        "A party at {party_offer_line} loyalty or more may offer gold, influence, calm in the court, or troops.",
+    {title = "Petitions", icon = "petition", lines = {
+        "{@petition}The parties ask things of you. Answer them on the Petitions tab.",
+        "{@offices}A demand asks for a named post for one of the party's men. Grant it: +{party_demand_met} loyalty. Refuse it: {party_demand_refused} less.",
+        "{@turns}A demand waits {party_demand_turns} turns. One that can no longer be granted lapses at no cost.",
+        "{@gold}A party at {party_offer_line} loyalty or more may offer gold, influence, calm in the court, or troops.",
         "    Accept, and every other rival party loses {party_offer_envy} loyalty from envy. Decline, and nothing happens.",
-        "An offer lapses after {party_offer_turns} turns.",
-        "Two parties may fall out over a claimed seat or equal shares. A feud runs {party_feud_turns} turns, and they strike at each other while it does.",
-        "Back one side: +{arbit_side_loyalty} to it, and as much off the other. Make Peace: pay gold, and +{arbit_peace_loyalty} to both. Either ends the feud.",
-        "Some rival moves against you are warned a turn ahead on a card. Settle the matter in time and they come to nothing.",
+        "{@turns}An offer lapses after {party_offer_turns} turns.",
+        "{@battle}Two parties may fall out over a claimed seat or equal shares. A feud runs {party_feud_turns} turns, and they strike at each other while it does.",
+        "{@bullet}Back one side: +{arbit_side_loyalty} to it, and as much off the other. Make Peace: pay gold, and +{arbit_peace_loyalty} to both. Either ends the feud.",
+        "{@bullet}Some rival moves against you are warned a turn ahead on a card. Settle the matter in time and they come to nothing.",
     }},
-    {title = "Leaving the court", lines = {
-        "A party with {secede_share}% of the court or more and {secede_loyalty} loyalty or less begins a countdown of {secede_turns} turns.",
-        "Its card shows the turns left. Raise its loyalty or cut its share before the end to stop it.",
-        "A party whose loyalty reaches {secede_break} leaves at once, with no countdown.",
-        "It takes the provinces its men govern, any at {prov_defect_floor} loyalty or below, and more the larger its share. Never your capital's.",
-        "Up to {rebel_lords_max} of its lords rise with armies of {rebel_units} units, and up to {rebel_heroes_max} of its heroes follow them.",
-        "The rebels declare war on you at once and march like an invading host. Every Chaos Dwarf court distrusts them.",
-        "A bribe, the Pledge of the Forge, and an offer of calm from another party each stop a countdown. A purge ends the party, if it works.",
-        "A party with no men and nothing to take simply dissolves.",
+    {title = "Leaving the court", icon = "rebel", lines = {
+        "{@rebel}A party with {secede_share}% of the court or more and {secede_loyalty} loyalty or less begins a countdown of {secede_turns} turns.",
+        "{@turns}Its card shows the turns left. Raise its loyalty or cut its share before the end to stop it.",
+        "{@death}A party whose loyalty reaches {secede_break} leaves at once, with no countdown.",
+        "{@province}It takes the provinces its men govern, any at {prov_defect_floor} loyalty or below, and more the larger its share. Never your capital's.",
+        "{@battle}Up to {rebel_lords_max} of its lords rise with armies of {rebel_units} units, and up to {rebel_heroes_max} of its heroes follow them.",
+        "{@rebel}The rebels declare war on you at once and march like an invading host. Every Chaos Dwarf court distrusts them.",
+        "{@bullet}A bribe, the Pledge of the Forge, or another party's offer of calm stops a countdown. A purge ends the party, if it works.",
+        "{@bullet}A party with no men and nothing to take simply dissolves.",
     }},
-    {title = "Settings", lines = {
-        "The court's numbers are set once per campaign from the mod's settings: Gentle, Default, Harsh, Ruthless or Custom.",
-        "Every number on these pages is read from the campaign you are playing, so they match your settings.",
-        "Leaving the court, pressure, the Crown splitting, the parties acting, event cards and the full record can be switched at any time.",
+    {title = "Settings", icon = "settings", lines = {
+        "{@settings}The court's numbers are set once per campaign from the mod's settings: Gentle, Default, Harsh, Ruthless or Custom.",
+        "{@settings}Every number on these pages is read from the campaign you are playing, so they match your settings.",
+        "{@settings}Leaving the court, pressure, the Crown splitting, the parties acting, event cards and the full record can be switched at any time.",
     }},
 }
 
@@ -5081,7 +5266,10 @@ end
 -- A NUMBER THE MODEL FILLS IS PICKED OUT in the colour the sorted column's
 -- heading wears: the figures are what a player comes to the page for.
 function ICUI.help_fill(line, vars)
-    return (string.gsub(line or "", "{(%w[%w_]*)}", function(key)
+    line = string.gsub(line or "", "{@([%w_]+)}", function(name)
+        return ICUI.help_icon(name) and string.format("[[img:%s]][[/img]]", ICUI.help_icon(name)) or nil
+    end)
+    return (string.gsub(line, "{(%w[%w_]*)}", function(key)
         local v = vars[key]
         if type(v) ~= "number" then return nil end
         return string.format("[[col:%s]]%s[[/col]]", ICUI.SORT_LIT, tostring(v))
@@ -5118,7 +5306,7 @@ function ICUI.draw_help(panel, faction)
         local c = comp(key, panel)
         local topic = ICUI.HELP[i]
         if c then
-            set_text(c, topic and topic.title or "")
+            set_text(c, topic and (ICUI.help_fill("{@" .. tostring(topic.icon) .. "}", {}) .. topic.title) or "")
             show(c, topic ~= nil)
             -- LIT LIKE A TAB, with the tab's own two plates.
             for index = 0, 1 do
@@ -5128,8 +5316,9 @@ function ICUI.draw_help(panel, faction)
         end
     end
     local head = comp("ic_help_head", panel)
-    set_text(head, ICUI.HELP[page].title)
-    ICUI.fit_plate(head, "ic_help_head", ICUI.HELP[page].title, ICUI.HEADING_CAP, true)
+    set_text(head, ICUI.help_fill("{@" .. tostring(ICUI.HELP[page].icon) .. "}", {})
+                   .. ICUI.HELP[page].title)
+    ICUI.fit_plate(head, "ic_help_head", ICUI.HELP[page].title, ICUI.HEADING_CAP, true, 1)
     local vars = ICUI.help_vars(faction)
     local lines = ICUI.HELP[page].lines
     for i, key in ipairs(ICUI.HELP_LINE_KEYS) do
@@ -5416,7 +5605,8 @@ function ICUI.reason_text(why, spare)
         return "That party holds no seat in your court."
     elseif why == "standing" then
         return string.format(
-            "He has not the influence for that seat - %d short.",
+            -- SHARED BY THE SEAT AND THE PLOT LISTS, so it names neither.
+            "He is %d influence short.",
             spare or 0)
     elseif why == "rank" then
         -- THE SHORTFALL, not the bar. can_appoint returns how many levels short
@@ -5497,6 +5687,8 @@ function ICUI.reason_text(why, spare)
         return "That feud is already over."
     elseif why == "no demand" then
         return "That demand is no longer open."
+    elseif why == "taken" then
+        return "Someone else holds that post now. Free it for their man this turn, or they count it as refused."
     end
     return "That cannot be done right now."
 end
@@ -5614,12 +5806,13 @@ function ICUI.draw_petitions(panel, faction, court)
         end
         -- RED ON EXACTLY THE ROWS THE CLICK WOULD REFUSE, off the model's own
         -- question rather than a second copy of its rules.
-        local may = IC.can_grant_demand(faction)
+        local may, why, spare = IC.can_grant_demand(faction)
         local face = ICUI.portrait_path(d.cqi)
         lines[#lines + 1] = {
             who,
             string.format("%s - %s", ask, turns(math.max(0, d.ends - now))),
             "", "", may and "Accept" or ICUI.red("Accept"), "Refuse",
+            tip = not may and ICUI.reason_text(why, spare) or nil,
             icon = face or ICUI.crest(d.slug),
             icon_kind = face and "porthole" or "crest",
             crest = face and ICUI.crest(d.slug) or nil,
@@ -5673,6 +5866,9 @@ function ICUI.draw_petitions(panel, faction, court)
     if #lines == 0 then
         lines[1] = {"", "No party is asking anything of you.", "", "", ""}
     end
+    -- THE FIGURES IN EACH PETITION'S WORDS wear their units: gold, influence,
+    -- turns. The second column is written as it is, never cut.
+    for i = 1, #lines do lines[i][2] = ICUI.units(lines[i][2]) end
     ICUI.fill_rows(panel, lines, "petitions")
     return ""
 end
@@ -5845,6 +6041,15 @@ function ICUI.draw_picker(panel, faction, court)
                                         ICUI.pick.key)
             if odds then action = string.format("Choose %d%%", odds) end
         end
+        -- AND WHAT IT COSTS HIM: paying can put him under his own seat's bar,
+        -- and he loses it the moment he pays (audit 2026-09-29).
+        local loses = plotting and may
+                      and IC.plot_costs_seat(faction, ICUI.pick.plot, cand.cqi)
+        if loses then
+            tip = string.format("Paying for this can leave him short of the influence "
+                .. "the %s needs, and he loses that seat the moment he pays.",
+                loc("effect_bundles_localised_title_" .. IC.office_bundle(loses), loses))
+        end
         local face = ICUI.portrait_path(cand.cqi)
         local man = ICUI.man_line(cand.character)
         -- RESOLVED ONCE, because the cell draws it and the sort orders
@@ -5873,7 +6078,8 @@ function ICUI.draw_picker(panel, faction, court)
             -- THE NUMBER, AND ONLY THE NUMBER. The kind moved to the front
             -- of his name; this column is what it always was.
             tostring(cand.rank),
-            string.format("%d influence - %s", has, holds),
+            loses and ICUI.red(string.format("%d influence - %s", has, holds))
+                  or string.format("%d influence - %s", has, holds),
             action,
             tip = tip,
             -- The character's own porthole, the same image the lord recruitment
@@ -6272,7 +6478,7 @@ function ICUI.refresh()
     local alert = comp("ic_alert", panel)
     local text = ICUI.notice or warn or ""
     if alert then
-        set_text(alert, text)
+        set_text(alert, ICUI.units(text))
         alert:SetVisible(text ~= "")
     end
 end
@@ -6698,13 +6904,12 @@ local function confirmed(yes, demand, op)
         if demand and why == "gone" then why = "no demand" end
         if done then
             ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player()) or nil
-            -- THE GOOD SOUND FOR A YES and the bad one for a no, which is what
-            -- a refusal is to the party that asked.
-            ICUI.confirm(nil, yes)
+            ICUI.confirm(nil, yes, ICUI.SOUNDS[op])
             local slug = yes and ICUI.answer_party(op, arg) or nil
             if slug then ICUI.flash(slug, "lit") end
         else
             ICUI.notice = ICUI.reason_text(why, spare)
+            ICUI.play(ICUI.SOUNDS.refused)
         end
     end
 end
@@ -6725,22 +6930,35 @@ local function picked(op)
         -- back on a list with no idea why nothing changed.
         if not done then
             ICUI.notice = ICUI.reason_text(why, spare)
+            ICUI.play(ICUI.SOUNDS.refused)
             return
         end
         -- THE SEAT THIS FILLED, off the wire: in multiplayer the picker that
         -- sent this may have closed by now.
-        local filled, filled_row = nil, nil
+        local filled, governed = nil, nil
         if op == "appoint" then filled = string.match(arg or "", "^([^|]*)") end
-        if op == "gov" then filled_row = ICUI.gov_row(string.match(arg or "", "^([^|]*)")) end
+        if op == "gov" then governed = string.match(arg or "", "^([^|]*)") end
         ICUI.pick = nil
         ICUI.scroll.pick = 0
+        -- HIS ROW AFTER THE REDRAW, not before it: under a sort by overseer the
+        -- province moves the moment it has one, and the row it left draws
+        -- another province by the time the burst shows.
+        local filled_row = nil
+        if governed then
+            ICUI.refresh()
+            filled_row = ICUI.gov_row(governed)
+        end
         -- A PLOT THAT RESOLVED IS STILL OWED AN ANSWER. `done` means the move
         -- happened, not that it worked: IC.plot hands back "landed" or "failed"
         -- in the slot a refusal uses for its reason.
         if why == "failed" then
             ICUI.notice = "It did not work. The influence is spent, and they "
                           .. "know perfectly well who tried."
-            ICUI.confirm(nil, false)
+            -- AN ERRAND HAS NOBODY TO FIND OUT.
+            if op == "plot" and not IC.plot_is_aimed(string.match(arg or "", "^([^|]*)")) then
+                ICUI.notice = "It did not work. The influence is spent."
+            end
+            ICUI.confirm(nil, false, ICUI.SOUNDS.plot_failed)
             -- AND THE TARGET'S CARD FLASHES RED: a failure looked exactly like
             -- a success, bar the sound (spec 2026-09-28 section 4.6).
             if op == "plot" then
@@ -6748,21 +6966,21 @@ local function picked(op)
                 -- is his party's.
                 local target = tonumber(string.match(arg or "", "^[^|]*|[^|]*|(.*)$"))
                 local slug = target and IC.house_of_cqi(ICUI.player(), target)
-                if slug then ICUI.flash(slug, "red") end
+                if slug then ICUI.flash(slug, "fail") end
             end
         else
             ICUI.notice = nil
             -- THE CARD THAT JUST CHANGED, when a seat is what changed: CA's
-            -- claim burst and the ritual sound, instead of the generic chime.
+            -- claim burst, and the sound of what was done.
             local card = filled and ICUI.office_card(filled) or nil
             if card then
-                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)
+                ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(card:Id())
             elseif filled_row then
-                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)
+                ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(filled_row)
             else
-                ICUI.confirm(nil, true)
+                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
             end
         end
     end
@@ -6774,9 +6992,10 @@ ICUI.ANSWERS.fill = function(_arg, done, why, spare)
     if done then
         ICUI.notice = string.format("%d seat%s filled.", spare or 0,
                                     spare == 1 and "" or "s")
-        ICUI.confirm(nil, true)
+        ICUI.confirm(nil, true, ICUI.SOUNDS.fill)
     else
         ICUI.notice = ICUI.reason_text(why, spare)
+        ICUI.play(ICUI.SOUNDS.refused)
     end
 end
 
@@ -6785,7 +7004,8 @@ end
 ICUI.ANSWERS.dismiss = function(arg)
     for slot, office in ipairs(IC.OFFICES) do
         if office.slug == arg then
-            ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false)
+            ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false,
+                         ICUI.SOUNDS.dismiss)
         end
     end
     ICUI.notice = nil
@@ -6975,6 +7195,7 @@ end, true)
 
 core:add_listener("ic_char_panel", "PanelOpenedCampaign", true, function(context)
     if context.string ~= ICUI.STANDING_PANEL then return end
+    ICUI.standing_shut = nil
     cm:callback(function() ICUI.show_standing() end, 0)
 end, true)
 
@@ -6991,6 +7212,7 @@ end, true)
 core:add_listener("ic_char_panel_shut", "PanelClosedCampaign", true, function(context)
     if context.string ~= ICUI.STANDING_PANEL then return end
     ICUI.selected_cqi = nil
+    ICUI.standing_shut = true
     ICUI.show_standing()
 end, true)
 

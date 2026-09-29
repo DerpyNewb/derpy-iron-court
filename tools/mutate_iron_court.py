@@ -201,16 +201,9 @@ MUTANTS = [
     # cancelled since it shipped; this is the court answering one question two
     # ways.
     ("a split count that pauses rather than cancelling", M,
-     """    if not can then
-        if (crown.split or 0) > 0 then
-            crown.split = 0
-            IC.save(faction_key)
-        end
-        return nil
-    end""",
-     """    if not can then
-        return nil
-    end"""),
+     """            crown.split = 0
+""",
+     """"""),
 
     # ---- the save string -------------------------------------------------
     # THE ONE THAT SHIPPED. The walk was string.find(packed, "%|", from), which
@@ -282,8 +275,8 @@ MUTANTS = [
     # AN OLD SAVE'S INDEX READ STRAIGHT: the head list got shorter on
     # 2026-09-23, so a party rolled before then names nothing, or errors.
     ("an old save's name index read without wrapping", M,
-     '    local head = IC.NAME_HEADS[(house.head - 1) % #IC.NAME_HEADS + 1]',
-     '    local head = IC.NAME_HEADS[house.head]'),
+     '    return IC.NAME_HEADS[(head - 1) % #IC.NAME_HEADS + 1] .. " of "',
+     '    return IC.NAME_HEADS[head] .. " of "'),
 
     ("an event card with the empty plate back under its sentence", M,
      '            secondary or fallback,',
@@ -1599,12 +1592,12 @@ end)"""),
         lines[#lines + 1] = ""
     end
     if court.houses[IC.CROWN] then
-        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
-            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+        lines[#lines + 1] = string.format("Your party holds %s%% of the court: %s.",
+            ICUI.cost(IC.control(faction)), ICUI.band_name(IC.control_band(faction)))
     end""",
      """    if court.houses[IC.CROWN] then
-        lines[#lines + 1] = string.format("Your party holds %d%% of the court: %s.",
-            IC.control(faction), ICUI.band_name(IC.control_band(faction)))
+        lines[#lines + 1] = string.format("Your party holds %s%% of the court: %s.",
+            ICUI.cost(IC.control(faction)), ICUI.band_name(IC.control_band(faction)))
     end
     if #waiting > 0 then
         lines[#lines + 1] = "[[col:yellow]]Waiting for you:[[/col]]"
@@ -1764,15 +1757,9 @@ end"""),
     # loses nothing, which is the same mistake as a secession with no war: it
     # reads as working, because a hero does appear on the other side.
     ("a hero who changes sides and stays on yours as well", M,
-     """            steps[#steps + 1] = function()
-                pcall(function() cm:kill_character(man.cqi, false) end)
-                IC.say("IRON COURT: hero cqi " .. tostring(man.cqi)
-                       .. " taken off the board")
-            end""",
-     """            steps[#steps + 1] = function()
-                IC.say("IRON COURT: hero cqi " .. tostring(man.cqi)
-                       .. " taken off the board")
-            end"""),
+     """                pcall(function() cm:kill_character(man.cqi, false) end)
+""",
+     """"""),
 
     # ---- what a rebellion arrives with ------------------------------------
     # THE LORD COUNTED TWICE. Twenty is the army and nineteen is the roster,
@@ -2054,9 +2041,11 @@ end"""),
     # the fault this workspace has shipped more than once - it passes every
     # check written against the function itself.
     ("your own house coming apart on no turn at all", M,
-     """    IC.splinter(faction_key)
-    IC.save(faction_key)""",
-     """    IC.save(faction_key)"""),
+     """    local warned = IC.tick_secession(faction_key)
+    IC.splinter(faction_key)
+""",
+     """    local warned = IC.tick_secession(faction_key)
+"""),
 
     # THE TWO PASSES SWAPPED. The order looks arbitrary and it is not: a
     # breakaway arrives carrying the Crown's grievance, so a countdown running
@@ -2484,9 +2473,9 @@ end"""),
 
     ("field: the save forgetting the army", M,
      """            h.fielded or 0,
-            h.gifted or 0)""",
+            h.gifted or 0,""",
      """            0,
-            h.gifted or 0)"""),
+            h.gifted or 0,"""),
 
     # ---- lord recruit rank -------------------------------------------------
     ("rank: a province's own source counted everywhere", M,
@@ -2795,7 +2784,7 @@ end"""),
      "    local chance = math.max(T.plot_chance_min,\n"
      "                            math.min(T.plot_chance_max, base + edge))\n"),
     ("a party murder that kills nobody", P,
-     "        if victim then cm:kill_character(cm:char_lookup_str(victim), false) end\n",
+     "            cm:kill_character(cm:char_lookup_str(victim), false)\n",
      ""),
     ("a party discredit that costs the Crown no weight", P,
      "            house.weight = math.max(1, (house.weight or 0)\n"
@@ -2902,11 +2891,11 @@ end"""),
      """    if false then\n"""),
 
     ("a dead man's demand not voided", P,
-     """    if not IC.character_by_cqi(faction_key, d.cqi) then return "void" end""",
+     """    if not IC.character_by_cqi(faction_key, d.cqi) then return "void", "gone" end""",
      """"""),
 
     ("a departed party's demand not voided", P,
-     """    if not court.houses[d.slug] then return "void" end""",
+     """    if not court.houses[d.slug] then return "void", "gone" end""",
      """"""),
 
     ("no loyalty when a demand is met", P,
@@ -3029,8 +3018,9 @@ end"""),
      """        if now >= o.ends then"""),
 
     ("IC.expire_offers not called in the party's turn", P,
-     """    IC.expire_offers(faction_key)""",
-     """"""),
+     """    IC.check_demand(faction_key)
+    IC.expire_offers(faction_key)""",
+     """    IC.check_demand(faction_key)"""),
 
     # ---- Build 2: the panel ---------------------------------------------------
     ("DEMANDING never shown on the party card", U,
@@ -3079,7 +3069,8 @@ end"""),
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        IC.log(faction_key, "demand_void", d.slug, d.key, 0)
+        local _, why = IC.demand_state(faction_key, d)
+        IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end""",
      """    if outcome == "met" then
         IC.move_loyalty(faction_key, d.slug, T.party_demand_met)
@@ -3091,7 +3082,8 @@ end"""),
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        IC.log(faction_key, "demand_void", d.slug, d.key, 0)
+        local _, why = IC.demand_state(faction_key, d)
+        IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end
     IC.feed(faction_key, "party_demand_refused")"""),
 
@@ -3119,7 +3111,7 @@ end"""),
      """            if d.ends - T.party_demand_turns > cm:model():turn_number() then return end"""),
 
     ("a demand for a lost province not voided", P,
-     """        if not held then return "void" end""",
+     """        if not held then return "void", "lost" end""",
      """"""),
 
     ("the plotter's own clock counted in the Intrigue alert", U,
@@ -3291,7 +3283,7 @@ end"""),
      """    if not move or (house.loyalty or 0) > move.line then"""),
     ("a demand nobody could grant refused at the turn's end", P,
      """        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
-            return "void"
+            return "void", "short"
         end""",
      """        if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
             return "refused"
@@ -3366,8 +3358,10 @@ end"""),
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)"""),
     ("mct: secession with secession off", M,
-     "    if not IC.TUNE.secession then",
-     "    if false then"),
+     """    if not IC.TUNE.secession then
+        for _slug, house in pairs(court.houses) do house.clock = 0 end""",
+     """    if false then
+        for _slug, house in pairs(court.houses) do house.clock = 0 end"""),
     ("mct: pressure with pressure off", M,
      "    if not IC.TUNE.pressure or not IC.is_human(faction_key) then",
      "    if not IC.is_human(faction_key) then"),
@@ -3447,21 +3441,27 @@ end"""),
      """                off[key] = v
 """),
     ("live: a switched-off secession left counting until the turn", M,
-     """            if off.secession then IC.tick_secession(faction_key) end
+     """    if not IC.TUNE.secession then IC.tick_secession(faction_key) end
 """,
      ""),
     ("live: the pressure mark left on", M,
-     """            if off.pressure then IC.tick_pressure(faction_key) end
+     """    if not IC.TUNE.pressure then IC.tick_pressure(faction_key) end
 """,
      ""),
     ("live: the Crown's count left on", M,
-     """            if off.crown_split then IC.splinter(faction_key) end
+     """    if not IC.TUNE.crown_split then IC.splinter(faction_key) end
 """,
      ""),
     ("live: the cleared countdowns never saved", M,
-     """            if off.crown_split then IC.splinter(faction_key) end
+     """            IC.settle_switches(faction_key)
             IC.save(faction_key)""",
-     """            if off.crown_split then IC.splinter(faction_key) end"""),
+     """            IC.settle_switches(faction_key)"""),
+    ("live: a court loaded with a switched-off count still running", M,
+     """        IC.settle_switches(faction_key)
+    end
+    return IC.court(faction_key)""",
+     """    end
+    return IC.court(faction_key)"""),
     ("live: nothing listening for Finalize", M,
      """    core:add_listener("ic_live_tune", "MctFinalized", true, function()""",
      """    core:add_listener("ic_live_tune_gone", "MctFinalized", true, function()"""),
@@ -3519,10 +3519,12 @@ end"""),
     ("mp: a refused pick closing the picker", U,
      """        if not done then
             ICUI.notice = ICUI.reason_text(why, spare)
+            ICUI.play(ICUI.SOUNDS.refused)
             return
         end""",
      """        if not done then
             ICUI.notice = ICUI.reason_text(why, spare)
+            ICUI.play(ICUI.SOUNDS.refused)
         end"""),
 
     # ---- The final review's fix pass (2026-09-25) ---------------------------
@@ -3728,8 +3730,8 @@ end"""),
      """        if court.offices[slug] and not court.stalled[slug] then""",
      """        if court.offices[slug] then"""),
     ("a stall outliving the man it was aimed at", M,
-     """                or IC.house_of_cqi(faction_key, cqi) ~= s.of then""",
-     """                or false then"""),
+     """        local same = cqi and IC.house_of_cqi(faction_key, cqi) == s.of""",
+     """        local same = cqi ~= nil"""),
     ("withholding above the line", P,
      """    if (house.loyalty or 0) > T.withhold_line then return nil end""",
      """    if (house.loyalty or 0) > 100 then return nil end"""),
@@ -3826,15 +3828,15 @@ end"""),
     if not ok then IC.warn("IRON COURT: the claim burst failed: "'''),
     ("a filled seat back to the generic chime", U,
      """            if card then
-                pcall(function() common.trigger_soundevent(ICUI.SOUND_SEAT) end)""",
+                ICUI.play(ICUI.SOUNDS[op])""",
      """            if card then
-                pcall(function() common.trigger_soundevent(ICUI.SOUND_OK) end)"""),
+                ICUI.play(ICUI.SOUND_OK)"""),
     ("releasing a governor answered with silence again", U,
      """ICUI.ANSWERS.ungov = confirmed(false, false, "ungov")""",
      """ICUI.ANSWERS.ungov_unused = confirmed(false, false, "ungov")"""),
     ("an assigned governor draws no burst", U,
-     """if op == "gov" then filled_row = ICUI.gov_row(""",
-     """if false then filled_row = ICUI.gov_row("""),
+     """if op == "gov" then governed = string.match(""",
+     """if false then governed = string.match("""),
     ("a yes answered with a chime and no words", U,
      """ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player()) or nil""",
      """ICUI.notice = nil"""),
@@ -3845,8 +3847,8 @@ end"""),
      """        ICUI.flashes[slug] = nil""",
      """        ICUI.flashes[slug] = ICUI.flashes[slug]"""),
     ("a failed plot flashes nothing", U,
-     """if slug then ICUI.flash(slug, "red") end""",
-     """if false then ICUI.flash(slug, "red") end"""),
+     """if slug then ICUI.flash(slug, "fail") end""",
+     """if false then ICUI.flash(slug, "fail") end"""),
     # ---- final review fixes, 2026-09-28 ------------------------------------
     ("a failed plot flashes the man's number, not his party", U,
      """local slug = target and IC.house_of_cqi(ICUI.player(), target)""",
@@ -3906,6 +3908,480 @@ end"""),
      """    if faction:name() ~= ICUI.player() then return end
     pcall(ICUI.take_baseline, faction:name())""",
      """    pcall(ICUI.take_baseline, faction:name())"""),
+
+    # ---- the three the court did in silence (author, 2026-09-29) -----------
+    ("an officer's death that tells nobody", M,
+     """            IC.feed(faction_key, "officer_died",""",
+     """            IC.feed(faction_key, "officer_gone","""),
+    ("a death card that never names the seat", M,
+     """                    #seats == 1 and IC.office_title_key(seats[1]) or nil)""",
+     """                    nil)"""),
+    ("a death card for a man who held nothing", M,
+     """        if not arranged and (#seats > 0 or #provinces > 0) then""",
+     """        if not arranged then"""),
+    ("a governor's death left off the card", M,
+     """        if not arranged and (#seats > 0 or #provinces > 0) then""",
+     """        if not arranged and #seats > 0 then"""),
+    ("a dead man's province missing from the record", M,
+     """            for i = 1, #provinces do
+                IC.log(faction_key, "died", slug, provinces[i], 1)""",
+     """            for i = 1, 0 do
+                IC.log(faction_key, "died", slug, provinces[i], 1)"""),
+    ("a dead governor's line reading as a seat's", U,
+     """        if e.n == 1 then""",
+     """        if e.n == 5 then"""),
+    ("the player's own murder announced twice", M,
+     """        IC.arranged_deaths[victim:command_queue_index()] = true
+        cm:kill_character(cm:char_lookup_str(victim), false)""",
+     """        cm:kill_character(cm:char_lookup_str(victim), false)"""),
+    ("a feud's murder announced twice", P,
+     """            IC.arranged_deaths[victim:command_queue_index()] = true""",
+     """"""),
+    ("a mark that outlives the death it was for", M,
+     """        IC.arranged_deaths[cqi] = nil""",
+     """"""),
+    ("a party standing down in silence", M,
+     """                IC.feed(faction_key, "threat_over")
+            end
+            house.clock = 0""",
+     """            end
+            house.clock = 0"""),
+    ("your own house standing down in silence", M,
+     """            IC.log(faction_key, "snub_off", IC.CROWN, nil, 0)
+            IC.feed(faction_key, "threat_over")""",
+     """            IC.log(faction_key, "snub_off", IC.CROWN, nil, 0)"""),
+    ("your own house standing down with no line in the record", M,
+     """            IC.log(faction_key, "snub_off", IC.CROWN, nil, 0)""",
+     """"""),
+    ("a stall that ended with its man announced as work", M,
+     """            if same then back[#back + 1] = {slug = office_slug, of = s.of} end""",
+     """            back[#back + 1] = {slug = office_slug, of = s.of}"""),
+    ("an office back at work in silence", M,
+     """        IC.feed(faction_key, "stall_end",""",
+     """        IC.feed(faction_key, "stall_gone","""),
+    ("an office back at work with no line in the record", M,
+     """        IC.log(faction_key, "stall_end", back[i].of, back[i].slug, 0)""",
+     """        IC.log(faction_key, "stall_ended", back[i].of, back[i].slug, 0)"""),
+    ("a back-at-work card that never names the seat", M,
+     """                #back == 1 and IC.office_title_key(back[1].slug) or nil)""",
+     """                nil)"""),
+
+    # ---- the party a man sits with, on the man (author, 2026-09-29) --------
+    ("a party trait that ignores the roll's wrap", M,
+     """    return IC.MEMBER_TRAIT .. slug .. "_" .. ((house.tail - 1) % #tails + 1)""",
+     """    return IC.MEMBER_TRAIT .. slug .. "_" .. house.tail"""),
+    ("a confederate party's man wearing no party", M,
+     """    if house.confed then return IC.MEMBER_TRAIT .. slug end""",
+     """"""),
+    ("the sweep blind to the confederate parties", M,
+     """        keys[#keys + 1] = IC.MEMBER_TRAIT .. IC.ORIGINS[i].slug""",
+     """"""),
+    ("the sweep blind to the rolled parties", M,
+     """                keys[#keys + 1] = IC.MEMBER_TRAIT .. slug .. "_" .. j""",
+     """"""),
+    ("a man wearing two parties at once", M,
+     """            cm:force_remove_trait(lookup, keys[i])
+            moved = true""",
+     """            moved = true"""),
+    ("a turn that never stamps the parties", M,
+     """    IC.stamp_members(faction_key)
+    IC.save(faction_key)
+    return warned""",
+     """    IC.save(faction_key)
+    return warned"""),
+
+    # ---- a sound of its own for each answer (author, 2026-09-29) -----------
+    ("every petition answer back on one chime", U,
+     """            ICUI.confirm(nil, yes, ICUI.SOUNDS[op])""",
+     """            ICUI.confirm(nil, yes)"""),
+    ("a refused answer in silence", U,
+     """            ICUI.notice = ICUI.reason_text(why, spare)
+            ICUI.play(ICUI.SOUNDS.refused)
+        end""",
+     """            ICUI.notice = ICUI.reason_text(why, spare)
+        end"""),
+    ("a refused pick in silence", U,
+     """            ICUI.play(ICUI.SOUNDS.refused)
+            return""",
+     """            return"""),
+    ("a refused fill answer in silence", U,
+     """        ICUI.notice = ICUI.reason_text(why, spare)
+        ICUI.play(ICUI.SOUNDS.refused)
+    end""",
+     """        ICUI.notice = ICUI.reason_text(why, spare)
+    end"""),
+    ("the Fill button's own refusal in silence", U,
+     """        ICUI.notice = ICUI.reason_text("no fill")
+        ICUI.play(ICUI.SOUNDS.refused)""",
+     """        ICUI.notice = ICUI.reason_text("no fill")"""),
+    ("a failed plot back on the generic no", U,
+     """            ICUI.confirm(nil, false, ICUI.SOUNDS.plot_failed)""",
+     """            ICUI.confirm(nil, false)"""),
+    ("a landed plot back on the generic yes", U,
+     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])""",
+     """                ICUI.confirm(nil, true)"""),
+    ("a governor's row burst on the seat's sound", U,
+     """                ICUI.play(ICUI.SOUNDS[op])
+                ICUI.burst(filled_row)""",
+     """                ICUI.play(ICUI.SOUND_SEAT)
+                ICUI.burst(filled_row)"""),
+    ("a province given to the ritual sound", U,
+     """    gov         = "UI_CAMPAIGN_EDICT_ISSUED",""",
+     """    gov         = ICUI.SOUND_SEAT,"""),
+    ("two answers sharing one sound", U,
+     """    decline     = "UI_CAM_HUD_Diplomacy_Response_Deal_Declined",""",
+     """    decline     = "UI_CAM_HUD_Diplomacy_Response_Deal_Accepted","""),
+    ("a sacking on the generic no", U,
+     """            ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false,
+                         ICUI.SOUNDS.dismiss)""",
+     """            ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false)"""),
+    ("a fill on the generic yes", U,
+     """        ICUI.confirm(nil, true, ICUI.SOUNDS.fill)""",
+     """        ICUI.confirm(nil, true)"""),
+
+    # ---- the 2026-09-29 audit's first four --------------------------------
+    ("a leaving party's posts looked up after it is gone", M,
+     """    local seats, provinces = {}, {}
+    for office_slug, cqi in pairs(court.offices) do""",
+     """    court.houses[slug] = nil
+    local seats, provinces = {}, {}
+    for office_slug, cqi in pairs(court.offices) do"""),
+    ("a leaving party's term left behind", M,
+     """        court.terms[seats[i]] = nil""",
+     """"""),
+    ("a leaving party's seat that keeps paying", M,
+     """    if #seats > 0 then IC.apply_office_bundles(faction_key) end""",
+     """"""),
+    ("a leaving party's province that keeps its bonus", M,
+     """    if #seats > 0 then IC.apply_office_bundles(faction_key) end
+    if #provinces > 0 then IC.apply_governor_bundles(faction_key) end""",
+     """    if #seats > 0 then IC.apply_office_bundles(faction_key) end"""),
+    ("a defecting lord mourned by the Crown", M,
+     """                    IC.arranged_deaths[rise.cqi] = "left\"""",
+     """"""),
+    ("a departing hero mourned by the Crown", M,
+     """                IC.arranged_deaths[man.cqi] = "left\"""",
+     """"""),
+    ("a man who left charged to the Crown anyway", M,
+     """        if arranged ~= "left" then""",
+     """        if true then"""),
+    ("a governor's bonus only where he stands", M,
+     """        local region = character and IC.governor_active(faction_key, province_key)
+                       and IC.held_region(faction_key, province_key)""",
+     """        local province, region = province_of_character(character)
+        if not (province and province:key() == province_key) then region = nil end"""),
+    ("an away general's province given his bonus", M,
+     """        local region = character and IC.governor_active(faction_key, province_key)
+                       and IC.held_region(faction_key, province_key)""",
+     """        local region = character and IC.held_region(faction_key, province_key)"""),
+    ("a governor's bonus on the first province held", M,
+     """                    and region:province():key() == province_key then""",
+     """                    then"""),
+    ("the governors' weight lost on every reload", M,
+     """        pcall(IC.refresh_gov_weight, faction_key)""",
+     """"""),
+
+    # ---- the 2026-09-29 audit, second round -------------------------------
+    ("a provocation the next turn forgets", M,
+     """                house.provoked = true""",
+     """"""),
+    ("a provocation that outlives a bribe or an oath", M,
+     """        if (house.clock or 0) <= 0 then house.provoked = nil end""",
+     """"""),
+    ("a provocation that a reload forgets", M,
+     """            h.provoked and 1 or 0,""",
+     """            0,"""),
+    ("a woken rising that runs the dead one's court", M,
+     """    if rebels and waking then IC.forget_court(rebels) end""",
+     """"""),
+    ("a living rising's court wiped by a party joining it", M,
+     """    if rebels and waking then IC.forget_court(rebels) end""",
+     """    if rebels then IC.forget_court(rebels) end"""),
+    ("a gone party's business left before the court", M,
+     """    if IC.drop_party_business then IC.drop_party_business(faction_key, slug) end""",
+     """"""),
+    ("a gone party's demand left open", P,
+     """    if a.demand and a.demand.slug == slug then IC.settle_demand(faction_key, "void") end""",
+     """"""),
+    ("a gone party's plot still being prepared", P,
+     """        a.plot = nil
+    end
+    IC.expire_offers(faction_key)""",
+     """    end
+    IC.expire_offers(faction_key)"""),
+    ("a gone party's plot dropped in silence", P,
+     """        IC.feed(faction_key, "party_plot_dropped")
+        a.plot = nil""",
+     """        a.plot = nil"""),
+    ("a gone party's offer left open", P,
+     """    IC.expire_offers(faction_key)
+    IC.end_feuds(faction_key)""",
+     """    IC.end_feuds(faction_key)"""),
+    ("a gone party's feud left running", P,
+     """    IC.end_feuds(faction_key)
+    IC.save_agenda(faction_key)
+end""",
+     """    IC.save_agenda(faction_key)
+end"""),
+    ("a plotter never told his seat is at stake", M,
+     """        if cqi == actor_cqi and office and after < IC.tier_influence(office.tier) then""",
+     """        if false then"""),
+    ("a plotter left exactly at his bar told he loses it", M,
+     """        if cqi == actor_cqi and office and after < IC.tier_influence(office.tier) then""",
+     """        if cqi == actor_cqi and office and after <= IC.tier_influence(office.tier) then"""),
+    ("a plotter warned about somebody else's seat", M,
+     """        if cqi == actor_cqi and office and after < IC.tier_influence(office.tier) then""",
+     """        if office and after < IC.tier_influence(office.tier) then"""),
+    ("a seat at stake with no word on the button", U,
+     """        if loses then
+            tip = string.format(""",
+     """        if false then
+            tip = string.format("""),
+    ("a seat at stake drawn like any other row", U,
+     """            loses and ICUI.red(string.format("%d influence - %s", has, holds))""",
+     """            false and ICUI.red(string.format("%d influence - %s", has, holds))"""),
+    ("a mood word on a fixed line", U,
+     """    if house.loyalty <= IC.TUNE.party_intrigue_line then return "RESTLESS" end""",
+     """    if house.loyalty <= 55 then return "RESTLESS" end"""),
+    ("a Record line that keeps no name for its party", M,
+     """        sw = IC.who_was(faction_key, slug),""",
+     """        sw = nil,"""),
+    ("a Record line that keeps no name for its target", M,
+     """        kw = IC.who_was(faction_key, key),""",
+     """        kw = nil,"""),
+    ("a Record's names lost in the save", M,
+     """            tostring(e.n or 0), e.sw or "-", e.kw or "-")""",
+     """            tostring(e.n or 0), "-", "-")"""),
+    ("a Record's names never read back", M,
+     """                sw   = bits[6] ~= "-" and bits[6] or nil,""",
+     """                sw   = nil,"""),
+    ("a party's name forgotten the moment it leaves", M,
+     """    IC.departed[faction_key .. "|" .. slug] = IC.who_was(faction_key, slug)
+""",
+     """"""),
+    ("a confederate party kept in the Record as nobody", M,
+     """    if house.confed then return "c" end""",
+     """"""),
+    ("a Record line named as the court stands now", U,
+     """    local house = ICUI.logged_name(e.slug, e.sw)""",
+     """    local house = ICUI.house_name(e.slug)"""),
+    ("a confederate party that left read as its slug", U,
+     """    if who == "c" then
+        local came_from""",
+     """    if false then
+        local came_from"""),
+    ("an influence plate for another race's lord", U,
+     """    if not faction or not ICUI.court_player() then return hide() end""",
+     """    if not faction then return hide() end"""),
+    # ---- the 2026-09-29 audit, the low items -------------------------------
+    ("a dismissed man seated again at once", M,
+     """        court.last[office_slug] = {cqi = cqi, turn = cm:model():turn_number()}
+    end""",
+     """    end"""),
+    ("a bribe that wipes the insult", M,
+     """        if house then house.clock = 0 end
+    elseif plot_key == "discredit" then""",
+     """        if house then house.clock = 0; house.snubbed = nil end
+    elseif plot_key == "discredit" then"""),
+    ("a pledge that wipes the insult", M,
+     """        if house then house.clock = 0 end
+        local crown = IC.court(faction_key).houses[IC.CROWN]""",
+     """        if house then house.clock = 0; house.snubbed = nil end
+        local crown = IC.court(faction_key).houses[IC.CROWN]"""),
+    ("an insult's seat lost in the save", M,
+     """            h.snub_key or "-")""",
+     """            "-")"""),
+    ("an insult's seat never read back", M,
+     """                snub_key = bits[20] ~= "-" and bits[20] or nil,""",
+     """                snub_key = nil,"""),
+    ("a dead governor's bonus left on his province", M,
+        """        if #provinces > 0 then IC.apply_governor_bundles(faction_key) end
+        IC.save(faction_key)
+    end, true)""",
+        """        IC.save(faction_key)
+    end, true)"""),
+    ("the Court tab naming the last countdown", U,
+     """        if (house.clock or 0) > 0 and (not soonest or house.clock < soonest) then""",
+     """        if (house.clock or 0) > 0 then"""),
+    ("the Court tab saying turns of one", U,
+     """                                 house.clock == 1 and "" or "s")
+        end
+    end""",
+     """                                 "s")
+        end
+    end"""),
+    ("Accept on a lost demand that refuses it", P,
+     """    if state == "refused" then return false, "taken" end""",
+     """"""),
+    ("a lost demand's Accept with no reason", U,
+     """            tip = not may and ICUI.reason_text(why, spare) or nil,""",
+     """"""),
+    ("the calm offer promising the gross figure", U,
+     """        local net = o.n - IC.TUNE.party_offer_envy""",
+     """        local net = o.n"""),
+    ("a greyed slider that names no number", S,
+     """                o:set_locked(true, string.format("The difficulty above sets this to "
+                    .. "%s. Choose Custom to edit it.", tostring(v)))""",
+     """                o:set_locked(true, "Set by the difficulty above. Choose Custom to edit it.")"""),
+    ("a greyed slider naming the default under every difficulty", S,
+     """                local set = PRESET_VALUES[preset] or {}""",
+     """                local set = {}"""),
+    ("a failed errand logged against a party", M,
+     """               IC.plot_is_aimed(plot_key) and against or plot_key, cost)""",
+     """               against, cost)"""),
+    ("a failed errand's line naming no errand", U,
+     """        local errand = not e.key or IC.plot_by_key(e.key)""",
+     """        local errand = not e.key"""),
+    ("a failed errand's notice that somebody knows", U,
+     """                ICUI.notice = "It did not work. The influence is spent."
+            end""",
+     """            end"""),
+    ("a poor plotter told about a seat", U,
+     """            "He is %d influence short.",""",
+     """            "He has not the influence for that seat - %d short.","""),
+    ("Provoke promising a count with secession off", U,
+     """        lines[2] = IC.TUNE.secession == false and plot.effect_no_secession
+                   or plot.effect""",
+     """        lines[2] = plot.effect"""),
+    ("a lapsed demand's reason never written", P,
+     """        IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)""",
+     """        IC.log(faction_key, "demand_void", d.slug, d.key, 0)"""),
+    ("a lost province read as a man gone", P,
+     """        if not held then return "void", "lost" end""",
+     """        if not held then return "void", "gone" end"""),
+    ("a short man read as a man gone", P,
+     """            return "void", "short\"""",
+     """            return "void", "gone\""""),
+    ("a lost province's line read as a man gone", U,
+     """        if e.n == IC.VOID_REASONS.lost then""",
+     """        if false then"""),
+    ("the control band a move reaches left for next turn", M,
+     """    if done then IC.apply_control_bundle(faction_key) end""",
+     """"""),
+    ("a party at the breaking point on no list", U,
+     """        elseif IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then""",
+     """        elseif false then"""),
+    ("a breaking party counted with secession off", U,
+     """        elseif IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then""",
+     """        elseif IC.at_breaking_point(faction, seated[i]) then"""),
+    ("a breaking party's card reading PLOTTING", U,
+     """    elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then""",
+     """    elseif false then"""),
+    ("a busy man free to take his old seat", U,
+     """            local man = last and not posted[last.cqi]""",
+     """            local man = last"""),
+    ("the split tooltip printing a weight as a share", U,
+     """            .. "belongs to that party go with it, out of your share of the court.\"""",
+     """            .. "belongs to that party go with it, and 5% of the court off your share.\""""),
+    ("risings left out of the rotation", P,
+     """    for i = 1, #IC.REBEL_POOL do candidates[#candidates + 1] = IC.REBEL_POOL[i] end""",
+     """"""),
+    ("a placated mark kept from an earlier turn", P,
+     """    p.placated = (house and move and (house.loyalty or 0) > move.line) or nil""",
+     """    if house and move and (house.loyalty or 0) > move.line then p.placated = true end"""),
+    # ---- the 2026-09-28 review's leftovers --------------------------------
+    ("an old burst's timer taking the new one away", U,
+     """        if ICUI.burst_n[host_name] ~= n then return end""",
+     """"""),
+    ("an old flash's timer putting out the new one", U,
+     """        if ICUI.flash_n[slug] ~= n then return end""",
+     """"""),
+    ("a flash held for a card the tab does not draw", U,
+     """    local card = ICUI.party_card(slug)
+    if not card then return end
+    local n = (ICUI.flash_n[slug] or 0) + 1""",
+     """    local card = ICUI.party_card(slug)
+    local n = (ICUI.flash_n[slug] or 0) + 1"""),
+    ("a governor's burst on the row his province left", U,
+     """            ICUI.refresh()
+            filled_row = ICUI.gov_row(governed)""",
+     """            filled_row = ICUI.gov_row(governed)"""),
+    ("a failed plot drawn in the lit rim's red", U,
+     """(name == "fail" and ICUI.RIM_ART_FAIL or art)""",
+     """art"""),
+    ("a failed plot flashing as if it had worked", U,
+     """if slug then ICUI.flash(slug, "fail") end""",
+     """if slug then ICUI.flash(slug, "lit") end"""),
+    # ---- 2026-09-29: the stuck plate and the icons pass --------------------
+    ("the plate redrawn from a panel on its way out", U,
+     """    ICUI.standing_shut = true
+    ICUI.show_standing()""",
+     """    ICUI.show_standing()"""),
+    ("a queued redraw bringing a shut plate back", U,
+     """    if ICUI.standing_shut then return hide() end""",
+     """"""),
+    ("the plate never coming back after one close", U,
+     """    ICUI.standing_shut = nil
+    cm:callback(function() ICUI.show_standing() end, 0)""",
+     """    cm:callback(function() ICUI.show_standing() end, 0)"""),
+    ("a marked figure marked a second time", U,
+     """"([^%]%d%%%.%+%-])([%+%-]?%d+) (%a+)\"""",
+     """"([^%d%%%.%+%-])([%+%-]?%d+) (%a+)\""""),
+    ("a figure a turn away wearing no hourglass", U,
+     """    turn = ICUI.TURNS_ICON,
+""",
+     """"""),
+    ("the Record's figures left bare", U,
+     """ICUI.units(all[i].text)""",
+     """all[i].text"""),
+    ("the notice's figures left bare", U,
+     """set_text(alert, ICUI.units(text))""",
+     """set_text(alert, text)"""),
+    ("a row button's tooltip figures left bare", U,
+     """c:SetTooltipText(ICUI.units(line.tip), "", true)""",
+     """c:SetTooltipText(line.tip or "", "", true)"""),
+    ("a petition's figures left bare", U,
+     """    for i = 1, #lines do lines[i][2] = ICUI.units(lines[i][2]) end
+""",
+     """"""),
+    ("the opener tooltip's figures left bare", U,
+     """return "The Iron Court||" .. ICUI.units(table.concat(lines, "\\n"))""",
+     """return "The Iron Court||" .. table.concat(lines, "\\n")"""),
+    ("the court share in the opener left bare", U,
+     """            ICUI.cost(IC.control(faction)), ICUI.band_name(IC.control_band(faction)))""",
+     """            IC.control(faction), ICUI.band_name(IC.control_band(faction)))"""),
+    ("an agenda's figures left bare", U,
+     """    return ICUI.units(table.concat(parts, "\\n\\n"))""",
+     """    return table.concat(parts, "\\n\\n")"""),
+    ("a move tooltip's figures left bare", U,
+     """    return ICUI.units(table.concat(lines, "\\n"))""",
+     """    return table.concat(lines, "\\n")"""),
+    ("a loyalty breakdown's figures left bare", U,
+     """    return ICUI.units(table.concat(out, "\\n"))""",
+     """    return table.concat(out, "\\n")"""),
+    ("a trait in the breakdown named without its picture", U,
+     """        if terms[i].trait then label = ICUI.trait_line(label) end
+""",
+     """"""),
+    ("the character plate's figure left bare", U,
+     """    return ICUI.cost(IC.standing(faction_key, cqi)) .. " influence\"""",
+     """    return IC.standing(faction_key, cqi) .. " influence\""""),
+    ("the help page's pictures never drawn", U,
+     """        return ICUI.help_icon(name) and string.format("[[img:%s]][[/img]]", ICUI.help_icon(name)) or nil""",
+     """        return nil"""),
+    ("a move named on the help page without its card's picture", U,
+     """    return ICUI.HELP_ICONS[name] or (move and move.icon) or nil""",
+     """    return ICUI.HELP_ICONS[name] or nil"""),
+    ("a help topic button with no picture", U,
+     """set_text(c, topic and (ICUI.help_fill("{@" .. tostring(topic.icon) .. "}", {}) .. topic.title) or "")""",
+     """set_text(c, topic and topic.title or "")"""),
+    ("a help heading with no picture", U,
+     """    set_text(head, ICUI.help_fill("{@" .. tostring(ICUI.HELP[page].icon) .. "}", {})
+                   .. ICUI.HELP[page].title)""",
+     """    set_text(head, ICUI.HELP[page].title)"""),
+    ("the heading's picture left out of its plate", U,
+     """ICUI.HEADING_CAP, true, 1)""",
+     """ICUI.HEADING_CAP, true)"""),
+    ("a plate's picture charged nothing", U,
+     """    got = got + (pics or 0) * (line_h or ICUI.PLATE_EST * 2)
+""",
+     """"""),
+    ("a gone party's business cleared and never saved", P,
+     """    IC.end_feuds(faction_key)
+    IC.save_agenda(faction_key)
+end""",
+     """    IC.end_feuds(faction_key)
+end"""),
 ]
 
 

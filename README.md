@@ -37,8 +37,10 @@ and improves any province its man governs.
 A rolled party takes a Chaos Dwarf name such as *Covenant of the Iron Oath*. It gets two
 traits for life and a leader, whose own trait is its third. A man belongs to a party by his
 background, a trait on his character; a man whose party is not in this court sits with the
-Crown. A Chaos Dwarf faction that confederates into yours brings its men in as a party of
-their own.
+Crown. A second trait names the party he sits with now, and changes when it does. Each kind
+of trait wears its own picture: the party's sigil, the place he comes from, his office, his
+influence or his ambition. A Chaos Dwarf faction that confederates into yours brings its men
+in as a party of their own.
 
 ## How it plays
 
@@ -57,8 +59,8 @@ their own.
   a little. A seat asks for rank and influence, is held for a ten-turn term, and is lost if
   its holder's influence falls below the bar. When a term ends, the same man cannot take
   that seat again for three turns, and his party is not rewarded when he does. Giving a
-  party's claimed office to an outsider angers the party every turn he sits there. An empty
-  lowest-tier seat can be filled by hiring a new hero straight into it, and Fill Empty Seats
+  party's claimed office to an outsider angers the party every turn he sits there. Officers
+  are recruited from the recruitment panel like any lord or hero, and Fill Empty Seats
   fills every empty seat by the court's own rules, listing its choices before you click.
 - **Overseers.** Any of your men can govern a province. A lord leading an army governs only
   while he stands in it. Overseers gain experience every turn, and a party whose overseer
@@ -117,6 +119,8 @@ while the panel is open wait until it closes. The button's tooltip sums up the c
 share, empty seats, terms ending next turn, parties counting down to leave. A card warns you
 the turn before a term ends. A party's roster has a Find button that moves the camera to
 each man on the map, and in single player the panel reopens on the tab you left it on.
+Figures for influence, gold, loyalty and turns carry their icons, each answer at court has a
+sound of its own, and a gold question mark beside the court's name opens a help page.
 
 ## Settings (MCT)
 
@@ -156,7 +160,7 @@ mirrors the in-pack paths, so the tools run from the repo root unchanged.
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, overseers, loyalty, intrigue, secession, save state |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua` | the rival parties' own acts, demands and offers |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, the HUD opener and the influence plate |
-| `Modding Files/pack/ui/campaign ui/` | the twelve `derpy_ic_*.twui.xml` layouts (generated): seven layouts, five of them with a `_compact` copy |
+| `Modding Files/pack/ui/campaign ui/` | the fifteen `derpy_ic_*.twui.xml` layouts (generated): ten layouts, five of them with a `_compact` copy |
 | `Modding Files/source/iron_court/` | the DB rows and loc as TSV (generated), except the `factions` override (see below) |
 | `tools/` | generators, checks, the Lua test harness, the mutation runner, the preview renderer, the art tools and the packer |
 | `docs/design/` | design specs, and the gap analysis against Rome II's politics |

@@ -270,7 +270,7 @@ design rather than a gap.
 
 Neither is a Rome 2 gap; both are worth fixing.
 
-**A dead officer leaves a stale term behind — STILL OPEN, re-confirmed 2026-09-18.** Dated so
+**A dead officer leaves a stale term behind — FIXED (the `ic_dead` listener clears `court.terms` too, found done on 2026-09-28).** Dated so
 the next reader can tell a finding that has been looked at again from one nobody has touched
 since it was written. The `ic_dead` listener clears
 `court.offices[office_slug]` and the man's governorships, but not `court.terms[office_slug]`.
@@ -309,12 +309,14 @@ positives it produced in `docs/sessions/HANDOFF_20260918_IRON_COURT_WARNINGS_AND
   count: `house_of_character` answers the Crown for a legend first and whatever else is true of
   him, so his background can never move him.
 
-**Still open**, in the order worth taking them: the stale term above; **2.7** and **2.11**;
-three functions defined and called by nothing (`ICUI.origin_name`, whose own comment says it is
-drawn on the office card, so a man's origin never appears there; `ICUI.gov_effect`, superseded
-on purpose when the Effect column became province loyalty; `IC.house_in_court`); and, outside
-this pack, `cm:force_non_aggression_pact` — **undocumented** and called eight times across the
-four Ghorth start scripts in the lords pack.
+**Still open** (revised 2026-09-29): the stale term and **2.7** / **2.11** are done. Three
+functions are still defined and called by nothing: `ICUI.origin_name` (asked to draw it on the
+office card, the author chose a trait naming the man's PARTY instead - `derpy_ic_member_*`,
+2026-09-29 - and the origin stays a trait of its own), `ICUI.gov_effect` (superseded on purpose when the Effect column
+became province loyalty) and `IC.house_in_court`. Outside this pack, `cm:force_non_aggression_pact`
+is **undocumented** and called eight times across the four Ghorth start scripts in the lords pack.
+The 2026-09-29 audit's own open list is the last section of
+`sessions/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`.
 
 **Loyalty had six writers.** Corrected and fixed 2026-09-13. The first pass said two and named
 the wrong problem: the bribe and the murder each clamped the end they happened to move, so the
@@ -585,7 +587,9 @@ provoke it; the record says which of the two ways an oath ended.
 ### 8.2 Purge the House (guide §9)
 
 `IC.remove_house` already existed, so the move is one call — the house leaves the court and its
-seats and provinces go with it. What makes it a decision rather than a button is the second half:
+seats and provinces go with it. (**They did not, until 2026-09-29:** `remove_house` deleted the house
+before asking which posts were its men's, and a man whose party is gone reads as the Crown's, so
+no post ever matched. The five-reviewer audit found it; fixed in build D3924CEC.) What makes it a decision rather than a button is the second half:
 **every other house watched you do it**, -15 loyalty each. Your own party is not a witness,
 because it is you.
 

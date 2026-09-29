@@ -593,7 +593,33 @@ OFFICES = [
 # Single-level traits use the trait key as the level key - CA's own convention,
 # read off wh2_dlc09_dummy_trait_dynasty_1.
 # ---------------------------------------------------------------------------
-TRAIT_ICON = "chaos_dwarfs"      # a real trait_categories key; 'dwarf' is the other
+# EACH KIND OF TRAIT WEARS ITS OWN PICTURE (author, 2026-09-29: "traits gain
+# also defaults to chaos dwarf warrior"). character_traits.icon names a
+# trait_categories row, and every trait here named CA's chaos_dwarfs - the
+# Chaos Dwarf helmet the Trait Gained card blows up into a face. A category is
+# two columns, a key and a picture path, and CA points its own at effect-bundle
+# art (loyalty, harkon_fractured), so one row of our own per picture is all it
+# takes. check() holds every path to a picture that ships.
+TRAIT_CATS = {
+    # WHERE HE WAS BORN is a place, not a house: eight origins are places, and
+    # the cr_chd_* houses' flags ship only with the mod that adds them.
+    "derpy_ic_cat_origin": "ui/campaign ui/effect_bundles/settlement.png",
+    # A CONFEDERATE PARTY, named by the faction it was.
+    "derpy_ic_cat_confed": "ui/campaign ui/effect_bundles/confederation.png",
+    "derpy_ic_cat_office": "ui/skins/default/icon_offices.png",
+    # The panel's own influence picture (ICUI.COST_ICON).
+    "derpy_ic_cat_standing": "ui/skins/default/icon_secure_loyalty.png",
+    "derpy_ic_cat_ambition": "ui/campaign ui/effect_bundles/chd_conclave_influence.png",
+}
+
+
+def party_cat(party):
+    """A party's own category: its sigil, the one its card and plate wear."""
+    return "derpy_ic_cat_party_" + party
+
+
+for _p in PARTIES:
+    TRAIT_CATS[party_cat(_p[0])] = "ui/derpy_ic/party_sigil_%s.png" % _p[0]
 
 
 def standing_trait_key(tier):
@@ -977,6 +1003,27 @@ EVENTS = [
      "A party in another Chaos Dwarf court has broken away and risen in "
      "rebellion. Your court log names them; the camera button shows where.",
      "REBELLION"),
+    # THE THREE THE COURT DID IN SILENCE (author, 2026-09-29: "add event cards
+    # to the three"). A death the court arranged - a plot, a feud - has its own
+    # card already and does not raise this one.
+    ("officer_died", True, "chd/army_morale_down", "Negative",
+     "An Officer Is Dead",
+     "One of your officers has died. Whatever he held for you - a seat at "
+     "court, a province to govern - stands empty until you fill it.",
+     # NAMES THE SEAT AT THE CALL SITE, as office_lost does.
+     None),
+    # BOTH COUNTS: a party's secession and your own house's split.
+    ("threat_over", True, "chd/diplomacy", "Positive",
+     "A Party Stands Down",
+     "A party that was preparing to break with you has stood down. Nothing "
+     "leaves your court, for now - its loyalty is still worth watching.",
+     "STOOD DOWN"),
+    ("stall_end", True, "chd/diplomacy", "Positive",
+     "An Office Is Back at Work",
+     "An office that stood stalled is working again, and its bonus applies "
+     "from now on.",
+     # NAMES THE SEAT AT THE CALL SITE.
+     None),
 ]
 
 # RAISED WITH cm:show_message_event_located. The record type must agree with the
@@ -1109,6 +1156,33 @@ def model_moves():
     return moves
 
 
+# THE PARTY NAME TAILS, READ OUT OF THE SHIPPED LUA for the same reason as the
+# moves: IC.NAME_TAILS is what the roll lands on and what the panel draws, and a
+# party trait is keyed by the tail's position in it (IC.member_trait).
+def model_tails():
+    """{interest slug: [tail, ...]} in the order the model declares them."""
+    path = os.path.join(
+        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+        "Modding Files", "pack", "script", "campaign", "mod",
+        "zzz_derpy_iron_court.lua")
+    src = io.open(path, encoding="utf-8").read()
+    block = re.search(r"IC\.NAME_TAILS = \{(.*?)\n\}", src, re.S)
+    if not block:
+        raise RuntimeError("the model Lua declares no IC.NAME_TAILS")
+    tails = {slug: re.findall(r'"([^"]+)"', body)
+             for slug, body in re.findall(r"(\w+)\s*=\s*\{(.*?)\}",
+                                          block.group(1), re.S)}
+    if not tails:
+        raise RuntimeError("IC.NAME_TAILS parsed to no parties at all")
+    return tails
+
+
+def member_trait_key(slug, index=None):
+    """The key IC.member_trait builds: the Crown, a confederate origin, or a tail."""
+    key = "derpy_ic_member_" + slug
+    return key if index is None else "%s_%d" % (key, index)
+
+
 def move_result_key(move_key, ok):
     """The loc key IC.move_result_key builds at the other end of the fence."""
     return ("event_feed_strings_text_derpy_ic_move_" + move_key
@@ -1234,7 +1308,7 @@ def build():
     traits = []
     trait_levels = []
 
-    def emit_trait(key, name, colour, explanation, removal):
+    def emit_trait(key, name, colour, explanation, removal, cat):
         # trait_info is the table a trace outward never reaches: one row per
         # trait, one column, and vanilla's count matches character_traits exactly.
         trait_info.append({"trait": key})
@@ -1243,7 +1317,7 @@ def build():
             "no_going_back_level": "1",
             "hidden": "false",
             "precedence": "1",
-            "icon": TRAIT_ICON,
+            "icon": cat,
             "ui_priority": "1",
             "pre_battle_speech_parameter": "",
             "remove_on_skill_reset": "false",
@@ -1270,12 +1344,12 @@ def build():
     for _tier in [0] + sorted(TIER_NAME):
         _name, _colour, _explain = STANDING_BAND[_tier]
         emit_trait(standing_trait_key(_tier), _name, _colour, _explain,
-                   "His influence at court has changed.")
+                   "His influence at court has changed.", "derpy_ic_cat_standing")
 
     for _slug in ("cautious", "steady", "ambitious"):
         _name, _colour, _explain = AMBITION_BANDS[_slug]
         emit_trait("derpy_ic_ambition_" + _slug, _name, _colour, _explain,
-                   "His ambition does not change.")
+                   "His ambition does not change.", "derpy_ic_cat_ambition")
 
     # WHERE HE IS FROM. Flavour and nothing else - an origin moves no
     # number in the court. It used to BE his politics, and that was the
@@ -1286,7 +1360,7 @@ def build():
                    "Born: " + display[0].upper() + display[1:],
                    ORIGIN_COLOUR[slug],
                    "Where he came from. It says nothing about what he wants.",
-                   "His origin has been struck from the rolls.")
+                   "His origin has been struck from the rolls.", "derpy_ic_cat_origin")
 
     # WHAT HE IS, which is the whole of the membership rule. A background
     # belongs to one party; a lord sits with the party his background
@@ -1297,7 +1371,28 @@ def build():
                    BG_COLOUR[slug],
                    "What he did before you had a use for him, and who that "
                    "puts him with at court.",
-                   "He has left the trade behind, whatever he says.")
+                   "He has left the trade behind, whatever he says.", party_cat(party))
+
+    # WHICH PARTY HE SITS WITH (author, 2026-09-29: "there is no place
+    # indicating the character's party"). Kept in step by IC.stamp_members at
+    # the end of every turn. A rolled party is named by its tail, the part of
+    # "Covenant of the Cold Anvil" that tells two parties apart; a confederate
+    # party by the faction it was.
+    def emit_member(key, party, cat):
+        emit_trait(key, "Party: " + party[0].upper() + party[1:],
+                   "Counted with them at the Iron Court.",
+                   "The party he sits with at the Iron Court. It changes when a "
+                   "party forms, breaks away or dissolves.",
+                   "He sits with another party now.", cat)
+
+    emit_member(member_trait_key(CROWN), "the Crown", party_cat(CROWN))
+    for slug, _faction, display in ORIGINS:
+        emit_member(member_trait_key(slug), display, "derpy_ic_cat_confed")
+    tails = model_tails()
+    for party, _d, _e, _m in PARTIES:
+        if party != CROWN:
+            for i, tail in enumerate(tails[party], 1):
+                emit_member(member_trait_key(party, i), tail, party_cat(party))
 
     for office in OFFICES:
         # ONE LINE, and deliberately so. Vanilla does put doubled newlines in
@@ -1314,7 +1409,8 @@ def build():
                    office["blurb"],
                    ", ".join(effect_line(e, m, i)
                              for e, m, i in scaled(office, "effects")),
-                   "He has been stripped of the office, and everyone saw it.")
+                   "He has been stripped of the office, and everyone saw it.",
+                   "derpy_ic_cat_office")
 
     # ---- the event feed ---------------------------------------------------
     # FOUR ROWS PER EVENT, and three of the four tables exist only to turn a
@@ -1405,6 +1501,8 @@ def build():
             "trait_info": trait_info,
             "character_traits": traits,
             "character_trait_levels": trait_levels,
+            "trait_categories": [{"category": k, "icon_path": v}
+                                 for k, v in sorted(TRAIT_CATS.items())],
             "campaign_groups": groups,
             "campaign_group_members": members,
             "campaign_group_member_criteria_values": criteria,
@@ -2218,15 +2316,29 @@ def check():
             if key not in have:
                 out.append("missing trait loc: %s" % key)
 
-    # 13. The trait icon must be a real trait_categories key. An invented one is a
-    #     load-time DB reject, which surfaces in bad_mods_report.txt rather than
-    #     as anything the game says out loud.
+    # 13. Every trait's icon is a trait_categories key, this pack's or vanilla's.
+    #     An invented one is a load-time DB reject, which surfaces in
+    #     bad_mods_report.txt rather than as anything the game says out loud.
+    #     And every category of ours points at a picture that ships - CA's, or
+    #     art this pack writes - since a path to nothing draws an empty frame.
+    ours = dict((r["category"], r["icon_path"]) for r in tables["trait_categories"])
+    known = set(ours)
     vanilla_traits = _cache_table("character_traits")
     if vanilla_traits is not None:
         fields, rows = vanilla_traits
-        cats = set(r[fields.index("icon")] for r in rows)
-        if TRAIT_ICON not in cats:
-            out.append("trait icon %r is not a category vanilla uses" % TRAIT_ICON)
+        known |= set(r[fields.index("icon")] for r in rows)
+    for row in tables["character_traits"]:
+        if row["icon"] not in known:
+            out.append("trait %s wears %r, a category neither this pack nor "
+                       "vanilla has" % (row["key"], row["icon"]))
+        elif row["icon"] not in ours:
+            out.append("trait %s wears vanilla's %r - the generic Chaos Dwarf "
+                       "picture every trait here used to wear" % (row["key"], row["icon"]))
+    import gen_ic_ui as _UI
+    _ship = set(_UI.art_paths()) | set(_UI._assets())
+    for cat, path in sorted(ours.items()):
+        if path not in _ship:
+            out.append("trait category %s points at no picture: %s" % (cat, path))
 
     # 14. No column may be left empty that vanilla never leaves empty. Such a
     #     column is a required foreign key whether or not the schema says so, and
@@ -2484,6 +2596,8 @@ TSV_META = {
     "trait_info": ("trait_info_tables", 1),
     "character_traits": ("character_traits_tables", 3),
     "character_trait_levels": ("character_trait_levels_tables", 0),
+    # Two fields, category and icon_path, read off CA's own data__ v0.
+    "trait_categories": ("trait_categories_tables", 0),
     # THE EVENT FEED'S FOUR. Versions read off CA's own shipped files on
     # 2026-09-16 - the `definition.version` inside each cached RPFM dump, not
     # RPFM's default for the table, which is allowed to differ and would import
@@ -2673,11 +2787,23 @@ def selftest():
     # DERIVED, not a literal: one band per tier plus the man who clears none.
     n_bands = len(TIER_NAME) + 1
     n_backgrounds = len(backgrounds())
-    n_traits = n_origins + n_backgrounds + n_offices + n_bands + len(AMBITION_BANDS)
+    # AND ONE PER PARTY A MAN CAN SIT WITH (build C0E394F5 added them and this
+    # count never learned: it failed from then until 2026-09-29): the Crown,
+    # each confederate party, and each rolled party's tails.
+    _tails = model_tails()
+    n_members = 1 + len(ORIGINS) + sum(len(_tails[p[0]]) for p in PARTIES if p[0] != CROWN)
+    n_traits = (n_origins + n_backgrounds + n_offices + n_bands + len(AMBITION_BANDS)
+                + n_members)
     assert len(tables["character_traits"]) == n_traits, \
-        ("one trait per origin, per background, per office and per "
-         "standing band: expected %d, got %d"
+        ("one trait per origin, per background, per office, per standing band "
+         "and per party: expected %d, got %d"
          % (n_traits, len(tables["character_traits"])))
+    # AND EACH WEARS A PICTURE OF ITS OWN KIND, not the generic Chaos Dwarf one.
+    cats = set(r["category"] for r in tables["trait_categories"])
+    assert all(r["icon"] in cats for r in tables["character_traits"]), \
+        "a trait wears a category this pack does not ship"
+    assert len(set(r["icon"] for r in tables["character_traits"])) == len(cats), \
+        "a trait category nothing wears"
     assert len(tables["trait_info"]) == len(tables["character_traits"]), \
         "trait_info is one row per trait - vanilla has 744 of each"
     assert len(tables["character_trait_levels"]) == len(tables["character_traits"]), \
@@ -2804,12 +2930,15 @@ def selftest():
              lambda: BG_COLOUR.pop("a_slug_that_went_away"),
              "unknown background")
 
-    global TRAIT_ICON
-    saved_icon = TRAIT_ICON
-    TRAIT_ICON = "not_a_real_category"
+    saved_icon = TRAIT_CATS.pop("derpy_ic_cat_office")
     injected("a trait icon that is not a real trait_categories key",
-             lambda: globals().__setitem__("TRAIT_ICON", saved_icon),
-             "not a category vanilla uses")
+             lambda: TRAIT_CATS.__setitem__("derpy_ic_cat_office", saved_icon),
+             "a category neither this pack nor vanilla has")
+
+    TRAIT_CATS["derpy_ic_cat_office"] = "ui/skins/default/icon_no_such_picture.png"
+    injected("a trait category pointing at a picture nothing ships",
+             lambda: TRAIT_CATS.__setitem__("derpy_ic_cat_office", saved_icon),
+             "points at no picture")
 
     global ADVANCEMENT_STAGE
     saved_stage = ADVANCEMENT_STAGE

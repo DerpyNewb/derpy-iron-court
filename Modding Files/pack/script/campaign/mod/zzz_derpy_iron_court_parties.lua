@@ -301,7 +301,11 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
         IC.stall_office(faction_key, key, T.sabotage_turns, slug, "sabotage")
     elseif move == "murder" then
         local victim = IC.character_by_cqi(faction_key, target)
-        if victim then cm:kill_character(cm:char_lookup_str(victim), false) end
+        if victim then
+            -- Its own card follows; ic_dead must not raise a second.
+            IC.arranged_deaths[victim:command_queue_index()] = true
+            cm:kill_character(cm:char_lookup_str(victim), false)
+        end
     end
     if move == "sabotage" then
         IC.log(faction_key, "sabotage", slug, key, cost)
@@ -334,12 +338,15 @@ end
 -- moves any loyalty: the landing below runs after the drift, so a party lifted
 -- one above its line on the player's turn drifted back onto it and the warned
 -- move landed anyway (found 2026-09-25). Not saved: set and read in one turn.
+-- SET AFRESH EVERY TURN START, never kept (audit 2026-09-29): an AI court lands
+-- only on its rotation turn, and a mark from an earlier turn dropped the move
+-- of a party that had since fallen back below its line.
 function IC.party_placate(faction_key)
     local p = IC.agenda(faction_key).plot
     if not p then return end
     local house = IC.court(faction_key).houses[p.slug]
     local move = IC.party_move_by_key(p.move)
-    if house and move and (house.loyalty or 0) > move.line then p.placated = true end
+    p.placated = (house and move and (house.loyalty or 0) > move.line) or nil
 end
 
 -- Why a warned move no longer lands, or nil when it still does.
@@ -770,8 +777,10 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
 -- Where a live demand stands: "met", "refused" or "void", or nil while it waits.
 function IC.demand_state(faction_key, d)
     local court = IC.court(faction_key)
-    if not court.houses[d.slug] then return "void" end
-    if not IC.character_by_cqi(faction_key, d.cqi) then return "void" end
+    -- A VOID DEMAND SAYS WHY (audit 2026-09-29): "gone", "lost" or "short",
+    -- which settle_demand writes into its record line.
+    if not court.houses[d.slug] then return "void", "gone" end
+    if not IC.character_by_cqi(faction_key, d.cqi) then return "void", "gone" end
     local holder
     if d.kind == "office" then
         holder = court.offices[d.key]
@@ -782,7 +791,7 @@ function IC.demand_state(faction_key, d)
         for _, province in ipairs(IC.seats(faction_key)) do
             if province == d.key then held = true end
         end
-        if not held then return "void" end
+        if not held then return "void", "lost" end
         holder = court.govs[d.key]
     end
     if holder == d.cqi then return "met" end
@@ -794,12 +803,15 @@ function IC.demand_state(faction_key, d)
         -- 2026-09-25). A man put in another post is still a refusal: that one
         -- the player chose.
         if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
-            return "void"
+            return "void", "short"
         end
         return "refused"
     end
     return nil
 end
+
+-- The number a void demand's record line carries; 0 is also an older save's.
+IC.VOID_REASONS = {gone = 0, lost = 1, short = 2}
 
 -- Idempotent: the record is cleared before anything else, so the mission
 -- event the engine raises from inside the calls below finds nothing left to
@@ -826,7 +838,8 @@ function IC.settle_demand(faction_key, outcome, ended)
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        IC.log(faction_key, "demand_void", d.slug, d.key, 0)
+        local _, why = IC.demand_state(faction_key, d)
+        IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end
     if not ended and IC.is_human(faction_key) then
         pcall(function()
@@ -864,7 +877,11 @@ end
 function IC.can_grant_demand(faction_key)
     local d = IC.agenda(faction_key).demand
     if not d then return false, "no demand" end
-    if IC.demand_state(faction_key, d) then return true end
+    local state = IC.demand_state(faction_key, d)
+    -- ANOTHER MAN HOLDS THE POST: Accept would settle it as the refusal it
+    -- has become (audit 2026-09-29). Freed again this turn, it is open again.
+    if state == "refused" then return false, "taken" end
+    if state then return true end
     -- ONE POST PER MAN, which the pickers enforce by drawing him BUSY. The
     -- demand picked a free man; he may have taken another post since.
     local court = IC.court(faction_key)
@@ -1142,6 +1159,24 @@ function IC.decline_offer(faction_key, slug)
     return true
 end
 
+-- A PARTY THAT LEAVES TAKES ITS BUSINESS WITH IT (audit 2026-09-29). The upkeep
+-- below clears it at the next turn start; a purge, a dissolve or a secession in
+-- between left it on the Petitions tab and in the court button's pulse.
+-- IC.remove_house calls this after the party is gone, and each line below ends
+-- it the way the upkeep would have, card and all.
+function IC.drop_party_business(faction_key, slug)
+    local a = IC.agenda(faction_key)
+    if a.demand and a.demand.slug == slug then IC.settle_demand(faction_key, "void") end
+    if a.plot and a.plot.slug == slug then
+        IC.log(faction_key, "party_dropped", slug, a.plot.move, 0)
+        IC.feed(faction_key, "party_plot_dropped")
+        a.plot = nil
+    end
+    IC.expire_offers(faction_key)
+    IC.end_feuds(faction_key)
+    IC.save_agenda(faction_key)
+end
+
 -- Upkeep, not an event: offers past their turns, or from a party that left.
 function IC.expire_offers(faction_key)
     local a = IC.agenda(faction_key)
@@ -1159,7 +1194,7 @@ end
 
 -- WHICH AI COURTS TAKE A PARTY TURN THIS ROUND (spec 2026-09-27 section 5).
 -- The feud scoring is the expensive part, so ai_party_courts courts act per
--- round, in the fixed order of IC.ORIGINS' faction keys: deterministic, so
+-- round, in the fixed order of IC.ORIGINS' and IC.REBEL_POOL's faction keys: deterministic, so
 -- both machines of a multiplayer game agree. A human court always acts.
 function IC.party_turn_due(faction_key)
     if IC.is_human(faction_key) then return true end
@@ -1168,9 +1203,14 @@ function IC.party_turn_due(faction_key)
     -- LIVING AI COURTS ONLY: a dead one in the count stretched the period, so
     -- late in a campaign the few left waited turns for courts that were gone.
     -- Whether a faction is dead is the same on every machine.
+    -- AND THE RISINGS, which run courts too: left out, every one of them took
+    -- position 0 and acted on the same turn (audit 2026-09-29).
+    local candidates = {}
+    for i = 1, #IC.ORIGINS do candidates[#candidates + 1] = IC.ORIGINS[i].faction end
+    for i = 1, #IC.REBEL_POOL do candidates[#candidates + 1] = IC.REBEL_POOL[i] end
     local keys = {}
-    for i = 1, #IC.ORIGINS do
-        local key = IC.ORIGINS[i].faction
+    for i = 1, #candidates do
+        local key = candidates[i]
         if key and not IC.is_human(key) then
             local alive = false
             pcall(function()

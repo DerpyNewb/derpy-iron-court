@@ -1,0 +1,16 @@
+category	icon_path
+#trait_categories_tables;0;db/trait_categories_tables/derpy_iron_court	
+derpy_ic_cat_ambition	ui/campaign ui/effect_bundles/chd_conclave_influence.png
+derpy_ic_cat_confed	ui/campaign ui/effect_bundles/confederation.png
+derpy_ic_cat_office	ui/skins/default/icon_offices.png
+derpy_ic_cat_origin	ui/campaign ui/effect_bundles/settlement.png
+derpy_ic_cat_party_chain	ui/derpy_ic/party_sigil_chain.png
+derpy_ic_cat_party_crown	ui/derpy_ic/party_sigil_crown.png
+derpy_ic_cat_party_forge	ui/derpy_ic/party_sigil_forge.png
+derpy_ic_cat_party_hearth	ui/derpy_ic/party_sigil_hearth.png
+derpy_ic_cat_party_ledger	ui/derpy_ic/party_sigil_ledger.png
+derpy_ic_cat_party_legion	ui/derpy_ic/party_sigil_legion.png
+derpy_ic_cat_party_road	ui/derpy_ic/party_sigil_road.png
+derpy_ic_cat_party_temple	ui/derpy_ic/party_sigil_temple.png
+derpy_ic_cat_party_tower	ui/derpy_ic/party_sigil_tower.png
+derpy_ic_cat_standing	ui/skins/default/icon_secure_loyalty.png

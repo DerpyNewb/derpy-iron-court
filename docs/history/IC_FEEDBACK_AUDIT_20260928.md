@@ -1,6 +1,15 @@
 # Iron Court — player-action / state-change feedback audit
 
 Read-only audit, 2026-09-28. Files (abbreviated below):
+
+> **STATUS 2026-09-29 - a snapshot, most of it since acted on; line numbers are stale.** Built from it:
+> the UI feedback spec (`docs/superpowers/specs/2026-09-28-iron-court-ui-feedback-design.md`: seat and
+> governor rims and bursts, answer sentences, tab markers, the button's pulse and its tooltip, changes
+> since turn start, the failed-plot red flash); row 8 (`ungov` now answers); rows 24 and 29 (a stall
+> ending and a secession countdown stopping now raise cards, `stall_end` and `threat_over`); row 36 and
+> the one-sound-pair note (every answer has its own sound in `ICUI.SOUNDS`, and a refused click plays
+> one). Still as written: the asymmetric petition CARDS (rows 11-18 - a deliberate choice, the answer
+> sentence covers the click) and no loyalty delta beyond the since-turn-start colouring.
 - `UI` = `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua`
 - `MODEL` = `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua`
 - `PARTIES` = `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua`

@@ -444,6 +444,298 @@ character_trait_levels_onscreen_name_derpy_ic_bg_elder	Clan Elder	false
 character_trait_levels_colour_text_derpy_ic_bg_elder	Old clan, small clan, and a memory for every slight in it.	false
 character_trait_levels_explanation_text_derpy_ic_bg_elder	What he did before you had a use for him, and who that puts him with at court.	false
 character_trait_levels_removal_text_derpy_ic_bg_elder	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_member_crown	Party: The Crown	false
+character_trait_levels_colour_text_derpy_ic_member_crown	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_crown	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_crown	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_khorakk	Party: The House of Khorakk	false
+character_trait_levels_colour_text_derpy_ic_member_khorakk	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_khorakk	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_khorakk	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_uzkulak	Party: The Warfleet of Uzkulak	false
+character_trait_levels_colour_text_derpy_ic_member_uzkulak	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_uzkulak	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_uzkulak	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_artificers	Party: Snakebeard's Artificers	false
+character_trait_levels_colour_text_derpy_ic_member_artificers	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_artificers	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_artificers	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_fists	Party: The Fists of Hashut	false
+character_trait_levels_colour_text_derpy_ic_member_fists	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_fists	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_fists	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_horns	Party: The Horns of Hashut	false
+character_trait_levels_colour_text_derpy_ic_member_horns	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_horns	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_horns	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_baal	Party: The House of Baal	false
+character_trait_levels_colour_text_derpy_ic_member_baal	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_baal	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_baal	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_azeros	Party: The House of Azeros	false
+character_trait_levels_colour_text_derpy_ic_member_azeros	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_azeros	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_azeros	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_bzaark	Party: The House of Bzaark	false
+character_trait_levels_colour_text_derpy_ic_member_bzaark	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_bzaark	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_bzaark	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_blackdwarf	Party: The Slaves of the Black Dwarf	false
+character_trait_levels_colour_text_derpy_ic_member_blackdwarf	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_blackdwarf	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_blackdwarf	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_kraken	Party: The Black Kraken Armada	false
+character_trait_levels_colour_text_derpy_ic_member_kraken	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_kraken	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_kraken	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_conclave	Party: The Servants of the Conclave	false
+character_trait_levels_colour_text_derpy_ic_member_conclave	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_conclave	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_conclave	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_astragoth	Party: The Disciples of Hashut	false
+character_trait_levels_colour_text_derpy_ic_member_astragoth	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_astragoth	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_astragoth	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_azgorh	Party: The Legion of Azgorh	false
+character_trait_levels_colour_text_derpy_ic_member_azgorh	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_azgorh	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_azgorh	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_zhatan	Party: The Warhost of Zharr	false
+character_trait_levels_colour_text_derpy_ic_member_zhatan	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_zhatan	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_zhatan	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_skullstack	Party: The Uzkul Mingol Company	false
+character_trait_levels_colour_text_derpy_ic_member_skullstack	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_skullstack	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_skullstack	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_zharrduk	Party: The Overlords of Zharrduk	false
+character_trait_levels_colour_text_derpy_ic_member_zharrduk	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_zharrduk	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_zharrduk	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_zharr	Party: Zharr-Naggrund	false
+character_trait_levels_colour_text_derpy_ic_member_zharr	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_zharr	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_zharr	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_plain	Party: The Plain of Zharr	false
+character_trait_levels_colour_text_derpy_ic_member_plain	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_plain	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_plain	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_gorgoth	Party: The Tower of Gorgoth	false
+character_trait_levels_colour_text_derpy_ic_member_gorgoth	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_gorgoth	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_gorgoth	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_stump	Party: Daemon's Stump	false
+character_trait_levels_colour_text_derpy_ic_member_stump	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_stump	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_stump	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_zornuzkul	Party: Zorn Uzkul	false
+character_trait_levels_colour_text_derpy_ic_member_zornuzkul	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_zornuzkul	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_zornuzkul	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_gash	Party: Gash Kadrak	false
+character_trait_levels_colour_text_derpy_ic_member_gash	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_gash	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_gash	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_mines	Party: The Mines of Mingol	false
+character_trait_levels_colour_text_derpy_ic_member_mines	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_mines	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_mines	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_wastes	Party: The Howling Wastes	false
+character_trait_levels_colour_text_derpy_ic_member_wastes	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_wastes	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_wastes	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_1	Party: The Burning Bull	false
+character_trait_levels_colour_text_derpy_ic_member_temple_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_2	Party: The Black Altar	false
+character_trait_levels_colour_text_derpy_ic_member_temple_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_3	Party: Hashut's Breath	false
+character_trait_levels_colour_text_derpy_ic_member_temple_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_4	Party: The Ashen Word	false
+character_trait_levels_colour_text_derpy_ic_member_temple_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_5	Party: The Bull's Horn	false
+character_trait_levels_colour_text_derpy_ic_member_temple_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_temple_6	Party: The Brazen Idol	false
+character_trait_levels_colour_text_derpy_ic_member_temple_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_temple_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_temple_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_1	Party: The Hell-Forge	false
+character_trait_levels_colour_text_derpy_ic_member_forge_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_2	Party: The Cold Anvil	false
+character_trait_levels_colour_text_derpy_ic_member_forge_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_3	Party: The Iron Oath	false
+character_trait_levels_colour_text_derpy_ic_member_forge_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_4	Party: The Bound Flame	false
+character_trait_levels_colour_text_derpy_ic_member_forge_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_5	Party: The Daemon Anvil	false
+character_trait_levels_colour_text_derpy_ic_member_forge_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_forge_6	Party: The Ninth Furnace	false
+character_trait_levels_colour_text_derpy_ic_member_forge_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_forge_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_forge_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_1	Party: The Short Chain	false
+character_trait_levels_colour_text_derpy_ic_member_chain_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_2	Party: The Iron Collar	false
+character_trait_levels_colour_text_derpy_ic_member_chain_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_3	Party: The Deep Pits	false
+character_trait_levels_colour_text_derpy_ic_member_chain_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_4	Party: The Brand	false
+character_trait_levels_colour_text_derpy_ic_member_chain_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_5	Party: The Bound Hundred	false
+character_trait_levels_colour_text_derpy_ic_member_chain_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_chain_6	Party: The Lash	false
+character_trait_levels_colour_text_derpy_ic_member_chain_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_chain_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_chain_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_1	Party: The Black Standard	false
+character_trait_levels_colour_text_derpy_ic_member_legion_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_2	Party: The Second Wall	false
+character_trait_levels_colour_text_derpy_ic_member_legion_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_3	Party: The Unbroken Rank	false
+character_trait_levels_colour_text_derpy_ic_member_legion_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_4	Party: The Iron Muster	false
+character_trait_levels_colour_text_derpy_ic_member_legion_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_5	Party: The Fireglaive	false
+character_trait_levels_colour_text_derpy_ic_member_legion_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_legion_6	Party: The Bull Banner	false
+character_trait_levels_colour_text_derpy_ic_member_legion_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_legion_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_legion_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_1	Party: The Black Ledger	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_2	Party: The Blood Price	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_3	Party: The Weighed Coin	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_4	Party: The Sealed Bond	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_5	Party: The Iron Tally	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_ledger_6	Party: The Tithe	false
+character_trait_levels_colour_text_derpy_ic_member_ledger_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_ledger_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_ledger_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_1	Party: The Great Ziggurat	false
+character_trait_levels_colour_text_derpy_ic_member_tower_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_2	Party: The Sealed Word	false
+character_trait_levels_colour_text_derpy_ic_member_tower_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_3	Party: The Bound Daemon	false
+character_trait_levels_colour_text_derpy_ic_member_tower_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_4	Party: The Obsidian Eye	false
+character_trait_levels_colour_text_derpy_ic_member_tower_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_5	Party: The Stone Tongue	false
+character_trait_levels_colour_text_derpy_ic_member_tower_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_tower_6	Party: The Lammasu	false
+character_trait_levels_colour_text_derpy_ic_member_tower_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_tower_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_tower_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_1	Party: The Ash Road	false
+character_trait_levels_colour_text_derpy_ic_member_road_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_2	Party: The Salt Track	false
+character_trait_levels_colour_text_derpy_ic_member_road_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_3	Party: The Howling Wastes	false
+character_trait_levels_colour_text_derpy_ic_member_road_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_4	Party: The Black Caravan	false
+character_trait_levels_colour_text_derpy_ic_member_road_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_5	Party: The Iron Wheel	false
+character_trait_levels_colour_text_derpy_ic_member_road_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_road_6	Party: Gash Kadrak	false
+character_trait_levels_colour_text_derpy_ic_member_road_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_road_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_road_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_1	Party: The Old Ash	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_2	Party: The Banked Fire	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_3	Party: The First Hold	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_4	Party: Zharr-Naggrund	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_5	Party: Mingol Zharr	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_hearth_6	Party: The Home Kilns	false
+character_trait_levels_colour_text_derpy_ic_member_hearth_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_hearth_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_hearth_6	He sits with another party now.	false
 character_trait_levels_onscreen_name_derpy_ic_title_priest	High Priest of Hashut	false
 character_trait_levels_colour_text_derpy_ic_title_priest	The Father of Darkness is served loudly, and the people are quiet.	false
 character_trait_levels_explanation_text_derpy_ic_title_priest	Control: +6, Income from all buildings: +12%	false
@@ -576,6 +868,13 @@ event_feed_strings_text_derpy_ic_event_party_withhold_secondary	WITHHELD	false
 event_feed_strings_text_derpy_ic_event_realm_secede_title	A Rival Court Splits	false
 event_feed_strings_text_derpy_ic_event_realm_secede_primary	A party in another Chaos Dwarf court has broken away and risen in rebellion. Your court log names them; the camera button shows where.	false
 event_feed_strings_text_derpy_ic_event_realm_secede_secondary	REBELLION	false
+event_feed_strings_text_derpy_ic_event_officer_died_title	An Officer Is Dead	false
+event_feed_strings_text_derpy_ic_event_officer_died_primary	One of your officers has died. Whatever he held for you - a seat at court, a province to govern - stands empty until you fill it.	false
+event_feed_strings_text_derpy_ic_event_threat_over_title	A Party Stands Down	false
+event_feed_strings_text_derpy_ic_event_threat_over_primary	A party that was preparing to break with you has stood down. Nothing leaves your court, for now - its loyalty is still worth watching.	false
+event_feed_strings_text_derpy_ic_event_threat_over_secondary	STOOD DOWN	false
+event_feed_strings_text_derpy_ic_event_stall_end_title	An Office Is Back at Work	false
+event_feed_strings_text_derpy_ic_event_stall_end_primary	An office that stood stalled is working again, and its bonus applies from now on.	false
 event_feed_strings_text_derpy_ic_move_bribe_ok	BRIBE - SUCCESS	false
 event_feed_strings_text_derpy_ic_move_bribe_fail	BRIBE - FAILURE	false
 event_feed_strings_text_derpy_ic_move_discredit_ok	DISCREDIT - SUCCESS	false

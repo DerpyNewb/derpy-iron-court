@@ -1109,6 +1109,13 @@ local failures = {}
 -- colours carries [[col:red]]...[[/col]] in its text, which is markup the engine
 -- resolves and not part of the sentence - so an assertion about what a cell SAYS
 -- asks it through here, and an assertion about what colour it is does not.
+-- THE WORDS A CELL DRAWS, its pictures taken out (2026-09-29). An inline
+-- picture is CA's markup around a path, and a check reading the words must not
+-- read the path - "[[img:" alone carries a colon.
+local function bare(text)
+    return (string.gsub(tostring(text or ""), "%[%[img:[^%]]*%]%]%[%[/img%]%]", ""))
+end
+
 local function plain(text)
     text = tostring(text or "")
     text = string.gsub(text, "%[%[col:[%w_]+%]%]", "")
@@ -2313,16 +2320,31 @@ check("governor_active agrees with what the bundles actually do", function()
     -- disagreement puts an effect description on a seat that carries no effect.
     IC.state = {}
     local here = make_character(10, ANY_SEAT, "crown", "prov_a")
+    -- ONLY A LORD LEADING AN ARMY CAN BE AWAY; a stub with no force is a lord
+    -- in the pool, who governs from wherever he is.
     local away = make_character(11, ANY_SEAT, "crown", "prov_elsewhere")
-    make_faction(F, IC.CHD_SUBCULTURE, {here, away}, {"prov_a", "prov_b"})
+    away._force = true
+    -- AND A HERO STANDING IN SOME OTHER PROVINCE governs his own: the panel said
+    -- so and the bundle went nowhere (audit 2026-09-29).
+    local hero = make_character(12, ANY_SEAT, "crown", "prov_elsewhere")
+    hero._agent = "champion"
+    make_faction(F, IC.CHD_SUBCULTURE, {here, away, hero}, {"prov_a", "prov_b", "prov_c"})
     IC.add_house(F, "crown")
     IC.add_house(F, "legion")
     endow(F)
     IC.assign_governor(F, "prov_a", 10)
     IC.assign_governor(F, "prov_b", 11)
-    for _, case in ipairs({{"prov_a", true}, {"prov_b", false}}) do
+    IC.assign_governor(F, "prov_c", 12)
+    -- A SNAPSHOT. This loop rebuilt govs out of the previous pass's already
+    -- filtered table, so every case after the first ran on a province with no
+    -- governor at all and passed without testing anything (audit 2026-09-29).
+    local all = {}
+    for k, v in pairs(IC.court(F).govs) do all[k] = v end
+    for _, case in ipairs({{"prov_a", true}, {"prov_b", false}, {"prov_c", true}}) do
         province_applied = {}
-        IC.court(F).govs = {[case[1]] = IC.court(F).govs[case[1]]}
+        IC.court(F).govs = {[case[1]] = all[case[1]]}
+        assert(IC.court(F).govs[case[1]], case[1] .. ": the fixture has no governor")
+        custom_applied = {}
         IC.apply_governor_bundles(F)
         local bundled = province_applied["derpy_ic_gov_base"] ~= nil
         assert(IC.governor_active(F, case[1]) == case[2],
@@ -2330,6 +2352,13 @@ check("governor_active agrees with what the bundles actually do", function()
             tostring(IC.governor_active(F, case[1])))
         assert(bundled == case[2],
             case[1] .. ": the bundle said " .. tostring(bundled))
+        -- AND ON HIS OWN PROVINCE, not the first one the faction holds.
+        if bundled then
+            local at = custom_applied["derpy_ic_gov_base"]
+            assert(at and at.region:name() == "region_" .. case[1],
+                case[1] .. ": the bonus landed on "
+                .. tostring(at and at.region:name()))
+        end
     end
 end)
 
@@ -2415,6 +2444,9 @@ check("a governor outside his province applies nothing, and keeps the post", fun
     IC.state = {}
     province_applied = {}
     local wanderer = make_character(4, ANY_SEAT, "crown", "prov_elsewhere")
+    -- A LORD LEADING AN ARMY: the only man who can be away. Before the
+    -- 2026-09-29 audit a pool lord failed this too, which the panel disagreed with.
+    wanderer._force = true
     make_faction(F, IC.CHD_SUBCULTURE, {wanderer}, {"prov_a"})
     IC.add_house(F, "crown")
     endow(F)
@@ -2629,6 +2661,8 @@ check("an appointment pleases his party and a sacking angers it", function()
     -- IC.appoint replaces a sitting officer, so charging it would bill a house
     -- for its own man being promoted.
     house.loyalty = 50
+    -- PAST HIS WAIT: a sacked man waits for the seat as an ended term does.
+    turn = turn + IC.TUNE.renew_wait
     assert(IC.appoint(F, seat, 1), "the fixture could not re-seat him")
     local after_seat = house.loyalty
     IC.dismiss(F, seat, true)
@@ -4900,7 +4934,9 @@ function()
     assert(tip and tip ~= "", "the Crown's mood cell says nothing")
     assert(not string.find(tip, "provinces", 1, true),
         "the Crown was told a secession would cost it provinces: " .. tip)
-    assert(string.find(tip, tostring(IC.TUNE.splinter_weight), 1, true),
+    -- IN WORDS, NOT A FIGURE: splinter_weight is a weight, and the share lost
+    -- depends on which party rises (audit 2026-09-29).
+    assert(string.find(tip, "share", 1, true),
         "the Crown is not told what the split costs its share: " .. tip)
 end)
 
@@ -6282,7 +6318,7 @@ check("Secure Loyalty the court cannot pay for is drawn red, and says why", func
         assert(ICUI.notice and string.find(ICUI.notice, "gold"),
             "the refusal reads " .. tostring(ICUI.notice))
         -- AND THE TOOLTIP SAID SO BEFORE THE CLICK.
-        assert(string.find(btn.tooltip or "", ICUI.notice, 1, true),
+        assert(string.find(bare(btn.tooltip), ICUI.notice, 1, true),
             "the tooltip does not carry the refusal the click gives: "
             .. tostring(btn.tooltip))
         assert(IC.protected_for(F, "forge") == 0, "a refused oath was sworn anyway")
@@ -8972,7 +9008,7 @@ check("the scroll arrows move the list that is actually on screen", function()
     end)
 end)
 
-check("an overseer away from his post does not advertise an effect", function()
+check("an overseer away from his post is marked away", function()
     IC.state = {}
     local away = make_character(12, ANY_SEAT, "crown", "prov_elsewhere")
     away._force = true -- a lord in the field; only he can be away
@@ -8980,13 +9016,8 @@ check("an overseer away from his post does not advertise an effect", function()
     IC.add_house(F, "crown")
     endow(F)
     IC.assign_governor(F, "prov_a", 12)
-    -- Said in BOTH columns. The Effect column alone was not an indication: the
-    -- eye reads the Overseer column first, sees a name, and concludes the seat is
-    -- working - which is exactly what happened.
-    local text = ICUI.gov_effect(F, "prov_a", 12)
-    assert(text:find("must stand in the province", 1, true),
-        "the effect cell must say WHY there is no effect, got " .. tostring(text))
-    assert(ICUI.gov_effect(F, "prov_a", nil) == "None", "an empty seat says None")
+    -- IN THE OVERSEER COLUMN, which the eye reads first: a bare name there
+    -- reads as a seat that is working.
     local who = ICUI.gov_holder_text(F, "prov_a", away, 12)
     assert(who:find("(away)", 1, true),
         "the overseer's own name must carry it, got " .. tostring(who))
@@ -11235,7 +11266,8 @@ check("the plate shows the selected courtier's exact standing", function()
         local plate = get()
         assert(plate, "no plate was created")
         assert(plate.shown, "the plate was created and left hidden")
-        assert(plate.text == "137 influence",
+        -- WEARING THE INFLUENCE PICTURE (2026-09-29).
+        assert(plate.text == ICUI.cost(137) .. " influence",
             "the plate reads " .. tostring(plate.text))
         -- ANCHORED OFF CA'S OWN COMPONENT, never off a number in our file.
         assert(plate.x == 700 + ICUI.STANDING_DX
@@ -11586,7 +11618,9 @@ check("a bribe raises the man and pleases the house he speaks for", function()
     assert(house.loyalty == 10 + IC.TUNE.plot_bribe_loyalty,
         "loyalty went to " .. house.loyalty)
     assert((house.clock or 0) == 0, "the house is still walking out")
-    assert(not house.snubbed, "the snub is still on it")
+    -- THE COUNT, NOT THE INSULT: the snub's cost comes from the seat each turn,
+    -- and clearing the mark only announced it again (audit 2026-09-29).
+    assert(house.snubbed and house.snub_key == "forge", "the bribe wiped the insult")
 
     -- AND IT CANNOT BUY PAST THE TOP. Loyalty is a 0-100 scale everywhere it is
     -- read - the mood words, the secession test, the bar - and a house sitting
@@ -12397,7 +12431,7 @@ check("a warning reaches the player, on the bar rather than in a row", function(
         ICUI.view = "intrigue"
         ICUI.refresh()
         local bar = panel.children.ic_alert
-        assert(string.find(bar.text, "in 1 turn", 1, true),
+        assert(string.find(bare(bar.text), "in 1 turn", 1, true),
             "the bar named the later clock: " .. tostring(bar.text))
         assert(string.find(bar.text, "1 more house is moving", 1, true),
             "the bar did not count the rest: " .. tostring(bar.text))
@@ -12741,7 +12775,7 @@ function()
         assert(by[mine_p] == "Your Party", "your own man reads " .. tostring(by[mine_p]))
         assert(by[theirs_p] == "Low Loyalty",
             "a rival below the oath's bar reads " .. tostring(by[theirs_p]))
-        assert(tips[theirs_p] == ICUI.reason_text("cold"),
+        assert(bare(tips[theirs_p]) == ICUI.reason_text("cold"),
             "the refusal's tooltip reads " .. tostring(tips[theirs_p]))
         IC.court(F).houses.legion.loyalty = IC.TUNE.plot_oath_min_loyalty
         IC.court(F).houses.legion.oath_mine = 1
@@ -17712,7 +17746,7 @@ check("a pledge stops the clock and is paid out of your own share", function()
     assert(house.loyalty == 50 + IC.TUNE.plot_pledge_loyalty,
         "they read " .. house.loyalty)
     assert(house.clock == 0, "the clock still reads " .. tostring(house.clock))
-    assert(house.snubbed == nil, "they are still counting the snub")
+    assert(house.snubbed and house.snub_key == "forge", "the pledge wiped the insult")
     -- THE PRICE NOTHING ELSE CHARGES. A promise is a share of the court spent,
     -- and the share is what the whole panel is judged on.
     assert(crown.weight == 40 - IC.TUNE.plot_pledge_weight,
@@ -19006,7 +19040,9 @@ check("a feud ends when a party leaves the court", function()
     local office = legion_office()
     IC.court(F).offices[office] = 321
     IC.party_turn(F)
-    IC.remove_house(F, "legion")
+    -- DELETED BEHIND remove_house'S BACK: it ends the feud itself now, so this
+    -- is the upkeep a save from before that build still needs.
+    IC.court(F).houses.legion = nil
     turn = 11
     IC.party_turn(F)
     assert(IC.agenda(F).feuds["legion"] == nil, "the feud outlived its party")
@@ -19127,7 +19163,8 @@ end
 
 check("a warned move is dropped when its party has left the court", function()
     local _f, _men, office = warned_unseat()
-    IC.remove_house(F, "legion")
+    -- BEHIND remove_house'S BACK, as a save from before it dropped the plot.
+    IC.court(F).houses.legion = nil
     assert(IC.party_turn(F) == "dropped", "a party that left still struck")
     assert(IC.court(F).offices[office] == 301, "the seat went anyway")
     assert(IC.court(F).standing[311] == 1000, "a dropped move was paid for")
@@ -19543,7 +19580,8 @@ check("a dead man or a departed party voids the demand, at no cost", function()
     local closed = missions_closed[#missions_closed]
     assert(closed and closed.cancelled, "the mission was not cancelled")
     legion_demand("office", "warden")
-    IC.remove_house(F, "legion")
+    -- BEHIND remove_house'S BACK, as a save from before it voided the demand.
+    IC.court(F).houses.legion = nil
     assert(IC.check_demand(F) == "void", "a departed party's demand did not void")
     cm.get_human_factions = function() return {} end
 end)
@@ -20261,7 +20299,11 @@ check("the offer row says what it is and fits its column", function()
                    "the section label does not name what an offer costs")
             assert(string.find(text, case.want, 1, true),
                    "the " .. case.o.kind .. " row does not say what it is: " .. text)
-            assert(#text <= N, "the " .. case.o.kind .. " row is " .. #text
+            -- A PICTURE COUNTS AS TWO CHARACTERS, not as its markup: it draws
+            -- a square of the line box (2026-09-29).
+            local _, pics = string.gsub(text, "%[%[img:", "")
+            local shown = #bare(text) + 2 * pics
+            assert(shown <= N, "the " .. case.o.kind .. " row is " .. shown
                    .. " characters, over " .. N .. ": " .. text)
         end)
     end
@@ -20280,8 +20322,14 @@ check("the offer row says what it is and fits its column", function()
         assert(string.find(text, "Southlands World's Edge Mountains", 1, true)
                and string.find(text, "12 turns", 1, true),
                "the demand row does not say what it is: " .. text)
-        assert(#text <= N, "the demand row is " .. #text .. " characters, over "
+        local _, pics = string.gsub(text, "%[%[img:", "")
+        local shown = #bare(text) + 2 * pics
+        assert(shown <= N, "the demand row is " .. shown .. " characters, over "
                .. N .. ": " .. text)
+        -- AND THE TURNS WEAR THEIR PICTURE, as the petitions tab draws them.
+        assert(string.find(row.children.ic_row_b.text,
+                           "[[img:" .. ICUI.TURNS_ICON .. "]][[/img]]12 turns", 1, true),
+               "the demand row's turns wear no picture: " .. row.children.ic_row_b.text)
         assert(row.children.ic_row_a.text == "Drazhoath the Ashen of Hashut",
                "the demand row is filed under " .. tostring(row.children.ic_row_a.text))
     end)
@@ -20324,12 +20372,14 @@ check("the calm offer's tooltip reads with one colon", function()
     party_court({legion = 20, forge = 90})
     IC.agenda(F).offers.forge = {kind = "calm", n = IC.TUNE.party_offer_calm,
                                  target = "legion", ends = 13}
-    local tip = ICUI.agenda_tip(F, "forge")
+    local tip = bare(ICUI.agenda_tip(F, "forge"))
     local _, colons = string.gsub(tip, ":", "")
     assert(colons == 1, colons .. " colons: " .. tip)
     assert(string.find(tip, "OFFERS: to calm " .. ICUI.house_name("legion", F)
                        .. ". Their countdown stops and their loyalty rises by "
-                       .. IC.TUNE.party_offer_calm .. ". 3 turns left.", 1, true),
+                       .. (IC.TUNE.party_offer_calm - IC.TUNE.party_offer_envy)
+                       .. ". If they are still angry, it starts again next turn. "
+                       .. "3 turns left.", 1, true),
            "the calm offer reads: " .. tip)
     cm.get_human_factions = function() return {} end
 end)
@@ -20978,6 +21028,12 @@ check("a switch turned off in MCT mid-turn ends its countdowns at once", functio
             assert(not court.houses.legion.pressed, "the legion is still pressed")
             assert((court.houses[IC.CROWN].split or 0) == 0,
                 "the Crown still counts to a split: " .. tostring(court.houses[IC.CROWN].split))
+            -- READ BACK WITH THE SWITCHES ON AGAIN, since a load with them off
+            -- clears the counts itself and would pass on an unsaved flip. Off,
+            -- then on before anything saved, brought the old count back with no
+            -- new warning.
+            values.secession, values.pressure, values.crown_split = true, true, true
+            fire({})
             local back = IC.load(F)
             assert((back.houses.legion.clock or 0) == 0, "the cleared countdown was not saved")
         end)
@@ -20994,12 +21050,12 @@ local function load_mct_file(in_campaign)
     local option_methods = {
         set_text = function() end,
         set_tooltip_text = function() end,
-        add_option_set_callback = function() end,
+        add_option_set_callback = function(o, fn) o.on_set = fn end,
         set_assigned_section = function(o, s) o.section = s end,
         slider_set_min_max = function(o, lo, hi) o.lo, o.hi = lo, hi end,
         slider_set_step_size = function(o, step) o.step = step end,
         set_default_value = function(o, v) o.default = v end,
-        set_locked = function(o, on) o.locked = on end,
+        set_locked = function(o, on, reason) o.locked, o.reason = on, reason end,
         add_dropdown_value = function(o, key, _text, _tip, is_default)
             o.values[#o.values + 1] = key
             if is_default then o.default = key end
@@ -21862,8 +21918,9 @@ check("a man whose term ended waits three turns for that seat, and comes back un
            "a new man's party moved from " .. was .. " to "
            .. IC.court(F).houses["forge"].loyalty)
     -- AND THE SEAT IS NO LONGER THE FIRST MAN'S to renew once another has held
-    -- it: he comes back at once, and is welcomed.
-    assert(IC.dismiss(F, "forge"), "no dismissal")
+    -- it: he comes back at once, and is welcomed. Straight over the second
+    -- man: a dismissal now makes HIM the one who waits (audit 2026-09-29),
+    -- which would hide a first man's claim left standing.
     was = IC.court(F).houses["forge"].loyalty
     assert(IC.appoint(F, "forge", 1),
            "the seat's old holder is still kept waiting after another man held it")
@@ -22037,6 +22094,15 @@ check("the court button's tooltip sums up the court, and the button wears it", f
     IC.court(F).houses["legion"].clock = 2
 
     local tip = ICUI.opener_tip(F)
+    -- THE SHARE WEARS THE CROWN BOX'S PICTURE (2026-09-29), and the words are
+    -- read without it.
+    assert(tip:find("holds [[img:" .. ICUI.COST_ICON .. "]][[/img]]", 1, true),
+        "the share in the tooltip wears no picture:\n" .. tip)
+    -- EVERY FIGURE WEARS ITS UNIT: a second pass finds nothing left to mark.
+    assert(ICUI.units(tip) == tip, "a figure in the tooltip wears no picture:\n" .. tip)
+    assert(tip:find("[[img:" .. ICUI.TURNS_ICON .. "]][[/img]]2 turns", 1, true),
+        "the countdown wears no picture:\n" .. tip)
+    tip = bare(tip)
     local function has(s)
         assert(tip:find(s, 1, true), "the tooltip lacks " .. s .. ":\n" .. tip)
     end
@@ -22571,6 +22637,11 @@ check("a feud is on the Petitions tab, one row per side, and the click sends arb
                 rows[#rows + 1] = i
                 assert(plain(row.children.ic_row_e.text) == "Back Them",
                     "a feud row's first button reads " .. row.children.ic_row_e.text)
+                -- THE BUTTON'S TOOLTIP MARKS ITS FIGURES (2026-09-29), read off
+                -- the drawn row rather than off the helper that marks it.
+                local tip = row.children.ic_row_e.tooltip or ""
+                assert(string.find(tip, "[[img:" .. ICUI.LOYALTY_ICON .. "]][[/img]]+", 1, true),
+                    "the Back Them tooltip wears no loyalty picture: " .. tip)
                 assert(plain(row.children.ic_row_f.text) == "Make Peace",
                     "a feud row's second button reads " .. row.children.ic_row_f.text)
             end
@@ -23356,7 +23427,17 @@ check("filling a seat plays the burst over its card, and the burst goes away", f
         local again = card.children[ICUI.BURST]
         assert(again and again ~= burst,
             "a claim made while the last burst still played drew nothing new")
+        -- AND THE FIRST ONE'S TIMER LEAVES THE SECOND TO PLAY OUT (leftover M2
+        -- of the 2026-09-28 review): it found the new sprite by name and took
+        -- it away early.
         stop.fn()
+        assert(card.children[ICUI.BURST] == again,
+            "the first burst's timer took the second burst away")
+        local last = nil
+        for _, cb in ipairs(later) do
+            if cb.delay == ICUI.BURST_SECONDS then last = cb end
+        end
+        last.fn()
         assert(not card.children[ICUI.BURST], "the burst outlived its callback")
         -- A SECOND CLAIM MAKES A NEW ONE: a burst that is only ever shown
         -- once is a seat that stops answering.
@@ -23461,7 +23542,7 @@ check("releasing a governor is answered, and assigning one bursts his row", func
     assert(ICUI.ANSWERS.ungov, "releasing a governor has no answer at all")
     sounds = {}
     ICUI.ANSWERS.ungov("prov_a", true)
-    assert(sounds[1] == ICUI.SOUND_BAD, "a release played " .. tostring(sounds[1]))
+    assert(sounds[1] == ICUI.SOUNDS.ungov, "a release played " .. tostring(sounds[1]))
     ICUI.notice = nil
     ICUI.ANSWERS.ungov("prov_a", false, "no governor")
     assert(ICUI.notice and ICUI.notice ~= "", "a refused release said nothing")
@@ -23475,7 +23556,7 @@ check("releasing a governor is answered, and assigning one bursts his row", func
         ICUI.ANSWERS.gov("prov_a|1", true)
         local row = panel.children[ICUI.gov_row("prov_a")]
         assert(row.children[ICUI.BURST], "assigning a governor drew no burst on his row")
-        assert(sounds[1] == ICUI.SOUND_SEAT,
+        assert(sounds[1] == ICUI.SOUNDS.gov,
             "assigning a governor played " .. tostring(sounds[1]))
     end)
     cm.callback = saved_cb
@@ -23540,7 +23621,7 @@ check("a granted demand, an accepted offer, a settled feud and a gift each say s
     assert(ok, err)
 end)
 
-check("a failed plot flashes its target red through the click's own redraw, then goes out", function()
+check("a failed plot flashes its target's card in its own look through the click's own redraw, then goes out", function()
     IC.state = {}
     turn = 1
     make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
@@ -23559,16 +23640,22 @@ check("a failed plot flashes its target red through the click's own redraw, then
         -- THE CLICK REDRAWS THE PANEL straight after the answer, in single
         -- player; a flash the redraw wipes is a flash nobody sees.
         ICUI.refresh()
-        assert(card.images[ICUI.RIMS.party.red] == ICUI.RIM_ART,
-            "a failed plot left its target's card " .. tostring(card.images[ICUI.RIMS.party.red]))
+        -- ITS OWN ART (leftover M5): the lit rim is CA's red, and a colour on
+        -- the layer can only darken it, so the fail look was the same red.
+        assert(ICUI.RIM_ART_FAIL and ICUI.RIM_ART_FAIL ~= ICUI.RIM_ART,
+            "a failed plot has no rim art of its own")
+        assert(card.images[ICUI.RIMS.party.fail] == ICUI.RIM_ART_FAIL,
+            "a failed plot left its target's card " .. tostring(card.images[ICUI.RIMS.party.fail]))
+        assert(card.images[ICUI.RIMS.party.lit] == ICUI.MASK_NONE,
+            "a failed plot lit its target's card as if it had worked")
         for _, cb in ipairs(later) do
             if cb.delay == ICUI.FLASH_SECONDS then cb.fn() end
         end
-        assert(card.images[ICUI.RIMS.party.red] == ICUI.MASK_NONE,
-            "the red flash never went out")
+        assert(card.images[ICUI.RIMS.party.fail] == ICUI.MASK_NONE,
+            "the fail flash never went out")
         ICUI.refresh()
-        assert(card.images[ICUI.RIMS.party.red] == ICUI.MASK_NONE,
-            "the next redraw brought the red flash back")
+        assert(card.images[ICUI.RIMS.party.fail] == ICUI.MASK_NONE,
+            "the next redraw brought the fail flash back")
     end)
     cm.callback = saved_cb
     assert(ok, err)
@@ -23997,7 +24084,10 @@ function()
         for i = 1, ICUI.HELP_SLOTS do
             local b = c["ic_help_topic_" .. i]
             if ICUI.HELP[i] then
-                assert(b.visible and plain(b.text) == ICUI.HELP[i].title,
+                -- WITH ITS TOPIC'S PICTURE in front (2026-09-29).
+                assert(b.visible and plain(b.text)
+                       == ICUI.help_fill("{@" .. tostring(ICUI.HELP[i].icon) .. "}", vars)
+                          .. ICUI.HELP[i].title,
                     "topic button " .. i .. " reads " .. tostring(b.text))
             else
                 assert(not b.visible, "spare topic button " .. i .. " draws")
@@ -24006,8 +24096,19 @@ function()
         -- THE SECOND TOPIC, chosen.
         click({string = "ic_help_topic_2"})
         assert(ICUI.help_page == 2, "the topic click left the page on " .. tostring(ICUI.help_page))
-        assert(plain(c.ic_help_head.text) == ICUI.HELP[2].title,
+        assert(plain(c.ic_help_head.text)
+               == ICUI.help_fill("{@" .. tostring(ICUI.HELP[2].icon) .. "}", vars)
+                  .. ICUI.HELP[2].title,
             "the heading reads " .. tostring(c.ic_help_head.text))
+        -- ITS PLATE HOLDS THE TITLE AND THE PICTURE (2026-09-29): the title is
+        -- measured bare and the picture in front is charged the line box, which
+        -- the fake reports as 16.
+        local head = c.ic_help_head
+        local xy = ICUI.PANEL_XY.ic_help_head
+        local want = #ICUI.HELP[2].title * head.text_px + 16
+                     + 2 * (ICUI.HEADING_CAP + ICUI.PLATE_GAP)
+        assert(want < xy[3], "the heading's cell is too narrow to show a plate hugging it")
+        assert(head.w == want, "the heading's plate is " .. tostring(head.w) .. "px, not " .. want)
         local lines = ICUI.HELP[2].lines
         for i = 1, ICUI.HELP_SLOTS do
             local cell = c["ic_help_line_" .. i]
@@ -24486,7 +24587,7 @@ check("the influence plate follows the man the panel shows and fits its words", 
     with_char_panel(opts, function(get)
         assert(ICUI.show_standing(), "the plate refused to draw")
         local plate = get()
-        assert(plate.text == "52 influence",
+        assert(plate.text == ICUI.cost(52) .. " influence",
             "the plate reads the map's selection, not the panel's man: " .. plate.text)
         -- ITS WORDS AND A TENTH, off the width that draws, held in from each end.
         local words = #plate.text * 10
@@ -24500,19 +24601,19 @@ check("the influence plate follows the man the panel shows and fits its words", 
         local switch = core.listeners["ic_char_switch"]
         assert(switch, "nothing redraws the plate when the panel's man changes")
         switch({string = "character_portrait"})
-        assert(plate.text == "137 influence",
+        assert(plate.text == ICUI.cost(137) .. " influence",
             "the plate kept the last man's figure: " .. plate.text)
         -- AND BACK AGAIN: the listener outlives its first call.
         opts.shows = 311
         switch = core.listeners["ic_char_switch"]
         assert(switch, "the switch listener died after its first call")
         switch({string = "character_portrait"})
-        assert(plate.text == "52 influence", "the second switch left " .. plate.text)
+        assert(plate.text == ICUI.cost(52) .. " influence", "the second switch left " .. plate.text)
         -- A PANEL THAT ANSWERS NOTHING: the map's selection, as before.
         opts.shows = nil
         ICUI.selected_cqi = 311
         ICUI.show_standing()
-        assert(plate.text == "52 influence", "with no answer from the panel it reads " .. plate.text)
+        assert(plate.text == ICUI.cost(52) .. " influence", "with no answer from the panel it reads " .. plate.text)
     end)
     cm.get_human_factions = saved
     ICUI.selected_cqi = nil
@@ -24555,7 +24656,7 @@ check("the button's tooltip leads with why it pulses, and where to go", function
         IC.agenda(F).demand = {slug = "forge", kind = "office", cqi = 1,
                                key = IC.OFFICES[1].slug, was = 0, ends = 6}
         assert(ICUI.attention(F).any)
-        local tip = ICUI.opener_tip(F)
+        local tip = bare(ICUI.opener_tip(F))
         local at = string.find(tip, head, 1, true)
         assert(at, "the pulsing button's tooltip has no heading saying why:\n" .. tip)
         local share = string.find(tip, "Your party holds", 1, true)
@@ -24628,6 +24729,1555 @@ check("only a seat somebody can take now pulses the button", function()
     end)
     IC.terms_ending = saved_ending
     assert(ok, err)
+end)
+
+-- ---------------------------------------------------------------------------
+-- AUTHOR, 2026-09-29: "add event cards to the three". Three things the court did
+-- in silence - a death that emptied a seat, a party standing down from leaving,
+-- an office coming back from a stall - each announced once, and each written to
+-- the record so a player who turned the routine cards off still has it.
+
+check("an officer who dies holding a seat is announced, with the seat named", function()
+as_player(function()
+    IC.state = {}
+    turn = 4
+    local man = make_character(701, ANY_SEAT, "forge", "prov_a")
+    local idle = make_character(702, ANY_SEAT, "forge")
+    local gov = make_character(703, ANY_SEAT, "forge", "prov_b")
+    make_faction(F, IC.CHD_SUBCULTURE, {man, idle, gov}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local office = IC.OFFICES[1].slug
+    local court = IC.court(F)
+    court.offices[office] = 701
+    court.govs["prov_a"] = 701
+    court.govs["prov_b"] = 703
+    local died = IC.EVENTS.officer_died
+    assert(died, "there is no card for an officer's death")
+    shown = {}
+    court.log = {}
+    man._dead = true
+    core.listeners["ic_dead"]({character = function() return man end})
+    assert(cards_at(died[1]) == 1,
+        "a man died in his seat and " .. cards_at(died[1]) .. " card(s) said so")
+    local card
+    for _, s in ipairs(shown) do if s.index == died[1] then card = s end end
+    assert(card.secondary == IC.office_title_key(office),
+        "the card's second line is " .. tostring(card.secondary)
+        .. ", not the seat he held")
+    -- AND THE RECORD, for both things he held.
+    local lines = {}
+    for _, e in ipairs(court.log) do
+        if e.kind == "died" then lines[#lines + 1] = ICUI.intrigue_text(e) end
+    end
+    assert(#lines == 2, "the record holds " .. #lines
+        .. " death line(s) for a man who held a seat and a province")
+    local both = table.concat(lines, " / ")
+    assert(string.find(both, ICUI.office_name(office), 1, true),
+        "the record does not name the seat: " .. both)
+    assert(string.find(both, "prov_a", 1, true),
+        "the record does not name the province: " .. both)
+    -- A PROVINCE IS NOT A SEAT: its line must not read as one.
+    local as_prov = ICUI.intrigue_text({kind = "died", slug = "forge", key = "prov_a", n = 1})
+    local as_seat = ICUI.intrigue_text({kind = "died", slug = "forge", key = "prov_a", n = 0})
+    assert(as_prov ~= as_seat, "a dead governor's line reads as a seat's: " .. as_prov)
+
+    -- A GOVERNOR AND NOTHING ELSE is still an officer, and his province stands
+    -- empty the same way.
+    shown = {}
+    gov._dead = true
+    core.listeners["ic_dead"]({character = function() return gov end})
+    assert(cards_at(died[1]) == 1, "a governor died and " .. cards_at(died[1])
+        .. " card(s) said so")
+
+    -- A MAN WHO HELD NOTHING leaves nothing empty, and is not announced.
+    shown = {}
+    idle._dead = true
+    core.listeners["ic_dead"]({character = function() return idle end})
+    assert(cards_at(died[1]) == 0, "a man who held nothing was announced")
+end)
+end)
+
+check("a death the player arranged carries the plot's card, not a second one", function()
+as_player(function()
+    plot_court(716, 717)
+    turn = 2
+    IC.register()
+    local seat = IC.OFFICES[#IC.OFFICES].slug
+    IC.court(F).standing[717] = IC.office_influence(seat)
+    assert(IC.appoint(F, seat, 717), "the fixture could not seat him")
+    shown = {}
+    killed, killed_force = {}, {}
+    assert(IC.plot(F, "murder", 716, "717"), "the murder was refused")
+    assert(IC.court(F).offices[seat] == nil, "the man is dead and still holds " .. seat)
+    assert(cards_at(IC.EVENTS.plot_ok[1]) == 1, "the murder raised no card of its own")
+    assert(cards_at(IC.EVENTS.officer_died[1]) == 0,
+        "the player's own murder was announced twice, once as a death")
+    assert(IC.arranged_deaths[717] == nil, "a mark outlived the death it was for")
+end)
+end)
+
+check("a feud killing in a seat raises the feud's card and not a second one", function()
+    feud_murder_court()
+    IC.register()
+    local office = legion_office()
+    IC.court(F).offices[office] = 311
+    rng({1, 1})
+    assert(IC.party_turn(F) == "feud_move", "the feud did not move")
+    assert(#killed == 1 and killed[1] == "cqi:311", "the feud killed " .. tostring(killed[1]))
+    assert(IC.court(F).offices[office] == nil, "the dead man still holds " .. office)
+    assert(cards_of("party_feud_murder") == 1, "no card for a feud murder")
+    assert(cards_of("officer_died") == 0,
+        "a feud murder was announced twice, once as a death")
+    assert(IC.arranged_deaths[311] == nil, "a mark outlived the death it was for")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a party that stands down from leaving is announced, once", function()
+as_player(function()
+    local court = angry_court()
+    local over = IC.EVENTS.threat_over
+    assert(over, "there is no card for a party standing down")
+    IC.tick_secession(F)
+    assert((court.houses.legion.clock or 0) > 0, "no count started, so none can stop")
+    shown = {}
+    court.houses.legion.loyalty = 100
+    IC.tick_secession(F)
+    assert(cards_at(over[1]) == 1, "a party stood down and " .. cards_at(over[1])
+        .. " card(s) said so")
+    IC.tick_secession(F)
+    assert(cards_at(over[1]) == 1, "the stand-down was announced again on a quiet turn")
+
+    -- A PARTY THAT NEVER STARTED COUNTING has nothing to stand down from.
+    local calm = angry_court()
+    calm.houses.legion.loyalty = 100
+    shown = {}
+    IC.tick_secession(F)
+    assert(cards_at(over[1]) == 0, "a party that never counted was said to stand down")
+end)
+end)
+
+check("your own house standing down from a split is announced, once", function()
+as_player(function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE,
+                 {make_character(73, ANY_SEAT, "forge", nil)}, {})
+    IC.add_house(F, "crown")
+    local crown = IC.court(F).houses[IC.CROWN]
+    crown.weight = 100
+    crown.loyalty = IC.TUNE.splinter_loyalty - 1
+    local over = IC.EVENTS.threat_over
+    IC.splinter(F)
+    assert((crown.split or 0) > 0, "no count started, so none can stop")
+    shown = {}
+    IC.court(F).log = {}
+    crown.loyalty = IC.TUNE.loyalty_start
+    IC.splinter(F)
+    assert(cards_at(over[1]) == 1, "your house stood down and " .. cards_at(over[1])
+        .. " card(s) said so")
+    local logged = false
+    for _, e in ipairs(IC.court(F).log) do
+        if e.slug == IC.CROWN and ICUI.intrigue_text(e) then logged = true end
+    end
+    assert(logged, "the stand-down is a routine card and the record has no line for it")
+    IC.splinter(F)
+    assert(cards_at(over[1]) == 1, "the stand-down was announced again on a quiet turn")
+end)
+end)
+
+check("an office back at work after a stall is announced, with the seat named", function()
+as_player(function()
+    IC.state = {}
+    turn = 5
+    local man = make_character(721, ANY_SEAT, "forge")
+    local other = make_character(722, ANY_SEAT, "chain")
+    make_faction(F, IC.CHD_SUBCULTURE, {man, other}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local office = IC.OFFICES[1].slug
+    local court = IC.court(F)
+    court.offices[office] = 721
+    assert(IC.stall_office(F, office, 3, "chain", "sabotage"), "the stall was refused")
+    local back = IC.EVENTS.stall_end
+    assert(back, "there is no card for an office back at work")
+    shown = {}
+    court.log = {}
+    turn = 7
+    IC.apply_office_bundles(F)
+    assert(cards_at(back[1]) == 0, "announced back at work before its turn")
+    turn = 8
+    IC.apply_office_bundles(F)
+    assert(cards_at(back[1]) == 1, "the office went back to work and "
+        .. cards_at(back[1]) .. " card(s) said so")
+    local card
+    for _, s in ipairs(shown) do if s.index == back[1] then card = s end end
+    assert(card.secondary == IC.office_title_key(office),
+        "the card's second line is " .. tostring(card.secondary) .. ", not the seat")
+    IC.apply_office_bundles(F)
+    assert(cards_at(back[1]) == 1, "the office was announced back at work twice")
+    local line
+    for _, e in ipairs(court.log) do
+        if e.kind == "stall_end" then line = ICUI.intrigue_text(e) end
+    end
+    assert(line and string.find(line, ICUI.office_name(office), 1, true),
+        "the record's line does not name the seat: " .. tostring(line))
+
+    -- A STALL THAT ENDS BECAUSE ITS MAN LEFT is not an office back at work.
+    shown = {}
+    turn = 9
+    IC.stall_office(F, office, 3, "chain", "sabotage")
+    court.offices[office] = 722
+    IC.apply_office_bundles(F)
+    assert(court.stalled[office] == nil, "the fixture's stall did not end")
+    assert(cards_at(back[1]) == 0, "a stall that ended with its man was announced as work")
+end)
+end)
+
+-- AUTHOR, 2026-09-29: "there is no place indicating the character's party".
+check("every man wears his party's trait, and it follows him", function()
+    IC.state = {}
+    turn = 3
+    local man = make_character(731, ANY_SEAT, "forge")
+    local legend = make_character(732, ANY_SEAT, "forge", nil, true)
+    make_faction(F, IC.CHD_SUBCULTURE, {man, legend}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    assert(IC.name_party(F, "forge"), "the fixture could not name the party")
+    local house = IC.court(F).houses.forge
+    local tails = IC.NAME_TAILS.forge
+    local want = "derpy_ic_member_forge_" .. ((house.tail - 1) % #tails + 1)
+    assert(IC.member_trait(F, "forge") == want,
+        "the forge party's trait is " .. tostring(IC.member_trait(F, "forge"))
+        .. ", not " .. want)
+    IC.stamp_members(F)
+    assert(man:has_trait(want), "a forge man does not wear the forge party's trait")
+    assert(legend:has_trait("derpy_ic_member_crown"),
+        "a legend sits with the Crown and does not wear its trait")
+    assert(not legend:has_trait(want), "a legend wears the party of his trade")
+
+    -- THE PARTY GOES: he is the Crown's again, and wears one trait, not two.
+    IC.court(F).houses.forge = nil
+    IC.stamp_members(F)
+    assert(man:has_trait("derpy_ic_member_crown"),
+        "his party left and he does not wear the Crown's trait")
+    assert(not man:has_trait(want), "he still wears the party that left")
+
+    -- A NEW PARTY OF THE SAME TRADE is a new name, and the old one comes off.
+    IC.add_house(F, "forge")
+    house = IC.court(F).houses.forge
+    house.tail = (house.tail or 1) % #tails + 1
+    house.head = 1
+    local again = IC.member_trait(F, "forge")
+    IC.stamp_members(F)
+    assert(man:has_trait(again), "he does not wear the new party's trait")
+    assert(not man:has_trait("derpy_ic_member_crown"), "he still wears the Crown's")
+
+    -- A SAVE ROLLED AGAINST A LONGER LIST is wrapped as IC.party_name wraps it,
+    -- so the trait names the party the panel draws.
+    house.tail = #tails + 2
+    assert(IC.member_trait(F, "forge") == "derpy_ic_member_forge_2",
+        "a tail past the end of the list reads " .. tostring(IC.member_trait(F, "forge")))
+
+    -- AND A TURN DOES IT, after everything in the turn that can move a man.
+    IC.court(F).houses.forge = nil
+    IC.turn(F)
+    assert(not man:has_trait(again), "a turn left him wearing a party that is gone")
+end)
+
+check("a man of a confederate party wears that faction's name, and loses it", function()
+    IC.state = {}
+    turn = 3
+    local man = make_character(741, ANY_SEAT, "forge", nil, false, "zhatan")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "zhatan", true)
+    assert(IC.house_of_character(man, F) == "zhatan", "the fixture's man sits with "
+        .. tostring(IC.house_of_character(man, F)))
+    IC.stamp_members(F)
+    assert(man:has_trait("derpy_ic_member_zhatan"),
+        "a confederate party's man does not wear its trait")
+    IC.court(F).houses.zhatan = nil
+    IC.stamp_members(F)
+    assert(not man:has_trait("derpy_ic_member_zhatan"),
+        "the confederate party is gone and he still wears it")
+end)
+
+check("every party trait the model can hand out has a row, and names the party", function()
+    local function read(path)
+        local fh = assert(io.open(path, "r"), "cannot read " .. path)
+        local text = fh:read("*a")
+        fh:close()
+        return text
+    end
+    local rows = read("Modding Files/source/iron_court/character_traits.tsv")
+    local loc_text = read("Modding Files/source/iron_court/loc.tsv")
+    local keys = IC.member_trait_keys()
+    assert(#keys > 1, "the model names " .. #keys .. " party trait(s)")
+    for _, key in ipairs(keys) do
+        assert(string.find(rows, "\n" .. key .. "\t", 1, true),
+            key .. " can be handed out and has no character_traits row")
+    end
+    -- THE TAIL THE PANEL DRAWS IS THE TAIL THE TRAIT SAYS. The index is the only
+    -- thing tying a key to a name, and it is typed on both sides of the fence.
+    for slug, tails in pairs(IC.NAME_TAILS) do
+        if slug ~= IC.CROWN then
+            for i, tail in ipairs(tails) do
+                local key = "character_trait_levels_onscreen_name_derpy_ic_member_"
+                            .. slug .. "_" .. i
+                local at = string.find(loc_text, "\n" .. key .. "\t", 1, true)
+                assert(at, key .. " has no name")
+                local line = string.sub(loc_text, at + 1,
+                                        (string.find(loc_text, "\n", at + 1, true) or 0) - 1)
+                -- Case aside: the trait capitalises its first word.
+                assert(string.find(string.lower(line), string.lower(tail), 1, true),
+                    key .. " reads '" .. line .. "' and the panel calls it " .. tail)
+            end
+        end
+    end
+end)
+
+-- AUTHOR, 2026-09-29 (#5): every yes shared one chime and every no another.
+check("each kind of answer has a sound of its own", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge", "prov_a")},
+                 {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local heard = {}
+    local ok, err = pcall(as_player, function()
+        local function hear(what, fn)
+            sounds = {}
+            fn()
+            assert(#sounds == 1, what .. " played " .. #sounds .. " sound(s), not one")
+            assert(sounds[1] == ICUI.SOUNDS[what],
+                what .. " played " .. tostring(sounds[1]) .. ", not its own "
+                .. tostring(ICUI.SOUNDS[what]))
+            heard[what] = sounds[1]
+        end
+        hear("grant", function() ICUI.ANSWERS.grant("forge", true) end)
+        hear("refuse", function() ICUI.ANSWERS.refuse("forge", true) end)
+        hear("accept", function() ICUI.ANSWERS.accept("forge", true) end)
+        hear("decline", function() ICUI.ANSWERS.decline("forge", true) end)
+        hear("favour", function() ICUI.ANSWERS.favour("gift|forge", true) end)
+        hear("arbit", function() ICUI.ANSWERS.arbit("forge|back", true) end)
+        hear("ungov", function() ICUI.ANSWERS.ungov("prov_a", true) end)
+        hear("dismiss", function() ICUI.ANSWERS.dismiss(IC.OFFICES[1].slug) end)
+        hear("fill", function() ICUI.ANSWERS.fill(nil, true, nil, 2) end)
+        hear("plot", function() ICUI.ANSWERS.plot("rumour|1|1", true) end)
+        hear("plot_failed", function() ICUI.ANSWERS.plot("rumour|1|1", true, "failed") end)
+        hear("refused", function() ICUI.ANSWERS.grant("forge", false, "gone") end)
+        hear("refused", function() ICUI.ANSWERS.gov("prov_a|1", false, "busy") end)
+        hear("refused", function() ICUI.on_fill_click() end)
+        hear("refused", function() ICUI.ANSWERS.fill(nil, false, "no fill") end)
+        hear("appoint", function() ICUI.ANSWERS.appoint(IC.OFFICES[1].slug .. "|1", true) end)
+        hear("gov", function() ICUI.ANSWERS.gov("prov_a|1", true) end)
+    end)
+    cm.callback = saved_cb
+    assert(ok, err)
+    -- ONE EACH: two kinds sharing a sound is the fault this fixes.
+    local by_sound = {}
+    for what, sound in pairs(heard) do
+        assert(not by_sound[sound], what .. " and " .. tostring(by_sound[sound])
+            .. " both play " .. sound)
+        by_sound[sound] = what
+    end
+    assert(ICUI.SOUNDS.appoint == ICUI.SOUND_SEAT and ICUI.SOUNDS.gov ~= ICUI.SOUND_SEAT,
+        "a seat and a province share the ritual sound")
+end)
+
+-- ---------------------------------------------------------------------------
+-- THE 2026-09-29 AUDIT'S FIRST FOUR, each a check that failed before its fix.
+
+check("a party that leaves takes its seats and provinces with it", function()
+    -- remove_house deleted the party and THEN asked which posts were its men's,
+    -- by when house_of_cqi answered the Crown for every one of them: no seat
+    -- and no province was ever freed, and a leaver kept his post as a Crown man.
+    IC.state = {}
+    turn = 4
+    local officer = make_character(751, ANY_SEAT, "legion", "prov_a")
+    local crownman = make_character(752, ANY_SEAT, IC.CROWN, "prov_b")
+    make_faction(F, IC.CHD_SUBCULTURE, {officer, crownman}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local court = IC.court(F)
+    local seat, other = IC.OFFICES[1].slug, IC.OFFICES[2].slug
+    court.offices[seat] = 751
+    court.terms[seat] = 14
+    court.offices[other] = 752
+    court.govs["prov_a"] = 751
+    court.govs["prov_b"] = 752
+    applied = {}
+    IC.apply_office_bundles(F)
+    assert(applied[IC.office_bundle(seat)], "the fixture's seat pays nothing to begin with")
+    province_applied = {}
+    assert(IC.remove_house(F, "legion"), "the party was not removed")
+    assert(court.offices[seat] == nil, "the leaving party's man still holds " .. seat)
+    assert(court.terms[seat] == nil, "his term outlived the seat")
+    assert(court.govs["prov_a"] == nil, "the leaving party's man still governs prov_a")
+    assert(court.offices[other] == 752, "the Crown's own man lost his seat")
+    assert(court.govs["prov_b"] == 752, "the Crown's own man lost his province")
+    -- THE PROVINCES' BONUSES ARE REDRAWN TOO: one governor left, one bonus.
+    assert(province_applied["derpy_ic_gov_base"] == 1, "the governors' bonuses were "
+        .. "not redrawn: " .. tostring(province_applied["derpy_ic_gov_base"]))
+    -- AND THE SEAT STOPS PAYING NOW, not at the next thing that redraws bundles.
+    assert(not applied[IC.office_bundle(seat)], "the emptied seat still pays")
+    assert(applied[IC.office_bundle(other)], "the Crown's seat stopped paying")
+end)
+
+check("the men a secession takes are not mourned as the Crown's dead", function()
+as_player(function()
+    -- The secession kills its leavers after the party is gone, so ic_dead read
+    -- every one of them as a Crown man: loyalty_member_died off the Crown a head
+    -- - 60 went to 28 in the audit's run, past the split line - and, with a
+    -- post, a death card for a man who walked out.
+    local court = seceding_court()
+    IC.register()
+    local seat = IC.OFFICES[1].slug
+    court.offices[seat] = 71
+    local crown = court.houses[IC.CROWN]
+    crown.loyalty = 60
+    shown = {}
+    court.log = {}
+    killed, killed_force = {}, {}
+    IC.secede(F, "legion")
+    assert(#killed >= 1, "the fixture's lord was not taken off the board")
+    assert(crown.loyalty == 60, "the Crown lost " .. (60 - crown.loyalty)
+        .. " loyalty for men who left")
+    assert(cards_at(IC.EVENTS.officer_died[1]) == 0, "a man who walked out was announced dead")
+    for _, e in ipairs(court.log) do
+        assert(e.kind ~= "died", "the record mourns a man who walked out")
+    end
+    assert(court.offices[seat] == nil, "the leaving lord still holds " .. seat)
+    assert(IC.arranged_deaths[71] == nil, "a mark outlived the man it was for")
+end)
+end)
+
+check("a reload keeps the governors in the court's shares", function()
+    -- house.gov_weight was never saved, and IC.turn reloads the court from the
+    -- save before the drift - so every turn's drift ran on shares with no
+    -- governors in them, and Zealots of Hashut could flip sign.
+    IC.state = {}
+    local g1 = make_character(761, ANY_SEAT, IC.CROWN, "prov_a")
+    local g2 = make_character(762, ANY_SEAT, IC.CROWN, "prov_b")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1, g2}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    endow(F)
+    IC.assign_governor(F, "prov_a", 761)
+    IC.assign_governor(F, "prov_b", 762)
+    assert((IC.court(F).houses[IC.CROWN].gov_weight or 0) > 0,
+        "the fixture's governors add no weight to begin with")
+    local weight, share = IC.house_weight(F, IC.CROWN), IC.share(F, IC.CROWN)
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    assert(IC.house_weight(F, IC.CROWN) == weight, "the Crown weighs "
+        .. IC.house_weight(F, IC.CROWN) .. " after a reload and " .. weight .. " before")
+    assert(IC.share(F, IC.CROWN) == share, "the Crown's share moved on a reload")
+end)
+
+check("a hero who leaves with a secession is not mourned by the Crown either", function()
+as_player(function()
+    -- The second kill site: heroes are spawned on the rebels' side and taken off
+    -- yours in a step of their own, and each one was charged to the Crown too.
+    party_with_heroes(1, "wh3_dlc23_chd_daemonsmith_sorcerer_metal")
+    IC.register()
+    local crown = IC.court(F).houses[IC.CROWN]
+    crown.loyalty = 60
+    IC.secede(F, "legion")
+    assert(#agents == 1, #agents .. " hero(es) changed sides, not the fixture's one")
+    assert(crown.loyalty == 60, "the Crown lost " .. (60 - crown.loyalty)
+        .. " loyalty for men who left")
+    assert(IC.arranged_deaths[141] == nil, "the hero's mark outlived him")
+end)
+end)
+
+check("a provoked party keeps counting even when it is content", function()
+as_player(function()
+    -- THE MOVE CHOOSES WHEN THE RECKONING BEGINS (its own blurb), and a party
+    -- that was not angry already had the count cancelled by the very next tick,
+    -- with a card saying it had stood down (audit 2026-09-29).
+    local function provoked_court()
+        IC.state = {}
+        local actor = make_character(974, ANY_SEAT, "crown")
+        local victim = make_character(975, ANY_SEAT, "legion")
+        local faction = make_faction(F, IC.CHD_SUBCULTURE, {actor, victim}, {})
+        faction._gold = 100000
+        IC.add_house(F, "crown")
+        IC.add_house(F, "legion")
+        IC.court(F).standing[974] = 5000
+        IC.court(F).standing[975] = 100
+        local house = IC.court(F).houses["legion"]
+        house.loyalty, house.clock = 90, 0
+        assert(IC.plot(F, "provoke", 974, "975"), "the provocation was refused")
+        assert(house.loyalty > IC.TUNE.secede_loyalty,
+            "this check needs a party that is not angry of its own accord")
+        return house
+    end
+    local over = IC.EVENTS.threat_over
+    local house = provoked_court()
+    shown = {}
+    IC.tick_secession(F)
+    assert(house.clock == IC.TUNE.plot_provoke_clock - 1, "a provoked party's count read "
+        .. tostring(house.clock) .. " after one turn, not "
+        .. (IC.TUNE.plot_provoke_clock - 1))
+    assert(cards_at(over[1]) == 0, "a provoked party was said to stand down")
+    -- AND IT SURVIVES A RELOAD: the count is saved, so the reason for it must be.
+    IC.unpack(F, IC.pack(F))
+    house = IC.court(F).houses["legion"]
+    for _ = 2, IC.TUNE.plot_provoke_clock do IC.tick_secession(F) end
+    assert(not IC.court(F).houses["legion"], "the provoked party ran out its count and stayed")
+
+    -- SECURE LOYALTY STILL ENDS IT, and for good: the oath runs out and the
+    -- insult is not remembered.
+    house = provoked_court()
+    turn = turn or 1
+    assert(IC.favour(F, "secure", "legion"), "Secure Loyalty was refused")
+    IC.tick_secession(F)
+    house.protected = nil
+    for _ = 1, IC.TUNE.plot_provoke_clock + 1 do IC.tick_secession(F) end
+    assert(IC.court(F).houses["legion"] and (house.clock or 0) == 0,
+        "a party sworn to you after an insult started counting again when the oath ran out")
+
+    -- A BRIBE CALLS IT OFF TOO. It zeroes the count, and a remembered insult
+    -- would restart it at the full length the next turn.
+    house = provoked_court()
+    IC.court(F).standing[974] = 5000
+    assert(IC.plot(F, "bribe", 974, "975"), "the bribe was refused")
+    IC.tick_secession(F)
+    assert((house.clock or 0) == 0, "a bribed party started counting again at "
+        .. tostring(house.clock))
+end)
+end)
+
+check("a rebel faction woken from the dead starts a court of its own", function()
+    -- A DEAD RISING KEEPS ITS SAVED COURT: its parties, their loyalty, their
+    -- counts and its agenda. Woken for a new secession, it ran the old one's
+    -- quarrels under the new party's name (audit 2026-09-29).
+    local court = seceding_court()
+    court.prov["prov_b"] = 80
+    court.prov["prov_c"] = 80
+    local R = IC.REBEL_POOL[1]
+    IC.add_house(R, "forge")
+    IC.court(R).houses.forge.clock = 2
+    IC.save(R)
+    IC.agenda_state = IC.agenda_state or {}
+    IC.agenda_state[R] = {feud = {a = "forge", b = "chain"}}
+    saved["derpy_ic_agenda_" .. R] = "stale"
+    IC.secede(F, "legion")
+    assert(forces[1] and forces[1].faction == R,
+        "the fixture woke " .. tostring(forces[1] and forces[1].faction) .. ", not " .. R)
+    assert(not (IC.state[R] and IC.state[R].houses.forge),
+        "the woken rising still seats the dead court's party")
+    assert((saved["derpy_ic_" .. R] or "") == "", "the dead court is still in the save")
+    assert(not (IC.agenda_state and IC.agenda_state[R]), "the dead court's agenda survived")
+    assert((saved["derpy_ic_agenda_" .. R] or "") == "", "the dead court's agenda is still saved")
+
+    -- AND A LIVING ONE KEEPS ITS COURT. With the pool full a party joins a
+    -- rising already running, whose parties are real.
+    court = seceding_court()
+    court.prov["prov_b"] = 80
+    court.prov["prov_c"] = 80
+    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    IC.add_house(R, "forge")
+    IC.save(R)
+    IC.secede(F, "legion")
+    assert(forces[1] and forces[1].faction == R,
+        "the fixture joined " .. tostring(forces[1] and forces[1].faction) .. ", not " .. R)
+    assert(IC.state[R] and IC.state[R].houses.forge,
+        "joining a living rising wiped its court")
+end)
+
+check("a countdown switched off while its court was on disk is gone when it loads", function()
+    -- THE SWITCHES ONLY CLEARED THE COURTS IN MEMORY, and at a load the switch is
+    -- read before any court is: set in MCT at the menu, a saved count survived
+    -- the load and the panel showed it until that court's next turn (audit
+    -- 2026-09-29).
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(76, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local court = IC.court(F)
+    court.houses.legion.clock = 3
+    court.houses.legion.pressed = true
+    court.houses[IC.CROWN].split = 2
+    IC.save(F)
+    local keep = {IC.TUNE.secession, IC.TUNE.pressure, IC.TUNE.crown_split}
+    IC.TUNE.secession, IC.TUNE.pressure, IC.TUNE.crown_split = false, false, false
+    local ok, err = pcall(function()
+        IC.state = {}
+        court = IC.load(F)
+        assert((court.houses.legion.clock or 0) == 0,
+            "a secession count of " .. tostring(court.houses.legion.clock) .. " came back")
+        assert(not court.houses.legion.pressed, "a pressed party came back")
+        assert((court.houses[IC.CROWN].split or 0) == 0,
+            "the Crown's split count of " .. tostring(court.houses[IC.CROWN].split) .. " came back")
+    end)
+    IC.TUNE.secession, IC.TUNE.pressure, IC.TUNE.crown_split = keep[1], keep[2], keep[3]
+    assert(ok, err)
+    -- AND WITH THEM ON, A LOAD CHANGES NOTHING.
+    IC.state = {}
+    court = IC.load(F)
+    assert(court.houses.legion.clock == 3 and court.houses.legion.pressed
+        and court.houses[IC.CROWN].split == 2, "a load with the switches on moved a count")
+end)
+
+check("a party that leaves takes its business before the court with it", function()
+as_player(function()
+    -- THE TURN'S UPKEEP CLEARED A GONE PARTY'S DEMAND, OFFER, PLOT AND FEUDS at
+    -- the next turn start. A purge, a dissolve or a secession in between left
+    -- them on the Petitions tab, in the court button's pulse, and a feud row
+    -- offering to back one side against a party that no longer existed (audit
+    -- 2026-09-29).
+    IC.state = {}
+    IC.agenda_state = {}
+    turn = 5
+    local man = make_character(731, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE,
+                 {man, make_character(732, ANY_SEAT, "forge"),
+                  make_character(733, ANY_SEAT, IC.CROWN)}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    local a = IC.agenda(F)
+    a.demand = {slug = "legion", kind = "office", cqi = 731, key = IC.OFFICES[1].slug,
+                was = 0, ends = 9}
+    a.offers.legion = {kind = "gold", n = 100, ends = 9}
+    a.offers.chain = {kind = "gold", n = 100, ends = 9}
+    a.plot = {slug = "legion", move = "rumour", actor = 731, target = 733, turn = 5}
+    local rec = {a = "legion", b = "forge", cause = "equal", since = 4, ends = 9}
+    a.feuds.legion, a.feuds.forge = rec, rec
+    IC.save_agenda(F)
+    missions_closed = {}
+    shown = {}
+    assert(IC.remove_house(F, "legion"), "the fixture's party would not leave")
+    a = IC.agenda(F)
+    assert(not a.demand, "the gone party's demand is still open")
+    assert(#missions_closed == 1 and missions_closed[1].cancelled,
+        "the gone party's demand mission was left on the player's list")
+    assert(not a.offers.legion, "the gone party's offer is still open")
+    assert(a.offers.chain, "another party's offer went with it")
+    assert(not a.plot, "the gone party's plot is still being prepared")
+    assert(cards_of("party_plot_dropped") == 1, "the plot was dropped and nothing said so")
+    assert(not a.feuds.forge, "the forge still feuds with a party that is gone")
+    assert(cards_of("party_feud_end") == 1, "the feud ended and nothing said so")
+    assert(not IC.can_arbitrate(F, "forge", "back"), "Back Them still offered against nobody")
+    -- AND SAVED: a reload brings none of it back.
+    IC.agenda_state = {}
+    a = IC.agenda(F)
+    assert(not a.demand and not a.offers.legion and not a.plot and not a.feuds.forge,
+        "the cleared business came back from the save")
+end)
+end)
+
+check("the plot picker warns a man that paying will cost him his seat", function()
+    -- PAYING FOR A MOVE CAN LEAVE AN OFFICER UNDER HIS SEAT'S BAR, and IC.plot
+    -- unseats him the moment it is paid. The picker said nothing, and the Help
+    -- page said it happened next turn, through a rival (audit 2026-09-29).
+    IC.state = {}
+    local office = IC.OFFICES[#IC.OFFICES]
+    local bar = IC.tier_influence(office.tier)
+    local cost = IC.plot_cost("rumour")
+    make_faction(F, IC.CHD_SUBCULTURE,
+                 {make_character(437, ANY_SEAT, "crown"), make_character(438, ANY_SEAT, "crown"),
+                  make_character(439, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, "crown")
+    IC.add_house(F, "legion")
+    local other = IC.OFFICES[#IC.OFFICES - 1]
+    IC.court(F).offices[office.slug] = 437
+    IC.court(F).offices[other.slug] = 438
+    local other_bar = IC.tier_influence(other.tier)
+    IC.court(F).standing[437] = bar + cost - 1
+    IC.court(F).standing[438] = other_bar + cost
+    IC.court(F).standing[439] = 0
+    assert(IC.plot_costs_seat(F, "rumour", 437) == office.slug,
+        "a man one short of his seat after paying was not told: "
+        .. tostring(IC.plot_costs_seat(F, "rumour", 437)))
+    assert(IC.plot_costs_seat(F, "rumour", 438) == nil,
+        "a man left exactly at his seat's bar was told he would lose it")
+    -- A MAN WITH NO SEAT HAS NONE TO LOSE, however little the price leaves him.
+    IC.court(F).standing[440] = cost
+    assert(IC.plot_costs_seat(F, "rumour", 440) == nil,
+        "a man with no seat was told he would lose " .. tostring(IC.plot_costs_seat(F, "rumour", 440)))
+    as_player(function()
+        ICUI.pick = {kind = "plot", plot = "rumour", key = "439"}
+        ICUI.scroll.pick = 0
+        with_fake_panel(function(panel)
+            ICUI.refresh()
+            local warned, safe
+            for i = 1, ICUI.MAX_ROWS do
+                local row = panel.children[ICUI.ROW .. "_" .. i]
+                if row and row.visible then
+                    local d = plain(row.children.ic_row_d.text or "")
+                    if d:find("^" .. (bar + cost - 1) .. " influence") then warned = row end
+                    if d:find("^" .. (other_bar + cost) .. " influence") then safe = row end
+                end
+            end
+            assert(warned and safe, "the fixture's two officers are not both on the list")
+            assert(is_red(warned.children.ic_row_d.text),
+                "the man about to lose his seat reads " .. warned.children.ic_row_d.text)
+            assert((warned.children.ic_row_e.tooltip or "") ~= "",
+                "the man about to lose his seat has no word of it on his button")
+            assert(not is_red(safe.children.ic_row_d.text)
+                and (safe.children.ic_row_e.tooltip or "") == "",
+                "a man who keeps his seat was warned he would lose it")
+        end)
+        ICUI.pick = nil
+    end)
+    -- AND THE WARNING IS TRUE (bars are the player's court's rule only).
+    IC.court(F).standing[437] = bar + cost - 1
+    rng({1})
+    as_player(function()
+        assert(IC.plot(F, "rumour", 437, "439"), "the rumour was refused")
+    end)
+    assert(IC.court(F).offices[office.slug] == nil, "the warning named a seat he kept")
+end)
+
+check("a party's mood word moves with the difficulty's plotting line", function()
+    -- RESTLESS SAYS THE PARTY MAY MOVE AGAINST YOU, which it does at or below
+    -- party_intrigue_line - 45 on Gentle, 65 on Ruthless. The word was a fixed
+    -- 55, so on Ruthless a party at 60 read LOYAL while it plotted (audit
+    -- 2026-09-29).
+    local keep = IC.TUNE.party_intrigue_line
+    local ok, err = pcall(function()
+        for _, line in ipairs({45, 65}) do
+            IC.TUNE.party_intrigue_line = line
+            assert(ICUI.mood({loyalty = line, clock = 0}, "legion") == "RESTLESS",
+                "a party at the plotting line " .. line .. " reads "
+                .. ICUI.mood({loyalty = line, clock = 0}, "legion"))
+            assert(ICUI.mood({loyalty = line + 1, clock = 0}, "legion") == "LOYAL",
+                "a party above the plotting line " .. line .. " reads "
+                .. ICUI.mood({loyalty = line + 1, clock = 0}, "legion"))
+        end
+    end)
+    IC.TUNE.party_intrigue_line = keep
+    assert(ok, err)
+end)
+
+check("the Record names a party as it was when the line was written", function()
+    -- NAMES WERE RESOLVED AT DRAW TIME from the court as it is now: a party
+    -- that had left read as its trade's plain name, a later party of the same
+    -- trade took over its lines, and a confederate one read as its slug (audit
+    -- 2026-09-29).
+    local function line_of(kind)
+        for _, e in ipairs(IC.court(F).log) do
+            if e.kind == kind then return ICUI.intrigue_text(e) end
+        end
+    end
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(741, ANY_SEAT, IC.CROWN)}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local legion = IC.court(F).houses.legion
+    legion.head, legion.tail = 2, 3
+    local was = IC.party_name(F, "legion")
+    assert(was, "the fixture's party has no rolled name")
+    IC.log(F, "warn", "legion", nil, 3)
+    IC.log(F, "rumour", IC.CROWN, "legion", 50)
+    -- AND THE LINES WRITTEN AS IT GOES: its feud ends after it is gone.
+    IC.add_house(F, "forge")
+    IC.agenda_state = {}
+    local rec = {a = "legion", b = "forge", cause = "equal", since = 1, ends = 99}
+    IC.agenda(F).feuds.legion, IC.agenda(F).feuds.forge = rec, rec
+    IC.remove_house(F, "legion")
+    IC.add_house(F, "legion")
+    IC.court(F).houses.legion.head, IC.court(F).houses.legion.tail = 5, 1
+    assert(IC.party_name(F, "legion") ~= was, "the fixture's second party has the first one's name")
+    -- AND THROUGH A SAVE.
+    IC.unpack(F, IC.pack(F))
+    for _, kind in ipairs({"warn", "rumour", "feud_end"}) do
+        local text = line_of(kind)
+        assert(text and text:find(was, 1, true),
+            "the " .. kind .. " line names " .. tostring(text) .. ", not " .. was)
+    end
+
+    -- A CONFEDERATE PARTY keeps its faction's name after it has gone.
+    local origin = IC.ORIGINS[1]
+    local keep_loc = IC_TEST_LOC
+    IC_TEST_LOC = {["factions_screen_name_" .. origin.faction] = "The Test Confederates"}
+    local ok, err = pcall(function()
+        IC.add_house(F, origin.slug)
+        IC.court(F).houses[origin.slug].confed = true
+        IC.log(F, "join", origin.slug, nil, 0)
+        IC.remove_house(F, origin.slug)
+        local text = line_of("join")
+        assert(text and text:find("The Test Confederates", 1, true),
+            "a confederate party that left reads " .. tostring(text))
+    end)
+    IC_TEST_LOC = keep_loc
+    assert(ok, err)
+end)
+
+check("a secession's own line names the party that left", function()
+    -- WRITTEN IN THE LAST STEP, after the party is gone from the court.
+    local court = seceding_court()
+    court.prov["prov_b"] = 80
+    court.prov["prov_c"] = 80
+    court.houses.legion.head, court.houses.legion.tail = 2, 3
+    local was = IC.party_name(F, "legion")
+    IC.secede(F, "legion")
+    local text
+    for _, e in ipairs(IC.court(F).log) do
+        if e.kind == "secede" then text = ICUI.intrigue_text(e) end
+    end
+    assert(text and text:find(was, 1, true),
+        "the secession reads " .. tostring(text) .. ", not " .. was)
+end)
+
+check("another race's player gets no influence plate and no court", function()
+    -- EVERY LISTENER HERE IS GLOBAL, and the plate asked only whether the chosen
+    -- man was the player's: a Bretonnian lord drew "0 influence", and asking
+    -- built the Bretonnian player a court (audit 2026-09-29).
+    IC.state = {}
+    local man = make_character(750, ANY_SEAT, nil)
+    make_faction(F, "wh_main_sc_brt_bretonnia", {man}, {})
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    ICUI.selected_cqi = 750
+    local ok, err = pcall(function()
+        with_char_panel({ax = 700, ay = 400}, function(get)
+            assert(not ICUI.show_standing(), "the plate drew for another race's lord")
+            local plate = get()
+            assert(not (plate and plate.shown), "the plate is showing: "
+                .. tostring(plate and plate.text))
+        end)
+        assert(IC.state[F] == nil, "asking about the plate gave another race a court")
+    end)
+    cm.get_human_factions = saved
+    ICUI.selected_cqi = nil
+    assert(ok, err)
+end)
+
+check("a man you dismiss waits for that seat as a man whose term ended does", function()
+    -- THE LOOPHOLE (audit 2026-09-29): one turn before a term ended, dismiss
+    -- and re-seat him - a fresh full term for a net 4 loyalty, and the seat
+    -- never empty. Letting the term run out costs 3 empty turns.
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE,
+                 {make_character(1, ANY_SEAT, "forge"), make_character(2, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, "forge")
+    endow(F)
+    assert(IC.appoint(F, "forge", 1), "the appointment was refused")
+    turn = turn + IC.TUNE.term_turns - 1
+    assert(IC.dismiss(F, "forge"), "no dismissal")
+    local ok, why, left = IC.can_appoint(F, "forge", 1)
+    assert(not ok and why == "renew" and left == IC.TUNE.renew_wait,
+        "the dismissed man could be seated again at once: " .. tostring(ok) .. " "
+        .. tostring(why) .. " " .. tostring(left))
+    -- ANYONE ELSE, AT ONCE.
+    assert(IC.can_appoint(F, "forge", 2), "another man was kept out of the dismissed seat")
+end)
+
+check("an insult is announced once, and a bribe or a reload does not forget which seat", function()
+as_player(function()
+    -- A BRIBE AND THE PLEDGE CLEARED THE SNUB, though the outsider still sits
+    -- in the seat and still costs the party every turn: the next drift raised
+    -- the same card and record line again. And the seat was never saved, so a
+    -- reload read "an office" (audit 2026-09-29).
+    local function snubbed_court()
+        IC.state = {}
+        local actor = make_character(980, ANY_SEAT, "crown")
+        local victim = make_character(981, ANY_SEAT, "legion")
+        make_faction(F, IC.CHD_SUBCULTURE, {actor, victim}, {})
+        IC.add_house(F, "crown"); IC.add_house(F, "legion")
+        local court = IC.court(F)
+        court.standing[980] = 5000; court.standing[981] = 100
+        local claimed
+        for _, o in ipairs(IC.OFFICES) do if o.affinity == "legion" then claimed = o.slug end end
+        court.offices[claimed] = 980
+        IC.drift_loyalty(F)
+        assert(court.houses.legion.snub_key == claimed, "the fixture's party is not insulted")
+        return court, claimed
+    end
+    local snub = IC.EVENTS.snub[1]
+    for _, move in ipairs({"bribe", "pledge"}) do
+        local court = snubbed_court()
+        rng({1})
+        assert(IC.plot(F, move, 980, "981"), move .. " was refused")
+        shown = {}
+        IC.drift_loyalty(F)
+        assert(cards_at(snub) == 0, "the insult was announced again after " .. move)
+        local n = 0
+        for _, e in ipairs(court.log) do if e.kind == "snub_on" then n = n + 1 end end
+        assert(n == 1, n .. " insult lines in the record after " .. move)
+    end
+    local court, claimed = snubbed_court()
+    IC.unpack(F, IC.pack(F))
+    assert(IC.court(F).houses.legion.snub_key == claimed,
+        "the insult's seat after a reload is " .. tostring(IC.court(F).houses.legion.snub_key))
+end)
+end)
+
+check("a governor's death takes his bonus off his province at once", function()
+    -- THE POST WAS EMPTIED AND THE BONUS LEFT ON until the next turn start, and
+    -- his party kept the governorship's weight in every share the panel drew
+    -- (audit 2026-09-29).
+    IC.state = {}
+    local man = make_character(751, ANY_SEAT, "forge", "prov_a")
+    make_faction(F, IC.CHD_SUBCULTURE, {man, make_character(752, ANY_SEAT, IC.CROWN)}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).govs["prov_a"] = 751
+    IC.apply_governor_bundles(F)
+    local house = IC.court(F).houses.forge
+    assert((house.gov_weight or 0) > 0, "the fixture's governor carries no weight")
+    province_removed = {}
+    man._dead = true
+    core.listeners["ic_dead"]({character = function() return man end})
+    assert((house.gov_weight or 0) == 0, "his party still carries "
+        .. tostring(house.gov_weight) .. " weight for a dead man's province")
+    local off = false
+    for _, r in ipairs(province_removed) do
+        if r == IC.gov_bundle_base() .. "@region_prov_a" then off = true end
+    end
+    assert(off, "the dead governor's bonus is still on his province")
+end)
+
+check("the Court tab's warning names the party leaving soonest", function()
+    -- IT NAMED THE LAST ONE IN COURT ORDER, and said "turns" of one (audit
+    -- 2026-09-29). Both orders, so the answer cannot come from where the
+    -- soonest one happens to sit.
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    local ok, err = pcall(function()
+        for _, case in ipairs({{1, 4}, {4, 1}}) do
+            IC.state = {}
+            make_faction(F, IC.CHD_SUBCULTURE, {make_character(433, ANY_SEAT, "crown")}, {})
+            IC.add_house(F, "crown")
+            IC.add_house(F, "legion")
+            IC.add_house(F, "tower")
+            local court = IC.court(F)
+            court.houses.crown.weight = 1000
+            court.houses.legion.clock, court.houses.tower.clock = case[1], case[2]
+            local soon = case[1] == 1 and "legion" or "tower"
+            with_fake_panel(function(panel)
+                ICUI.view = "court"
+                ICUI.pick = nil
+                ICUI.refresh()
+                local bar = bare(panel.children.ic_alert.text)
+                assert(bar:find(ICUI.house_name(soon, F), 1, true) and bar:find("in 1 turn.", 1, true),
+                    "with " .. soon .. " one turn from leaving the Court tab says: " .. bar)
+            end)
+        end
+    end)
+    cm.get_human_factions = saved
+    assert(ok, err)
+end)
+
+check("a demand whose post went to someone else offers no Accept that refuses it", function()
+    -- ACCEPT WAS LIVE, AND CLICKING IT REFUSED THE DEMAND: another man seated in
+    -- the post decides it, and grant_demand settled what it found - the -10
+    -- refusal, from the Accept button (audit 2026-09-29).
+    local house = legion_demand("office", "warden")
+    assert(IC.appoint(F, "warden", 301), "the fixture could not seat the Crown's man")
+    local before = house.loyalty
+    local ok, why = IC.can_grant_demand(F)
+    assert(not ok and why == "taken", "Accept on a lost demand reads " .. tostring(ok)
+        .. " " .. tostring(why))
+    assert(not IC.grant_demand(F), "Accept went through on a lost demand")
+    assert(house.loyalty == before, "Accept cost the party " .. (before - house.loyalty) .. " loyalty")
+    assert(IC.agenda(F).demand, "Accept settled the demand")
+    assert(ICUI.reason_text("taken") ~= ICUI.reason_text("no such reason"),
+        "the refusal has no words of its own")
+    -- ON THE TAB: Accept red, and the reason on its button.
+    cm.get_human_factions = function() return {F} end
+    with_fake_panel(function(panel)
+        ICUI.view = "petitions"
+        ICUI.pick = nil
+        ICUI.refresh()
+        local row = panel.children[ICUI.ROW .. "_1"]
+        assert(is_red(row.children.ic_row_e.text), "Accept on a lost demand reads "
+            .. tostring(row.children.ic_row_e.text))
+        assert(row.children.ic_row_e.tooltip == ICUI.reason_text("taken"),
+            "the lost demand's Accept says " .. tostring(row.children.ic_row_e.tooltip))
+    end)
+    ICUI.view = "court"
+    -- AND THE POST FREED AGAIN THE SAME TURN: the demand is open once more.
+    assert(IC.dismiss(F, "warden"), "no dismissal")
+    assert(IC.can_grant_demand(F), "a demand whose post was freed again cannot be granted")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("the calm offer says what it nets and that a count can start again", function()
+    -- THE CALMED PARTY FEELS THE ENVY TOO (the spec's own rule), so it nets
+    -- party_offer_calm - party_offer_envy, and a party still angry after it
+    -- starts its count again at the next turn. The text promised the gross
+    -- figure and a stop (audit 2026-09-29).
+    local o = {kind = "calm", n = IC.TUNE.party_offer_calm, target = "legion"}
+    local net = IC.TUNE.party_offer_calm - IC.TUNE.party_offer_envy
+    local row = ICUI.offer_what(F, "forge", o, true)
+    local tip = ICUI.offer_what(F, "forge", o, false)
+    assert(row:find("+" .. net .. " loyalty", 1, true), "the row promises: " .. row)
+    assert(tip:find("by " .. net, 1, true) and tip:find("starts again", 1, true),
+        "the tooltip promises: " .. tip)
+    -- AND THE NET IS WHAT ACCEPTING DOES.
+    party_court({legion = 10, forge = 90})
+    local court = IC.court(F)
+    court.houses.legion.clock = 3
+    IC.agenda(F).offers.forge = {kind = "calm", n = IC.TUNE.party_offer_calm,
+                                 target = "legion", ends = 99}
+    local before = court.houses.legion.loyalty
+    assert(IC.accept_offer(F, "forge"), "the calm offer was refused")
+    assert(court.houses.legion.loyalty - before == net, "the calmed party moved by "
+        .. (court.houses.legion.loyalty - before) .. ", not " .. net)
+    cm.get_human_factions = function() return {} end
+end)
+
+check("a greyed number on the settings page says what the difficulty sets it to", function()
+    -- MCT WILL NOT WRITE A LOCKED OPTION, so a greyed slider kept showing its
+    -- own number - 55 under Gentle, which starts parties at 65 - and said only
+    -- "Set by the difficulty above" (audit 2026-09-29). The reason on the lock
+    -- is where the difficulty's number goes, and it must be IC.PRESETS' own.
+    local opts = load_mct_file(false)
+    assert(opts.preset.on_set, "the difficulty dropdown has no callback")
+    local cases = {default = IC.TUNE_DEFAULTS}
+    for key, values in pairs(IC.PRESETS) do cases[key] = values end
+    for preset, values in pairs(cases) do
+        opts.preset.on_set({get_selected_setting = function() return preset end})
+        for key in pairs(IC.PRESETS.gentle) do
+            local o = opts[key]
+            local want = values[key] ~= nil and values[key] or IC.TUNE_DEFAULTS[key]
+            assert(o.locked == true, key .. " is open under " .. preset)
+            assert(type(o.reason) == "string" and o.reason:find("to " .. want .. ".", 1, true),
+                key .. " under " .. preset .. " should say " .. want .. " and says: "
+                .. tostring(o.reason))
+        end
+    end
+    opts.preset.on_set({get_selected_setting = function() return "custom" end})
+    assert(opts.loyalty_start.locked == false, "Custom left the numbers greyed")
+end)
+
+check("a failed errand is recorded and answered as an errand", function()
+    -- IT READ "<Crown> moves against A party, and is found out", and the notice
+    -- said they knew who tried: an errand has no target (audit 2026-09-29).
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(761, ANY_SEAT, IC.CROWN)}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.court(F).standing[761] = 5000
+    rng({100})
+    local ok, why = IC.plot(F, "embezzle", 761, nil)
+    assert(ok and why == "failed", "the fixture's errand did not fail: " .. tostring(why))
+    local text
+    for _, e in ipairs(IC.court(F).log) do
+        if e.kind == "plot_failed" then text = ICUI.intrigue_text(e) end
+    end
+    local name = IC.plot_by_key("embezzle").name
+    assert(text and text:find(name, 1, true) and not text:find("moves against", 1, true),
+        "a failed errand reads: " .. tostring(text))
+    -- AND AN OLD SAVE'S LINE, with no key at all, is not "A party" either.
+    local old = ICUI.intrigue_text({kind = "plot_failed", slug = IC.CROWN, n = 60})
+    assert(not old:find("A party", 1, true), "an old failed errand reads: " .. old)
+    ICUI.notice = nil
+    ICUI.ANSWERS.plot("embezzle|761|", true, "failed")
+    assert(ICUI.notice and not ICUI.notice:find("who tried", 1, true),
+        "a failed errand's notice: " .. tostring(ICUI.notice))
+    ICUI.notice = nil
+    ICUI.ANSWERS.plot("rumour|761|1", true, "failed")
+    assert(ICUI.notice and ICUI.notice:find("who tried", 1, true),
+        "a failed move on a man lost its notice: " .. tostring(ICUI.notice))
+    ICUI.notice = nil
+end)
+
+check("a man too poor for a move is not told about a seat", function()
+    -- ONE REASON FOR BOTH LISTS, and it spoke of "that seat" on the plot
+    -- picker too (audit 2026-09-29).
+    local text = ICUI.reason_text("standing", 70)
+    assert(not text:find("seat", 1, true) and text:find("70", 1, true),
+        "the shortfall reads: " .. text)
+end)
+
+check("Provoke promises no countdown with secession switched off", function()
+    -- THE MOVE SKIPS THE COUNT with the switch off (it did since the switch
+    -- went live), and its tooltip still promised one (audit 2026-09-29).
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(771, ANY_SEAT, IC.CROWN),
+                                       make_character(772, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local on = ICUI.act_tip(F, "ic_act_provoke", "legion")
+    assert(on:find("countdown", 1, true), "Provoke's tooltip lost its countdown: " .. on)
+    local keep = IC.TUNE.secession
+    IC.TUNE.secession = false
+    local ok, off = pcall(ICUI.act_tip, F, "ic_act_provoke", "legion")
+    IC.TUNE.secession = keep
+    assert(ok, off)
+    assert(not off:find("Sets their secession countdown", 1, true)
+        and off:find(tostring(IC.TUNE.plot_provoke_loyalty), 1, true),
+        "with secession off Provoke's tooltip reads: " .. off)
+end)
+
+check("a lapsed demand's record line gives the reason it lapsed", function()
+    -- THREE WAYS TO LAPSE AND ONE SENTENCE: "the man or the party is gone",
+    -- for a province lost and for a man short of the seat as well (audit
+    -- 2026-09-29).
+    local function void_line()
+        assert(IC.check_demand(F) == "void", "the fixture's demand did not lapse")
+        local text
+        for _, e in ipairs(IC.court(F).log) do
+            if e.kind == "demand_void" then text = ICUI.intrigue_text(e) end
+        end
+        return text or ""
+    end
+    legion_demand("office", "warden")
+    IC.court(F).standing[311] = 0
+    turn = 15
+    local short = void_line()
+    assert(short:find("influence", 1, true), "a man short of the seat: " .. short)
+    legion_demand("gov", "prov_nowhere")
+    local lost = void_line()
+    assert(lost:find("province", 1, true), "a province no longer held: " .. lost)
+    legion_demand("office", "warden")
+    cm:kill_character("cqi:311", false)
+    local gone = void_line()
+    assert(gone:find("gone", 1, true), "a dead man: " .. gone)
+    assert(short ~= lost and lost ~= gone, "the three read alike")
+    cm.get_human_factions = function() return {} end
+end)
+
+check("the control band a player's move reaches is worn at once", function()
+    -- THE PANEL NAMES THE LIVE BAND, and the bundle only changed at the next
+    -- turn start: fill seats with Crown men and the tooltip said "grip" while
+    -- the faction wore "contested" (audit 2026-09-29).
+    IC.state = {}
+    local men = {}
+    for i = 1, #IC.OFFICES do men[i] = make_character(780 + i, ANY_SEAT, IC.CROWN) end
+    make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    endow(F)
+    -- JUST UNDER A FLOOR, whatever the member weights come to: the seats that
+    -- follow carry it over.
+    IC.court(F).houses[IC.CROWN].weight = 1
+    while IC.control(F) >= IC.CONTROL[3].floor do
+        IC.court(F).houses.legion.weight = IC.court(F).houses.legion.weight + 1
+    end
+    applied = {}
+    local first = IC.apply_control_bundle(F)
+    local moved = false
+    for i = 1, #IC.OFFICES do
+        IC.MP_OPS.appoint(F, IC.OFFICES[i].slug .. "|" .. (780 + i))
+        local live = IC.control_band(F)
+        if live ~= first then moved = true end
+        for j = 1, #IC.CONTROL do
+            local slug = IC.CONTROL[j].slug
+            local worn = applied[IC.control_bundle(slug)] ~= nil
+            assert(worn == (slug == live), "after seat " .. i .. " the live band is "
+                .. live .. " and " .. slug .. (worn and " is worn" or " is not"))
+        end
+    end
+    assert(moved, "the fixture never moved the band off " .. first)
+end)
+
+check("a party at the breaking point is announced as leaving", function()
+    -- IT LEAVES AT THE NEXT TURN START WITH NO COUNT, and nothing said so: the
+    -- button did not pulse, the Court tab was not marked, and its card read
+    -- PLOTTING (audit 2026-09-29 - a purge's -15 to every witness can do it).
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(791, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local house = IC.court(F).houses.legion
+    house.loyalty, house.clock = IC.TUNE.secede_break, 0
+    assert(IC.at_breaking_point(F, "legion"), "the fixture is not at the breaking point")
+    local s = ICUI.court_state(F)
+    assert(#s.leaving == 1 and s.leaving[1].slug == "legion" and s.leaving[1].clock == 1,
+        "the summary does not count it as leaving next turn")
+    assert(ICUI.attention(F).court, "the Court tab is not marked")
+    assert(ICUI.mood(house, "legion") == "SECEDES 1", "its card reads " .. ICUI.mood(house, "legion"))
+    -- AND WITH SECESSION OFF NOBODY LEAVES, so nothing says they will.
+    local keep = IC.TUNE.secession
+    IC.TUNE.secession = false
+    local ok, err = pcall(function()
+        assert(#ICUI.court_state(F).leaving == 0, "counted as leaving with secession off")
+        assert(ICUI.mood(house, "legion") ~= "SECEDES 1", "SECEDES with secession off")
+    end)
+    IC.TUNE.secession = keep
+    assert(ok, err)
+end)
+
+check("a man free to take his old seat back is not one who holds another post", function()
+    -- THE BUTTON'S TOOLTIP LISTED HIM once his wait was over, though he had been
+    -- seated elsewhere: the picker and Fill both refuse him (audit 2026-09-29).
+    IC.state = {}
+    saved["derpy_ic_" .. F] = nil
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, "forge")
+    endow(F)
+    local seat = IC.OFFICES[1].slug
+    assert(IC.appoint(F, seat, 1), "the first appointment was refused")
+    turn = turn + IC.TUNE.term_turns
+    assert(IC.expire_terms(F) == 1, "the term did not end")
+    turn = turn + IC.TUNE.renew_wait
+    assert(#ICUI.court_state(F).back == 1, "the fixture's man is not listed as free")
+    assert(IC.appoint(F, IC.OFFICES[2].slug, 1), "he could not take another seat")
+    assert(#ICUI.court_state(F).back == 0, "a man holding another post is listed as free")
+end)
+
+check("the Crown's split tooltip promises no share it cannot know", function()
+    -- IT SAID "takes 5% of the court off your share": 5 is a WEIGHT, and the
+    -- men of the new party's trade go with it, so the real loss was larger and
+    -- depends on which party rises (audit 2026-09-29 measured 8.3 points).
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(801, ANY_SEAT, IC.CROWN)}, {})
+    IC.add_house(F, IC.CROWN)
+    local tip = ICUI.secession_tip(F, IC.court(F), IC.CROWN)
+    assert(not tip:find("%", 1, true), "the split tooltip reads: " .. tip)
+    assert(tip:find("men", 1, true), "the split tooltip does not say its men go: " .. tip)
+end)
+
+check("risings take their place in the AI rotation", function()
+    -- A RISING RUNS A COURT but was not in the count, so every rising acted on
+    -- the same turn, on top of the courts that turn allowed (audit 2026-09-29).
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {"wh3_dlc23_chd_conclave"} end
+    local ai = {}
+    factions = {}
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= "wh3_dlc23_chd_conclave" then
+            ai[#ai + 1] = key
+            make_faction(key, IC.CHD_SUBCULTURE, {}, {})
+        end
+    end
+    for i = 1, #IC.REBEL_POOL do
+        ai[#ai + 1] = IC.REBEL_POOL[i]
+        make_faction(IC.REBEL_POOL[i], IC.CHD_SUBCULTURE, {}, {})
+    end
+    local period = math.ceil(#ai / IC.TUNE.ai_party_courts)
+    local seen = {}
+    local ok, err = pcall(function()
+        for t = 1, period do
+            turn = t
+            local due = 0
+            for _, key in ipairs(ai) do
+                if IC.party_turn_due(key) then
+                    due = due + 1
+                    seen[key] = (seen[key] or 0) + 1
+                end
+            end
+            assert(due <= IC.TUNE.ai_party_courts, due .. " courts acted on turn " .. t)
+        end
+        for _, key in ipairs(ai) do
+            assert(seen[key] == 1, key .. " took " .. tostring(seen[key])
+                .. " party turns in one round of " .. period)
+        end
+    end)
+    cm.get_human_factions = saved
+    assert(ok, err)
+end)
+
+check("a placated mark is the turn's own, never an earlier turn's", function()
+    -- AN AI COURT LANDS ITS PLOT ONLY ON ITS ROTATION TURN, and the mark set on
+    -- any earlier turn start was never cleared: a party lifted above its line
+    -- once and fallen back below it still had its warned move dropped (audit
+    -- 2026-09-29).
+    IC.state = {}
+    IC.agenda_state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(811, ANY_SEAT, "legion")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local house = IC.court(F).houses.legion
+    local line = IC.party_move_by_key("murder").line
+    IC.agenda(F).plot = {slug = "legion", move = "murder", actor = 811, target = 1, turn = 1}
+    house.loyalty = line + 1
+    IC.party_placate(F)
+    assert(IC.agenda(F).plot.placated, "a party above its line was not marked")
+    house.loyalty = line - 2
+    IC.party_placate(F)
+    assert(not IC.agenda(F).plot.placated, "a party back below its line kept last turn's mark")
+end)
+
+check("a second flash inside the first one's time is not put out by the first one's timer", function()
+    -- LEFTOVER M2 of the 2026-09-28 review: each flash scheduled its own
+    -- "put it out", and the first one's put out whichever flash was on by then.
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local later = {}
+    local saved_cb = cm.callback
+    cm.callback = function(_self, fn, delay) later[#later + 1] = {fn = fn, delay = delay} end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local card = ICUI.party_card("forge")
+        assert(card, "the forge party has no card on the court view")
+        ICUI.flash("forge", "lit")
+        ICUI.flash("forge", "lit")
+        local timers = {}
+        for _, cb in ipairs(later) do
+            if cb.delay == ICUI.FLASH_SECONDS then timers[#timers + 1] = cb.fn end
+        end
+        assert(#timers == 2, #timers .. " timer(s) for two flashes")
+        timers[1]()
+        ICUI.refresh()
+        assert(card.images[ICUI.RIMS.party.lit] == ICUI.RIM_ART,
+            "the first flash's timer put out the second flash")
+        timers[2]()
+        assert(card.images[ICUI.RIMS.party.lit] == ICUI.MASK_NONE,
+            "the second flash never went out")
+        ICUI.refresh()
+        assert(card.images[ICUI.RIMS.party.lit] == ICUI.MASK_NONE,
+            "the next redraw brought the flash back")
+    end)
+    ICUI.flashes = {}
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("assigning a governor bursts the row his province is drawn on after the redraw", function()
+    -- LEFTOVER M3: the row was looked up before the click's redraw, and under a
+    -- sort by overseer the province moves the moment it has one.
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, 20, "forge", "prov_b")
+    man._forename = "Aaz"
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC_TEST_LOC = {Aaz = "Aaz"}
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "govs"
+        ICUI.scroll.govs = 0
+        ICUI.sort.govs = ICUI.sort_for_column("govs", 2)
+        ICUI.sort_desc.govs = false
+        ICUI.refresh()
+        local before = ICUI.gov_row("prov_b")
+        assert(IC.assign_governor(F, "prov_b", 1), "the fixture could not seat him")
+        ICUI.ANSWERS.gov("prov_b|1", true)
+        -- THE CLICK'S OWN REDRAW, in single player.
+        ICUI.refresh()
+        local after = ICUI.gov_row("prov_b")
+        assert(before and after and after ~= before,
+            "the fixture never moved the province's row, so this proves nothing")
+        assert(panel.children[after].children[ICUI.BURST],
+            "no burst on the row that now draws the province")
+        assert(not panel.children[before].children[ICUI.BURST],
+            "the burst landed on the row the province left")
+    end)
+    ICUI.sort.govs = 1
+    IC_TEST_LOC = {}
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("a flash is only held for a party card that is drawn", function()
+    -- LEFTOVER M6: petitions are answered on the Petitions tab, which draws no
+    -- party card, and the flash waited there to go off if the player opened
+    -- the Court tab inside its second and a half.
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local card = ICUI.party_card("forge")
+        assert(card, "the forge party has no card on the court view")
+        ICUI.view = "petitions"
+        ICUI.refresh()
+        ICUI.flash("forge", "lit")
+        assert(ICUI.flashes.forge == nil, "a flash was held for a card the tab does not draw")
+        ICUI.view = "court"
+        ICUI.refresh()
+        assert(card.images[ICUI.RIMS.party.lit] == ICUI.MASK_NONE,
+            "the Court tab went off with a petition's flash")
+    end)
+    ICUI.flashes = {}
+    cm.callback = saved_cb
+    assert(ok, err)
+end)
+
+check("closing the character panel puts the influence plate away, and nothing queued brings it back", function()
+    -- AUTHOR, 2026-09-29: "influence panel stayed after closing character ui".
+    -- PanelClosedCampaign fires while the panel is still on its way out - still
+    -- found, still reading visible - and the close redrew the plate from it. The
+    -- close button's own click had queued two redraws that land after it too.
+    IC.state = {}
+    local man = make_character(320, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, "crown")
+    IC.court(F).standing[320] = 57
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    ICUI.selected_cqi = 320
+    local ok, err = pcall(with_char_panel, {shows = 320}, function(get)
+        core.listeners["ic_char_panel"]({string = ICUI.STANDING_PANEL})
+        local plate = get()
+        assert(plate and plate.shown, "the fixture never drew the plate")
+        local later = {}
+        cm.callback = function(_self, f) later[#later + 1] = f end
+        core.listeners["ic_char_switch"]({string = "button_close"})
+        core.listeners["ic_char_panel_shut"]({string = ICUI.STANDING_PANEL})
+        assert(not plate.shown, "the plate stayed up after the panel closed")
+        for _, f in ipairs(later) do f() end
+        assert(not plate.shown, "a redraw queued before the close put the plate back")
+        -- AND THE NEXT OPEN DRAWS IT AGAIN.
+        cm.callback = function(_self, f) f() end
+        core.listeners["ic_char_panel"]({string = ICUI.STANDING_PANEL})
+        assert(plate.shown, "the plate never came back on the next open")
+    end)
+    cm.get_human_factions = saved
+    ICUI.selected_cqi = nil
+    assert(ok, err)
+end)
+
+check("every help point starts with a marker and every icon on the page resolves", function()
+    -- AUTHOR, 2026-09-29: "add markers and icons whenever possible". A {@name}
+    -- is a picture the way a {name} is a number: filled when the page draws.
+    assert(ICUI.HELP_ICONS and ICUI.HELP_ICONS.bullet, "the help page has no marker")
+    local vars = ICUI.help_vars(F)
+    for _, topic in ipairs(ICUI.HELP) do
+        assert(topic.icon and ICUI.help_icon(topic.icon),
+            topic.title .. " has no picture of its own")
+        for _, line in ipairs(topic.lines) do
+            -- A FOLLOW-ON LINE is indented and carries on the point above it.
+            if string.sub(line, 1, 1) ~= " " then
+                assert(string.find(line, "^{@[%w_]+}"),
+                    topic.title .. ": a point with no marker: " .. line)
+            end
+            for name in string.gmatch(line, "{@([%w_]+)}") do
+                assert(ICUI.help_icon(name),
+                    topic.title .. ": {@" .. name .. "} is no picture the panel has")
+            end
+            local filled = ICUI.help_fill(line, vars)
+            assert(not string.find(filled, "{@", 1, true), topic.title .. " still reads " .. filled)
+        end
+    end
+    -- CA's OWN INLINE MARKUP around the file's path.
+    assert(ICUI.help_fill("{@gold}", vars) == "[[img:" .. ICUI.GOLD_ICON .. "]][[/img]]",
+        "{@gold} filled as " .. ICUI.help_fill("{@gold}", vars))
+    -- A MOVE BY ITS OWN KEY WEARS ITS OWN CARD'S PICTURE, not a copy of the path.
+    assert(ICUI.help_fill("{@bribe}", vars)
+           == "[[img:" .. IC.plot_by_key("bribe").icon .. "]][[/img]]",
+        "{@bribe} filled as " .. ICUI.help_fill("{@bribe}", vars))
+    -- AND A NAME IT LACKS STAYS ON SCREEN AS WRITTEN.
+    assert(ICUI.help_fill("{@no_such_picture}x", vars) == "{@no_such_picture}x",
+        "a missing picture filled as " .. ICUI.help_fill("{@no_such_picture}x", vars))
+end)
+
+check("a figure wears its unit's picture once, and a number that is no quantity wears none", function()
+    local function mark(path) return "[[img:" .. path .. "]][[/img]]" end
+    local inf, gold = mark(ICUI.COST_ICON), mark(ICUI.GOLD_ICON)
+    local loy, turn = mark(ICUI.LOYALTY_ICON), mark(ICUI.TURNS_ICON)
+    local cases = {
+        {"spends 40 influence.", "spends " .. inf .. "40 influence."},
+        {"a gift worth 600 gold.", "a gift worth " .. gold .. "600 gold."},
+        {"+8 loyalty for both", loy .. "+8 loyalty for both"},
+        {"-12 loyalty", loy .. "-12 loyalty"},
+        {"leaves in 3 turns", "leaves in " .. turn .. "3 turns"},
+        {"in 1 turn.", "in " .. turn .. "1 turn."},
+        {"level 5 and 100 influence", "level 5 and " .. inf .. "100 influence"},
+        {"50% of the court", "50% of the court"},
+    }
+    for _, c in ipairs(cases) do
+        assert(ICUI.units(c[1]) == c[2], "'" .. c[1] .. "' became '" .. ICUI.units(c[1]) .. "'")
+        -- ONCE: a second pass, or a figure that already wears one, is left alone.
+        assert(ICUI.units(ICUI.units(c[1])) == c[2], "a second pass changed '" .. c[1] .. "'")
+    end
+    assert(ICUI.units(ICUI.cost(40) .. " influence") == ICUI.cost(40) .. " influence",
+        "a figure the panel had already marked got a second picture")
+    assert(ICUI.units(nil) == "", "no text is not an empty string")
+end)
+
+check("the Record, the notice, a petition, a move's tooltip and the character plate all mark their figures", function()
+    IC.state = {}
+    turn = 4
+    local man = make_character(1, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man, make_character(2, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local inf = "[[img:" .. ICUI.COST_ICON .. "]][[/img]]"
+    local gold = "[[img:" .. ICUI.GOLD_ICON .. "]][[/img]]"
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        -- THE RECORD.
+        IC.log(F, "bribe", "forge", "2", 40)
+        ICUI.view = "log"
+        ICUI.refresh()
+        local found = false
+        for i = 1, ICUI.MAX_ROWS do
+            local r = panel.children[ICUI.ROW .. "_" .. i]
+            local b = r and r.children.ic_row_b
+            if b and string.find(b.text or "", inf .. "40 influence", 1, true) then found = true end
+        end
+        assert(found, "the Record's bribe line wears no influence picture")
+        -- THE NOTICE.
+        ICUI.notice = ICUI.reason_text("gold", 50)
+        ICUI.refresh()
+        assert(string.find(panel.children.ic_alert.text or "", gold .. "50 gold", 1, true),
+            "the notice reads " .. tostring(panel.children.ic_alert.text))
+        ICUI.notice = nil
+    end)
+    -- A PETITION'S OFFER, as its row prints it.
+    local offer = ICUI.units(string.format("Offers %s", ICUI.offer_what(F, "forge",
+        {kind = "gold", n = 600}, true)))
+    assert(string.find(offer, gold .. "600 gold", 1, true), "the offer row reads " .. offer)
+    -- THE CHARACTER PLATE.
+    IC.court(F).standing[1] = 57
+    assert(ICUI.standing_text(F, 1) == inf .. "57 influence",
+        "the plate reads " .. ICUI.standing_text(F, 1))
+    cm.get_human_factions = saved
+    assert(ok, err)
+end)
+
+check("a trait in a loyalty breakdown wears the trait picture its card does", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    local court = IC.court(F)
+    local terms = IC.loyalty_terms(F, "forge")
+    local trait = nil
+    for i = 1, #terms do if terms[i].trait then trait = terms[i] end end
+    assert(trait, "the fixture party has no trait term to read")
+    local tip = ICUI.loyalty_tip(F, court, "forge")
+    assert(string.find(tip, ICUI.trait_line(trait.label), 1, true),
+        "the breakdown names " .. trait.label .. " bare: " .. tip)
+    -- AND ITS HEADLINE FIGURE wears the loyalty picture, with nothing left bare.
+    local loy = "[[img:" .. ICUI.LOYALTY_ICON .. "]][[/img]]"
+    assert(string.find(tip, loy .. court.houses.forge.loyalty .. " loyalty", 1, true),
+        "the breakdown's loyalty wears no picture: " .. tip)
+    assert(ICUI.units(tip) == tip, "a figure in the breakdown wears no picture: " .. tip)
+end)
+
+check("a party's agenda and a move's tooltip mark every figure they print", function()
+    -- A SECOND PASS FINDS NOTHING: ICUI.units leaves a marked figure alone, so
+    -- a tooltip it has been through reads the same after another pass, and one
+    -- it never went through does not.
+    local function mark(path) return "[[img:" .. path .. "]][[/img]]" end
+    party_court({legion = 20, forge = 80})
+    IC.agenda(F).offers.forge = {kind = "gold", n = 600, ends = turn + 3}
+    local tip = ICUI.agenda_tip(F, "forge")
+    assert(tip:find(mark(ICUI.GOLD_ICON) .. "600 gold", 1, true),
+        "the offer's gold wears no picture: " .. tip)
+    assert(tip:find(mark(ICUI.LOYALTY_ICON) .. IC.TUNE.party_offer_envy .. " loyalty", 1, true),
+        "the offer's price wears no picture: " .. tip)
+    assert(ICUI.units(tip) == tip, "a figure in the agenda wears no picture: " .. tip)
+    local gift = ICUI.act_tip(F, "ic_act_gift", "forge")
+    assert(gift:find(mark(ICUI.GOLD_ICON) .. IC.favour_cost("gift") .. " gold", 1, true),
+        "the gift's price wears no picture: " .. gift)
+    assert(gift:find(mark(ICUI.LOYALTY_ICON) .. "+" .. IC.TUNE.favour_gift_loyalty, 1, true),
+        "the gift's loyalty wears no picture: " .. gift)
+    assert(ICUI.units(gift) == gift, "a figure in the gift's tooltip wears no picture: " .. gift)
+    cm.get_human_factions = function() return {} end
 end)
 
 check("no parties' turn failed anywhere in the run", function()

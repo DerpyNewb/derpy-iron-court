@@ -1969,15 +1969,22 @@ RIM_ROW_PX = 64
 # Measured off CA's rim at x=150, every 2px in from the edge: its colour holds
 # near (176, 5, 5) and only the alpha changes.
 RIM_RGB = (176, 5, 5)
+# A FAILED PLOT'S RIM, in ash (leftover M5 of the 2026-09-28 review). The fail
+# look used to be RIM_ART under a red colour, and a layer colour multiplies:
+# over a picture that is already pure red it can only draw a darker red, so a
+# failure looked like a success bar the flicker. Same edge profile, own colour.
+RIM_FAIL_ART = "%s/seat_rim_fail.png" % PLATE_DIR
+RIM_FAIL_RGB = (200, 196, 188)
 RIM_ALPHA = [2, 8, 21, 37, 50, 55, 53, 48, 42, 37, 32, 28, 24, 21, 18, 16, 14,
              13, 12, 11]
 RIM_LOOKS = {
     # CA's ToZ furnace glow_01 values.
     "lit": {"shader": "glow_pulse_t0", "shader_vars": "1.00,1.30,0.80,0.00"},
     "dim": {"colour": "#FFFFFF66"},
-    # A fast flicker in red: a failure is short and sharp, not a slow breath.
-    "red": {"colour": "#FF3A2AFF", "shader": "glow_pulse_t0",
-            "shader_vars": "0.60,1.60,0.25,0.00"},
+    # A fast flicker: a failure is short and sharp, not a slow breath. Drawn
+    # over RIM_FAIL_ART, so no tint.
+    "fail": {"colour": "#FFFFFFFF", "shader": "glow_pulse_t0",
+             "shader_vars": "0.60,1.60,0.25,0.00"},
 }
 
 
@@ -2024,7 +2031,7 @@ def seat_rim_alpha(d, margin=RIM_MARGIN):
     return a
 
 
-def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX):
+def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX, rgb=RIM_RGB):
     """The distance is to the NEAREST edge, so a corner pixel takes the brighter
     of its two edges: the glow meets itself in a square corner."""
     rows = []
@@ -2032,7 +2039,7 @@ def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX):
         row = bytearray()
         for x in range(px):
             d = min(x, y, px - 1 - x, px - 1 - y)
-            row += bytearray((RIM_RGB[0], RIM_RGB[1], RIM_RGB[2],
+            row += bytearray((rgb[0], rgb[1], rgb[2],
                               seat_rim_alpha(d, margin)))
         rows.append(bytes(row))
     return rows
@@ -2612,6 +2619,7 @@ def build_plates():
     out[MASK_NONE] = mask_pixels()
     out[RIM_ART] = seat_rim_pixels()
     out[RIM_ROW_ART] = seat_rim_pixels(RIM_ROW_MARGIN, RIM_ROW_PX)
+    out[RIM_FAIL_ART] = seat_rim_pixels(rgb=RIM_FAIL_RGB)
     out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
     return out
@@ -3415,9 +3423,9 @@ TEXTURE_MIN_MARGIN[PARTY_SELECTED] = 24
 PARTY_SEL_INDEX = 2
 PARTY_LAYERS = CARD_LAYERS + [
     {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
-     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}] + rim_layers(["lit", "red"])
+     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}] + rim_layers(["lit", "fail"])
 # The flash's two looks, after the chosen frame. Must match ICUI.RIMS.party.
-PARTY_RIM = {"lit": PARTY_SEL_INDEX + 1, "red": PARTY_SEL_INDEX + 2}
+PARTY_RIM = {"lit": PARTY_SEL_INDEX + 1, "fail": PARTY_SEL_INDEX + 2}
 # THE WHOLE CARD IS THE CONTROL NOW, so it says what a click does. Static text
 # in the file rather than a SetTooltipText, because it never changes.
 PARTY_TIP = ("Choose this party||Click once to act on it with the buttons "
@@ -3677,7 +3685,7 @@ NOT_GEOMETRY = [
     # Crop boxes in CA's source pixels, not layout.
     "CHD_CUTS",
     "BTN_PLATE_MARGIN", "PARTY_LAYERS", "PARTY_SEL_INDEX", "SEATS_LAYERS",
-    "RIM_ART", "RIM_MARGIN", "RIM_ROW_ART", "RIM_ROW_MARGIN", "RIM_ROW_PX", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "ROW_RIM", "ROW_FULL_LAYERS", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
+    "RIM_ART", "RIM_MARGIN", "RIM_FAIL_ART", "RIM_FAIL_RGB", "RIM_ROW_ART", "RIM_ROW_MARGIN", "RIM_ROW_PX", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "ROW_RIM", "ROW_FULL_LAYERS", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
     "BURST_FILE", "BURST_FRAMES", "BURST_LAST", "BURST_MS", "BURST_SIZE",
     "SEATS_PAD",
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
@@ -4280,6 +4288,15 @@ def check_rim_slots():
     if ('ICUI.RIM_ART_ROW = "%s"' % RIM_ROW_ART) not in text:
         out.append("ICUI.RIM_ART_ROW is not %s, the art this file writes"
                    % RIM_ROW_ART)
+    if ('ICUI.RIM_ART_FAIL = "%s"' % RIM_FAIL_ART) not in text:
+        out.append("ICUI.RIM_ART_FAIL is not %s, the art this file writes"
+                   % RIM_FAIL_ART)
+    # AND THE FAIL LOOK IS NOT RED, measured off the picture it ships: its
+    # peak pixel, 10px in, with no channel far below the brightest.
+    peak = seat_rim_pixels(rgb=RIM_FAIL_RGB)[RIM_PX // 2][40:43]
+    if min(peak) < max(peak) // 2:
+        out.append("the fail rim art is %r at its peak, a hue a failure shares "
+                   "with the lit rim" % (tuple(peak),))
     for kind, looks in sorted(want.items()):
         m = re.search(r"\b%s\s*=\s*\{([^}]*)\}" % kind, block)
         if not m:
@@ -5070,7 +5087,7 @@ def check():
                 _icons["%s[%d]" % (_t, _k)] = _p
         _via = ["ICUI." + _n for _n in _icons if "[" not in _n] + [
             "ICUI." + _t for _t in re.findall(r'ICUI\.(\w+_ICONS)\s*=', _uisrc)] + [
-            "ICUI.crest("]
+            "ICUI.crest(", "ICUI.help_icon("]
         _inline = set()
         for _ln in _code:
             for _p in re.findall(r"\[\[img:([^\]]+)\]\]", _ln):
@@ -5665,7 +5682,10 @@ def check():
                     out.append("ICUI.HELP holds no line this check can read, so "
                                "no help line is measured")
                 for _line in _help_lines:
-                    _shown = re.sub(r"\{\w+\}", "9999", _line)
+                    # A {@name} IS A PICTURE (2026-09-29), one line box wide
+                    # like any other [[img:]], and never a number.
+                    _shown = re.sub(r"\{@\w+\}", "[[img:x]][[/img]]", _line)
+                    _shown = re.sub(r"\{\w+\}", "9999", _shown)
                     _got = _measure(_shown, _px)
                     if _got > _room:
                         out.append("at %d: help line measures %dpx in a %dpx row: %s"
