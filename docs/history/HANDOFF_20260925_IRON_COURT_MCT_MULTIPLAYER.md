@@ -1292,3 +1292,9 @@ Build `1BE494B489E18A1E4F42B7601B66331B`, 9,493,022 bytes, deployed (backup `.ba
 EE3EF1D5), byte-verified; `db/trait_categories_tables/derpy_iron_court` is in it. Not pushed; not yet seen in game.
 Not changed, and could be: on turn 1 `stamp_origin` and `stamp_bg` give every man his traits with
 `show_message` on, so a new campaign opens on a run of Trait Gained cards.
+Pushed to GitHub 2026-09-29 as d63b131 (build 1BE494B4, with every build since 3DFB28D1). The repo's own
+docs were brought up to date with it: README (trait pictures, icons, sounds, fifteen layouts), DEVELOPMENT.md
+(771 checks, 760 mutants, 15 files and 556 components, thirteen tables with `trait_categories`, the
+`derpy_ic_member_*` traits, feed indexes to 2628, the ten layouts and `IC30`-`IC39`, inline pictures, and two
+engine lessons: a trait's picture is its category's, and `PanelClosedCampaign` fires while the panel still
+reads visible), and a CHANGELOG entry for 1BE494B4.
