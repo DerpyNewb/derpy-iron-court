@@ -5,6 +5,37 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-09-29 - build B4BC1409
+
+Deployed 2026-09-29. MD5 `B4BC14091DDAF79F835B5796FE46F8CB`, 9,498,698 bytes. It gathers
+16E76FC3 (the four leftovers after 1BE494B4) and a full sweep of the mod: every check re-run,
+the game's script logs read, and five fresh code reviewers. The detail is in the last addendum
+of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md` (16E76FC3) and in
+`docs/history/HANDOFF_20260929_IRON_COURT_FULL_SWEEP.md` (the sweep).
+
+- **The four leftovers** (16E76FC3): a new campaign or a confederation no longer opens on a
+  Trait Gained card for every man; a plot that lands bursts over its target's card; a gift
+  says the loyalty it really gives; a governor's tooltip says control.
+- **Confederation fixed.** Absorbing a Chaos Dwarf faction whose own court had run a turn
+  added no party at all: its men already wore a birthplace, and the stamp refused them all.
+- **No text read inside a turn handler.** The court button's tooltip was written from every
+  faction's turn start when the button moved, and from the player's turn end through
+  closing the court; reading the game's text there is a known first-turn crash.
+- **Rival plots at the player's odds.** They paid before the odds were read, so every party
+  move rolled worse than the same move made by the player (unseat 50% -> 28%).
+- **Weight follows a split.** Seats held by men who leave in a Crown split move their weight
+  to the new party instead of staying with the Crown for good.
+- **The rest** (fourteen more, all in the patch notes): the control bonus now changes on the
+  turn a split moves it; a breaking party reads SECEDES 1 whatever its count or business; the
+  page counter reaches the last page; PLOTTING only where a party can plot; the Forge
+  Accident card says 38, not 30; Refuse on a post already given away is a refusal; an offer
+  about a departed party goes with it; rebellions sour relations only as far as intended (the
+  call took a faction key, as CA's own script shows, and the test stub had demanded the
+  interface); a purged party's office title and burst; a released province logged twice;
+  news naming confederate parties; a late multiplayer answer; 24 script-log errors on every
+  launch from the loading screen.
+- Harness 775 -> 786 checks; mutation run 776 -> 798 mutants, 0 unexplained.
+
 ## 2026-09-29 - build 1BE494B4
 
 Deployed 2026-09-29. MD5 `1BE494B489E18A1E4F42B7601B66331B`, 9,493,022 bytes. It gathers the

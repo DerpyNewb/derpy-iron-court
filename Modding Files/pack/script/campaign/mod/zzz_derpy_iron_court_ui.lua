@@ -797,7 +797,10 @@ end
 
 -- find_uicomponent returns FALSE, not nil. is_uicomponent is a TYPE test and a
 -- DESTROYED component still passes it, which is why nothing here is ever cached.
+-- NOT BEFORE THE UI EXISTS. Clicks fire on the loading screen, and asking for
+-- the root there writes three SCRIPT ERRORs a click - 24 in every launch's log.
 local function comp(name, parent)
+    if not parent and not core:is_ui_created() then return nil end
     local c = find_uicomponent(parent or root(), name)
     if is_uicomponent(c) then return c end
     return nil
@@ -1317,12 +1320,12 @@ function ICUI.court_state(faction)
     local seated = IC.present_houses(faction)
     for i = 1, #seated do
         local house = court.houses[seated[i]]
-        if seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
-            s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
-        -- AT THE BREAKING POINT it leaves at the next turn start with no count,
-        -- and was on no list at all (audit 2026-09-29).
-        elseif IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then
+        -- AT THE BREAKING POINT it leaves at the next turn start whatever its
+        -- count says (audit and sweep 2026-09-29): tick_secession tests it first.
+        if IC.TUNE.secession ~= false and IC.at_breaking_point(faction, seated[i]) then
             s.leaving[#s.leaving + 1] = {slug = seated[i], clock = 1}
+        elseif seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then
+            s.leaving[#s.leaving + 1] = {slug = seated[i], clock = house.clock}
         end
     end
     local a = IC.agenda(faction)
@@ -1487,7 +1490,7 @@ function ICUI.draw_marks(panel, faction)
     end
 end
 
-function ICUI.place_opener(attempt)
+function ICUI.place_opener(attempt, quiet)
     attempt = attempt or 1
     if not ICUI.court_player() then return false end
 
@@ -1580,7 +1583,10 @@ function ICUI.place_opener(attempt)
     -- ONLY WHEN IT MOVED. This runs again at every turn start, and a line a turn
     -- forever buries the one that matters.
     if moved then
-        ICUI.update_opener_tip()
+        -- NOT FROM A TURN HANDLER (sweep 2026-09-29): the tooltip reads the loc,
+        -- and that took the Exchange down at turn 1. ic_opener_tip writes it one
+        -- tick into the player's own turn.
+        if not quiet then ICUI.update_opener_tip() end
         log(string.format("opener placed at %d,%d (%s) visible=%s %sx%s priority=%s",
                           gx, gy, tostring(why), vis, tostring(bw2), tostring(bh2),
                           tostring(prio)))
@@ -1711,12 +1717,15 @@ function ICUI.mood(house, slug)
             end
             if house.loyalty <= IC.TUNE.splinter_loyalty then return "SPLINTERING" end
         end
-    elseif (house.clock or 0) > 0 then
-        return string.format("SECEDES %d", house.clock)
-    -- THE BREAKING POINT: gone at the next turn start, with no count to show.
+    -- THE BREAKING POINT: gone at the next turn start, whatever the count says -
+    -- tick_secession tests it first (sweep 2026-09-29).
     elseif IC.TUNE.secession ~= false and house.loyalty <= IC.TUNE.secede_break then
         return "SECEDES 1"
-    elseif house.loyalty <= 25 then
+    elseif (house.clock or 0) > 0 then
+        return string.format("SECEDES %d", house.clock)
+    -- AN ACT, so only where a party can act (sweep 2026-09-29).
+    elseif IC.TUNE.parties_act ~= false
+            and house.loyalty <= math.min(25, IC.TUNE.party_intrigue_line) then
         return "PLOTTING"
     end
     -- THE LINE THE PARTIES ACT AT, which the difficulty sets (audit 2026-09-29).
@@ -1729,7 +1738,9 @@ end
 -- demand with a deadline, a feud, an offer.
 function ICUI.card_mood(faction, house, slug)
     local word = ICUI.mood(house, slug)
-    if slug == IC.CROWN or not IC.agenda or (house.clock or 0) > 0 then
+    -- ANY SECEDES, including the breaking point's, which has no count (sweep
+    -- 2026-09-29: it read OFFERING).
+    if slug == IC.CROWN or not IC.agenda or string.match(word, "^SECEDES") then
         return word
     end
     local a = IC.agenda(faction)
@@ -3022,7 +3033,10 @@ function ICUI.draw_pager(panel, total, at)
     -- Integer division on the offset: `at` is a ROW offset, and the page it lands
     -- on is what the caption must agree with or the buttons look like they are
     -- lying about where they took you.
-    local page = math.floor(at / ICUI.rows_shown(view)) + 1
+    -- EXCEPT AT THE END: the clamp stops at total - page, short of a whole
+    -- page, and the caption read 2 of 3 there (sweep 2026-09-29).
+    local n = ICUI.rows_shown(view)
+    local page = (at >= ICUI.max_scroll(total, n)) and pages or math.floor(at / n) + 1
     if prev then
         prev:SetVisible(on)
         set_text(prev, "Previous")
@@ -3746,9 +3760,11 @@ function ICUI.act_tip(faction, key, slug)
         if move.favour == "gift" then
             -- WHAT IT BUYS, off the model's own number, and their loyalty
             -- now, so the player can see how far +2 goes before paying for it.
+            -- NO MORE THAN FITS: loyalty stops at 100.
             local house = IC.court(faction).houses[slug]
+            local now = house and house.loyalty or 0
             lines[#lines + 1] = string.format("+%d loyalty (now %d).",
-                IC.TUNE.favour_gift_loyalty, house and house.loyalty or 0)
+                math.max(0, math.min(IC.TUNE.favour_gift_loyalty, 100 - now)), now)
         else
             -- THE PROMISE ONLY WHERE IT HOLDS. At the floor no oath keeps a
             -- party, and a party already sworn is not sworn twice, so in both
@@ -4325,10 +4341,10 @@ function ICUI.gov_rank_tip(faction, province_key, holder)
     local o, inc = IC.gov_rank_bonus(r)
     if not IC.governor_active(faction, province_key) then
         return string.format("He is away from this province and adds nothing until "
-            .. "he returns. At rank %d he would add +%d public order and +%d%% "
+            .. "he returns. At rank %d he would add +%d control and +%d%% "
             .. "income here.", r, o, inc)
     end
-    return string.format("At rank %d he adds +%d public order and +%d%% "
+    return string.format("At rank %d he adds +%d control and +%d%% "
         .. "income to this province, on top of the governor's base "
         .. "bonus. Both grow as he ranks up.", r, o, inc)
 end
@@ -5030,10 +5046,19 @@ end
 -- happening, but what has happened.
 -- A LINE OF NEWS from another court, named at draw time: a loc call from the
 -- turn handler that recorded it would be a turn-1 crash.
+-- A CONFEDERATE PARTY HAS NO ROLLED NAME, so IC.news stored its origin key
+-- and the Log printed "azgorh" (sweep 2026-09-29): named by its hall here.
+local function news_party(v, fallback)
+    if not v or v == "-" then return fallback end
+    local hall = IC.faction_for_origin(v)
+    if hall then return loc("factions_screen_name_" .. hall, v) end
+    return v
+end
+
 function ICUI.news_text(n)
     local who = loc("factions_screen_name_" .. tostring(n.faction), tostring(n.faction))
-    local a = (n.a and n.a ~= "-") and n.a or "a party"
-    local b = (n.b and n.b ~= "-") and n.b or "another party"
+    local a = news_party(n.a, "a party")
+    local b = news_party(n.b, "another party")
     if n.kind == "secede" then
         return string.format("%s: %s broke away and rose in rebellion.", who, a)
     elseif n.kind == "dissolve" then
@@ -6632,7 +6657,7 @@ function ICUI.open()
     end
 end
 
-function ICUI.close()
+function ICUI.close(quiet)
     -- FIRST, and unconditionally. Everything below can be a no-op - the panel may
     -- already be gone - but a campaign HUD left hidden is an unplayable screen
     -- with nothing on it to explain itself, so the restore never sits behind a
@@ -6659,8 +6684,9 @@ function ICUI.close()
     local panel = comp(ICUI.PANEL)
     if panel then pcall(function() panel:DestroyChildren() panel:Destroy() end) end
     ICUI.save_prefs()
-    -- WHAT THE PLAYER JUST CHANGED, on the button he closes the panel onto.
-    ICUI.update_opener_tip()
+    -- WHAT THE PLAYER JUST CHANGED, on the button he closes the panel onto -
+    -- except from a turn handler (see place_opener).
+    if not quiet then ICUI.update_opener_tip() end
     -- AND ON THE EDICT BUTTONS UNDER IT: a governor named or recalled here
     -- changes what the selected settlement may issue.
     ICUI.refresh_edicts()
@@ -6871,7 +6897,7 @@ end
 -- notice line cleared. Amounts are the model's own tuning, never retyped - and
 -- a grant names none, because it also seats the man and his own loyalty lands
 -- on top of the demand's.
-function ICUI.answer_text(op, arg, faction)
+function ICUI.answer_text(op, arg, faction, spare)
     local slug, f = ICUI.answer_party(op, arg)
     local name = slug and ICUI.house_name(slug, faction) or "The party"
     local T = IC.TUNE
@@ -6886,8 +6912,9 @@ function ICUI.answer_text(op, arg, faction)
         return string.format("Settled. %s and its rival stand down (+%d loyalty each).",
             name, T.arbit_peace_loyalty or 0)
     elseif op == "favour" and f[1] == "gift" then
+        -- WHAT IT GAVE, as the model counted it, not what a gift is worth.
         return string.format("Sent. %s is pleased (+%d loyalty).",
-            name, T.favour_gift_loyalty or 0)
+            name, spare or T.favour_gift_loyalty or 0)
     elseif op == "favour" then
         return string.format("Secured. %s is bound by oath for %d turns.",
             name, T.favour_secure_turns or 0)
@@ -6903,7 +6930,7 @@ local function confirmed(yes, demand, op)
         -- worded for an offer.
         if demand and why == "gone" then why = "no demand" end
         if done then
-            ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player()) or nil
+            ICUI.notice = yes and ICUI.answer_text(op, arg, ICUI.player(), spare) or nil
             ICUI.confirm(nil, yes, ICUI.SOUNDS[op])
             local slug = yes and ICUI.answer_party(op, arg) or nil
             if slug then ICUI.flash(slug, "lit") end
@@ -6922,6 +6949,17 @@ ICUI.ANSWERS.arbit = confirmed(true, false, "arbit")
 -- RELEASING A GOVERNOR. It had no answer at all: no sound, and a refusal that
 -- said nothing (audit 2026-09-28).
 ICUI.ANSWERS.ungov = confirmed(false, false, "ungov")
+
+-- A PLOT'S TARGET PARTY, off the wire: the third field is the target MAN's cqi
+-- (on_pick_click), and the card is his party's. An errand has none.
+local function plot_party(arg)
+    local target = tonumber(string.match(arg or "", "^[^|]*|[^|]*|(.*)$"))
+    local slug = target and IC.house_of_cqi(ICUI.player(), target)
+    -- NO PLOT AIMS AT A CROWN MAN, so the Crown here is a party a purge just
+    -- ended, and the burst lit the player's own card (sweep 2026-09-29).
+    if slug == IC.CROWN then return nil end
+    return slug
+end
 
 -- The four pickers.
 local function picked(op)
@@ -6962,10 +7000,7 @@ local function picked(op)
             -- AND THE TARGET'S CARD FLASHES RED: a failure looked exactly like
             -- a success, bar the sound (spec 2026-09-28 section 4.6).
             if op == "plot" then
-                -- The field is the target MAN's cqi (on_pick_click); the card
-                -- is his party's.
-                local target = tonumber(string.match(arg or "", "^[^|]*|[^|]*|(.*)$"))
-                local slug = target and IC.house_of_cqi(ICUI.player(), target)
+                local slug = plot_party(arg)
                 if slug then ICUI.flash(slug, "fail") end
             end
         else
@@ -6973,12 +7008,27 @@ local function picked(op)
             -- THE CARD THAT JUST CHANGED, when a seat is what changed: CA's
             -- claim burst, and the sound of what was done.
             local card = filled and ICUI.office_card(filled) or nil
+            -- A PLOT THAT LANDED bursts over its target's card (spec 2026-09-28
+            -- section 4.6), found after a redraw like a governor's row: the move
+            -- changes the shares the cards are ordered by. Only on the Court
+            -- tab, the one that draws party cards.
+            local target = nil
+            if op == "plot" and ICUI.view == "court" then
+                local slug = plot_party(arg)
+                if slug then
+                    ICUI.refresh()
+                    target = ICUI.party_card(slug)
+                end
+            end
             if card then
                 ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(card:Id())
             elseif filled_row then
                 ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(filled_row)
+            elseif target then
+                ICUI.play(ICUI.SOUNDS[op])
+                ICUI.burst(target:Id())
             else
                 ICUI.confirm(nil, true, ICUI.SOUNDS[op])
             end
@@ -7031,6 +7081,9 @@ function ICUI.after_op(faction_key, op, arg, done, why, spare)
     local mp = IC.is_mp()
     if mp and faction_key ~= ICUI.player() then return end
     ICUI.waiting = nil
+    -- THE COURT SHUT BEFORE THE ANSWER CAME (sweep 2026-09-29): its notice
+    -- waited for the next open, perhaps a turn later.
+    if mp and not comp(ICUI.PANEL) then return end
     local answer = ICUI.ANSWERS[op]
     if answer then answer(arg, done, why, spare) end
     if mp then ICUI.refresh() end
@@ -7123,7 +7176,7 @@ end)
 -- existing component, recomputes the anchor, and now only logs when the button
 -- actually moves.
 core:add_listener("ic_opener_place", "FactionTurnStart", true, function()
-    ICUI.place_opener(1)
+    ICUI.place_opener(1, true)
 end, true)
 
 -- THE SUMMARY, on the player's own turn start and ONE TICK LATE: this file's
@@ -7146,7 +7199,7 @@ core:add_listener("ic_turn_end", "FactionTurnEnd", true, function(context)
     local faction = context:faction()
     if not faction or faction:is_null_interface() then return end
     if faction:name() ~= ICUI.player() then return end
-    if comp(ICUI.PANEL) then pcall(ICUI.close) end
+    if comp(ICUI.PANEL) then pcall(ICUI.close, true) end
     ICUI.gate_opener(false, false)
 end, true)
 

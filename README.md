@@ -24,7 +24,7 @@ and improves any province its man governs.
 
 | Party | Claims | Its overseer's province gets |
 |---|---|---|
-| The Crown | nothing: it is you | public order |
+| The Crown | nothing: it is you | control |
 | The Priesthood | High Priest of Hashut | growth |
 | The Forge | Grand Overseer of the Forge, Master of the Quarries | armaments |
 | The Chain | Keeper of the Chains, Master of the Pits | labour taken after battles |
@@ -53,7 +53,7 @@ in as a party of their own.
   which scales what his influence adds.
 - **Five bands for the Crown.** Your own share sets a faction-wide effect: An Iron Grip
   (75% and up), Master of the Court (60%), In Command (40%), A Contested Court (10%) and The
-  Court Is Not Yours (below 10%). The top bands add public order, income, growth and
+  Court Is Not Yours (below 10%). The top bands add control, income, growth and
   cheaper upkeep; the bottom ones take them away.
 - **Fourteen offices in four tiers.** Each gives the faction a bonus, and an empty one costs
   a little. A seat asks for rank and influence, is held for a ten-turn term, and is lost if
@@ -65,7 +65,7 @@ in as a party of their own.
 - **Overseers.** Any of your men can govern a province. A lord leading an army governs only
   while he stands in it. Overseers gain experience every turn, and a party whose overseer
   runs a province under the Military Doctrine commandment gains loyalty. An overseer's
-  bonus grows with his rank: +1 public order per five ranks and +1% income per two, on
+  bonus grows with his rank: +1 control per five ranks and +1% income per two, on
   top of the base, in his province only.
 - **Loyalty.** Each party's loyalty, 0 to 100, moves every turn with its seats, its
   provinces, its traits and its leader's. Battles its men win raise it; a member's death, a

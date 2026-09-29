@@ -1298,3 +1298,30 @@ docs were brought up to date with it: README (trait pictures, icons, sounds, fif
 `derpy_ic_member_*` traits, feed indexes to 2628, the ten layouts and `IC30`-`IC39`, inline pictures, and two
 engine lessons: a trait's picture is its category's, and `PanelClosedCampaign` fires while the panel still
 reads visible), and a CHANGELOG entry for 1BE494B4.
+
+**The four leftovers.** Author: "do the leftovers first", after a list of what was still missing. Each with a
+check watched to fail first:
+- Trait Gained cards: `IC.stamp_origin` and `IC.stamp_bg` take a `quiet` flag, and the two callers that stamp a
+  whole court at once - `IC.stamp_court` (the roll at the start of a campaign, and a first load) and
+  `IC.stamp_incoming` (a confederation's men) - pass it. Ruling: a single recruit (`ic_born`) keeps his two
+  cards, since one man's origin and trade is news and a court's worth of them was the complaint. The harness's
+  `force_add_trait` stub now records the show-message flag (`traits_shown`); it had dropped it, which is why
+  nothing noticed. The check runs as the player's court: an AI court seats its own men on its turn and its
+  title cards (`IC.appoint`, show on) are not on the player's screen.
+- M7, a landed plot's burst (spec 2026-09-28 section 4.6): on the Court tab, a plot that lands redraws and then
+  bursts over its target's party card, found after the redraw as M3's governor row is, because the move
+  changes the shares the cards are ordered by. The fail flash and this share `plot_party(arg)`. An errand, or a
+  target who died or whose party ended, bursts nothing. From the Intrigue tab there is no party card to burst.
+- M8, the gift: `IC.favour` hands back what a gift actually moved in the slot a refusal's shortfall uses
+  (`return true, nil, gained`), `ICUI.answer_text` takes it as `spare`, and the button's tooltip promises no
+  more than the room below 100. At 99 both say +1. A gift at 100 was already refused ("content").
+- M10: the governor's rank tooltip says "control", as the office effects and the game do; the generator's own
+  selftest already held "Public Order" to be the wrong resolution of that effect. One older check had asserted
+  the old word.
+Harness 775 (4 new checks; the governor tooltip check now expects "control"). Full mutation run: 776 mutants (16
+new), 774 caught, 2 STALE ANCHORS on the lines this round rewrote ("a yes answered with a chime and no words",
+now on the call that passes `spare`, and "a failed plot flashes the man's number, not his party", now in
+`plot_party`) - retargeted and caught. Generated files regenerated after.
+Build `16E76FC32C8B51C848E2F95F91E6697E`, 9,494,604 bytes, deployed (backup `.bak_pre_auto_20260929_150523` holds
+1BE494B4), byte-verified. Not pushed; not yet seen in game. The repo's README still says "public order" in
+three places and DEVELOPMENT.md 771 checks and 760 mutants; bring both along on the next push.

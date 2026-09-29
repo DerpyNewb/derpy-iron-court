@@ -265,7 +265,6 @@ end
 -- The player's own numbers: cost, base odds, 1 point per 10 influence of edge.
 function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     local cost = IC.plot_cost(move)
-    IC.add_standing(faction_key, actor, -cost)
     local base = T["plot_chance_" .. move] or 0
     local edge = math.floor((IC.standing(faction_key, actor)
                              - IC.standing(faction_key, target)) / 10)
@@ -275,6 +274,8 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     if odds_div then
         chance = math.max(T.plot_chance_min, math.floor(chance / odds_div))
     end
+    -- THE ODDS BEFORE THE PRICE, as IC.plot reads them (sweep 2026-09-29).
+    IC.add_standing(faction_key, actor, -cost)
     local victim_house = IC.house_of_cqi(faction_key, target)
     local at_crown = victim_house == IC.CROWN
     if cm:random_number(100, 1) > chance then
@@ -923,7 +924,9 @@ function IC.refuse_demand(faction_key)
     local d = IC.agenda(faction_key).demand
     if not d then return false, "no demand" end
     local state = IC.demand_state(faction_key, d)
-    if state then
+    -- A POST GIVEN ELSEWHERE IS A REFUSAL, and Refuse says it worked (sweep
+    -- 2026-09-29: it charged the -10 and answered "gone").
+    if state and state ~= "refused" then
         IC.settle_demand(faction_key, state)
         return false, "gone"
     end
@@ -1184,7 +1187,11 @@ function IC.expire_offers(faction_key)
     local now = cm:model():turn_number()
     local gone = 0
     for slug, o in pairs(a.offers) do
-        if now >= o.ends or not court.houses[slug] then
+        -- ITS MAKER OR ITS TARGET GONE, both answered "gone" (sweep 2026-09-29:
+        -- a calm offer on a party that seceded stayed listed and blocked its
+        -- maker's next offer).
+        local _ok, why = IC.can_accept_offer(faction_key, slug)
+        if now >= o.ends or why == "gone" then
             a.offers[slug] = nil
             gone = gone + 1
         end

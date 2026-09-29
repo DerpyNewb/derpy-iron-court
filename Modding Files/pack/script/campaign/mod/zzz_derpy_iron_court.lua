@@ -1493,6 +1493,12 @@ function IC.remove_house(faction_key, slug)
     IC.departed[faction_key .. "|" .. slug] = IC.who_was(faction_key, slug)
     court.houses[slug] = nil
     for i = 1, #seats do
+        -- AND HIS TITLE, as dismiss takes it (sweep 2026-09-29): a stayer
+        -- kept the office trait of a seat he no longer held.
+        local man = IC.character_by_cqi(faction_key, court.offices[seats[i]])
+        if man then
+            cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i]))
+        end
         court.offices[seats[i]] = nil
         court.terms[seats[i]] = nil
     end
@@ -2151,7 +2157,7 @@ function IC.stamp_court(faction_key, attempts)
                 stamped = stamped + 1
             end
             -- Use the fixed-history readers so legendary lords are never rerolled.
-            if IC.stamp_origin(character, IC.origin_for(character)) then
+            if IC.stamp_origin(character, IC.origin_for(character), true) then
                 stamped = stamped + 1
             end
             if IC.stamp_ambition(faction_key, character) then
@@ -2172,28 +2178,32 @@ function IC.stamp_court(faction_key, attempts)
     for i = 1, #men do
         local character = men[i].man
         if IC.stamp_bg(character,
-                       IC.background_for(character, faction_key, tally)) then
+                       IC.background_for(character, faction_key, tally), true) then
             stamped = stamped + 1
         end
     end
     return stamped
 end
 
-function IC.stamp_origin(character, slug)
+-- QUIET when a whole court is stamped at once - the roll at the start of a
+-- campaign, a confederation's men arriving - which opened a new campaign on a
+-- Trait Gained card per trait per man (author, 2026-09-29). One new recruit
+-- still gets his two cards.
+function IC.stamp_origin(character, slug, quiet)
     if not slug then return false end
     if not character or character:is_null_interface() then return false end
     if IC.origin_of_character(character) then return false end
     cm:force_add_trait(cm:char_lookup_str(character),
-                       "derpy_ic_house_" .. slug, true)
+                       "derpy_ic_house_" .. slug, not quiet)
     return true
 end
 
-function IC.stamp_bg(character, slug)
+function IC.stamp_bg(character, slug, quiet)
     if not slug then return false end
     if not character or character:is_null_interface() then return false end
     if IC.bg_of_character(character) then return false end
     cm:force_add_trait(cm:char_lookup_str(character),
-                       "derpy_ic_bg_" .. slug, true)
+                       "derpy_ic_bg_" .. slug, not quiet)
     return true
 end
 
@@ -2701,12 +2711,11 @@ function IC.assign_governor(faction_key, province_key, cqi)
 end
 
 function IC.release_governor(faction_key, province_key)
-    IC.log(faction_key, "gov_off",
-           IC.house_of_cqi(faction_key,
-                           IC.court(faction_key).govs[province_key] or -1),
-           province_key, 0)
     local court = IC.court(faction_key)
     if not court.govs[province_key] then return false end
+    IC.log(faction_key, "gov_off",
+           IC.house_of_cqi(faction_key, court.govs[province_key]),
+           province_key, 0)
     court.govs[province_key] = nil
     IC.save(faction_key)
     IC.apply_governor_bundles(faction_key)
@@ -3539,7 +3548,9 @@ function IC.rebel_sour(rebels, other, max_steps)
     local n = 0
     while n < (max_steps or IC.TUNE.rebel_relation_max) do
         local now
-        pcall(function() now = a:diplomatic_standing_with(b) end)
+        -- A KEY, as CA's caravan script passes it (sweep 2026-09-29): handed the
+        -- interface, the pcall ate the refusal and every souring ran all steps.
+        pcall(function() now = a:diplomatic_standing_with(other) end)
         if now and now <= IC.TUNE.rebel_relation then break end
         pcall(function()
             cm:apply_dilemma_diplomatic_bonus(rebels, other,
@@ -3920,6 +3931,15 @@ function IC.splinter(faction_key)
     local house = court.houses[slug]
     house.weight = IC.TUNE.splinter_weight
     crown.weight = math.max(1, (crown.weight or 0) - IC.TUNE.splinter_weight)
+    -- AND THE SEATS ITS MEN HOLD (sweep 2026-09-29). appoint credited the
+    -- Crown, and dismiss debits the party a man answers to now: without this
+    -- the Crown kept the weight for good and the new party lost it twice.
+    for office_slug, cqi in pairs(court.offices) do
+        if IC.house_of_cqi(faction_key, cqi) == slug then
+            crown.weight = math.max(1, crown.weight - IC.office_weight(office_slug, IC.CROWN))
+            house.weight = house.weight + IC.office_weight(office_slug, slug)
+        end
+    end
     IC.move_loyalty(faction_key, IC.CROWN, IC.TUNE.loyalty_start - keep)
     IC.log(faction_key, "splinter", slug, nil, house.weight)
     IC.news(faction_key, "splinter", slug)
@@ -4199,9 +4219,10 @@ IC.PLOTS = {
      icon = "ui/campaign ui/skills/wh3_dlc23_character_ability_reforge.png",
      cat = "man",
      cost = "plot_murder_cost",
+     -- BOTH TERMS: ic_dead charges loyalty_member_died on top (sweep 2026-09-29).
      effect = string.format(
          "He dies. -%d loyalty from his house.",
-         IC.TUNE.plot_murder_loyalty),
+         IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died),
      blurb = "The Tower claims another victim. His party will know who arranged it."},
     -- Rome II-style actions against an entire party.
     -- PROVOKE AND PURGE ARE cat "party", which IC.PLOT_CATS does not list, so
@@ -4405,8 +4426,13 @@ function IC.favour(faction_key, key, slug)
     local cost = IC.favour_cost(key)
     cm:treasury_mod(faction_key, -cost)
 
+    -- WHAT IT GAVE, in the slot a refusal's shortfall uses: loyalty stops at
+    -- 100, so at 99 a gift gives one point, and the answer says so.
+    local gained = nil
     if key == "gift" then
+        local was = house.loyalty or IC.TUNE.loyalty_start
         IC.move_loyalty(faction_key, slug, IC.TUNE.favour_gift_loyalty)
+        gained = (house.loyalty or was) - was
         house.gifted = cm:model():turn_number()
     elseif key == "secure" then
         house.protected = cm:model():turn_number() + IC.TUNE.favour_secure_turns
@@ -4423,7 +4449,7 @@ function IC.favour(faction_key, key, slug)
 
     IC.log(faction_key, key, slug, nil, cost)
     IC.save(faction_key)
-    return true
+    return true, nil, gained
 end
 
 function IC.plot_by_key(key)
@@ -4860,6 +4886,9 @@ function IC.turn(faction_key)
     IC.splinter(faction_key)
     -- LAST: a secession or a split above is what moves a man between parties.
     IC.stamp_members(faction_key)
+    -- AND THE BAND AGAIN, after everything above that moves weight (sweep
+    -- 2026-09-29): a split across a floor wore the old band all turn.
+    IC.apply_control_bundle(faction_key)
     IC.save(faction_key)
     return warned
 end
@@ -5299,10 +5328,18 @@ function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
         if man and not man:is_null_interface()
            and not before[man:command_queue_index()] then
         local fixed = IC.fixed_history(man)
-        if IC.stamp_origin(man, fixed and fixed.origin or slug) then
+        local want = fixed and fixed.origin or slug
+        -- AN AI COURT HAS STAMPED ITS MEN ALREADY (sweep 2026-09-29): a rolled
+        -- birthplace gives way to the hall they arrive from, or stamp_origin
+        -- refused every one and the house never joined.
+        local had = IC.origin_of_character(man)
+        if had and had ~= want and not (fixed and fixed.origin) then
+            cm:force_remove_trait(cm:char_lookup_str(man), "derpy_ic_house_" .. had)
+        end
+        if IC.stamp_origin(man, want, true) or had == want then
             stamped = stamped + 1
         end
-        IC.stamp_bg(man, IC.background_for(man, faction_key, tally))
+        IC.stamp_bg(man, IC.background_for(man, faction_key, tally), true)
         end
     end
     if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then

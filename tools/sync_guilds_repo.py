@@ -36,6 +36,10 @@ MANIFEST = [(p, p) for p in [
     _UI + "derpy_gg_list.twui.xml",
     _UI + "derpy_gg_frow.twui.xml",
     _UI + "derpy_gg_opener.twui.xml",
+    # Each race's own panel and card (gen_guilds_ui.FRAMES) - text, naming CA art by path.
+    *[_UI + "derpy_gg_%s_%s.twui.xml" % (kind, race)
+      for race in ("brt", "cth", "def", "dwf", "emp", "hef", "ksl")
+      for kind in ("panel", "card")],
     # NO ART. The icons (derpy_gg_icons, and CA's originals in source/guild_icons) and the
     # panel grounds (derpy_gg_bg) are all derived from Creative Assembly's art, so none of
     # it goes into the public repo - the user's call, 2026-09-23. It ships in the pack only.
