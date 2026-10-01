@@ -41,7 +41,7 @@ import os
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SRC = os.path.join(ROOT, "Modding Files", "reference",
+SRC = os.path.join(ROOT, "Modding Files", "reference", "Chaos Dwarf",
                    "morgan-ketelaar-jarass-wh3-winmovie-shot04.jpg")
 DST = os.path.join(ROOT, "Modding Files", "pack", "ui", "derpy_ic", "panel_bg.png")
 

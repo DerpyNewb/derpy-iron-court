@@ -47,14 +47,6 @@
 					this="IC420004-D001-4000-B000000000000004"
 					uniqueguid="IC420004-D001-4000-B000000000000004"
 					imagepath="ui/skins/default/1x1_blank_white.png"/>
-				<component_image
-					this="IC420004-D003-4000-B000000000000004"
-					uniqueguid="IC420004-D003-4000-B000000000000004"
-					imagepath="ui/derpy_ic/mask_none.png"/>
-				<component_image
-					this="IC420004-D005-4000-B000000000000004"
-					uniqueguid="IC420004-D005-4000-B000000000000004"
-					imagepath="ui/derpy_ic/mask_none.png"/>
 			</componentimages>
 			<states>
 				<standard
@@ -73,25 +65,6 @@
 							height="51"
 							colour="#00000055"
 							margin="0.00,0.00,0.00,0.00"/>
-						<image
-							this="IC420004-D004-4000-B000000000000004"
-							uniqueguid="IC420004-D004-4000-B000000000000004"
-							componentimage="IC420004-D003-4000-B000000000000004"
-							offset="0.00,0.00"
-							width="1555"
-							height="51"
-							shader_name="glow_pulse_t0"
-							shadertechnique_vars="1.00,1.30,0.80,0.00"
-							margin="20.00,20.00,20.00,20.00"/>
-						<image
-							this="IC420004-D006-4000-B000000000000004"
-							uniqueguid="IC420004-D006-4000-B000000000000004"
-							componentimage="IC420004-D005-4000-B000000000000004"
-							offset="0.00,0.00"
-							width="1555"
-							height="51"
-							colour="#FFFFFF66"
-							margin="20.00,20.00,20.00,20.00"/>
 					</imagemetrics>
 				</standard>
 			</states>
@@ -346,7 +319,7 @@
 				<standard
 					this="IC42001A-D000-4000-B00000000000001A"
 					name="standard"
-					width="92"
+					width="130"
 					height="26"
 					interactive="true"
 					uniqueguid="IC42001A-D000-4000-B00000000000001A">
@@ -356,7 +329,7 @@
 							uniqueguid="IC420019-D002-4000-B000000000000019"
 							componentimage="IC420019-D001-4000-B000000000000019"
 							offset="0.00,-3.00"
-							width="92"
+							width="130"
 							height="43"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -378,7 +351,7 @@
 				<hover
 					this="IC42001B-D000-4000-B00000000000001B"
 					name="hover"
-					width="92"
+					width="130"
 					height="26"
 					interactive="true"
 					uniqueguid="IC42001B-D000-4000-B00000000000001B">
@@ -388,7 +361,7 @@
 							uniqueguid="IC420019-D004-4000-B000000000000019"
 							componentimage="IC420019-D003-4000-B000000000000019"
 							offset="0.00,-3.00"
-							width="92"
+							width="130"
 							height="43"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>

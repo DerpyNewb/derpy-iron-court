@@ -442,7 +442,15 @@ IC.TUNE = {
 
     weight_start        = 10,   -- a house entering court
     weight_per_office   = 6,
-    weight_per_governor = 3,
+    -- A GOVERNORSHIP IS WORTH ITS PROVINCE (author, 2026-09-30): one weight
+    -- for every two settlement levels held there, rounded up, never less than
+    -- 1 - a level-1 village counts 1, a level-5 capital 5 (IC.gov_weight_of).
+    weight_per_gov_level = 0.5,
+    -- AND IT IS EARNED, NOT HANDED OVER (author, 2026-09-30: "assigning
+    -- governor quickly shouldnt change the influence directly, it should be
+    -- gradual"): a new governor starts from nothing and gains this much a turn
+    -- up to what his province is worth (IC.grow_governors).
+    gov_weight_per_turn = 1,
     ambition_standing_per_weight = 100,
     weight_affinity_mult = 2,   -- appointing the affine house is worth double
 
@@ -862,6 +870,9 @@ local function new_court()
         offices  = {},   -- [office slug] = character cqi
         terms    = {},   -- [office slug] = turn the term ends
         govs     = {},   -- [province key] = character cqi
+        -- [province key] = weight grown under its governor. nil: a governor
+        -- from a save before the growth, who counts in full.
+        gov_grown = {},
         prov     = {},   -- [province key] = loyalty, 0-100
         standing = {},   -- [character cqi] = influence he holds
         ambition = {},   -- [character cqi] = ambition slug
@@ -1176,7 +1187,9 @@ function IC.pack(faction_key)
         offices[#offices + 1] = slug .. "," .. tostring(cqi)
     end
     for province, cqi in pairs(court.govs) do
+        local grown = court.gov_grown and court.gov_grown[province]
         govs[#govs + 1] = province .. "," .. tostring(cqi)
+                          .. (grown and ("," .. tostring(grown)) or "")
     end
     for slug, turn in pairs(court.terms) do
         terms[#terms + 1] = slug .. "," .. tostring(turn)
@@ -1310,7 +1323,10 @@ function IC.unpack(faction_key, packed)
     end
     for _, entry in ipairs(split(fields[3] or "", ";")) do
         local bits = split(entry, ",")
-        if #bits >= 2 then court.govs[bits[1]] = tonumber(bits[2]) end
+        if #bits >= 2 then
+            court.govs[bits[1]] = tonumber(bits[2])
+            court.gov_grown[bits[1]] = tonumber(bits[3])
+        end
     end
     for _, entry in ipairs(split(fields[4] or "", ";")) do
         local bits = split(entry, ",")
@@ -1799,6 +1815,11 @@ end
 -- the field (IC.field_leader), once per party; after that, and for the AI
 -- always, a lord is made in the recruitment pool already carrying the party's
 -- background, and leads it once recruited.
+-- EXCEPT ON TURN 1 (author, 2026-09-30: "On turn 1, only put a lord in the
+-- recruit pool"): the court is founded on the first tick, before the turn's own
+-- men arrive, and a party not yet dealt one got a lord alone on the map, paying
+-- upkeep. On turn 1 the pool lord IS the party's one gift, so no army follows
+-- him while he waits; hired, he still gets his recruit rank (IC.raise_hired).
 -- A freshly pooled lord is not in character_list, so `stored` is what stops one
 -- being made every turn; it clears as soon as the party has a leader.
 -- ponytail: one stored lord per party at a time; one left unrecruited when the
@@ -1827,7 +1848,7 @@ function IC.ensure_leaders(faction_key)
                        .. "cqi " .. man:command_queue_index() .. " moved over from the Crown")
             elseif house.fielded == now then
                 -- HIS ARMY IS ON ITS WAY: the spawn lands after this frame.
-            elseif not house.fielded and IC.is_human(faction_key)
+            elseif not house.fielded and IC.is_human(faction_key) and now > 1
                     and IC.field_leader(faction_key, slug) then
                 house.fielded = now
                 made = made + 1
@@ -1843,6 +1864,7 @@ function IC.ensure_leaders(faction_key)
                 -- Marked even on a failure: a call that fails once fails every
                 -- turn, and one log line per party is enough to see it.
                 house.stored = true
+                if now <= 1 and IC.is_human(faction_key) then house.fielded = now end
                 if ok then made = made + 1 end
                 -- A LORD THAT COULD NOT BE MADE is a failure; one waiting is not.
                 local log = ok and IC.say or IC.warn
@@ -1920,6 +1942,38 @@ function IC.field_leader(faction_key, slug)
         IC.warn("IRON COURT: no leader put in the field for " .. slug .. ": " .. tostring(err))
     end
     return ok
+end
+
+-- A LORD HIRED FOR A PARTY THAT WAITED ON ONE (author, 2026-09-30: "still can
+-- benefit from effects such as rank +3"). The engine gives recruit rank to a
+-- lord it recruits and not to one the script makes; one the script put in the
+-- pool and the player hired has not been measured, so he is raised to AT LEAST
+-- the rank a lord hired where he stands would have. At least: a man the engine
+-- raised itself is left as he is. A lord only, and only for a party with a lord
+-- in store - every other hire is the engine's alone.
+function IC.raise_hired(faction_key, character)
+    local kind = IC.kind_of_character(character)
+    if kind ~= "general" and kind ~= "lord" then return end
+    local slug = IC.house_of_character(character, faction_key)
+    local house = slug and IC.court(faction_key).houses[slug]
+    if not (house and house.stored) then return end
+    local region_key
+    pcall(function()
+        if character:has_region() then region_key = character:region():name() end
+    end)
+    if not region_key then
+        local home = IC.hire_region(real_faction(faction_key))
+        region_key = home and home:name()
+    end
+    if not region_key then return end
+    local want = 1 + IC.recruit_rank(faction_key, region_key)
+    local have = character:rank()
+    -- BY, NOT TO: CA's wrapper calls level_up_agent_rank.
+    if have < want then
+        cm:add_agent_experience(cm:char_lookup_str(character), want - have, true)
+        IC.say("IRON COURT: " .. slug .. "'s lord in " .. faction_key .. " hired at rank "
+               .. have .. " - raised to " .. want .. ", a recruit's at " .. region_key)
+    end
 end
 
 -- LORD RECRUIT RANK, which the engine gives a lord hired from the pool and not
@@ -2738,7 +2792,15 @@ function IC.assign_governor(faction_key, province_key, cqi)
     -- one but pay its man a wage, so charging the office's currency for one
     -- only kept the early court's provinces empty. The offices still compete
     -- for the best men; a governorship is what the rest of them do.
+    -- THE MAN HE REPLACES LEAVES ON THE RECORD. The Governors tab never appoints
+    -- over a sitting governor; the party map's picker does (plan 2026-09-29).
+    local was = court.govs[province_key]
+    if was and was ~= cqi then
+        IC.log(faction_key, "gov_off", IC.house_of_cqi(faction_key, was), province_key, 0)
+    end
     court.govs[province_key] = cqi
+    court.gov_grown = court.gov_grown or {}
+    if was ~= cqi then court.gov_grown[province_key] = 0 end
     IC.log(faction_key, "gov_on", IC.house_of_character(character, faction_key),
            province_key, 0)
     IC.save(faction_key)
@@ -2753,6 +2815,7 @@ function IC.release_governor(faction_key, province_key)
            IC.house_of_cqi(faction_key, court.govs[province_key]),
            province_key, 0)
     court.govs[province_key] = nil
+    if court.gov_grown then court.gov_grown[province_key] = nil end
     IC.save(faction_key)
     IC.apply_governor_bundles(faction_key)
     return true
@@ -2922,14 +2985,69 @@ function IC.governor_edict(faction_key, province_key)
     return key
 end
 
+-- THE SETTLEMENT LEVELS A FACTION HOLDS IN EACH PROVINCE, in one walk of its
+-- regions. A settlement's level is its primary building's building_level() + 1:
+-- the value counts from 0. A ruin - a null building - counts 0. One pcall per
+-- region, so a region that fails to answer costs its own levels and nothing else.
+function IC.province_levels(faction_key)
+    local out = {}
+    local ok_f, faction = pcall(real_faction, faction_key)
+    if not ok_f or not faction then return out end
+    local ok_l, list = pcall(function() return faction:region_list() end)
+    if not ok_l or not list then return out end
+    local ok_n, n = pcall(function() return list:num_items() end)
+    for i = 0, (ok_n and n or 0) - 1 do
+        pcall(function()
+            local region = list:item_at(i)
+            if not region or region:is_null_interface() then return end
+            local key = region:province():key()
+            local level = 0
+            local b = region:settlement():primary_slot():building()
+            if b and not b:is_null_interface() then level = b:building_level() + 1 end
+            out[key] = (out[key] or 0) + level
+        end)
+    end
+    return out
+end
+
+-- WHAT A GOVERNORSHIP OVER `levels` SETTLEMENT LEVELS ADDS TO ITS PARTY.
+function IC.gov_weight_of(levels)
+    return math.max(1, math.ceil((levels or 0) * IC.TUNE.weight_per_gov_level))
+end
+
+-- WHAT EACH GOVERNOR HAS GROWN SO FAR, capped at his province's worth. A
+-- province that loses levels loses the weight at once; one that gains them is
+-- climbed a step a turn, like any new governorship.
+function IC.gov_grown_weight(court, province_key, levels)
+    local worth = IC.gov_weight_of(levels[province_key])
+    local grown = court.gov_grown and court.gov_grown[province_key]
+    if grown == nil then return worth end
+    return math.min(worth, grown)
+end
+
+-- ONCE A TURN (IC.turn): every governor a step nearer his province's worth.
+function IC.grow_governors(faction_key)
+    local court = IC.court(faction_key)
+    court.gov_grown = court.gov_grown or {}
+    local levels = IC.province_levels(faction_key)
+    for province_key in pairs(court.govs) do
+        local grown = court.gov_grown[province_key]
+        if grown ~= nil then
+            court.gov_grown[province_key] = math.min(IC.gov_weight_of(levels[province_key]),
+                grown + IC.TUNE.gov_weight_per_turn)
+        end
+    end
+end
+
 function IC.refresh_gov_weight(faction_key)
     local court = IC.court(faction_key)
     for _, house in pairs(court.houses) do house.gov_weight = 0 end
-    for _province_key, cqi in pairs(court.govs) do
+    local levels = IC.province_levels(faction_key)
+    for province_key, cqi in pairs(court.govs) do
         local slug = IC.house_of_cqi(faction_key, cqi)
         local house = slug and court.houses[slug]
         if house then
-            house.gov_weight = house.gov_weight + IC.TUNE.weight_per_governor
+            house.gov_weight = house.gov_weight + IC.gov_grown_weight(court, province_key, levels)
         end
     end
 end
@@ -5043,6 +5161,7 @@ function IC.turn(faction_key)
     IC.ensure_leaders(faction_key)
     IC.reconcile_governors(faction_key)
     IC.tick_provinces(faction_key)
+    IC.grow_governors(faction_key)
     IC.income(faction_key)
     IC.expire_terms(faction_key)
     IC.warn_terms(faction_key)
@@ -5763,6 +5882,21 @@ function IC.register()
             IC.stamp_origin(character, IC.origin_for(character))
             IC.stamp_bg(character, IC.background_for(character, faction_key))
         end
+    end, true)
+
+    -- A MOMENT AFTER THE HIRE, so a rank the engine gives on recruitment is
+    -- already on him and is not given twice.
+    core:add_listener("ic_hired", "CharacterRecruited", true, function(context)
+        local character = context:character()
+        if not character or character:is_null_interface() then return end
+        local faction = character:faction()
+        if not faction or faction:is_null_interface() or not IC.runs_court(faction) then return end
+        local faction_key, cqi = faction:name(), character:command_queue_index()
+        IC.loaded(faction_key)
+        cm:callback(function()
+            local man = IC.character_by_cqi(faction_key, cqi)
+            if man then IC.raise_hired(faction_key, man) end
+        end, 0.5)
     end, true)
 
     core:add_listener("ic_battle", "CharacterCompletedBattle", true, function(context)

@@ -129,6 +129,8 @@ MANIFEST = [(p, p) for p in [
      "docs/history/HANDOFF_20260929_GUILDS_STAGE2_RACES.md"),
     ("docs/sessions/HANDOFF_20260929_GUILDS_LOGIC_AUDIT.md",
      "docs/history/HANDOFF_20260929_GUILDS_LOGIC_AUDIT.md"),
+    ("docs/sessions/HANDOFF_20260930_GUILDS_PANEL_POLISH.md",
+     "docs/history/HANDOFF_20260930_GUILDS_PANEL_POLISH.md"),
 ]
 
 

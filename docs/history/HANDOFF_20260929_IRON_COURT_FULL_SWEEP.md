@@ -277,6 +277,22 @@ click, paging, docs) wait on the author's look.
   (5) Does the close button bring the court back, and the HUD back after the court closes?
   1 or 2 failing sends the map to the spec's section 10 (schematic in the tab); 1 landing offset
   but tracking is a one-attribute fix (`component_anchor_point`, the plan spells it out).
+- **First probe, 2026-09-30 (the author's screenshot and `script_log_290926_2340.txt`)**: no disc
+  and no name drew, but the log shows `ic_map_mk_1` clicked at [897,391] and later at [861,634],
+  200x84, visible and interactive. So the marker exists and tracks the camera, which was the
+  probe's real question, and it is fully transparent. The cause is CA's fade: `self` in CA's
+  expressions is the component (2,541 `self.ParentContext` uses), so the fade reads the marker's
+  own screen y, and a marker made from Lua starts at the layer's corner, where 0/50 = 0.
+  `update_constant` is not a documented `ContextOpacitySetter` property, so nothing reads it again.
+  26 of CA's 28 pinned layouts carry no fade. Removed; `check_map` now refuses one (watched to fail
+  on the shipped file first). Build **`0982F260`**, 1761 files byte-identical in data/, backup
+  `.bak_pre_auto_20260930_083035`. The empty legend and its two captionless pager plates are
+  Task 2's, not a fault. Second probe owed: questions 1, 2, 4 and 5 again.
+- **Second probe, 2026-09-30 08:58 (`0982F260`)**: the disc draws on the Plain of Zharr, with the
+  name on its plate under it. A bridge read of the live layer gives opacity 255, the Tower disc,
+  sigil and capital ring, and it tracks the camera. The log has zero SCRIPT ERRORs, and CA's region
+  tooltip still shows through beside the legend. No anchor change is needed. Still unreported: a
+  camera drag beside a marker, and the HUD coming back after the court closes. Tasks 2-5 may start.
 
 ## 10. Civil missions (night, build C334A61D, then CCF16A5E after the final review)
 

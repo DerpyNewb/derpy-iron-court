@@ -447,6 +447,7 @@ def check_scaled(ui_text=None):
             "PLOT_XY": {str(i + 1): p for i, p in enumerate(g.plot_grid())},
             "COURT_SECTION_XY": {"-": g.COURT_SECTION_XY},
             "ACT_PAGED_XY": g.ACT_PAGED,
+            "GM_ROW_CHILD_XY": g.GM_ROW_LAYOUT,
         }
         lua_tables = got["T"].get(bw, {})
         for table in sorted(set(lua_tables) | set(gen_tables)):
@@ -1284,7 +1285,8 @@ def verify():
             for lua_name, gen_table in (("PANEL_XY", U3.PANEL_LAYOUT),
                                         ("ROW_CHILD_XY", U3.ROW_LAYOUT),
                                         ("CARD_CHILD_XY", U3.CARD_LAYOUT),
-                                        ("PARTY_CHILD_XY", U3.PARTY_LAYOUT)):
+                                        ("PARTY_CHILD_XY", U3.PARTY_LAYOUT),
+                                        ("GM_ROW_CHILD_XY", U3.GM_ROW_LAYOUT)):
                 found = lua_xy(lua_name)
                 if found is None:
                     problems.append("the panel Lua has no ICUI.%s table" % lua_name)

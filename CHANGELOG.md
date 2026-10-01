@@ -5,6 +5,39 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-01 - build 780A41C5
+
+Deployed 2026-10-01. MD5 `780A41C5E6826840A6E261564ECC2313`, 9,686,440 bytes, 1,790 files. It
+gathers every build since CCF16A5E: the party map finished (1C3AEB24), then the Governors map
+plan's seven tasks and its final review (AE791478), then a cleanup. The detail is in
+`docs/history/HANDOFF_20260930_IRON_COURT_PARTY_MAP.md` and
+`docs/history/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md`; the plan is in `docs/plans/` and
+the spec in `docs/design/`.
+
+- **The Governors tab is the map.** It clears the court's backdrop so the live campaign map
+  shows through, with the court still open and the camera free. Each province you hold wears
+  CA's Chaos Dwarf map pin: the governor's face masked round, his party's colour as a ring and
+  across the name plate, his party's flag, and the province's loyalty. A click opens the
+  governor picker. The Map tab, which closed the court to show the same markers, is gone.
+- **A column beside the map.** Parties (what each governs and would take if it walked out,
+  ringed in red when chosen), Provinces (sortable, paged, the camera moves to the one chosen,
+  a check to appoint and a cross to release) and Candidates (the governor picker as cards; a
+  man the court would refuse is drawn greyed with the reason first).
+- **Weight from developed provinces.** A governorship gives its party one weight for every two
+  settlement levels in the province, at least one, instead of a flat 3, earned one step a turn.
+  An older save's governors count in full.
+- **Turn 1** puts a leaderless party's lord in the recruitment pool, not in the field, and a
+  lord hired from it starts at the court's recruit rank.
+- **Make Peace** fits its button and has its own tooltip; **Escape** closes the court first.
+- **Found by the final review:** each redraw of the Governors tab asked every party what it
+  would take once per pin and once per row, a freeze of seconds per click in a large realm -
+  now once per redraw; and the column row's lines crossed its frame - a rail check measured off
+  CA's art now refuses that.
+- **Cleanup:** the old Governors list's row rim, its empty-seat branch and its column headers
+  are removed, with the rim's art.
+- Harness 804 -> 852 checks, 833 -> 954 mutants, 0 unexplained. Owed in game: CA's own map
+  tooltips with the court open, and whether a settlement click reaches the settlement.
+
 ## 2026-09-29 - build CCF16A5E
 
 Deployed 2026-09-29. MD5 `CCF16A5E6C166FD8DE703E9C7D1185CD`, 9,605,693 bytes, 1,761 files. It

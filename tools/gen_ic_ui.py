@@ -104,10 +104,18 @@ GUID_PREFIXES = {
     "derpy_ic_row_compact.twui.xml":   "IC42",
     "derpy_ic_party_compact.twui.xml": "IC43",
     "derpy_ic_plot_compact.twui.xml":  "IC44",
-    # IC45-IC46 - THE PARTY MAP (spec 2026-09-29): the root-level layer with the
-    # legend, and the marker created into it once per province. Never scaled.
-    "derpy_ic_map.twui.xml":        "IC45",
-    "derpy_ic_map_marker.twui.xml": "IC46",
+    # IC45 and IC46 were the old party map's, retired 2026-09-30. Never reuse a prefix: a stale file in a player's data/ would collide.
+    # IC47-IC51 - THE GOVERNORS VIEW (spec 2026-09-30): the pin, the face, the
+    # two plates and the party badge, made once each per province into the
+    # panel's first child. Never scaled.
+    "derpy_ic_gm_pin.twui.xml":     "IC47",
+    "derpy_ic_gm_face.twui.xml":    "IC48",
+    "derpy_ic_gm_name.twui.xml":    "IC49",
+    "derpy_ic_gm_loyal.twui.xml":   "IC50",
+    "derpy_ic_gm_badge.twui.xml":   "IC51",
+    # IC52-IC53 - THE GOVERNORS VIEW'S COLUMN ROW and its compact copy.
+    "derpy_ic_gm_row.twui.xml":         "IC52",
+    "derpy_ic_gm_row_compact.twui.xml": "IC53",
 }
 
 # Base file -> its compact copy. The opener and the influence plate are HUD
@@ -116,7 +124,7 @@ COMPACT_FILES = dict(
     (f, f.replace(".twui.xml", "_compact.twui.xml"))
     for f in ("derpy_ic_panel.twui.xml", "derpy_ic_card.twui.xml",
               "derpy_ic_row.twui.xml", "derpy_ic_party.twui.xml",
-              "derpy_ic_plot.twui.xml"))
+              "derpy_ic_plot.twui.xml", "derpy_ic_gm_row.twui.xml"))
 
 # The Zharr Exchange's footprint, which is proven to fit at every supported
 # resolution. The mockup is drawn to it.
@@ -198,6 +206,37 @@ PANEL_LAYOUT = {
     # 300 WIDE since it gained a plate (2026-09-25): "99 of 99 seats filled"
     # has to fit inside the frame, SEATS_PAD clear of each end.
     "ic_influence": (1540, 20, 300, 26),
+    # THE GOVERNORS VIEW'S PINS' HOLDER (spec 2026-09-30), the panel's FIRST
+    # child (check_gm): pins made in it draw under everything this file
+    # declares. Moved to the screen's corner and sized to the screen at every
+    # draw, as the party map's layer was: a pin is placed in screen space.
+    "ic_gm_pins": (0, 0, 1920, 1080),
+    # THE GOVERNORS VIEW'S PLATES AND COLUMN (spec 2026-09-30 section 6). Text
+    # on a live map has no reliable contrast, so every line this view keeps sits
+    # on one of the three plates (check_gm_plates). The column is CA's
+    # Hell-Forge side panel at its own 503: opaque 0-443, then its fade.
+    "ic_gm_top": (0, 0, 1920, 124),
+    "ic_gm_foot": (0, 1014, 1920, 66),
+    "ic_gm_col": (0, 124, 503, 890),
+    "ic_gm_head": (10, 128, 425, 60),
+    "ic_gm_tog_1": (76, 194, 56, 56),
+    "ic_gm_tog_2": (312, 194, 56, 56),
+    "ic_gm_tog_lbl_1": (44, 252, 120, 26),
+    "ic_gm_tog_lbl_2": (280, 252, 120, 26),
+    "ic_gm_hint": (16, 286, 412, 26),
+    # THE PROVINCES PAGE'S SORT, in the hint's slot: the hint is the Parties
+    # page's and these are the Provinces page's, never both on screen.
+    "ic_gm_sort_1": (16, 286, 132, 26),
+    "ic_gm_sort_2": (156, 286, 132, 26),
+    "ic_gm_sort_3": (296, 286, 132, 26),
+    # CA'S ACCEPT AND CANCEL on the Hell-Forge's own button plate.
+    "ic_gm_btns": (0, 920, 444, 90),
+    "ic_gm_ok": (150, 937, 56, 56),
+    "ic_gm_no": (238, 937, 56, 56),
+    # THE COURT'S PAGER, same sizes, under the seventh row (318 + 7 * 80 = 878).
+    "ic_gm_prev": (16, 880, 136, 34),
+    "ic_gm_page": (156, 884, 132, 26),
+    "ic_gm_next": (292, 880, 136, 34),
     # THE SORT CONTROL, on the tab row's far right and ending where the close
     # button ends (1902). The row is free from 784 to 1596, but the control is
     # right-aligned instead: it belongs to the list below it rather than to the
@@ -208,26 +247,23 @@ PANEL_LAYOUT = {
     "ic_tab_court": (18, 62, 240, 32),
     "ic_tab_offices": (262, 62, 240, 32),
     "ic_tab_govs": (506, 62, 240, 32),
-    # THE PARTY MAP (spec 2026-09-29): after Governors, its sibling. Not a view -
-    # its click closes the court (zzz_derpy_iron_court_ui_map.lua).
-    "ic_tab_map": (750, 62, 240, 32),
-    "ic_tab_intrigue": (994, 62, 240, 32),
+    "ic_tab_intrigue": (750, 62, 240, 32),
     # WHAT THE PARTIES ASK OF YOU, on a tab of its own (author, 2026-09-24).
     # Offers were answered from a party's favour list and demands from nowhere
     # at all - the player had to find the seat and fill it by hand.
-    "ic_tab_petitions": (1238, 62, 240, 32),
+    "ic_tab_petitions": (994, 62, 240, 32),
     # The RECORD, on its own tab, and LAST (author, 2026-09-24): it is the one
     # tab with nothing to act on. It shared the Intrigue list with the live
     # secession clocks, and a page of history pushed the one thing a player
     # can still act on off the screen.
-    "ic_tab_log": (1482, 62, 240, 32),
+    "ic_tab_log": (1238, 62, 240, 32),
     # THE ATTENTION MARKERS (spec 2026-09-28 section 4.4): a heat glow over
     # each tab's right-hand skull, the cap's centre 20px in from the end
     # (TAB_CAP 40), shown by ICUI.draw_marks while that tab has business.
     "ic_mark_court": (18 + 240 - 34, 64, 28, 28),
     "ic_mark_offices": (262 + 240 - 34, 64, 28, 28),
     "ic_mark_govs": (506 + 240 - 34, 64, 28, 28),
-    "ic_mark_petitions": (1238 + 240 - 34, 64, 28, 28),
+    "ic_mark_petitions": (994 + 240 - 34, 64, 28, 28),
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
@@ -699,8 +735,47 @@ ROW_LAYOUT = {
     # Petitions tab's REFUSE, beside its ACCEPT. It sits over column four's
     # tail, so fill_rows hides it on every line that does not name it and the
     # petitions view narrows nothing it does not use.
-    "ic_row_f": (1560, 15, 110, 32),
+    "ic_row_f": (1520, 15, 156, 32),
 }
+
+# THE GOVERNORS VIEW'S COLUMN ROW (spec 2026-09-30 section 6): ONE pool for the
+# column's three pages, as the Intrigue views share one. The body is CA's
+# Hell-Forge unit block, which stretches between 16px caps. Must match
+# ICUI.GM_ROW_* and ICUI.GM_ROW_CHILD_XY in the panel Lua (import_iron_court).
+GM_ROW_FILE = "derpy_ic_gm_row.twui.xml"
+GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_H, GM_ROW_PITCH = 16, 318, 412, 76, 80
+GM_ROWS = 7
+GM_ROW_LAYOUT = {
+    "ic_gr_face": (10, 9, 104, 57),     # a porthole, PORT_BOX's own shape
+    "ic_gr_crest": (10, 20, 36, 36),    # a party's crest, square
+    "ic_gr_badge": (90, 46, 24, 24),    # his party's crest on the face's corner
+    # THE THREE LINES INSIDE THE FRAME'S RAILS (GM_ROW_RAIL), at the box
+    # heights the office card's own lines ship at: 16px text in 20, 12px in 16.
+    "ic_gr_l1": (124, 12, 274, 20),
+    "ic_gr_l2": (124, 31, 274, 16),
+    "ic_gr_icon": (124, 47, 16, 16),    # CA's loyalty icon
+    "ic_gr_l3": (144, 47, 254, 16),
+}
+GM_HF = "ui/skins/default/dlc23_chd_hell_forge/"
+GM_ROW_ART = GM_HF + "button_square_extra_large_%s.png"
+# ITS RAILS, measured off CA's art (122x82, every state): the frame holds rows
+# 0-11 and 69-81 and columns 0-10 and 111-121. The art stretches vertically with
+# no caps (margin (0, 16)), so the top and bottom rails scale with the row; the
+# side ones sit in the 16px caps and never do. A line or the loyalty icon laid
+# over one has the frame - and the chosen row's gold edge - run through it
+# (final review, 2026-10-01: the third line sat on the bottom rail).
+GM_ROW_ART_H = 82
+GM_ROW_RAIL = (12, 11, 13, 11)      # top, right, bottom, left, in the art's pixels
+GM_ROW_CLEAR = ("ic_gr_l1", "ic_gr_l2", "ic_gr_l3", "ic_gr_icon")
+GM_COL_ART = GM_HF + "side_panerl_bg.png"          # CA's spelling
+GM_HEAD_ART = GM_HF + "side_panel_title.png"
+GM_TOG_LABEL_ART = "ui/skins/default/dlc23_tower_of_zharr/tab_sub_title.png"
+GM_ROUND = "ui/skins/default/button_round_medium_%s.png"
+GM_TOG_ICONS = {
+    "ic_gm_tog_1": "ui/skins/default/dlc23_tower_of_zharr/icon_button_seat_effects.png",
+    "ic_gm_tog_2": "ui/skins/default/icon_provinces.png",
+}
+GM_PLATES = ["ic_gm_top", "ic_gm_foot", "ic_gm_col"]
 
 # 230 TALL, not 200. The frame 9-slice margin went from 18 to 30 (see
 # CARD_LAYERS), because 18 cut through panel_back_border.png own corner
@@ -1965,14 +2040,6 @@ MASK_NONE = "%s/mask_none.png" % MASK_DIR
 RIM_ART = "%s/seat_rim.png" % PLATE_DIR
 RIM_MARGIN = 40
 RIM_PX = 128
-# A LIST ROW'S RIM (author, 2026-09-28: "there's glitches to the governor tab if
-# there is someone in position"). A row is 61px, 51 on a small screen, and a
-# 40px margin top and bottom is 80: the two slices overlapped, washing the whole
-# row red with a full-strength corner block at each end. Same colour and the
-# same profile up to its peak at 10px, faded out by 20 instead of 40.
-RIM_ROW_ART = "%s/seat_rim_row.png" % PLATE_DIR
-RIM_ROW_MARGIN = 20
-RIM_ROW_PX = 64
 # Measured off CA's rim at x=150, every 2px in from the edge: its colour holds
 # near (176, 5, 5) and only the alpha changes.
 RIM_RGB = (176, 5, 5)
@@ -2015,8 +2082,6 @@ MARK_LAYERS = [{"path": "ui/skins/default/dlc23_chd_hell_forge/heat_glow.png",
                 "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "dock": None,
                 "colour": "#FFFFFFD0", "shader": "glow_pulse_t0",
                 "shader_vars": "0.80,1.50,0.80,0.00"}]
-ROW_RIM = {"lit": len(ROW_LAYERS), "dim": len(ROW_LAYERS) + 1}
-ROW_FULL_LAYERS = ROW_LAYERS + rim_layers(["lit", "dim"], RIM_ROW_MARGIN)
 # Only portraits under this prefix can turn up in a Chaos Dwarf court.
 MASK_PREFIX = "chd_"
 MASK_SUFFIX = "_mask1.png"
@@ -2623,18 +2688,21 @@ def build_plates():
     # THE WEDGES ARE NOT HERE. There are 1560 of them at 320KB apiece and this
     # function returns a dict; wedge_art() yields them one at a time instead,
     # and art_paths() is what anything needing only the NAMES should ask.
-    # THE PARTY MAP'S PLATES AND RINGS (spec 2026-09-29): a disc per party and
-    # per absorbed faction, one for no governor, and the two rings.
-    out[map_disc_path(None)] = map_disc_pixels(MAP_DISC_NONE)
-    for p in IC.PARTIES:
-        out[map_disc_path(p[0])] = map_disc_pixels(HOUSE_COLOUR[p[0]])
-    for slug in CONFED_SEATS:
-        out[map_disc_path(slug)] = map_disc_pixels(CONFED_COLOUR[slug])
+    # THE PINS' CAPITAL AND OUTLINE RINGS (spec 2026-09-29).
     out[MAP_RING_CAPITAL] = map_ring_pixels(MAP_RING_CAPITAL_COLOUR)
     out[MAP_RING_OUTLINE] = map_ring_pixels(MAP_RING_OUTLINE_COLOUR)
+    # THE GOVERNORS VIEW'S PARTY RINGS AND THE FACE'S GROUND (plan ruling 6):
+    # one ring per party and per absorbed faction, painted by SetImagePath.
+    for p in IC.PARTIES:
+        out[gm_ring_path(p[0])] = map_ring_pixels(HOUSE_COLOUR[p[0]], GM_RING, 4)
+    for slug in CONFED_SEATS:
+        out[gm_ring_path(slug)] = map_ring_pixels(CONFED_COLOUR[slug], GM_RING, 4)
+    # AND ITS COLOUR ACROSS THE NAME PLATE (author, 2026-09-30).
+    for slug, hexcol in gm_wash_colours().items():
+        out[gm_wash_path(slug)] = gm_wash_pixels(hexcol)
+    out[GM_FACE_GROUND] = map_disc_pixels(GM_FACE_GROUND_COLOUR, GM_HEAD[2])
     out[MASK_NONE] = mask_pixels()
     out[RIM_ART] = seat_rim_pixels()
-    out[RIM_ROW_ART] = seat_rim_pixels(RIM_ROW_MARGIN, RIM_ROW_PX)
     out[RIM_FAIL_ART] = seat_rim_pixels(rgb=RIM_FAIL_RGB)
     out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
@@ -2942,6 +3010,11 @@ BTN_PLATE_MARGIN = max([ly["margin"] for ly in BTN_LAYERS] or [0])
 # them in both directions: it takes off 6px they do not spend and leaves on the
 # 16px they do. "APPOINT" fit ic_card_button's 74px box by 7px and drew over both
 # ends of the plate, which is the 2026-09-17 report.
+# WHICH ROW BUTTON EACH PETITION LABEL GOES ON (check 20k): the answer a row
+# asks for on the main button, the other on the second.
+PETITION_BTN_CELL = {"accept": "ic_row_e", "back": "ic_row_e",
+                     "refuse": "ic_row_f", "peace": "ic_row_f"}
+
 BTN_CELLS = {"ic_card_button", "ic_row_e", "ic_row_f", "ic_plot_go",
              "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
              "ic_fill"}
@@ -3048,6 +3121,12 @@ TEXT_STYLE = {
     # to the default and drew the intrigue tab's four column headers at the
     # content size, which is why they read as captions rather than as headings.
     "ic_influence": TITLE,
+    "derpy_ic_gm_name": (12, "body_12"),
+    "derpy_ic_gm_loyal": (12, "body_12"),
+    # THE GOVERNORS VIEW'S COLUMN ROW: a name, then two small lines.
+    "ic_gr_l1": (16, "header_16"),
+    "ic_gr_l2": (12, "body_12"),
+    "ic_gr_l3": (12, "body_12"),
     "ic_lbl_section": TITLE,
     "ic_hdr_a": TITLE,
     "ic_hdr_b": TITLE,
@@ -3177,6 +3256,13 @@ def _panel_order(name):
     Sorted by name otherwise, because a GUID is derived from the name and its
     position and an unstable order is a file that differs from itself.
     """
+    if name == "ic_gm_pins":
+        # FIRST OF ALL (check_gm), and under tier -1 on purpose: make_ic_backdrop
+        # takes every tier -1 name for an opaque plate on every view.
+        return (-3, name)
+    if name in ("ic_gm_top", "ic_gm_foot", "ic_gm_col"):
+        # UNDER EVERYTHING THEY HOLD, and not tier -1: see ic_gm_pins.
+        return (-2, name)
     if name in ("ic_dial_box", "ic_crown_box"):
         # THE TWO PLATES, under everything they hold. A plate is opaque, so a
         # plate declared after its contents is a plate drawn over them - which
@@ -3200,6 +3286,62 @@ def _panel():
     panel = root.add(EU.C("derpy_ic_panel", PANEL_W, PANEL_H, layers=PANEL_LAYERS))
     for name in sorted(PANEL_LAYOUT, key=_panel_order):
         _x, _y, w, h = PANEL_LAYOUT[name]
+        if name == "ic_gm_pins":
+            # NO ART AND NO CLICKS: the bare map beside a pin must take the click.
+            panel.add(EU.C(name, w, h))
+            continue
+        if name in ("ic_gm_top", "ic_gm_foot", "ic_gm_col"):
+            # OPAQUE, AND IT TAKES THE CLICK: over the live map a click on its
+            # blank must not fall through and select what stands under it.
+            art, margin = ((GM_COL_ART, 0) if name == "ic_gm_col" else (GM_PLATE, (0, 12)))
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=[_gm_full(art, margin)]))
+            continue
+        if name == "ic_gm_head":
+            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_HEAD_ART, (0, 80))],
+                           **dict(TAB_TEXT, size=TITLE[0], fontcat=TITLE[1])))
+            continue
+        if name in GM_TOG_ICONS:
+            # CA'S ROUND TOGGLE, lit by swapping its art into layers 0 and 2
+            # (ICUI.GM_TOG_ART), as the court's tabs are lit.
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=[_gm_full(GM_ROUND % "active"), _gm_inset(GM_TOG_ICONS[name], 12)],
+                           hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(GM_TOG_ICONS[name], 12)]))
+            continue
+        if name.startswith("ic_gm_tog_lbl_"):
+            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_TOG_LABEL_ART, (0, 12))], **TAB_TEXT))
+            continue
+        if name == "ic_gm_hint":
+            panel.add(EU.C(name, w, h, **style(name, valign="Center")))
+            continue
+        if name in ("ic_gm_prev", "ic_gm_next"):
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
+            continue
+        if name == "ic_gm_page":
+            panel.add(EU.C(name, w, h, **style(name, align="Center", valign="Center",
+                                                tx="0.00,0.00")))
+            continue
+        if name.startswith("ic_gm_sort_"):
+            # THE COURT'S ARROW AT THE END OF ITS LABEL; the label is lit from
+            # Lua while its column sorts, as the court's headers are.
+            panel.add(EU.C(name, w, h, interactive=True, sound=SORT_SOUND,
+                           layers=[{"path": SORT_ARROW_DOWN, "offset": (w - 21, (h - 18) / 2.0),
+                                    "dw": 17 - w, "dh": 18 - h, "margin": 0, "dock": None}],
+                           **style(name, valign="Center")))
+            continue
+        if name == "ic_gm_btns":
+            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_HF + "button_holder_back.png")]))
+            continue
+        if name in ("ic_gm_ok", "ic_gm_no"):
+            icon = ("ui/skins/default/icon_check.png" if name == "ic_gm_ok"
+                    else "ui/skins/default/icon_cross.png")
+            # THE TOOLTIP IS WRITTEN FROM LUA, per page; the round button's own
+            # states are CA's, and the disabled look is ICUI.grey_look.
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=[_gm_full(GM_ROUND % "active"), _gm_inset(icon, 12)],
+                           hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(icon, 12)]))
+            continue
         if name.startswith("ic_mark_"):
             panel.add(EU.C(name, w, h, layers=MARK_LAYERS))
         elif name.startswith("ic_barc_"):
@@ -3343,7 +3485,7 @@ def _panel():
 
 def _row():
     root = EU.C("root", ROW_W, ROW_H)
-    row = root.add(EU.C("derpy_ic_row", ROW_W, ROW_H, layers=ROW_FULL_LAYERS))
+    row = root.add(EU.C("derpy_ic_row", ROW_W, ROW_H, layers=ROW_LAYERS))
     for name in sorted(ROW_LAYOUT):
         _x, _y, w, h = ROW_LAYOUT[name]
         # The last cell is the one a player clicks (Assign, Appoint), so it is
@@ -3367,6 +3509,40 @@ def _row():
         else:
             row.add(EU.C(name, w, h, align="Left", valign="Center",
                          tx=LABEL_TX, ty=LABEL_TY, **style(name)))
+    return root
+
+
+def _gm_full(path, margin=0):
+    """One layer filling its component."""
+    return {"path": path, "offset": (0, 0), "dw": 0, "dh": 0, "margin": margin, "dock": None}
+
+
+def _gm_inset(path, px):
+    """One layer `px` in from every edge."""
+    return {"path": path, "offset": (px, px), "dw": -2 * px, "dh": -2 * px,
+            "margin": 0, "dock": None}
+
+
+def _gm_row():
+    root = EU.C("root", GM_ROW_W, GM_ROW_H)
+    # THE ROW TAKES THE CLICK AND THE TOOLTIP; its cells take neither, so a
+    # click anywhere on it reports the row. Its look is CA's art in layers 0
+    # (standard) and 1 (hover), swapped by ICUI.gm_fill_row (plan ruling 6).
+    row = root.add(EU.C("derpy_ic_gm_row", GM_ROW_W, GM_ROW_H, interactive=True,
+                        sound=OPENER_SOUND,
+                        layers=[_gm_full(GM_ROW_ART % "active", (0, 16))],
+                        hover=[_gm_full(GM_ROW_ART % "hover", (0, 16))]))
+    # IN GM_ROW_LAYOUT'S OWN ORDER, NOT SORTED: children draw as declared, and
+    # the crest and badge lie over the face (check_gm_plates).
+    for name in GM_ROW_LAYOUT:
+        _x, _y, w, h = GM_ROW_LAYOUT[name]
+        if name == "ic_gr_face":
+            # THE COURT'S OWN FACE STACK (plan ruling 14): plate, face, mask, frame.
+            row.add(EU.C(name, w, h, layers=FACE_LAYERS, colour_from=FACE_COLOUR_FROM))
+        elif name in ("ic_gr_crest", "ic_gr_badge", "ic_gr_icon"):
+            row.add(EU.C(name, w, h, layers=PORT_LAYERS))
+        else:
+            row.add(EU.C(name, w, h, **style(name, valign="Center")))
     return root
 
 
@@ -3552,6 +3728,7 @@ FILES = [
      "The Iron Court - a courtier's standing, over CA's character panel"),
     ("derpy_ic_edict_note.twui.xml", _edict_note,
      "The Iron Court - why a province's edicts are grey, beside CA's edict stack"),
+    (GM_ROW_FILE, _gm_row, "The Iron Court - one row of the Governors view's column"),
 ]
 
 LAYOUT_TABLES = {
@@ -3572,6 +3749,7 @@ LAYOUT_TABLES = {
     # PLACED BY ICUI.burst over its card or row, and destroyed after it plays.
     "derpy_ic_burst.twui.xml": {"derpy_ic_burst": (0, 0, 0, 0)},
 }
+LAYOUT_TABLES[GM_ROW_FILE] = dict(GM_ROW_LAYOUT, derpy_ic_gm_row=(0, 0, GM_ROW_W, GM_ROW_H))
 
 
 # ---------------------------------------------------------------------------
@@ -3665,11 +3843,12 @@ SCALED_SCALARS = [
     "PARTY_GAP_Y", "PARTY_W", "PARTIES_X", "PARTIES_Y", "PARTY_H", "PARTY_BAND",
     "_PIW", "_PB", "_PPW", "_PPH", "_PTX", "_PTW", "_PLW", "_PRX", "_PRW", "_PSW",
     "ACT_GAP", "FIRE_LIFT",
+    "GM_ROW_X", "GM_ROW_Y", "GM_ROW_W", "GM_ROW_H", "GM_ROW_PITCH",
 ]
 SCALED_PAIRS = ["PORT_BOX", "CREST_BOX"]
 SCALED_BOXES = ["PIE_BOX", "RIM_BOX", "DIAL_BOX", "COURT_SECTION_XY"]
 SCALED_BOX_TABLES = ["PANEL_LAYOUT", "ROW_LAYOUT", "PLOT_LAYOUT", "CARD_LAYOUT",
-                     "PARTY_LAYOUT", "ACT_PAGED"]
+                     "PARTY_LAYOUT", "ACT_PAGED", "GM_ROW_LAYOUT"]
 # PER POINT, not rebuilt from the scaled card size: a card size rounded down
 # once and multiplied by five ran a tier 2-4px past its column at some widths.
 SCALED_GRIDS = ["CARD_GRID", "PARTY_GRID"]
@@ -3684,7 +3863,7 @@ NOT_GEOMETRY = [
     "CARD_TIERS", "CARD_WIDEST", "PLOT_COUNTS", "PLOT_COLS", "PLOT_DEPTH",
     "PLOT_BLURB_LINES", "VISIBLE_ROWS", "PARTY_COLS", "PARTY_ROWS", "PARTY_SLOTS",
     "OPENER_W", "OPENER_H", "STANDING_W", "STANDING_H", "EDICT_NOTE_W", "EDICT_NOTE_H", "LAYOUT_TABLES",
-    "FX_KEYS", "CROWN_CELLS",
+    "FX_KEYS", "CROWN_CELLS", "GM_ROW_ART_H", "GM_ROW_RAIL",
     "PANEL_LAYERS", "ROW_LAYERS", "CARD_LAYERS", "PORT_LAYERS", "CARD_PORT_LAYERS",
     "FACE_LAYERS", "OPENER_LAYERS", "CLOSE_LAYERS", "CLOSE_HOVER", "HELP_LAYERS", "HELP_HOVER", "HELP_ICON", "HELP_SLOTS", "OPENER_HOVER",
     "BTN_LAYERS", "BTN_HOVER", "PAGE_LAYERS", "PAGE_HOVER", "SORT_LAYERS",
@@ -3701,14 +3880,23 @@ NOT_GEOMETRY = [
     # Crop boxes in CA's source pixels, not layout.
     "CHD_CUTS",
     "BTN_PLATE_MARGIN", "PARTY_LAYERS", "PARTY_SEL_INDEX", "SEATS_LAYERS",
-    "RIM_ART", "RIM_MARGIN", "RIM_FAIL_ART", "RIM_FAIL_RGB", "RIM_ROW_ART", "RIM_ROW_MARGIN", "RIM_ROW_PX", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "ROW_RIM", "ROW_FULL_LAYERS", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
+    "PETITION_BTN_CELL",
+    "RIM_ART", "RIM_MARGIN", "RIM_FAIL_ART", "RIM_FAIL_RGB", "RIM_LOOKS", "RIM_PX", "RIM_RGB", "RIM_ALPHA", "PARTY_RIM", "MARK_LAYERS", "OFFICE_CARD_LAYERS", "CARD_RIM",
     "BURST_FILE", "BURST_FRAMES", "BURST_LAST", "BURST_MS", "BURST_SIZE",
-    "MAP_FILE", "MARKER_FILE", "MAP_DISC", "MAP_CREST", "MAP_RING", "MAP_NAME_W",
-    "MAP_NAME_H", "MARKER_W", "MARKER_H", "MAP_DISC_NONE", "MAP_RING_CAPITAL",
+    "MAP_RING", "MAP_RING_CAPITAL",
     "MAP_RING_OUTLINE", "MAP_RING_CAPITAL_COLOUR", "MAP_RING_OUTLINE_COLOUR",
-    "MAP_PIN", "MAP_FADE", "MAP_LAYOUT", "MAP_ROW_X", "MAP_ROW_Y", "MAP_ROW_W",
-    "MAP_ROW_H", "MAP_ROWS", "MAP_ROW_CHILD", "MARKER_LAYERS",
+    "MAP_PIN",
     "SEATS_PAD",
+    "GM_PIN_FILE", "GM_FACE_FILE", "GM_PIN_W", "GM_PIN_H", "GM_PIN_ART", "GM_PIN_ART_BOX",
+    "GM_HEAD", "GM_RING", "GM_RING_OUTER", "GM_PLATE", "GM_PORT_BOX",
+    "GM_FACE_GROUND", "GM_FACE_GROUND_COLOUR", "GM_MASK", "GM_PIN_LAYERS", "GM_FACE_LAYERS",
+    "GM_PLATE_CAP", "GM_NAME_W", "GM_ANCHOR", "_GM_CX",
+    "GM_NAME_FILE", "GM_LOYAL_FILE", "GM_PLATE_H", "GM_PLATE_GAP", "GM_LOYAL_W",
+    "GM_LOYAL_H", "GM_NAME_PLATE_Y", "GM_NAME_H", "GM_NAME_PLATE_BOX", "GM_WASH_BOX",
+    "GM_WASH_LUM", "GM_INK", "GM_NAME_LAYERS", "GM_BADGE_FILE", "GM_BADGE_BOX",
+    "GM_BADGE_LAYERS",
+    "GM_ROW_FILE", "GM_ROWS", "GM_HF", "GM_ROW_ART", "GM_COL_ART", "GM_HEAD_ART",
+    "GM_TOG_LABEL_ART", "GM_ROUND", "GM_TOG_ICONS", "GM_PLATES",
     # The action bar's 1920 widths. PANEL_LAYOUT is what scales; these only
     # built it.
     "ACT_BUTTONS",
@@ -3945,7 +4133,9 @@ def _small():
 
 def ui_file_names():
     """Every .twui.xml this generator writes, base files and compact copies."""
-    return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE, MAP_FILE, MARKER_FILE]
+    return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE,
+                                              GM_PIN_FILE, GM_FACE_FILE,
+                                              GM_NAME_FILE, GM_LOYAL_FILE, GM_BADGE_FILE]
             + sorted(COMPACT_FILES.values()))
 
 
@@ -4291,64 +4481,18 @@ def check_burst(text, assets=None):
 
 
 # ---------------------------------------------------------------------------
-# THE PARTY MAP (spec 2026-09-29-iron-court-party-map-design.md). Two files, both
-# created at runtime and never scaled (ruling 7). The layer is a root child that
-# holds the legend; each marker is created inside it, one per province, and
-# pinned to its settlement by CA's own world-space callback.
-MAP_FILE = "derpy_ic_map.twui.xml"
-MARKER_FILE = "derpy_ic_map_marker.twui.xml"
-MAP_DISC = 48                       # the plate
-MAP_CREST = 28
-MAP_RING = 60                       # both rings, around the plate
-MAP_NAME_W, MAP_NAME_H = 200, 24
-MARKER_W, MARKER_H = MAP_NAME_W, MAP_RING + MAP_NAME_H
-MAP_DISC_NONE = "#6B5A3AFF"         # bronze: a province with no governor
+# WHAT THE GOVERNORS MAP BORROWED FROM THE PARTY MAP IT REPLACED (plan
+# 2026-09-30 Task 6): CA's world-space pin, and the two rings the pins wear.
+MAP_RING = 60                       # both rings' default size
 MAP_RING_CAPITAL = PLATE_DIR + "/map_ring_capital.png"
 MAP_RING_OUTLINE = PLATE_DIR + "/map_ring_outline.png"
 MAP_RING_CAPITAL_COLOUR = "#C9A45AFF"
 MAP_RING_OUTLINE_COLOUR = "#D0342AFF"
-# CA'S TWO CALLBACKS, VERBATIM from dlc25_black_towers.twui.xml's
-# template_black_tower_slot. check_map() holds the emitted file to these.
+# CA'S PIN, VERBATIM from dlc25_black_towers.twui.xml's template_black_tower_slot.
+# check_gm() holds the emitted files to it. CA's slot also carries a fade; ours
+# must not (check_gm says why).
 MAP_PIN = {"id": "ContextWorldSpaceComponent", "object": "CcoCampaignSettlement",
            "function": "Position", "props": [("depth_disabled", "1")]}
-MAP_FADE = {"id": "ContextOpacitySetter",
-            "function": ("(pos = self.Position.y) => {pos | CampaignRoot.IsTacticalViewActive"
-                         " => 1 | pos < 0 => 0 | pos < 50 => pos/50.0 | 1}"),
-            "props": [("propagate", ""), ("update_constant", "")]}
-# THE LEGEND, top-left (ruling 6). Must match ICUI.MAP_XY and ICUI.MAP_ROW_* in
-# zzz_derpy_iron_court_ui_map.lua; check_map() holds the two together.
-MAP_LAYOUT = {
-    "ic_map_legend": (16, 16, 455, 556),
-    "ic_map_title": (32, 26, 360, 30),
-    "ic_map_close": (411, 20, 48, 48),
-    # THE COURT'S PAGER, same sizes (ruling 12): 136 holds "Previous", 159 holds
-    # "Page 99 of 99". Under the seventh row (76 + 7 * 56 = 468).
-    "ic_map_prev": (24, 470, 136, 34),
-    "ic_map_page": (164, 474, 159, 26),
-    "ic_map_next": (327, 470, 136, 34),
-    "ic_map_hint_1": (32, 512, 423, 24),
-    "ic_map_hint_2": (32, 536, 423, 24),
-}
-MAP_ROW_X, MAP_ROW_Y, MAP_ROW_W, MAP_ROW_H, MAP_ROWS = 24, 76, 439, 56, 7
-MAP_ROW_CHILD = {
-    "ic_map_sw": (8, 8, 36, 36),
-    "ic_map_name": (56, 2, 375, 24),
-    "ic_map_gov": (56, 28, 170, 22),
-    "ic_map_take": (232, 28, 200, 22),
-}
-# CHECK 7'S NAMES: every component of the two files is placed by the map Lua
-# (MAP_XY, the rows, MAP_ROW_CHILD) or is its file's root.
-LAYOUT_TABLES[MAP_FILE] = dict(
-    list(MAP_LAYOUT.items()) + list(MAP_ROW_CHILD.items())
-    + [("ic_map_row_%d" % _i, (MAP_ROW_X, MAP_ROW_Y + (_i - 1) * MAP_ROW_H,
-                               MAP_ROW_W, MAP_ROW_H)) for _i in range(1, MAP_ROWS + 1)])
-LAYOUT_TABLES[MARKER_FILE] = {"derpy_ic_map_marker": (0, 0, MARKER_W, MARKER_H)}
-
-
-def map_disc_path(slug):
-    return "%s/map_disc_%s.png" % (PLATE_DIR, slug or "none")
-
-
 def _map_supersample(size, inside_fn):
     """Coverage of each pixel by a shape, 4x4 supersampled: 0..16."""
     rows = []
@@ -4365,7 +4509,7 @@ def _map_supersample(size, inside_fn):
     return rows
 
 
-def map_disc_pixels(hexcol, size=MAP_DISC):
+def map_disc_pixels(hexcol, size):
     """A round plate in one colour with a darker 3px rim."""
     r, g, b = int(hexcol[1:3], 16), int(hexcol[3:5], 16), int(hexcol[5:7], 16)
     c = size / 2.0
@@ -4393,141 +4537,487 @@ def map_ring_pixels(hexcol, size=MAP_RING, width=4):
             for row in cover]
 
 
-def _map_layer(path, size):
-    """A square image of `size`, centred across the marker, its centre MAP_RING/2 down."""
-    return {"path": path, "offset": ((MARKER_W - size) / 2.0, (MAP_RING - size) / 2.0),
-            "dw": size - MARKER_W, "dh": size - MARKER_H, "margin": 0, "dock": None}
-
-
-# THE MARKER'S LAYERS THE LUA REPAINTS, IN ORDER. Must match
-# ICUI.MK_PLATE/CREST/CAPITAL/OUTLINE. The name's plate follows them and is
-# never repainted.
-MARKER_LAYERS = ["plate", "crest", "capital", "outline"]
-
-
-def _map_marker():
-    # ONE COMPONENT, NO CHILDREN (plan ruling 9). CA's slot docks its art in
-    # children; a runtime child ignores its offset and draws at the corner of
-    # something the engine moves every frame. So the art is image layers placed
-    # by their own offsets, and the name is the marker's own text, on a dark
-    # plate at the bottom so it reads over any terrain. Written from Lua, never a
-    # live ContextTextLabel, which would re-render over it.
-    root = EU.C("root", MARKER_W, MARKER_H)
-    root.add(EU.C(
-        "derpy_ic_map_marker", MARKER_W, MARKER_H, interactive=True,
-        sound=OPENER_SOUND, callbacks=[MAP_PIN, MAP_FADE],
-        layers=[_map_layer(map_disc_path(None), MAP_DISC),
-                _map_layer(MASK_NONE, MAP_CREST),
-                _map_layer(MASK_NONE, MAP_RING),
-                _map_layer(MASK_NONE, MAP_RING),
-                {"path": plate_path(None), "offset": (0, MAP_RING), "dw": 0,
-                 "dh": MAP_NAME_H - MARKER_H, "margin": 0, "dock": None}],
-        **style("ic_mk_name", align="Center", valign="Bottom",
-                tx="0.00,0.00", ty="0.00,0.00")))
-    return root
-
-
-def _map_layer_file():
-    root = EU.C("root", 1920, 1080)
-    layer = root.add(EU.C("derpy_ic_map", 1920, 1080))
-    # THE LAYER ITSELF IS NOT INTERACTIVE: the bare map around the legend must
-    # still take clicks and drags. THE LEGEND IS - a click on its blank plate
-    # would otherwise fall through and select whatever stands under it.
-    x, y, w, h = MAP_LAYOUT["ic_map_legend"]
-    # AND WITH THE COURT'S CLICK SOUND: check 4 refuses a silent interactive
-    # component, and no CA category is a silent one.
-    layer.add(EU.C("ic_map_legend", w, h, image=plate_path(None), interactive=True,
-                   sound=OPENER_SOUND))
-    x, y, w, h = MAP_LAYOUT["ic_map_title"]
-    layer.add(EU.C("ic_map_title", w, h, **style("ic_map_title", valign="Center")))
-    x, y, w, h = MAP_LAYOUT["ic_map_close"]
-    layer.add(EU.C("ic_map_close", w, h, interactive=True, sound=OPENER_SOUND,
-                   layers=CLOSE_LAYERS, hover=CLOSE_HOVER, tooltip="Back to the court"))
-    for key in ("ic_map_prev", "ic_map_next"):
-        x, y, w, h = MAP_LAYOUT[key]
-        layer.add(EU.C(key, w, h, interactive=True, sound=OPENER_SOUND,
-                       layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
-    x, y, w, h = MAP_LAYOUT["ic_map_page"]
-    layer.add(EU.C("ic_map_page", w, h, **style("ic_map_page", align="Center",
-                                                   valign="Center", tx="0.00,0.00")))
-    for key in ("ic_map_hint_1", "ic_map_hint_2"):
-        x, y, w, h = MAP_LAYOUT[key]
-        layer.add(EU.C(key, w, h, **style(key, valign="Center")))
-    for i in range(1, MAP_ROWS + 1):
-        row = layer.add(EU.C(
-            "ic_map_row_%d" % i, MAP_ROW_W, MAP_ROW_H, interactive=True,
-            sound=OPENER_SOUND,
-            layers=[{"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
-                     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]))
-        cx, cy, cw, ch = MAP_ROW_CHILD["ic_map_sw"]
-        row.add(EU.C("ic_map_sw", cw, ch, layers=[
-            {"path": map_disc_path(None), "offset": (0, 0), "dw": 0, "dh": 0,
-             "margin": 0, "dock": None},
-            {"path": MASK_NONE, "offset": (6, 6), "dw": -12, "dh": -12,
-             "margin": 0, "dock": None}]))
-        for key in ("ic_map_name", "ic_map_gov", "ic_map_take"):
-            cx, cy, cw, ch = MAP_ROW_CHILD[key]
-            row.add(EU.C(key, cw, ch, **style(key, valign="Center")))
-    return root
-
-
-def map_xml():
-    return EU.layout(EU.assign(_map_layer_file(), GUID_PREFIXES[MAP_FILE]),
-                     "derpy: the Iron Court's party map layer and legend. Created at "
-                     "runtime at the ui root; generated by tools/gen_ic_ui.py.")
-
-
-def marker_xml():
-    return EU.layout(EU.assign(_map_marker(), GUID_PREFIXES[MARKER_FILE]),
-                     "derpy: one Iron Court party map marker, pinned to a settlement "
-                     "by CA's ContextWorldSpaceComponent; generated by tools/gen_ic_ui.py.")
-
-
 def _lua_map_tables():
     ui = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
                       "zzz_derpy_iron_court_ui_map.lua")
     return io.open(ui, encoding="utf-8").read()
 
 
-def check_map(marker_text=None, lua_text=None):
-    """CA's callbacks verbatim on the marker, and the Lua's numbers equal to ours."""
+# ---------------------------------------------------------------------------
+# THE GOVERNORS VIEW'S PINS (spec 2026-09-30 sections 1 and 6). Four files, made
+# at runtime into the panel's first child and never scaled (plan ruling 1):
+# a PIN - CA's Chaos Dwarf map pin, the party ring, the capital and outline
+# rings; it takes the click and carries the tooltip - a FACE - the governor's
+# portrait or his party's crest, masked round in the pin's head - and two
+# PLATES, the province's name and its loyalty, one line each on CA's own plate.
+# One settlement context and one anchor, the box's bottom centre, for all four,
+# so the engine stands each on the settlement's point: a box's height is what
+# sets how far above the point its art draws.
+GM_PIN_FILE = "derpy_ic_gm_pin.twui.xml"
+GM_FACE_FILE = "derpy_ic_gm_face.twui.xml"
+GM_NAME_FILE = "derpy_ic_gm_name.twui.xml"
+GM_LOYAL_FILE = "derpy_ic_gm_loyal.twui.xml"
+GM_BADGE_FILE = "derpy_ic_gm_badge.twui.xml"
+GM_PIN_W = 180
+_GM_CX = GM_PIN_W // 2
+GM_PIN_ART = "ui/skins/default/dlc23_chd_narrative_panel/chd_narrative_panel_map_pin.png"
+GM_PIN_ART_BOX = (_GM_CX - 25, 4, 50, 80)   # CA's 50x80, centred
+GM_HEAD = (_GM_CX - 19, 9, 38, 38)          # its head: CA's 38x38 image at 6,5
+GM_RING = 46                                # the party ring, 4px, round the head
+GM_RING_OUTER = 54                          # the capital and outline rings
+GM_PORT_BOX = (_GM_CX - 35, 9, 70, 38)      # a porthole at its own aspect across the head
+# THE GOVERNOR'S PARTY FLAG (author, 2026-09-30: "no flag or indication what
+# the governer party is"): his party's crest over the head's lower right, the
+# way CA badges a portrait. Its own component, the pin's box, made after the
+# face: in the face it would be cut round by the face's mask.
+GM_BADGE_BOX = (_GM_CX + 8, 28, 26, 26)
+# CA'S PLATE AT ITS OWN HEIGHT (author, 2026-09-30: "the ui is stretched, use
+# the default borders"). sub_title.png is 113x30: a bronze rim at rows 2-3 and
+# 23-24, a flat #141414 face between them from x 5, a shadow under. Only its
+# middle stretches sideways, between the two caps its margin keeps whole.
+GM_PLATE = "ui/skins/default/dlc23_chd_hell_forge/sub_title.png"
+GM_PLATE_H = 30
+GM_PLATE_CAP = 12
+GM_PLATE_GAP = 2
+# THE LOYALTY PLATE, at the point: CA's plate at its native 113x30, whole.
+GM_LOYAL_W, GM_LOYAL_H = 113, GM_PLATE_H
+# THE NAME PLATE, on it. Its box is as far below the plate as above it, so text
+# centred in the box - no padding, which the engine does not honour the way the
+# second build assumed - lands on the plate's own centre.
+GM_NAME_PLATE_Y = GM_LOYAL_H + GM_PLATE_GAP         # the plate's bottom, above the point
+GM_NAME_H = 2 * GM_NAME_PLATE_Y + GM_PLATE_H
+GM_NAME_PLATE_BOX = (0, GM_NAME_PLATE_Y, GM_PIN_W, GM_PLATE_H)
+# THE PARTY'S COLOUR, over the plate's dark face and nothing else, so CA's rim
+# stays CA's (author, 2026-09-30: "the map doesnt show the political influence
+# colors of each party").
+GM_WASH_BOX = (5, GM_NAME_PLATE_Y + 4, GM_PIN_W - 10, 19)
+# DARKENED TO KEEP THE TEXT READABLE: the brightest ground under which GM_INK
+# keeps 4.5:1 by make_ic_backdrop's own measure (Rec.709 on the stored values),
+# which is 45. A party colour brighter than that keeps its hue and loses light.
+GM_INK = (0xFF, 0xF8, 0xD7)
+GM_WASH_LUM = 44
+# THE PIN, above both: its point ends where the name plate begins.
+GM_PIN_H = GM_PIN_ART_BOX[1] + GM_PIN_ART_BOX[3] + GM_NAME_PLATE_Y + GM_PLATE_H
+GM_FACE_GROUND = PLATE_DIR + "/gm_face_ground.png"
+GM_FACE_GROUND_COLOUR = "#1A1410FF"
+GM_MASK = "ui/skins/default/porthole_mask.png"
+# THE PLATE'S INSIDE, between its caps: the name is cut to it (author,
+# 2026-09-30: "the text are going out of the ui"). Must match ICUI.GM_NAME_W in
+# zzz_derpy_iron_court_ui_map.lua (check_gm).
+GM_NAME_W = GM_PIN_W - 2 * GM_PLATE_CAP
+# CA'S MAP-PIN ANCHOR, the box's bottom centre (worldroots_forest and
+# dlc27_nor_seafang_overlay, the two CA overlays that stand a pin on a place).
+GM_ANCHOR = (0.5, 1.0)
+# THE LAYERS THE LUA PAINTS, IN ORDER. Must match ICUI.GP_*, ICUI.GF_* and
+# ICUI.GN_* in zzz_derpy_iron_court_ui_map.lua (check_gm).
+GM_PIN_LAYERS = ["art", "party", "capital", "outline"]
+GM_FACE_LAYERS = ["ground", "port", "crest", "mask"]
+GM_NAME_LAYERS = ["plate", "wash"]
+GM_BADGE_LAYERS = ["crest"]
+LAYOUT_TABLES[GM_PIN_FILE] = {"derpy_ic_gm_pin": (0, 0, GM_PIN_W, GM_PIN_H)}
+LAYOUT_TABLES[GM_FACE_FILE] = {"derpy_ic_gm_face": (0, 0, GM_PIN_W, GM_PIN_H)}
+LAYOUT_TABLES[GM_NAME_FILE] = {"derpy_ic_gm_name": (0, 0, GM_PIN_W, GM_NAME_H)}
+LAYOUT_TABLES[GM_LOYAL_FILE] = {"derpy_ic_gm_loyal": (0, 0, GM_LOYAL_W, GM_LOYAL_H)}
+LAYOUT_TABLES[GM_BADGE_FILE] = {"derpy_ic_gm_badge": (0, 0, GM_PIN_W, GM_PIN_H)}
+
+
+def gm_ring_path(slug):
+    return "%s/gm_ring_%s.png" % (PLATE_DIR, slug)
+
+
+def gm_wash_path(slug):
+    return "%s/gm_wash_%s.png" % (PLATE_DIR, slug)
+
+
+def gm_wash_colours():
+    """slug -> colour, every party and absorbed faction a governor can serve."""
+    out = dict((p[0], HOUSE_COLOUR[p[0]]) for p in IC.PARTIES)
+    out.update((slug, CONFED_COLOUR[slug]) for slug in CONFED_SEATS)
+    return out
+
+
+def _rec709(rgb):
+    return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
+
+
+def gm_wash_pixels(hexcol):
+    """The party's colour over the plate's face, dimmed to GM_WASH_LUM at most."""
+    rgb = (int(hexcol[1:3], 16), int(hexcol[3:5], 16), int(hexcol[5:7], 16))
+    k = min(1.0, GM_WASH_LUM / max(_rec709(rgb), 1.0))
+    px = bytes(bytearray([int(v * k) for v in rgb] + [255]))
+    return [px * GM_WASH_BOX[2]] * GM_WASH_BOX[3]
+
+
+def _gm_layer(box, path=None, margin=0, size=(GM_PIN_W, GM_PIN_H)):
+    """An image layer at `box` inside a component of `size`."""
+    x, y, w, h = box
+    return {"path": path or MASK_NONE, "offset": (x, y), "dw": w - size[0],
+            "dh": h - size[1], "margin": margin, "dock": None}
+
+
+def _gm_ring(size):
+    """A `size` square centred on the pin's head."""
+    hx, hy, hw, hh = GM_HEAD
+    return _gm_layer((hx + (hw - size) / 2.0, hy + (hh - size) / 2.0, size, size))
+
+
+def _gm_pin():
+    root = EU.C("root", GM_PIN_W, GM_PIN_H)
+    # NO TEXT: the plates carry it.
+    root.add(EU.C(
+        "derpy_ic_gm_pin", GM_PIN_W, GM_PIN_H, interactive=True,
+        sound=OPENER_SOUND, callbacks=[MAP_PIN], anchor=GM_ANCHOR,
+        layers=[_gm_layer(GM_PIN_ART_BOX, GM_PIN_ART), _gm_ring(GM_RING),
+                _gm_ring(GM_RING_OUTER), _gm_ring(GM_RING_OUTER)]))
+    return root
+
+
+def _gm_face():
+    root = EU.C("root", GM_PIN_W, GM_PIN_H)
+    # NOT INTERACTIVE: the pin under it takes the click and the tooltip.
+    root.add(EU.C(
+        "derpy_ic_gm_face", GM_PIN_W, GM_PIN_H, callbacks=[MAP_PIN], anchor=GM_ANCHOR,
+        layers=[_gm_layer(GM_HEAD, GM_FACE_GROUND), _gm_layer(GM_PORT_BOX),
+                _gm_layer(GM_HEAD), _gm_layer(GM_HEAD, GM_MASK)],
+        mask=GM_FACE_LAYERS.index("mask")))
+    return root
+
+
+# ONE LINE, CENTRED, NO PADDING: the box puts it on the plate (check_gm).
+_GM_TEXT = dict(align="Center", valign="Center", tx="0.00,0.00", ty="0.00,0.00", leading=0)
+
+
+def _gm_name():
+    root = EU.C("root", GM_PIN_W, GM_NAME_H)
+    size = (GM_PIN_W, GM_NAME_H)
+    # NOT INTERACTIVE, like the face: a click on a plate is the pin's.
+    root.add(EU.C(
+        "derpy_ic_gm_name", GM_PIN_W, GM_NAME_H, callbacks=[MAP_PIN], anchor=GM_ANCHOR,
+        layers=[_gm_layer(GM_NAME_PLATE_BOX, GM_PLATE, (0, GM_PLATE_CAP), size),
+                _gm_layer(GM_WASH_BOX, None, 0, size)],
+        **style("derpy_ic_gm_name", **_GM_TEXT)))
+    return root
+
+
+def _gm_loyal():
+    root = EU.C("root", GM_LOYAL_W, GM_LOYAL_H)
+    root.add(EU.C(
+        "derpy_ic_gm_loyal", GM_LOYAL_W, GM_LOYAL_H, callbacks=[MAP_PIN], anchor=GM_ANCHOR,
+        layers=[_gm_layer((0, 0, GM_LOYAL_W, GM_LOYAL_H), GM_PLATE, (0, GM_PLATE_CAP),
+                          (GM_LOYAL_W, GM_LOYAL_H))],
+        **style("derpy_ic_gm_loyal", **_GM_TEXT)))
+    return root
+
+
+def _gm_badge():
+    root = EU.C("root", GM_PIN_W, GM_PIN_H)
+    # NOT INTERACTIVE and NO TEXT: the pin under it takes the click.
+    root.add(EU.C(
+        "derpy_ic_gm_badge", GM_PIN_W, GM_PIN_H, callbacks=[MAP_PIN], anchor=GM_ANCHOR,
+        layers=[_gm_layer(GM_BADGE_BOX)]))
+    return root
+
+
+def gm_badge_xml():
+    return EU.layout(EU.assign(_gm_badge(), GUID_PREFIXES[GM_BADGE_FILE]),
+                     "derpy: one Iron Court governor pin's party badge, pinned over its "
+                     "pin's head; generated by tools/gen_ic_ui.py.")
+
+
+def gm_pin_xml():
+    return EU.layout(EU.assign(_gm_pin(), GUID_PREFIXES[GM_PIN_FILE]),
+                     "derpy: one Iron Court governor pin, pinned to a settlement by "
+                     "CA's ContextWorldSpaceComponent; generated by tools/gen_ic_ui.py.")
+
+
+def gm_face_xml():
+    return EU.layout(EU.assign(_gm_face(), GUID_PREFIXES[GM_FACE_FILE]),
+                     "derpy: one Iron Court governor's masked face, pinned beside its "
+                     "pin; generated by tools/gen_ic_ui.py.")
+
+
+def gm_name_xml():
+    return EU.layout(EU.assign(_gm_name(), GUID_PREFIXES[GM_NAME_FILE]),
+                     "derpy: one Iron Court governor pin's name plate, pinned under its "
+                     "pin; generated by tools/gen_ic_ui.py.")
+
+
+def gm_loyal_xml():
+    return EU.layout(EU.assign(_gm_loyal(), GUID_PREFIXES[GM_LOYAL_FILE]),
+                     "derpy: one Iron Court governor pin's loyalty plate, pinned at its "
+                     "settlement; generated by tools/gen_ic_ui.py.")
+
+
+def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None):
+    """Every text cell the Governors view shows lies inside one of its plates.
+
+    Shown: every ic_gm_ cell, the footer line, and every cell of the top strip,
+    which is whatever ends above ic_gm_top's bottom edge - derived, so a cell
+    added to the strip later is held here without an edit. The rows are held
+    by their pool: the pool must lie inside the column.
+
+    AND A ROW'S BADGE AND CREST DRAW OVER ITS FACE. Children draw in the order
+    the hierarchy declares them, and the face is opaque: declared first, as a
+    sorted walk put it, the badge on the face's corner never showed (preview,
+    2026-09-30).
+    """
+    lay = layout or PANEL_LAYOUT
+    text = panel_text if panel_text is not None else EU.layout(
+        EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+    has_text = set(n for n, b in _component_blocks(text).items() if "<component_text" in b)
+    plates = [lay[n] for n in GM_PLATES]
+
+    def inside(b, p):
+        return (b[0] >= p[0] and b[1] >= p[1] and b[0] + b[2] <= p[0] + p[2]
+                and b[1] + b[3] <= p[1] + p[3])
+    top = lay["ic_gm_top"]
     out = []
-    t = marker_text if marker_text is not None else marker_xml()
-    for cb in (MAP_PIN, MAP_FADE):
-        if 'callback_id="%s"' % cb["id"] not in t:
-            out.append("%s: no %s callback" % (MARKER_FILE, cb["id"]))
-        if cb.get("function") and 'context_function_id="%s"' % EU._esc(cb["function"]) not in t:
-            out.append("%s: %s's function is not CA's" % (MARKER_FILE, cb["id"]))
-    if 'context_object_id="CcoCampaignSettlement"' not in t:
-        out.append("%s: the pin is not on CcoCampaignSettlement" % MARKER_FILE)
-    if 'name="depth_disabled"' not in t:
-        out.append("%s: the pin lost depth_disabled" % MARKER_FILE)
-    # ROOT AND MARKER, NOTHING ELSE (ruling 9): a child would draw at the corner.
-    ids = re.findall(r'\n\t\t\tid="([^"]+)"', t)
-    if ids != ["root", "derpy_ic_map_marker"]:
-        out.append("%s: components %r - the marker may have no children" % (MARKER_FILE, ids))
+    for name, box in sorted(lay.items()):
+        shown = (name.startswith("ic_gm_") or name == "ic_alert"
+                 or box[1] + box[3] <= top[1] + top[3])
+        if shown and name in has_text and not any(inside(box, p) for p in plates):
+            out.append("%s %r reads over the bare map in the Governors view: no plate "
+                       "of %s contains it" % (name, box, ", ".join(GM_PLATES)))
+    col = lay["ic_gm_col"]
+    pool = (GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_PITCH * (GM_ROWS - 1) + GM_ROW_H)
+    if not inside(pool, col):
+        out.append("the column's %d rows %r run outside the column %r" % (GM_ROWS, pool, col))
+    if GM_ROW_Y + GM_ROW_PITCH * (GM_ROWS - 1) + GM_ROW_H > lay["ic_gm_prev"][1]:
+        out.append("the column's last row runs under its pager")
+    rt = row_text if row_text is not None else EU.layout(
+        EU.assign(_gm_row(), GUID_PREFIXES[GM_ROW_FILE]), "")
+    order = re.findall(r"<(ic_gr_\w+) this=", rt.split("<hierarchy>", 1)[-1])
+    for over in ("ic_gr_crest", "ic_gr_badge"):
+        if over not in order or "ic_gr_face" not in order \
+                or order.index(over) < order.index("ic_gr_face"):
+            out.append("%s: %s is declared before ic_gr_face, so the face draws over "
+                       "it" % (GM_ROW_FILE, over))
+    # EVERY LINE AND THE ICON CLEAR THE ROW'S OWN RAILS.
+    rl = row_layout or GM_ROW_LAYOUT
+    s = GM_ROW_H / float(GM_ROW_ART_H)
+    t, r, b, l = GM_ROW_RAIL
+    for name in GM_ROW_CLEAR:
+        x, y, w, h = rl[name]
+        if x < l or x + w > GM_ROW_W - r or y < t * s or y + h > GM_ROW_H - b * s:
+            out.append("%s %r crosses the row frame's rails %r (art pixels; top and "
+                       "bottom scaled to a %dpx row): the frame runs through it"
+                       % (name, (x, y, w, h), GM_ROW_RAIL, GM_ROW_H))
+    return out
+
+
+def _component_blocks(text):
+    """name -> its <components> block, for every component of a file."""
+    body = text.split("<components>", 1)[-1]
+    out = {}
+    for block in re.split(r"(?m)^\t\t<(?=\w)", body)[1:]:
+        out[re.match(r"(\w+)", block).group(1)] = block
+    return out
+
+
+def check_masks(files):
+    """Every maskimage names a component_image of its own component."""
+    out = []
+    for fname, text in sorted(files.items()):
+        for name, block in sorted(_component_blocks(text).items()):
+            m = re.search(r'maskimage="([^"]+)"', block)
+            if m and ('<component_image\n\t\t\t\t\tthis="%s"' % m.group(1)) not in block:
+                out.append("%s: %s's maskimage %s names no component_image of its "
+                           "own, so it masks nothing" % (fname, name, m.group(1)))
+    return out
+
+
+def _gm_images(text, name):
+    """[(imagepath, x, y, w, h)] for each layer of `name`'s standard state, in order."""
+    block = _component_blocks(text).get(name, "")
+    paths = dict(re.findall(r'<component_image\n\t+this="([^"]+)"\n\t+uniqueguid="[^"]+"'
+                            r'\n\t+imagepath="([^"]*)"', block))
+    out = []
+    for cig, x, y, w, h in re.findall(
+            r'componentimage="([^"]+)"\n\t+offset="([-\d.]+),([-\d.]+)"\n\t+'
+            r'width="(\d+)"\n\t+height="(\d+)"', block):
+        out.append((paths.get(cig), float(x), float(y), int(w), int(h)))
+    return out
+
+
+def _gm_box(text, name):
+    m = re.search(r'width="(\d+)"\n\t\t\t\t\theight="(\d+)"',
+                  _component_blocks(text).get(name, ""))
+    return m and (int(m.group(1)), int(m.group(2)))
+
+
+def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
+             name_text=None, loyal_text=None, wash=None, badge_text=None):
+    """The pins' holder first and inert; CA's pin, a face and two plates on one
+    settlement; CA's plate at its own height; the Lua's numbers ours."""
+    out = []
+    pt = pin_text if pin_text is not None else gm_pin_xml()
+    ft = face_text if face_text is not None else gm_face_xml()
+    nt = name_text if name_text is not None else gm_name_xml()
+    lt = loyal_text if loyal_text is not None else gm_loyal_xml()
+    bt = badge_text if badge_text is not None else gm_badge_xml()
+    wash = wash or gm_wash_pixels
+    if panel_text is None:
+        panel_text = EU.layout(EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+    tree = panel_text.split("<hierarchy>", 1)[-1].split("</hierarchy>", 1)[0]
+    first = re.search(r"<derpy_ic_panel [^>]*>\s*<(\w+)", tree)
+    if not first or first.group(1) != "ic_gm_pins":
+        out.append("derpy_ic_panel.twui.xml: ic_gm_pins is not the panel's first child, "
+                   "so a pin draws over the court")
+    holder = _component_blocks(panel_text).get("ic_gm_pins", "")
+    if not holder or 'interactive="true"' in holder:
+        out.append("derpy_ic_panel.twui.xml: ic_gm_pins is missing or takes clicks, so "
+                   "the bare map beside a pin would not")
+    files = ((GM_PIN_FILE, pt), (GM_FACE_FILE, ft), (GM_NAME_FILE, nt), (GM_LOYAL_FILE, lt),
+             (GM_BADGE_FILE, bt))
+    for fname, t in files:
+        if 'callback_id="%s"' % MAP_PIN["id"] not in t:
+            out.append("%s: no %s callback" % (fname, MAP_PIN["id"]))
+        if 'context_function_id="%s"' % MAP_PIN["function"] not in t:
+            out.append("%s: %s's function is not CA's" % (fname, MAP_PIN["id"]))
+        if 'context_object_id="CcoCampaignSettlement"' not in t:
+            out.append("%s: not pinned on CcoCampaignSettlement" % fname)
+        if 'name="depth_disabled"' not in t:
+            out.append("%s: the pin lost depth_disabled" % fname)
+        # NO FADE. In game on 2026-09-29 (build A06C68A6) the old party map's
+        # marker tracked its settlement and took clicks but drew nothing. CA's
+        # fade reads the component's OWN screen y, and one made from Lua starts
+        # at its parent's corner, y = 0: 0/50 = 0, fully transparent. 26 of CA's
+        # 28 pinned layouts carry no fade.
+        if 'callback_id="ContextOpacitySetter"' in t:
+            out.append("%s: carries a ContextOpacitySetter - it drew nothing in game" % fname)
+        # ROOT AND ONE COMPONENT (plan ruling 1): a child would draw at the corner.
+        ids = re.findall(r'\n\t\t\tid="([^"]+)"', t)
+        want = ["root", fname.replace(".twui.xml", "")]
+        if ids != want:
+            out.append("%s: components %r - a pin may have no children" % (fname, ids))
+        # ABOVE ITS SETTLEMENT (author, 2026-09-30: "make it higher"): every one
+        # of the four stands its bottom centre on the point.
+        if 'component_anchor_point="%.2f,%.2f"' % GM_ANCHOR not in t:
+            out.append("%s: not anchored at its bottom centre, so the pin does not "
+                       "stand above its settlement" % fname)
+    # ONE BOX FOR PIN AND FACE, or the engine anchors them apart: read off the
+    # two emitted components, not off the constant both were built from.
+    if not _gm_box(pt, "derpy_ic_gm_pin") or _gm_box(pt, "derpy_ic_gm_pin") != _gm_box(ft, "derpy_ic_gm_face"):
+        out.append("the pin is %r and the face %r, so the engine anchors them apart"
+                   % (_gm_box(pt, "derpy_ic_gm_pin"), _gm_box(ft, "derpy_ic_gm_face")))
+    if 'interactive="true"' not in pt:
+        out.append("%s: the pin takes no click" % GM_PIN_FILE)
+    for fname, t in files[1:]:
+        if 'interactive="true"' in t:
+            out.append("%s: takes clicks, so the pin under it never gets one" % fname)
+    if 'maskimage="' not in ft:
+        out.append("%s: the face has no maskimage, so it draws square" % GM_FACE_FILE)
+    # THE PIN CARRIES NO TEXT. Padded down to its plate, the third build's drew
+    # above the plate and cut every name, however short (author, 2026-09-30:
+    # "no text", "theres '...'").
+    if "<component_text" in pt:
+        out.append("%s: the pin carries text again - padded, it drew off its plate "
+                   "and measured every name too long" % GM_PIN_FILE)
+    # ONE LINE, CENTRED, NO PADDING, on each plate: the box places it.
+    for fname, t in ((GM_NAME_FILE, nt), (GM_LOYAL_FILE, lt)):
+        m = re.search(r'texthalign="(\w+)"\s+textvalign="(\w+)"\s+textxoffset="([^"]+)"'
+                      r'\s+textyoffset="([^"]+)"', t)
+        if not m or m.groups() != ("Center", "Center", "0.00,0.00", "0.00,0.00"):
+            out.append("%s: the text is not centred with no padding (%s) - padding "
+                       "moves it off its plate" % (fname, m and m.groups()))
+    # CA'S PLATE AT ITS OWN HEIGHT (author, 2026-09-30: "the ui is stretched,
+    # use the default borders").
+    name_box = _gm_box(nt, "derpy_ic_gm_name") or (0, 0)
+    loyal_box = _gm_box(lt, "derpy_ic_gm_loyal") or (0, 0)
+    name_layers = _gm_images(nt, "derpy_ic_gm_name")
+    loyal_layers = _gm_images(lt, "derpy_ic_gm_loyal")
+    for fname, layers in ((GM_NAME_FILE, name_layers), (GM_LOYAL_FILE, loyal_layers)):
+        plates = [lay for lay in layers if lay[0] == GM_PLATE]
+        if len(plates) != 1 or plates[0][4] != GM_PLATE_H:
+            out.append("%s: CA's plate is not drawn once at its own %dpx: %r - "
+                       "stretched, its rims thicken" % (fname, GM_PLATE_H, plates))
+    if [lay[0] == GM_PLATE for lay in name_layers] != [n == "plate" for n in GM_NAME_LAYERS]:
+        out.append("%s: the layers are not %r in order" % (GM_NAME_FILE, GM_NAME_LAYERS))
+    if loyal_layers[:1] != [(GM_PLATE, 0.0, 0.0, loyal_box[0], loyal_box[1])]:
+        out.append("%s: the plate is not the whole box, so its text is off it" % GM_LOYAL_FILE)
+    plate = ([lay for lay in name_layers if lay[0] == GM_PLATE] or [(None, 0, 0, 0, 0)])[0]
+    # CENTRED TEXT LANDS ON THE PLATE only when the plate is the box's middle.
+    if plate[2] + plate[4] / 2.0 != name_box[1] / 2.0:
+        out.append("%s: the plate's middle is %.1f and the box's %.1f, so the name "
+                   "draws off it" % (GM_NAME_FILE, plate[2] + plate[4] / 2.0, name_box[1] / 2.0))
+    # ON THE LOYALTY PLATE, NOT OVER IT: the name box's bottom is the point too.
+    up = name_box[1] - plate[2] - plate[4]
+    if up < loyal_box[1]:
+        out.append("%s: the name plate ends %dpx above the point, inside the loyalty "
+                   "plate's %d" % (GM_NAME_FILE, up, loyal_box[1]))
+    # THE PORTRAIT ON TOP: the pin's point ends where the name plate begins.
+    art = ([lay for lay in _gm_images(pt, "derpy_ic_gm_pin") if lay[0] == GM_PIN_ART]
+           or [(None, 0, 0, 0, 0)])[0]
+    pin_box = _gm_box(pt, "derpy_ic_gm_pin") or (0, 0)
+    if pin_box[1] - (art[2] + art[4]) < up + plate[4]:
+        out.append("the pin reaches into the name plate under it, so the portrait is "
+                   "not on top of the text")
+    # THE BADGE: the pin's box, so the two anchor as one; no text; one crest
+    # over the head's edge and above the plates.
+    if _gm_box(bt, "derpy_ic_gm_badge") != _gm_box(pt, "derpy_ic_gm_pin"):
+        out.append("the badge is %r and the pin %r, so the engine anchors them apart"
+                   % (_gm_box(bt, "derpy_ic_gm_badge"), _gm_box(pt, "derpy_ic_gm_pin")))
+    if "<component_text" in bt:
+        out.append("%s: the badge carries text" % GM_BADGE_FILE)
+    _bl = _gm_images(bt, "derpy_ic_gm_badge")
+    _hx, _hy, _hw, _hh = GM_HEAD
+    if len(_bl) != len(GM_BADGE_LAYERS) or not (
+            _bl[0][1] < _hx + _hw and _bl[0][1] + _bl[0][3] > _hx
+            and _bl[0][2] < _hy + _hh and _bl[0][2] + _bl[0][4] > _hy
+            and _bl[0][2] + _bl[0][4] <= GM_PIN_ART_BOX[1] + GM_PIN_ART_BOX[3]):
+        out.append("%s: the crest is not one image on the head, above the plates: %r"
+                   % (GM_BADGE_FILE, _bl))
+    m = re.search(r"ICUI\.GB_CREST\s*=\s*(\d+)", lua_text if lua_text is not None
+                  else _lua_map_tables())
+    if not m or int(m.group(1)) != GM_BADGE_LAYERS.index("crest"):
+        out.append("ICUI.GB_CREST does not name the badge's crest layer")
+    # THE WASH ON THE PLATE'S FACE, NOT ITS RIM.
+    washes = [lay for lay in name_layers if lay[0] != GM_PLATE]
+    if not washes or not (washes[0][1] >= 5 and washes[0][1] + washes[0][3] <= name_box[0] - 5
+                          and washes[0][2] >= plate[2] + 4
+                          and washes[0][2] + washes[0][4] <= plate[2] + 23):
+        out.append("%s: the party's colour is not on the plate's face alone: %r"
+                   % (GM_NAME_FILE, washes))
+    # READABLE ON EVERY PARTY'S COLOUR, measured on the pixels that ship.
+    ink = _rec709(GM_INK)
+    for slug, hexcol in sorted(gm_wash_colours().items()):
+        px = bytearray(wash(hexcol)[0][:3])
+        ratio = (ink / 255.0 + 0.05) / (_rec709(px) / 255.0 + 0.05)
+        if ratio < 4.5:
+            out.append("%s's name plate: the text is %.2f:1 on its colour, under 4.5"
+                       % (slug, ratio))
     lua = lua_text if lua_text is not None else _lua_map_tables()
-    for i, name in enumerate(MARKER_LAYERS):
-        if not re.search(r"ICUI\.MK_%s\b[^\n]*" % name.upper(), lua):
-            out.append("the map Lua declares no ICUI.MK_%s" % name.upper())
-    m = re.search(r"ICUI\.MK_PLATE,\s*ICUI\.MK_CREST,\s*ICUI\.MK_CAPITAL,\s*"
-                  r"ICUI\.MK_OUTLINE\s*=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", lua)
-    if not m or [int(v) for v in m.groups()] != list(range(len(MARKER_LAYERS))):
-        out.append("ICUI.MK_* do not name the marker's layers 0..3 in order")
-    for key, box in MAP_LAYOUT.items():
-        got = re.search(r"\b%s\s*=\s*\{\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\}" % key, lua)
-        if not got or tuple(int(v) for v in got.groups()) != box:
-            out.append("ICUI.MAP_XY.%s is not %r" % (key, box))
-    for key, box in MAP_ROW_CHILD.items():
-        got = re.search(r"\b%s\s*=\s*\{\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\s*\}" % key, lua)
-        if not got or tuple(int(v) for v in got.groups()) != box:
-            out.append("ICUI.MAP_ROW_CHILD.%s is not %r" % (key, box))
-    rows = re.search(r"ICUI\.MAP_ROW_X,\s*ICUI\.MAP_ROW_Y,\s*ICUI\.MAP_ROW_W,\s*"
-                     r"ICUI\.MAP_ROW_H,\s*ICUI\.MAP_ROWS\s*=\s*(\d+),\s*(\d+),\s*(\d+),"
-                     r"\s*(\d+),\s*(\d+)", lua)
-    if not rows or tuple(int(v) for v in rows.groups()) != (
-            MAP_ROW_X, MAP_ROW_Y, MAP_ROW_W, MAP_ROW_H, MAP_ROWS):
-        out.append("ICUI.MAP_ROW_* are not the generator's")
+    m = re.search(r"ICUI\.GM_PIN_W,\s*ICUI\.GM_PIN_H\s*=\s*(\d+),\s*(\d+)", lua)
+    if not m or (int(m.group(1)), int(m.group(2))) != (GM_PIN_W, GM_PIN_H):
+        out.append("ICUI.GM_PIN_W/H are not the generator's %dx%d" % (GM_PIN_W, GM_PIN_H))
+    m = re.search(r"ICUI\.GM_NAME_H\s*=\s*(\d+)", lua)
+    if not m or int(m.group(1)) != GM_NAME_H:
+        out.append("ICUI.GM_NAME_H is not the generator's %d" % GM_NAME_H)
+    m = re.search(r"ICUI\.GM_LOYAL_W,\s*ICUI\.GM_LOYAL_H\s*=\s*(\d+),\s*(\d+)", lua)
+    if not m or (int(m.group(1)), int(m.group(2))) != (GM_LOYAL_W, GM_LOYAL_H):
+        out.append("ICUI.GM_LOYAL_W/H are not the generator's %dx%d" % (GM_LOYAL_W, GM_LOYAL_H))
+    m = re.search(r"ICUI\.GP_ART,\s*ICUI\.GP_PARTY,\s*ICUI\.GP_CAPITAL,\s*ICUI\.GP_OUTLINE"
+                  r"\s*=\s*(\d+),\s*(\d+),\s*(\d+),\s*(\d+)", lua)
+    if not m or [int(v) for v in m.groups()] != list(range(len(GM_PIN_LAYERS))):
+        out.append("ICUI.GP_* do not name the pin's layers 0..3 in order")
+    m = re.search(r"ICUI\.GF_PORT,\s*ICUI\.GF_CREST\s*=\s*(\d+),\s*(\d+)", lua)
+    if not m or (int(m.group(1)), int(m.group(2))) != (
+            GM_FACE_LAYERS.index("port"), GM_FACE_LAYERS.index("crest")):
+        out.append("ICUI.GF_PORT/GF_CREST do not name the face's port and crest layers")
+    m = re.search(r"ICUI\.GN_PLATE,\s*ICUI\.GN_WASH\s*=\s*(\d+),\s*(\d+)", lua)
+    if not m or [int(v) for v in m.groups()] != list(range(len(GM_NAME_LAYERS))):
+        out.append("ICUI.GN_PLATE/GN_WASH do not name the name plate's layers")
+    if ('"%s/gm_wash_" .. slug .. ".png"' % PLATE_DIR) not in lua:
+        out.append("ICUI.gm_wash_path does not build gm_wash_path's names, so a "
+                   "plate's colour draws blank")
+    m = re.search(r"ICUI\.GM_NAME_W\s*=\s*(\d+)", lua)
+    if not m or int(m.group(1)) != GM_NAME_W:
+        out.append("ICUI.GM_NAME_W is not the plate's inside, %d: a name cut to "
+                   "anything wider runs off it" % GM_NAME_W)
+    m = re.search(r'ICUI\.GM_BACKDROP\s*=\s*"([^"]+)"', lua)
+    if not m or m.group(1) != PANEL_BG:
+        out.append("ICUI.GM_BACKDROP is not PANEL_BG, %s: leaving the view would "
+                   "put the wrong ground back" % PANEL_BG)
     return out
 
 
@@ -4541,15 +5031,12 @@ def check_rim_slots():
         return ["the panel Lua has no ICUI.RIMS table"]
     block = text[at:text.find("\n}", at)]
     want = {"card": CARD_RIM}
-    for kind in ("row", "party"):
+    for kind in ("party",):
         if ("%s_RIM" % kind.upper()) in globals():
             want[kind] = globals()["%s_RIM" % kind.upper()]
     out = []
     if ('ICUI.RIM_ART = "%s"' % RIM_ART) not in text:
         out.append("ICUI.RIM_ART is not %s, the art this file writes" % RIM_ART)
-    if ('ICUI.RIM_ART_ROW = "%s"' % RIM_ROW_ART) not in text:
-        out.append("ICUI.RIM_ART_ROW is not %s, the art this file writes"
-                   % RIM_ROW_ART)
     if ('ICUI.RIM_ART_FAIL = "%s"' % RIM_FAIL_ART) not in text:
         out.append("ICUI.RIM_ART_FAIL is not %s, the art this file writes"
                    % RIM_FAIL_ART)
@@ -4577,8 +5064,11 @@ def build_xml():
         out[fname] = EU.layout(root, comment)
     out[FIRE_FILE] = fire_xml()
     out[BURST_FILE] = burst_xml()
-    out[MAP_FILE] = map_xml()
-    out[MARKER_FILE] = marker_xml()
+    out[GM_PIN_FILE] = gm_pin_xml()
+    out[GM_FACE_FILE] = gm_face_xml()
+    out[GM_NAME_FILE] = gm_name_xml()
+    out[GM_LOYAL_FILE] = gm_loyal_xml()
+    out[GM_BADGE_FILE] = gm_badge_xml()
     # THE COMPACT COPIES are built by the copy of this module at a 1600 box,
     # whose fonts are already one size down and whose cells are already the
     # sizes a 1600x900 player gets. Only the base module writes them: a copy
@@ -4819,13 +5309,20 @@ def check():
     # 1c. The claim burst: its sprite frames exist and nothing pauses it.
     out.extend(check_burst(all_files.get(BURST_FILE, ""),
                            set(p.lower() for p in _assets())))
-    out.extend(check_map(all_files.get(MARKER_FILE, "")))
+    # 1c2. The Governors view's pins, the holder they stand in, and every mask.
+    out.extend(check_gm(all_files.get(GM_PIN_FILE, ""), all_files.get(GM_FACE_FILE, ""),
+                        all_files.get("derpy_ic_panel.twui.xml", ""),
+                        name_text=all_files.get(GM_NAME_FILE, ""),
+                        loyal_text=all_files.get(GM_LOYAL_FILE, ""),
+                        badge_text=all_files.get(GM_BADGE_FILE, "")))
+    out.extend(check_masks(all_files))
+    # 1c3. Every line the Governors view keeps sits on one of its plates.
+    out.extend(check_gm_plates())
     # 1d. The rim layers the Lua writes are the ones the files emit.
     out.extend(check_rim_slots())
     # 1e. The rim's corners are as bright as its edges (author, 2026-09-28:
     # "the corners are not filled" on CA's rounded one).
     out.extend(check_seat_rim())
-    out.extend(check_seat_rim(margin=RIM_ROW_MARGIN, px=RIM_ROW_PX))
     out.extend(check_portrait_frame())
 
     # 2. The prefix is ours, and DE15 is retired.
@@ -4935,7 +5432,8 @@ def check():
             ("ic_party_port", PARTY_LAYOUT["ic_party_port"][2:], PORTHOLE_ASPECT,
              "porthole"),
             ("ic_leader_port", PANEL_LAYOUT["ic_leader_port"][2:],
-             PORTHOLE_ASPECT, "porthole")):
+             PORTHOLE_ASPECT, "porthole"),
+            ("ic_gr_face", GM_ROW_LAYOUT["ic_gr_face"][2:], PORTHOLE_ASPECT, "porthole")):
         aspect = box[0] / float(box[1])
         drift = abs(aspect - want) / want
         if drift > PORTHOLE_TOLERANCE:
@@ -5115,6 +5613,10 @@ def check():
     #     the pie is drawn on.
     px0, py0, pw, ph = PIE_BOX
     for name, (x, y, w, h) in sorted(PANEL_LAYOUT.items()):
+        if name.startswith("ic_gm_"):
+            # THE GOVERNORS VIEW'S OWN, shown on that view only: the harness
+            # holds them gone on every other ("...leaving it puts both back").
+            continue
         if (name.startswith("ic_wedge_") or name.startswith("ic_barc_")
                 or name.startswith("ic_barp_")):
             continue
@@ -5187,7 +5689,7 @@ def check():
             ("tab", BTN_LAYERS, (132, TAB_H)),
             ("tab hover", BTN_HOVER, (132, TAB_H)),
             ("office card", OFFICE_CARD_LAYERS, (CARD_W, CARD_H)),
-            ("list row", ROW_FULL_LAYERS, (ROW_W, ROW_H)),
+            ("list row", ROW_LAYERS, (ROW_W, ROW_H)),
             ("party card", PARTY_LAYERS, (PARTY_W, PARTY_H))):
         for layer in layers:
             m = layer.get("margin") or 0
@@ -6022,6 +6524,31 @@ def check():
                     out.append("%s would clip: %r measures %.0fpx at %dpx in a "
                                "%dpx cell" % (_name, _t, _got, _px, _w))
 
+        # 20k. EVERY PETITION BUTTON'S LABEL FITS ITS BUTTON (author,
+        #      2026-09-30: "button size doesnt accomodate 'make peace'"). The
+        #      labels are ICUI.PETITION_BTN, read out of the panel Lua; which
+        #      button each goes on is typed here, and a label this does not
+        #      place is a failure rather than a label nobody measured.
+        _ptext = io.open(os.path.join(
+            ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+            "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+        _pblk = re.search(r"ICUI\.PETITION_BTN\s*=\s*\{(.*?)\}", _ptext, re.S)
+        _pbtn = dict(re.findall(r'(\w+)\s*=\s*"([^"]+)"', _pblk.group(1))) if _pblk else {}
+        if not _pbtn:
+            out.append("cannot read ICUI.PETITION_BTN, so no petition button is measured")
+        for _key, _label in sorted(_pbtn.items()):
+            _cell = PETITION_BTN_CELL.get(_key)
+            if not _cell:
+                out.append("ICUI.PETITION_BTN.%s is on no known button, so %r is "
+                           "unmeasured" % (_key, _label))
+                continue
+            _w = usable_w(ROW_LAYOUT[_cell][2], _cell)
+            _px = TEXT_STYLE.get(_cell, BODY)[0]
+            _got = _measure(_label, _px)
+            if _got > _w:
+                out.append("%s would clip: %r measures %.0fpx at %dpx on a %dpx "
+                           "button" % (_cell, _label, _got, _px, _w))
+
         # 20g. THE PARTY CARD AND THE CROWN'S BLOCK. Every string here comes
         #      out of the model's own tables; the only two that cannot are a
         #      character's name and a faction's, which are the game's loc and
@@ -6110,7 +6637,6 @@ def check():
             _bar = dict((_k, [_v]) for _k, _v in _act.items())
             _bar["ic_act_hint"] = _hints
             _bar["ic_tab_petitions"] = ["Petitions"]
-            _bar["ic_tab_map"] = ["Map"]
             _bar["ic_fill"] = [_fill.group(1)] if _fill else []
             if not _fill:
                 out.append("the panel Lua declares no ICUI.FILL_LABEL, so the "
@@ -6952,11 +7478,14 @@ def selftest_compact():
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
     assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
-    # +4: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
-    # twin, and the party map's two, which are never scaled (map plan ruling 7).
-    assert len(files) == len(FILES) + len(COMPACT_FILES) + 4
+    # +7: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
+    # twin, and the Governors view's pin, face, two plates and badge, never
+    # scaled (2026-09-30 ruling 1).
+    assert len(files) == len(FILES) + len(COMPACT_FILES) + 7
     assert FIRE_FILE not in COMPACT_FILES and BURST_FILE not in COMPACT_FILES
-    assert MAP_FILE not in COMPACT_FILES and MARKER_FILE not in COMPACT_FILES
+    assert GM_PIN_FILE not in COMPACT_FILES and GM_FACE_FILE not in COMPACT_FILES
+    assert GM_NAME_FILE not in COMPACT_FILES and GM_LOYAL_FILE not in COMPACT_FILES
+    assert GM_BADGE_FILE not in COMPACT_FILES
     assert "derpy_ic_opener_compact.twui.xml" not in files
     assert "derpy_ic_standing_compact.twui.xml" not in files
     for base, compact in COMPACT_FILES.items():
@@ -6974,13 +7503,94 @@ def selftest():
     # null the emitter dereferences on panel open, so the check has to be seen
     # catching one, and seen passing the shipped file.
     assert not check_burst(burst_xml()), check_burst(burst_xml())
-    assert not check_map(), check_map()
-    assert check_map(marker_xml().replace("ContextWorldSpaceComponent", "ContextX")), \
-        "check_map passed a marker with no world-space pin"
-    assert check_map(lua_text=_lua_map_tables().replace("ic_map_close  = {411", "ic_map_close  = {412")), \
-        "check_map passed a legend the Lua places elsewhere"
-    assert any("no children" in e for e in check_map(map_xml())), \
-        "check_map passed a marker file with children in it"
+    assert not check_gm(), check_gm()
+    assert not check_masks({GM_FACE_FILE: gm_face_xml()}), check_masks({GM_FACE_FILE: gm_face_xml()})
+    assert any("names no component_image" in e for e in check_masks(
+        {GM_FACE_FILE: gm_face_xml().replace('maskimage="IC48', 'maskimage="IC99')})), \
+        "a maskimage naming another component went unreported"
+    # THE PLATES RULE FIRES. (16, 1040) would land in the footer's plate, so the
+    # line goes to the bare map at (700, 600).
+    assert not check_gm_plates(), check_gm_plates()
+    _sorted_row = EU.layout(EU.assign(_gm_row(), GUID_PREFIXES[GM_ROW_FILE]), "")
+    _h = _sorted_row.split("<hierarchy>", 1)
+    _face = re.search(r"\n\t*<ic_gr_face this=\"[^\"]*\"/>", _h[1]).group(0)
+    _under = _h[0] + "<hierarchy>" + _h[1].replace(_face, "").replace(
+        "\n\t\t\t\t<ic_gr_l1 ", _face + "\n\t\t\t\t<ic_gr_l1 ", 1)
+    assert any("ic_gr_badge is declared before ic_gr_face" in e
+               for e in check_gm_plates(row_text=_under)), \
+        "a row whose face draws over its badge went unreported"
+    # THE RAILS RULE FIRES, on the third line as it shipped in 73806344.
+    assert any("ic_gr_l3" in e and "rails" in e for e in check_gm_plates(
+        row_layout=dict(GM_ROW_LAYOUT, ic_gr_l3=(148, 52, 256, 20)))), \
+        "a row line on the frame's bottom rail went unreported"
+    _moved = dict(PANEL_LAYOUT, ic_gm_hint=(700, 600, 412, 26))
+    assert any("ic_gm_hint" in e for e in check_gm_plates(_moved)), \
+        "a column line off every plate went unreported"
+    assert any("run outside the column" in e for e in check_gm_plates(
+        dict(PANEL_LAYOUT, ic_gm_col=(0, 124, 300, 890)))), \
+        "a row pool wider than its column went unreported"
+    _pn = EU.layout(EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+    assert any("first child" in e for e in check_gm(
+        panel_text=_pn.replace("<ic_gm_pins ", "<ic_gm_pinz ", 1))), \
+        "a holder that is not the first child went unreported"
+    assert any("takes clicks" in e for e in check_gm(face_text=gm_face_xml().replace(
+        'name="standard"', 'name="standard"\n\t\t\t\t\tinteractive="true"', 1))), \
+        "a face that takes clicks went unreported"
+    assert any("no maskimage" in e for e in check_gm(face_text=re.sub(
+        r'\n\t\t\tmaskimage="[^"]+"', "", gm_face_xml()))), \
+        "a face with no mask went unreported"
+    assert any("GM_BACKDROP" in e for e in check_gm(lua_text=_lua_map_tables().replace(
+        "panel_bg.png", "panel_bgx.png"))), "a wrong backdrop path went unreported"
+    assert any("anchors them apart" in e for e in check_gm(badge_text=gm_badge_xml().replace(
+        'height="%d"' % GM_PIN_H, 'height="%d"' % (GM_PIN_H - 2)))), \
+        "a badge boxed apart from its pin went unreported"
+    assert any("not one image on the head" in e for e in check_gm(badge_text=gm_badge_xml().replace(
+        'offset="%.2f,%.2f"' % GM_BADGE_BOX[:2], 'offset="%.2f,%.2f"' % (GM_BADGE_BOX[0], 120.0)))), \
+        "a badge off the head went unreported"
+    assert any("takes clicks" in e for e in check_gm(badge_text=gm_badge_xml().replace(
+        'name="standard"', 'name="standard"\n\t\t\t\t\tinteractive="true"', 1))), \
+        "a badge that takes clicks went unreported"
+    assert any("GB_CREST" in e for e in check_gm(lua_text=re.sub(
+        r"ICUI\.GB_CREST\s*=\s*\d+", "ICUI.GB_CREST = 3", _lua_map_tables()))), \
+        "a Lua badge layer apart from the file's went unreported"
+    assert any("carries text again" in e for e in check_gm(
+        pin_text=gm_pin_xml() + "<component_text")), "a pin carrying text went unreported"
+    assert any("no padding" in e for e in check_gm(name_text=re.sub(
+        r'textyoffset="[^"]+"', 'textyoffset="32.00,0.00"', gm_name_xml()))), \
+        "a name plate's padded text went unreported"
+    assert any("own 30px" in e for e in check_gm(loyal_text=gm_loyal_xml().replace(
+        'height="30"', 'height="44"'))), "a stretched plate went unreported"
+    assert any("draws off it" in e for e in check_gm(name_text=gm_name_xml().replace(
+        'offset="0.00,%.2f"' % GM_NAME_PLATE_Y, 'offset="0.00,%.2f"' % (GM_NAME_PLATE_Y + 8)))), \
+        "a name plate off its box's middle went unreported"
+    assert any("takes clicks" in e for e in check_gm(name_text=gm_name_xml().replace(
+        'name="standard"', 'name="standard"\n\t\t\t\t\tinteractive="true"', 1))), \
+        "a name plate that takes clicks went unreported"
+    assert any("under 4.5" in e for e in check_gm(
+        wash=lambda c: [bytes(bytearray((255, 255, 255, 255)))])), \
+        "a wash too bright for the text went unreported"
+    assert any("GM_NAME_H" in e for e in check_gm(lua_text=re.sub(
+        r"ICUI\.GM_NAME_H\s*=\s*\d+", "ICUI.GM_NAME_H = 1", _lua_map_tables()))), \
+        "a Lua name box apart from the file's went unreported"
+    assert any("gm_wash_path" in e for e in check_gm(lua_text=_lua_map_tables().replace(
+        "gm_wash_", "gm_wosh_"))), "a Lua wash path apart from the art's went unreported"
+    assert any("reaches into the name plate" in e for e in check_gm(pin_text=gm_pin_xml().replace(
+        'height="%d"' % GM_PIN_H, 'height="%d"' % (GM_PIN_H - 8)))), \
+        "a pin reaching into its name plate went unreported"
+    assert any("bottom centre" in e for e in check_gm(pin_text=gm_pin_xml().replace(
+        'component_anchor_point="0.50,1.00"', ""))), "a pin anchored elsewhere went unreported"
+    assert any("plate's inside" in e for e in check_gm(lua_text=re.sub(
+        r"ICUI\.GM_NAME_W\s*=\s*\d+", "ICUI.GM_NAME_W = %d" % GM_PIN_W,
+        _lua_map_tables()))), "a name cut to the whole pin went unreported"
+    assert any("no ContextWorldSpaceComponent" in e for e in check_gm(
+        pin_text=gm_pin_xml().replace("ContextWorldSpaceComponent", "ContextX"))), \
+        "check_gm passed a pin with no world-space callback"
+    assert any("ContextOpacitySetter" in e for e in check_gm(
+        pin_text=gm_pin_xml() + 'callback_id="ContextOpacitySetter"')), \
+        "check_gm passed a pin that carries CA's fade"
+    assert any("anchors them apart" in e for e in check_gm(face_text=gm_face_xml().replace(
+        'height="%d"' % GM_PIN_H, 'height="%d"' % (GM_PIN_H - 2)))), \
+        "a face boxed apart from its pin went unreported"
     _rim = [bytearray(r) for r in seat_rim_pixels()]
     for _y in range(RIM_MARGIN):
         for _x in range(RIM_MARGIN):

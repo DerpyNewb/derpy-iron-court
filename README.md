@@ -116,10 +116,13 @@ in as a party of their own.
   loyal as its own court was (held between 25 and 75).
 
 The panel opens from a round button on the top resource strip, beside the buttons of The
-Great Guilds and the Zharr Exchange when those mods are present. It has seven tabs: Court,
-Offices, Governors, Map, Intrigue, Petitions and Record. The Map tab is a first slice, not
-yet checked in game: it closes the court and marks each province you hold on the campaign map
-with the colour of the party that governs it. It is sized to the screen, from 1600x900
+Great Guilds and the Zharr Exchange when those mods are present. It has six tabs: Court,
+Offices, Governors, Intrigue, Petitions and Record. The Governors tab opens onto the live
+campaign map with the court still open: every province you hold wears a Chaos Dwarf pin with
+its governor's face, his party's colour and flag, the province's name and its loyalty, and a
+column on the left lists your parties, your provinces and the candidates for a governorship.
+A governorship gives its party weight by how developed the province is - one for every two
+settlement levels, at least one - earned a step a turn. It is sized to the screen, from 1600x900
 up to 2560x1440; below 1920 wide it uses a compact layout one font size down. A man's exact
 influence also shows beside his rank on the character details panel. Event cards raised
 while the panel is open wait until it closes. The button's tooltip sums up the court: your
@@ -167,7 +170,7 @@ mirrors the in-pack paths, so the tools run from the repo root unchanged.
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, overseers, loyalty, intrigue, secession, save state |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua` | the rival parties' own acts, demands and offers |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, the HUD opener and the influence plate |
-| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua` | the Map tab: party markers pinned to settlements on the campaign map |
+| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua` | the Governors tab: pins on the campaign map and the column beside them |
 | `Modding Files/pack/ui/campaign ui/` | the seventeen `derpy_ic_*.twui.xml` layouts (generated): twelve layouts, five of them with a `_compact` copy |
 | `Modding Files/source/iron_court/` | the DB rows and loc as TSV (generated), except the `factions` override (see below) |
 | `tools/` | generators, checks, the Lua test harness, the mutation runner, the preview renderer, the art tools and the packer |

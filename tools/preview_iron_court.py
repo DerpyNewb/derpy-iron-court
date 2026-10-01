@@ -69,12 +69,6 @@ OUT_INTRIGUE = os.path.join(PG.CACHE, "ic_intrigue.png")
 # panel as it opens; the second is the same twelve men under AVAILABLE.
 OUT_PICK = os.path.join(PG.CACHE, "ic_pick.png")
 OUT_PICK_READY = os.path.join(PG.CACHE, "ic_pick_ready.png")
-# THE GOVERNORS, WHICH ARE THE OTHER LIST. It is the same row pool under
-# different columns, and it is the only view where a row can be about NOBODY -
-# an ungoverned province draws a silhouette over a transparent plate, and
-# whether that reads as a seat waiting to be filled or as a row that failed to
-# draw is exactly the kind of question no assertion answers.
-OUT_GOVS = os.path.join(PG.CACHE, "ic_govs.png")
 # THE ZIGGURAT, which is the tab the panel opens on and the one shape here that
 # had never been drawn. Fourteen cards in four bands, half of them empty.
 OUT_OFFICES = os.path.join(PG.CACHE, "ic_offices.png")
@@ -82,7 +76,15 @@ OUT_OFFICES = os.path.join(PG.CACHE, "ic_offices.png")
 # the one whose worst line - the longest name demanding the longest province -
 # was measured over its column before the row was rearranged.
 OUT_PETITIONS = os.path.join(PG.CACHE, "ic_petitions.png")
-VIEWS = ("court", "intrigue", "pick", "pick_ready", "govs", "offices", "petitions")
+# THE GOVERNORS VIEW (plan 2026-09-30): the column over the live map, as two
+# pictures, one per page shape. The map is a flat stand-in - a shut game has no
+# campaign map to draw - and the pins stand on it in a sheet, not on
+# settlements, which is the engine's job.
+OUT_GM = os.path.join(PG.CACHE, "ic_gm_provinces.png")
+OUT_GM_PICK = os.path.join(PG.CACHE, "ic_gm_picker.png")
+GM_MAP_FILL = (46, 52, 38, 255)
+VIEWS = ("court", "intrigue", "pick", "pick_ready", "offices", "petitions",
+         "gm_provinces", "gm_picker")
 
 _LUA = {}
 
@@ -98,7 +100,8 @@ def lua(which):
     """
     if which not in _LUA:
         # THE PARTIES FILE TOO: the petitions' terms are its T.party_* values.
-        name = "zzz_derpy_iron_court%s.lua" % {"ui": "_ui", "parties": "_parties"}.get(
+        name = "zzz_derpy_iron_court%s.lua" % {"ui": "_ui", "parties": "_parties",
+                                                "ui_map": "_ui_map"}.get(
             which, "")
         _LUA[which] = io.open(os.path.join(LOCAL, "script", "campaign", "mod", name),
                               encoding="utf-8").read()
@@ -829,11 +832,42 @@ def pick_lines(ready_first):
     return rows
 
 
+def gm_hidden(G, view, n_rows):
+    """The ic_gm_ cells this picture leaves undrawn, as the Lua leaves them.
+
+    Off the Governors view, all of them (ICUI.gm_show_column). On it: the footer's
+    plate, which shows with the footer line and the demo has none; the hint,
+    which the Provinces page hides and the picker shows only for an empty list;
+    the sort, which is the Provinces page's alone; and the pager when the page
+    holds the whole list (ICUI.gm_draw_page).
+    """
+    gm = set(n for n in G.PANEL_LAYOUT if n.startswith("ic_gm_"))
+    if view not in ("gm_provinces", "gm_picker"):
+        return gm
+    out = {"ic_gm_foot", "ic_gm_hint"}
+    if view == "gm_picker":
+        out |= {"ic_gm_sort_1", "ic_gm_sort_2", "ic_gm_sort_3"}
+    if n_rows <= G.GM_ROWS:
+        out |= {"ic_gm_prev", "ic_gm_page", "ic_gm_next"}
+    return out
+
+
+# THE PROVINCES PAGE'S DEMO: DEMO_GOVS, plus the worst row the page can be
+# handed - the longest province, governed by a long name who is away - and the
+# settlement levels each province holds, so "+N weight" is the model's figure.
+GM_DEMO_LEVELS = (9, 4, 0, 6, 2, 5, 3)
+
+
+def gm_province_rows():
+    return list(DEMO_GOVS) + [(DEMO_LONG_PROVINCE, "Dazminus Deathdealer", "temple", True, 25)]
+
+
 def render(path=None, view="court", box_w=1920):
     from PIL import Image, ImageDraw, ImageFont
     model, rendering = PG._studio()
     G = _gen_at(box_w)
     ui = lua("ui")
+    gm = view.startswith("gm_")
     # THE COST ICON IS NAMED IN THE LUA AND IN NO .twui.xml, so the extractor has
     # to be told about it the way it is told about the lit tab's plate - otherwise
     # every price on the intrigue tab draws its number and no icon.
@@ -858,7 +892,10 @@ def render(path=None, view="court", box_w=1920):
         PREFIX,
         extra=DEMO_FACES + [TAB_SELECTED, cost_icon, trait_icon, G.PARTY_SELECTED,
                             band_icon] + sorted(fx_icons.values())
-        + icons)
+        + icons
+        + [G.GM_ROW_ART % s for s in ("active", "hover", "selected", "selected_hover", "inactive")]
+        + [G.GM_ROUND % s for s in ("active", "hover", "selected", "selected_hover")]
+        + re.findall(r'"(ui/skins/default/icon_fealty_\w+\.png)"', lua("ui_map")))
 
     def doc_of(name):
         # BELOW 1920 THE PANEL OPENS THE COMPACT COPY, and the fonts this
@@ -874,13 +911,18 @@ def render(path=None, view="court", box_w=1920):
     # THE MOVE CARDS ARE INSTANCES OF THE OFFICE CARD, so the intrigue view needs
     # that file even though the offices tab is not one of the shapes drawn here.
     card_doc = doc_of("derpy_ic_plot.twui.xml")
+    gm_pin_doc, gm_face_doc = doc_of(G.GM_PIN_FILE), doc_of(G.GM_FACE_FILE)
+    gm_name_doc, gm_loyal_doc = doc_of(G.GM_NAME_FILE), doc_of(G.GM_LOYAL_FILE)
+    gm_badge_doc, gm_row_doc = doc_of(G.GM_BADGE_FILE), doc_of(G.GM_ROW_FILE)
     named = {}
     for d, tag in ((panel, "panel"), (party, "party"), (row_doc, "row"),
-                   (card_doc, "card"), (office_doc, "office")):
+                   (card_doc, "card"), (office_doc, "office"),
+                   (gm_pin_doc, "gmpin"), (gm_face_doc, "gmface"), (gm_name_doc, "gmname"),
+                   (gm_loyal_doc, "gmloyal"), (gm_badge_doc, "gmbadge"), (gm_row_doc, "gmrow")):
         for c in d.components:
             named[(tag, c.get("id", c.tag))] = c
 
-    canvas = Image.new("RGBA", (G.PANEL_W, G.PANEL_H), (0, 0, 0, 255))
+    canvas = Image.new("RGBA", (G.PANEL_W, G.PANEL_H), GM_MAP_FILL if gm else (0, 0, 0, 255))
 
     def paste(doc, comp, x, y, w=None, h=None, repaint=None):
         """One component's art, at absolute panel coordinates.
@@ -1052,7 +1094,10 @@ def render(path=None, view="court", box_w=1920):
             tx += draw.textlength(body, font=f)
 
     # ---- the panel, then the tab's own furniture -------------------------
-    paste(panel, named[("panel", "derpy_ic_panel")], 0, 0, G.PANEL_W, G.PANEL_H)
+    # ON THE GOVERNORS VIEW THE BACKDROP IS CLEARED (ICUI.gm_sync), so the
+    # panel's own image 0 is left undrawn and the map shows through.
+    paste(panel, named[("panel", "derpy_ic_panel")], 0, 0, G.PANEL_W, G.PANEL_H,
+          repaint={0: None} if gm else None)
 
     court = demo_court(G)
     counts = slice_counts(G.DIAL_SLICES, court)
@@ -1120,7 +1165,7 @@ def render(path=None, view="court", box_w=1920):
     _sort_mode = 2 if view == "pick_ready" else 1
     # The offices tab is what a seat's picker is opened from, so that is the tab
     # that stays lit under it.
-    _lit_tab = "offices" if _base == "pick" else view
+    _lit_tab = "offices" if _base == "pick" else ("govs" if gm else view)
     _band = [b for b in G.IC.CONTROL_BANDS if court[0][2] >= b[1]][0]
     _sufferance = int(re.search(r"sufferance_share\s*=\s*(\d+)", lua("model")).group(1))
     STRINGS = {
@@ -1179,6 +1224,35 @@ def render(path=None, view="court", box_w=1920):
     # show rather than one it quietly avoids. Read out of the Lua, so a key added
     # to either list is hidden here too.
     hidden = set(("ic_page_prev", "ic_page_lbl", "ic_page_next"))    # see STRINGS
+    _gm_n = (len(gm_province_rows()) if view == "gm_provinces"
+             else len(pick_lines(False)) if view == "gm_picker" else 0)
+    hidden |= gm_hidden(G, view, _gm_n)
+    # THE FOOTER'S PLATE shows while the footer line does (ICUI.gm_sync).
+    if gm and STRINGS.get("ic_alert"):
+        hidden.discard("ic_gm_foot")
+    # THE HELP PAGE'S CELLS ARE THE HELP VIEW'S, and no picture here is of it;
+    # THE FILL BUTTON IS THE OFFICES TAB'S. Both off ICUI.refresh's own tests,
+    # which every picture drew past until the Governors view's map had to show
+    # through the help card (2026-09-30).
+    if not re.search(r'show\(comp\(name, panel\), view == "help" and not ICUI\.pick\)', ui) \
+            or not re.search(r'show\(comp\("ic_fill", panel\), ICUI\.pick == nil and '
+                             r'ICUI\.view == "offices"\)', ui):
+        raise SystemExit("ICUI.refresh no longer gates the help cells or ic_fill as "
+                         "this reads it - re-read it before trusting this picture")
+    hidden |= set(k for k in G.PANEL_LAYOUT if k.startswith("ic_help_"))
+    if view != "offices":
+        hidden.add("ic_fill")
+    # THE COLUMN'S WORDS, off the map Lua, so a reworded label reaches the picture.
+    _titles = dict(re.findall(r'(\w+) = "([^"]+)"', re.search(
+        r'ICUI\.GM_PAGE_TITLE = \{([^}]*)\}', lua("ui_map")).group(1)))
+    STRINGS.update({
+        "ic_gm_head": _titles["picker" if view == "gm_picker" else "provinces"],
+        "ic_gm_tog_lbl_1": _titles["parties"],
+        "ic_gm_tog_lbl_2": _titles["provinces"],
+        "ic_gm_sort_1": "Province", "ic_gm_sort_2": "Governor", "ic_gm_sort_3": "Loyalty",
+        "ic_gm_page": "Page 1 of %d" % max(1, -(-_gm_n // G.GM_ROWS)),
+        "ic_gm_prev": "Previous", "ic_gm_next": "Next",
+    })
     # THE ACTION BAR, off the panel's own tables. ICUI.draw_actions shows the
     # three buttons for a chosen rival and the hint otherwise, and ICUI.refresh
     # hides all four on every other view.
@@ -1260,6 +1334,13 @@ def render(path=None, view="court", box_w=1920):
                 .replace("%d", _turns, 1))
         elif view == "petitions":
             STRINGS["ic_lbl_section"] = petitions_label()
+        elif view == "gm_provinces":
+            STRINGS["ic_lbl_section"] = re.search(
+                r'govs\s*=\s*"([^"]*)"', _block(ui, "ICUI.SECTION")).group(1)
+        elif view == "gm_picker":
+            # ICUI.pick_title's governor line, for the province being chosen for.
+            STRINGS["ic_lbl_section"] = re.search(
+                r'"(Choose who governs )%s"', ui).group(1) + DEMO_GOVS[2][0]
         else:
             STRINGS["ic_lbl_section"] = re.search(
                 r'%s\s*=\s*"([^"]*)"' % view, _block(ui, "ICUI.SECTION")).group(1)
@@ -1314,6 +1395,8 @@ def render(path=None, view="court", box_w=1920):
             x, w = G.fit_plate(name, x, w, measure(panel, named[("panel", name)],
                                                    STRINGS[name]))
         lit = {0: TAB_SELECTED} if name == "ic_tab_" + _lit_tab else None
+        if name == "ic_gm_tog_2" and view == "gm_provinces":
+            lit = {0: G.GM_ROUND % "selected"}
         paste(panel, named[("panel", name)], x, y, w, h, repaint=lit)
         s = STRINGS.get(name)
         if s:
@@ -1340,6 +1423,125 @@ def render(path=None, view="court", box_w=1920):
             hx, hy, hw, hh = G.PANEL_LAYOUT[key]
             paste(panel, named[("panel", key)], hx, hy, hw, hh)
             text(panel, named[("panel", key)], _heads[i], hx, hy, hw, hh)
+
+    # ---- the Governors view: the column's rows, then pins on the map -------
+    if gm:
+        def grow(i, r):
+            """One row of the column's pool, as ICUI.gm_fill_row fills it."""
+            rx, ry = G.GM_ROW_X, G.GM_ROW_Y + i * G.GM_ROW_PITCH
+            paste(gm_row_doc, named[("gmrow", "derpy_ic_gm_row")], rx, ry,
+                  G.GM_ROW_W, G.GM_ROW_H, repaint={0: G.GM_ROW_ART % r["look"]})
+            # IN THE FILE'S DECLARATION ORDER, which is the order the engine draws
+            # in: sorted, the face was painted over the badge on its corner.
+            for key in [c.get("id") for c in gm_row_doc.components
+                        if c.get("id") in G.GM_ROW_LAYOUT]:
+                cx, cy, cw, ch = G.GM_ROW_LAYOUT[key]
+                comp = named[("gmrow", key)]
+                x, y = rx + cx, ry + cy
+                if key == "ic_gr_face":
+                    if r.get("face"):
+                        paste(gm_row_doc, comp, x, y, cw, ch, repaint={
+                            0: G.MASK_NONE if r.get("vacant") else G.plate_path(r.get("plate")),
+                            1: r["face"], 2: None})
+                elif key in ("ic_gr_crest", "ic_gr_badge", "ic_gr_icon"):
+                    art = {"ic_gr_crest": r.get("crest"), "ic_gr_badge": r.get("badge"),
+                           "ic_gr_icon": r.get("fealty")}[key]
+                    if art:
+                        paste(gm_row_doc, comp, x, y, cw, ch, repaint={0: art})
+                else:
+                    s = r.get(key[len("ic_gr_"):])
+                    if s:
+                        s = cut_words(lambda _s: measure(gm_row_doc, comp, _s), s, cw)
+                        text(gm_row_doc, comp, s, x, y, cw, ch)
+
+        fealty = dict(re.findall(r'(high|medium|low) = "(ui/skins/default/icon_fealty_\w+\.png)"',
+                                 lua("ui_map")))
+        tune = _tune(lua("model"))
+        rate = float(tune["weight_per_gov_level"])
+        floor, start = int(tune["prov_defect_floor"]), int(tune["prov_loyalty_start"])
+
+        def band(loyal):
+            return fealty["low" if loyal <= floor else "high" if loyal > start else "medium"]
+
+        drawn = 0
+        if view == "gm_provinces":
+            rows = gm_province_rows()
+            for i, (prov, who, slug, away, loyal) in enumerate(rows[:G.GM_ROWS]):
+                levels = GM_DEMO_LEVELS[i % len(GM_DEMO_LEVELS)]
+                weight = max(1, -(-int(levels * rate * 100) // 100))
+                grow(i, {
+                    "look": "selected" if i == 1 else "active",
+                    "l1": prov,
+                    "l2": (who + " (away)") if (who and away) else (who or "None assigned"),
+                    "l3": ("%d%%, +%d weight" % (loyal, weight)) if who else "%d%%" % loyal,
+                    "face": DEMO_FACES[i % len(DEMO_FACES)] if who else G.SIL_PATH,
+                    "vacant": who is None, "plate": slug,
+                    "badge": G.sigil_path(slug) if who else None,
+                    "fealty": band(loyal)})
+                drawn += 1
+        else:
+            rows = pick_lines(False)
+            _kw = _kind_words(ui)
+            for i, (name, trade, house, rank, standing, holds, refusal, kind) in \
+                    enumerate(rows[:G.GM_ROWS]):
+                slug, party_name = court[house][0], court[house][1]
+                grow(i, {
+                    "look": "inactive" if refusal else ("selected" if i == 0 else "active"),
+                    "l1": "%s%s - %s" % ((_kw[kind] + " ") if _kw else "", name, trade),
+                    "l2": party_name,
+                    "l3": "Rank %d, %d influence" % (rank, standing),
+                    "face": DEMO_FACES[i % len(DEMO_FACES)], "plate": slug,
+                    "badge": G.sigil_path(slug)})
+                drawn += 1
+
+        # THE PINS, in a sheet right of the column: one per demo province, the
+        # first a capital, the second ringed as chosen. Five components each,
+        # every one standing its bottom centre on the settlement's point
+        # (GM_ANCHOR) and drawn in the order gm_draw_pins makes them. THE FACE
+        # IS SQUARE HERE: TWUI Studio's rasteriser has no maskimage, so the
+        # porthole_mask layer is left undrawn rather than drawn as a white disc
+        # over the face. In game it is round.
+        pin = named[("gmpin", "derpy_ic_gm_pin")]
+        face = named[("gmface", "derpy_ic_gm_face")]
+        plate = named[("gmname", "derpy_ic_gm_name")]
+        loyal_c = named[("gmloyal", "derpy_ic_gm_loyal")]
+        badge = named[("gmbadge", "derpy_ic_gm_badge")]
+        px0 = G.GM_ROW_X + G.GM_ROW_W + 120 + G.GM_PIN_W // 2
+        # FOUR TO A LINE, spaced to the canvas: pins are never scaled, so at
+        # 1600 the 1920 spacing ran the fourth off the edge.
+        step = min(G.GM_PIN_W + 150, (G.PANEL_W - 20 - G.GM_PIN_W // 2 - px0) // 3)
+        for i, (prov, who, slug, away, loyal) in enumerate(gm_province_rows()):
+            sx = px0 + (i % 4) * step
+            sy = 180 + G.GM_PIN_H + (i // 4) * (G.GM_PIN_H + 90)
+            box = (sx - G.GM_PIN_W // 2, sy - G.GM_PIN_H, G.GM_PIN_W, G.GM_PIN_H)
+            paste(gm_pin_doc, pin, *box, repaint={
+                G.GM_PIN_LAYERS.index("party"): G.gm_ring_path(slug) if slug else None,
+                G.GM_PIN_LAYERS.index("capital"): G.MAP_RING_CAPITAL if i == 0 else None,
+                G.GM_PIN_LAYERS.index("outline"): G.MAP_RING_OUTLINE if i == 1 else None})
+            # AN EMPTY SEAT IS THE DARK GROUND ALONE: gm_draw_pins clears both the
+            # port and the crest layer for it.
+            paste(gm_face_doc, face, *box, repaint={
+                G.GM_FACE_LAYERS.index("port"): DEMO_FACES[i % len(DEMO_FACES)] if who else None,
+                G.GM_FACE_LAYERS.index("crest"): None,
+                G.GM_FACE_LAYERS.index("mask"): None})
+            nx, ny = sx - G.GM_PIN_W // 2, sy - G.GM_NAME_H
+            paste(gm_name_doc, plate, nx, ny, G.GM_PIN_W, G.GM_NAME_H, repaint={
+                G.GM_NAME_LAYERS.index("wash"): G.gm_wash_path(slug) if slug else None})
+            name = cut_words(lambda _s: measure(gm_name_doc, plate, _s), prov, G.GM_NAME_W)
+            text(gm_name_doc, plate, name, nx, ny, G.GM_PIN_W, G.GM_NAME_H)
+            lx, ly = sx - G.GM_LOYAL_W // 2, sy - G.GM_LOYAL_H
+            paste(gm_loyal_doc, loyal_c, lx, ly, G.GM_LOYAL_W, G.GM_LOYAL_H)
+            text(gm_loyal_doc, loyal_c, "Loyalty %d%%" % loyal, lx, ly, G.GM_LOYAL_W, G.GM_LOYAL_H)
+            paste(gm_badge_doc, badge, *box, repaint={
+                G.GM_BADGE_LAYERS.index("crest"): G.sigil_path(slug) if (who and slug) else None})
+        draw.text((px0 - G.GM_PIN_W // 2, G.PANEL_H - 100), "Map stand-in. Faces are square here "
+                  "and round in game: the preview cannot draw a maskimage.",
+                  fill=(255, 248, 215, 255), font=font(14))
+
+        out = path or sized(OUT_GM_PICK if view == "gm_picker" else OUT_GM, box_w)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        canvas.convert("RGB").save(out)
+        return out, n_art, missing, drawn
 
     # ---- the character picker: the shared row pool, twelve men deep -----
     if view in ("pick", "pick_ready"):
@@ -1414,54 +1616,6 @@ def render(path=None, view="court", box_w=1920):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         canvas.convert("RGB").save(out)
         return out, n_art, missing, len(rows)
-
-    # ---- the governors: the same pool, and two rows about nobody ---------
-    if view == "govs":
-        for i, (prov, who, slug, away, loyalty) in enumerate(DEMO_GOVS):
-            rx = G.ROWS_X
-            ry = G.ROWS_Y + i * G.ROW_PITCH
-            paste(row_doc, named[("row", "derpy_ic_row")], rx, ry,
-                  G.ROW_W, G.ROW_H)
-
-            def rcell(key, s=None, repaint=None, _x=rx, _y=ry):
-                cx, cy, cw, ch = G.ROW_LAYOUT[key]
-                comp = named[("row", key)]
-                paste(row_doc, comp, _x + cx, _y + cy, cw, ch, repaint=repaint)
-                if s:
-                    text(row_doc, comp, s, _x + cx, _y + cy, cw, ch)
-
-            if who:
-                # HIS FACE ON HIS HOUSE'S PLATE, and the Crown's mask only on the
-                # Crown's own men - ICUI.set_plate is handed a FACTION and a
-                # party is not one.
-                rcell("ic_row_port",
-                      repaint={0: G.plate_path(slug),
-                               1: DEMO_FACES[i % len(DEMO_FACES)],
-                               2: DEMO_FACES[0] if slug == "crown" else None})
-                rcell("ic_row_crest", repaint={0: G.sigil_path(slug)})
-            else:
-                # NOBODY, DRAWN AS NOBODY. A transparent plate and a transparent
-                # mask under the silhouette, which is what ICUI.set_vacant_plate
-                # writes - the plain plate is an opaque brown box and would read
-                # as a party whose name nobody wrote down. No crest either:
-                # there is no house to name.
-                rcell("ic_row_port",
-                      repaint={0: G.MASK_NONE, 1: G.SIL_PATH, 2: None})
-            rcell("ic_row_a", prov)
-            # "None assigned", never a dash - and the name carries the absence
-            # too, because the eye reads this column before the one beside it.
-            rcell("ic_row_b", (who + " (away)") if (who and away)
-                  else (who or "None assigned"))
-            # COLUMN THREE IS EMPTY AND ITS HEADING IS BLANK. It held the
-            # overseer's party; the crest beside his name says the same thing.
-            rcell("ic_row_c")
-            rcell("ic_row_d", "%d%%" % loyalty)
-            rcell("ic_row_e", "Release" if who else "Assign")
-
-        out = path or sized(OUT_GOVS, box_w)
-        os.makedirs(os.path.dirname(out), exist_ok=True)
-        canvas.convert("RGB").save(out)
-        return out, n_art, missing, len(DEMO_GOVS)
 
     # ---- the petitions: a demand, then the offers ----------------------
     if view == "petitions":
@@ -1856,9 +2010,14 @@ def selftest():
         assert p.blurb.strip().endswith("."), (
             "%s's blurb does not end in a full stop, so it parsed truncated: %r"
             % (p.key, p.blurb))
-        assert len(p.blurb.split()) >= 4, (
-            "%s's blurb parsed as %d word(s): %r"
-            % (p.key, len(p.blurb.split()), p.blurb))
+    # AND EVERY LITERAL OF IT WAS READ: n literals joined by n - 1 "..". This was
+    # a four-word minimum until 2026-09-30, when the civil missions cut Purge's
+    # card to "The court watches." - three deliberate words - and failed it: the
+    # same mistake as the length rule above, one level down.
+    for chunk in re.split(r"\n    \{", _block(lua("model"), "IC.PLOTS"))[1:]:
+        tail = chunk.split("blurb =")[1].split("}")[0]
+        assert len(re.findall(r'"([^"]*)"', tail)) == tail.count("..") + 1, (
+            "a blurb has literals the parser did not read: %r" % tail)
     # AND THE EFFECT LINE RESOLVED. An unresolved "%d" on the card is a number
     # the player never sees and a measurement nine characters short of the truth.
     for p in plots:
@@ -1878,15 +2037,16 @@ def selftest():
     # moves and silently wrong from the day it held four. The invariant was never
     # the number - it is that the unaimed moves are one category and that the
     # category holds nothing else.
+    #
+    # AND NOT ONE COLUMN EITHER since 2026-09-29: the civil missions put Missions
+    # beside Errands, both with nobody to aim at, one naming a place or a faction
+    # instead. What the reader relies on is that no column MIXES the two kinds.
     _unaimed = [p for p in plots if not p.aimed]
     assert _unaimed, "no move is unaimed, so the actor-only route is undrawn"
-    _cats = set(p.cat for p in _unaimed)
-    assert len(_cats) == 1, (
-        "the unaimed moves are spread over %r - a civil mission must be one "
-        "column, or the tab cannot say which moves have no victim" % (sorted(_cats),))
-    _civil_cat = _cats.pop()
-    assert all(not p.aimed for p in plots if p.cat == _civil_cat), (
-        "%r holds an aimed move as well as the civil ones" % (_civil_cat,))
+    for _civil_cat in sorted(set(p.cat for p in _unaimed)):
+        assert all(not p.aimed for p in plots if p.cat == _civil_cat), (
+            "%r holds an aimed move as well as the civil ones - the tab cannot "
+            "say which moves have no victim" % (_civil_cat,))
 
     # AND THE DEMO PURSES MUST STRADDLE THE PRICES, or the red the tab was asked
     # to show is not on the picture at all - or is on every row, which says as
@@ -1993,6 +2153,28 @@ def selftest():
     for _cell in ("ic_party_state", "ic_party_trend", "ic_party_members",
                   "ic_party_offices", "ic_party_govs"):
         assert _cell in G.PARTY_LAYOUT, "the party card has no %s" % _cell
+
+    # THE GOVERNORS VIEW'S COLUMN IS ITS OWN. Every other picture hides every
+    # ic_gm_ cell - PANEL_LAYOUT carries them for all views, and the static pass
+    # draws whatever is not hidden - and the Governors pictures hide only what
+    # ICUI.gm_draw_column hides on that page.
+    _G = _gen()
+    _gm = set(n for n in _G.PANEL_LAYOUT if n.startswith("ic_gm_"))
+    assert _gm, "PANEL_LAYOUT has no ic_gm_ cells: Task 3 is not in"
+    for _v in VIEWS:
+        if not _v.startswith("gm_"):
+            assert gm_hidden(_G, _v, 0) >= _gm, "%s draws the Governors column" % _v
+    _prov = gm_hidden(_G, "gm_provinces", _G.GM_ROWS)
+    assert "ic_gm_col" not in _prov and "ic_gm_sort_1" not in _prov and "ic_gm_hint" in _prov
+    assert "ic_gm_next" in _prov, "one page of provinces draws a pager"
+    _pick = gm_hidden(_G, "gm_picker", _G.GM_ROWS + 1)
+    assert "ic_gm_sort_1" in _pick and "ic_gm_next" not in _pick
+    # AND THE MAP SHOWS THROUGH: the court's backdrop is not drawn on this view.
+    _out = os.path.join(PG.CACHE, "selftest_gm.png")
+    render(path=_out, view="gm_provinces")
+    from PIL import Image
+    assert Image.open(_out).convert("RGBA").getpixel((1800, 600)) == GM_MAP_FILL, (
+        "the Governors picture drew the backdrop over the map")
 
     print("selftest ok: %d files validate, the card's %d cells are all seen, the "
           "%d moves read %d rows, the reader catches a broken link"

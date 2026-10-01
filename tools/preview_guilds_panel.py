@@ -365,24 +365,36 @@ def _setup(guild=None, tag="", size=None):
     def contrast(x, y, text, size, base):
         """Record a line whose ink is under 4.5:1 against what it is drawn on.
 
-        Measured on the canvas as composed so far, over the box the text covers, against
-        its brightest tenth - text is read against the bright end, not the average.
+        Measured on the canvas as composed so far, against the brightest tenth - text is
+        read against the bright end, not the average - and in WINDOWS one glyph wide, at
+        half-glyph steps, reporting the worst. Over the whole line at once, a thing that
+        crosses only a few letters is outvoted by the dark band everywhere else: a post
+        through the first letter, an end cap on the first word, a flare under the first
+        half of a card's text and a rail through every letter all measured clean.
         """
         w = int(width(text, size))
         if w <= 0:
             return
         box = canvas.crop((int(x), int(y), int(x) + w, int(y) + size)).convert("RGB")
+        bw, bh = box.size
 
         def lum(rgb):
             c = [v / 255.0 for v in rgb]
             c = [v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4 for v in c]
             return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
-        ls = sorted(lum(px) for px in box.get_flattened_data()) if hasattr(
-            box, "get_flattened_data") else sorted(lum(px) for px in box.getdata())
-        bg = ls[int(len(ls) * 0.9)]
-        ratio = (lum(base[:3]) + 0.05) / (bg + 0.05)
-        if ratio < 4.5:
-            low.append("%.1f:1  %s" % (ratio, MARKUP.sub("", text)[:48]))
+        data = list(box.get_flattened_data()) if hasattr(
+            box, "get_flattened_data") else list(box.getdata())
+        cols = [[lum(data[r * bw + c]) for r in range(bh)] for c in range(bw)]
+        win = max(1, min(size, bw))
+        worst, at = None, 0
+        for c0 in range(0, bw - win + 1, max(1, win // 2)):
+            ls = sorted(v for col in cols[c0:c0 + win] for v in col)
+            bg = ls[int(len(ls) * 0.9)]
+            ratio = (lum(base[:3]) + 0.05) / (bg + 0.05)
+            if worst is None or ratio < worst:
+                worst, at = ratio, c0
+        if worst < 4.5:
+            low.append("%.1f:1 at +%dpx  %s" % (worst, at, MARKUP.sub("", text)[:48]))
 
     def cell(box, text, size=12, align="left", base=PALE):
         """Text in a layout box the way its component_text sits: 6px in, or centred."""
@@ -431,8 +443,12 @@ def _frame(P, tab, guild="brass"):
     for i, lbl in enumerate(TAB_LABELS):
         # The open tab's caption is [[col:yellow]] (GGUI.refresh); the rest are pale.
         ink = INK["yellow"] if i == TAB_SLOT[tab] else PALE
-        P.contrast(20 + i * G.TAB_W + 40, 68, lbl, 12, ink)
-        P.draw.text((20 + i * G.TAB_W + 40, 68), lbl, fill=ink)
+        # CENTRED, as BTN_TEXT writes the tab's component_text. A fixed 40px inset put
+        # "Leaderboard" 30px right of where the game draws it, onto the plate's right rim,
+        # and the contrast check then measured a rim the caption never touches.
+        cx = G.PANEL_LAYOUT[G.TABS[i]][0] + (G.TAB_W - P.width(lbl, 12)) / 2
+        P.contrast(cx, 68, lbl, 12, ink)
+        P.draw.text((cx, 68), lbl, fill=ink, font=P.font(12))
     if _shown("gg_prev", tab):
         P.cell(G.PANEL_LAYOUT["gg_prev"], P.L("prev"), 14, "center")
         P.cell(G.PANEL_LAYOUT["gg_next"], P.L("next"), 14, "center")
@@ -803,8 +819,6 @@ if __name__ == "__main__":
                                                      tag=tag)
         for m in missing:
             print("  art not found in any ui pack: " + m)
-        for m in LOW:
-            print("  LOW CONTRAST " + m)
         print("wrote %s  (%d art files, %d of %d faction rows visible)"
               % (out, n_art, shown, total))
         print("wrote %s" % render_guilds(tag=tag))
@@ -816,4 +830,10 @@ if __name__ == "__main__":
         pick, lines = render_pick(tag=tag)
         print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
               % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...") else ""))
-        sys.exit(1 if problems else 0)
+        # AFTER EVERY RENDER, not after the first. Printed after the Leaderboard alone, the
+        # Guilds, Log, Bounties and picking views appended their failures to a list nobody
+        # read again - the Guilds tab is where the service cards are, and a Dark Elf card's
+        # text sat on a white-hot flare with nothing reported (2026-09-30).
+        for m in LOW:
+            print("  LOW CONTRAST " + m)
+        sys.exit(1 if problems or LOW else 0)

@@ -177,6 +177,7 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
                     return {is_null_interface = function() return false end,
                             key = function() return c._province end}
                 end,
+                name = function() return "region_" .. tostring(c._province) end,
             }
         end,
         faction = function() return c._faction end,
@@ -236,6 +237,22 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
 end
 
 local factions = {}
+
+-- A SETTLEMENT'S PRIMARY SLOT, at the level the player sees (1-5). CA's
+-- building_level() counts from 0, so level 3 answers 2. No level, or 0, is a
+-- ruin: the slot's building is a null interface - and a null interface still
+-- answers building_level() with 0 here, so code that forgets to ask
+-- is_null_interface() counts a ruin as a village and a check can see it.
+local function fake_slot(level)
+    return {building = function()
+        if not level or level <= 0 then
+            return {is_null_interface = function() return true end,
+                    building_level = function() return 0 end}
+        end
+        return {is_null_interface = function() return false end,
+                building_level = function() return level - 1 end}
+    end}
+end
 
 local function make_faction(name, subculture, characters, provinces)
     local f
@@ -348,7 +365,8 @@ local function make_faction(name, subculture, characters, provinces)
                             end,
                             settlement = function()
                                 return {is_null_interface = function() return false end,
-                                        cqi = function() return e.cqi end}
+                                        cqi = function() return e.cqi end,
+                                        primary_slot = function() return fake_slot(e.level) end}
                             end,
                         }
                     end
@@ -424,6 +442,11 @@ local function make_faction(name, subculture, characters, provinces)
                                 cqi = function() return 700 + i end,
                                 logical_position_x = function() return 100 end,
                                 logical_position_y = function() return 200 end,
+                                -- WHERE THE CAMERA GOES for this settlement: a
+                                -- different x per region, so a check can tell them apart.
+                                display_position_x = function() return 300 + i end,
+                                display_position_y = function() return 400 end,
+                                primary_slot = function() return fake_slot((f._levels or {})[key]) end,
                             }
                         end,
                     }
@@ -3909,9 +3932,9 @@ assert(ICUI, "the panel file must define ICUI")
 local MAP_FILE = (arg and arg[4])
     or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua"
 local map_chunk, map_err = loadfile(MAP_FILE)
-assert(map_chunk, "could not load the party map file: " .. tostring(map_err))
+assert(map_chunk, "could not load the Governors map file: " .. tostring(map_err))
 map_chunk()
-assert(ICUI.map_open, "the party map file must define ICUI.map_open")
+assert(ICUI.gm_sync, "the Governors map file must define ICUI.gm_sync")
 
 local function with_neighbours(has_ex, has_gg)
     EX = has_ex and {BUTTON = "derpy_chd_ex_button", BUTTON_SIZE = 48, BUTTON_GAP = 4} or nil
@@ -4415,8 +4438,6 @@ check("every panel, row and card cell has a layout offset", function()
         "ic_help",
         "ic_tab_court", "ic_tab_offices", "ic_tab_govs", "ic_tab_intrigue",
         "ic_tab_log",
-        -- THE PARTY MAP'S TAB (spec 2026-09-29): not a view, but a cell.
-        "ic_tab_map",
         "ic_lbl_section",
         "ic_hdr_a", "ic_hdr_b", "ic_hdr_c", "ic_hdr_d", "ic_hdr_e",
         -- ONE ARROW PER HEADER, placed by hand like every other cell, so a
@@ -4477,6 +4498,20 @@ check("every panel, row and card cell has a layout offset", function()
     -- the panel and opaque: one with no offset is a black box at the screen
     -- origin, exactly as the dial's plate would be.
     want["ic_crown_box"] = true
+    -- THE GOVERNORS VIEW'S PINS' HOLDER (plan 2026-09-30), moved to the
+    -- screen's corner at every draw: with no offset it would be left at the
+    -- box's, and every pin in it would sit off its settlement.
+    want["ic_gm_pins"] = true
+    -- AND ITS COLUMN AND PLATES (plan 2026-09-30 Task 3): every line the view
+    -- keeps sits on a plate, and a plate with no offset is an opaque block at
+    -- the box's corner.
+    for _, name in ipairs({"ic_gm_top", "ic_gm_foot", "ic_gm_col", "ic_gm_head",
+                           "ic_gm_tog_1", "ic_gm_tog_2", "ic_gm_tog_lbl_1",
+                           "ic_gm_tog_lbl_2", "ic_gm_hint", "ic_gm_prev",
+                           "ic_gm_page", "ic_gm_next", "ic_gm_sort_1", "ic_gm_sort_2",
+                           "ic_gm_sort_3", "ic_gm_btns", "ic_gm_ok", "ic_gm_no"}) do
+        want[name] = true
+    end
     -- THE OFFICES TAB'S FILL BUTTON, in the pager's row.
     want["ic_fill"] = true
     -- THE TWO COLUMN HEADERS AND THE RULE BETWEEN THEM. The court tab is the
@@ -5284,6 +5319,10 @@ fake_component = function(name)
     -- flag could not see that happen.
     function c:SetInteractive(on)
         IC_NEED_BOOL("SetInteractive on " .. tostring(self.name), on); self.interactive = on end
+    -- SetDisabled blocks the click in game; recorded so a check can see a
+    -- button that looks live and is not.
+    function c:SetDisabled(on)
+        IC_NEED_BOOL("SetDisabled on " .. tostring(self.name), on); self.disabled = on end
     function c:DestroyChildren() end
     -- REMOVED FROM ITS PARENT, so a component destroyed and then created again
     -- is a new one - the claim burst depends on exactly that.
@@ -5473,68 +5512,73 @@ local function with_fake_panel(fn)
     if not ok then error(err, 0) end
 end
 
--- THE PARTY MAP'S LAYER ON THE FAKE ROOT. with_fake_root answers the panel and
--- the HUD; this adds the map layer (with the legend's components, as its
--- .twui.xml declares them) and markers created inside it. `layer()` hands back
--- the live layer, nil once destroyed.
---
--- AND A COURT THAT IS REALLY GONE. with_fake_root keeps answering the panel
--- after close() destroyed it, so a reopen there only refreshes and never runs
--- open()'s own work - the HUD hide included. The map's round trips close and
--- reopen the court, so here a destroyed panel is gone and a new one is built.
-local function with_fake_map(fn)
-    with_fake_root(function(hud, panel, extra)
-        local r = extra.root
-        local court_create = r.CreateComponent
-        local layer = nil
-        function r:CreateComponent(name, path)
-            if name == ICUI.PANEL then panel.destroyed = nil end
-            if name ~= ICUI.MAP then return court_create(self, name, path) end
-            extra.paths[name] = path
-            layer = fake_component(ICUI.MAP)
-            layer.parent = r
-            for n in pairs(ICUI.MAP_XY) do layer:CreateComponent(n) end
-            for i = 1, ICUI.MAP_ROWS do
-                layer:CreateComponent(ICUI.MAP_ROW .. "_" .. i)
-                local row = layer.children[ICUI.MAP_ROW .. "_" .. i]
-                for n in pairs(ICUI.MAP_ROW_CHILD) do row:CreateComponent(n) end
-            end
-            local make = layer.CreateComponent
-            function layer:CreateComponent(n, p)
-                extra.paths[n] = p
-                return make(self, n, p)
-            end
-            r.children[name] = layer
-            r.order[#r.order + 1] = layer
-        end
-        local find = find_uicomponent
-        find_uicomponent = function(parent, name)
-            if parent == nil or parent == r then
-                if name == ICUI.MAP then
-                    return (layer and not layer.destroyed) and layer or false
-                end
-                if name == ICUI.PANEL and panel.destroyed then return false end
-            end
-            return find(parent, name)
-        end
-        ICUI.register()
-        local ok, err = pcall(fn, hud, panel, extra, function()
-            return (layer and not layer.destroyed) and layer or nil
-        end)
-        find_uicomponent = find
-        if not ok then error(err, 0) end
-    end)
-end
-
 -- A CLICK, as the engine reports it: every ComponentLClickUp listener sees it.
--- core.listeners keeps one function per name, so the court's and the map's are
--- fired by name, the court's first.
+-- core.listeners keeps one function per name, so the court's and the Governors
+-- map's are fired by name, the court's first.
 local function map_click(id)
     for _, name in ipairs({"ic_click", "ic_map_click"}) do
         local fire = core.listeners[name]
         if fire then fire({string = id}) end
     end
 end
+
+-- THE GOVERNORS VIEW ON THE FAKE ROOT (plan 2026-09-30). with_fake_root builds
+-- the panel from PANEL_XY, the pins' holder among it; this sizes what the view
+-- makes in the holder at runtime - a pin, a face, a name plate and a loyalty
+-- plate per province, each its file's box, which ICUI.cut_text reads - and
+-- records each one's file.
+local function with_fake_govmap(fn, screen)
+    with_fake_root(function(hud, panel, extra)
+        local holder = panel.children[ICUI.GM_PINS or "ic_gm_pins"]
+        assert(holder, "the fake panel has no pins' holder: PANEL_XY lacks ic_gm_pins")
+        local make = holder.CreateComponent
+        function holder:CreateComponent(n, p)
+            extra.paths[n] = p
+            make(self, n, p)
+            local c = self.children[n]
+            if not c then return end
+            if p == ICUI.PATH_GM_NAME then
+                c.w, c.h = ICUI.GM_PIN_W, ICUI.GM_NAME_H
+            elseif p == ICUI.PATH_GM_LOYAL then
+                c.w, c.h = ICUI.GM_LOYAL_W, ICUI.GM_LOYAL_H
+            else
+                c.w, c.h = ICUI.GM_PIN_W, ICUI.GM_PIN_H
+            end
+        end
+        -- A COLUMN ROW IS MADE WITH ITS CHILDREN, as the row's .twui.xml
+        -- declares them, each its file's size so ICUI.fit_cut has a width.
+        local panel_make = panel.CreateComponent
+        function panel:CreateComponent(n, p)
+            panel_make(self, n, p)
+            local row = self.children[n]
+            if row and ICUI.PATH_GM_ROW and p == ICUI.path(ICUI.PATH_GM_ROW)
+               and next(row.children) == nil then
+                for k, box in pairs(ICUI.GM_ROW_CHILD_XY) do
+                    row:CreateComponent(k)
+                    row.children[k].w, row.children[k].h = box[3], box[4]
+                end
+            end
+        end
+        -- MAP ORDER ON THE PROVINCES PAGE: these checks name rows by position, and
+        -- the sort and the page are session state an earlier check may have moved.
+        ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
+        ICUI.gm_page = "provinces"
+        -- A NEW PANEL IS A COURT OPENED AFRESH: the last check never closed its
+        -- court, and its choice would otherwise carry into this one.
+        ICUI.gm_was_on = false
+        ICUI.register()
+        fn(hud, panel, extra, holder)
+    end, nil, screen)
+end
+
+-- THE i-th PIN AND FACE the Governors view made, or nil.
+local function gm_pin(holder, i) return holder.children[ICUI.GM_PIN .. "_" .. i] end
+local function gm_face(holder, i) return holder.children[ICUI.GM_FACE .. "_" .. i] end
+local function gm_name(holder, i) return holder.children[(ICUI.GM_NAME or "ic_gm_name") .. "_" .. i] end
+local function gm_loyal(holder, i) return holder.children[(ICUI.GM_LOYAL or "ic_gm_loyal") .. "_" .. i] end
+local function gm_badge(holder, i) return holder.children[(ICUI.GM_BADGE or "ic_gm_badge") .. "_" .. i] end
+-- THE i-th ROW OF THE COLUMN, or nil.
+local function gm_row(panel, i) return panel.children[(ICUI.GM_ROW or "ic_gm_row") .. "_" .. i] end
 
 -- THE k-th PARTY CARD THAT ACTUALLY DREW. The court tab pages a grid of ten
 -- the way the other tabs window a pool of rows, so "the first party on screen"
@@ -6780,9 +6824,10 @@ check("switching tab actually changes what the panel draws", function()
         assert(visible_cards(panel) == 0, "the cards must not follow us to governors")
         assert(visible_parties(panel) == 0,
             "the party grid must not follow us to governors")
-        assert(panel.children.ic_hdr_a.text == "Province",
-            "governors relabels the shared columns, got "
-            .. panel.children.ic_hdr_a.text)
+        -- THE GOVERNORS TAB IS THE MAP AND ITS COLUMN, which heads its own
+        -- sorts: the list's header strip does not follow it there.
+        assert(not panel.children.ic_hdr_a.visible,
+            "the list's header strip followed us to the Governors map")
 
         ICUI.view = "log"
         ICUI.refresh()
@@ -7203,45 +7248,6 @@ check("the row pool really windows the list", function()
     end)
 end)
 
-check("releasing a governor uses the scrolled row, not the raw one", function()
-    -- Same window-index trap as the picker, on the other list: get it wrong and
-    -- the panel releases the wrong province, quietly, once the list is scrolled.
-    IC.state = {}
-    local released = nil
-    local saved_release = IC.release_governor
-    local saved_idx = ICUI.clicked_index
-    local saved_player = ICUI.player
-    -- The click resolves against the keys the LAST DRAW used, not a fresh
-    -- IC.seats() call, so this seeds that list rather than stubbing the model.
-    ICUI.gov_keys = {}
-    for i = 1, 40 do ICUI.gov_keys[i] = "province_" .. i end
-    ICUI.player = function() return F end
-    ICUI.clicked_index = function() return 2 end
-    IC.release_governor = function(_f, key) released = key return true end
-
-    local court = IC.court(F)
-    for i = 1, 40 do court.govs["province_" .. i] = 900 + i end
-
-    ICUI.pick = nil
-    ICUI.view = "govs"
-    ICUI.scroll.govs = 0
-    ICUI.on_row_action({component = {}})
-    assert(released == "province_2", "unscrolled, got " .. tostring(released))
-
-    released = nil
-    ICUI.scroll.govs = 9
-    ICUI.on_row_action({component = {}})
-    assert(released == "province_11",
-        "scrolled down 9, row 2 must be province_11, got " .. tostring(released))
-
-    IC.release_governor = saved_release
-    ICUI.gov_keys = {}
-    ICUI.clicked_index = saved_idx
-    ICUI.player = saved_player
-    ICUI.scroll.govs = 0
-    IC.state = {}
-end)
-
 check("an old save gains the player's own house", function()
     -- The migration the sweep found: seed() runs only on an EMPTY court, so a
     -- save from before the vanilla majors were houses keeps its two clients and
@@ -7540,11 +7546,11 @@ check("a draw that throws puts the error ON SCREEN", function()
     -- this and there was nothing anywhere to say why.
     IC.state = {}
     IC.add_house(F, "legion")
-    local saved = ICUI.draw_govs
-    ICUI.draw_govs = function() error("deliberate test explosion", 0) end
+    local saved = ICUI.draw_log
+    ICUI.draw_log = function() error("deliberate test explosion", 0) end
     with_fake_panel(function(panel)
         ICUI.pick = nil
-        ICUI.view = "govs"
+        ICUI.view = "log"
         ICUI.refresh()
         local alert = panel.children.ic_alert
         assert(alert.visible, "a failed draw must not leave a silent empty list")
@@ -7552,14 +7558,14 @@ check("a draw that throws puts the error ON SCREEN", function()
             "the alert must name it as a panel error, got: " .. alert.text)
         assert(string.find(alert.text, "deliberate test explosion", 1, true),
             "and must carry the actual message, got: " .. alert.text)
-        assert(string.find(alert.text, "govs", 1, true),
+        assert(string.find(alert.text, "Panel error in log:", 1, true),
             "and say which view, got: " .. alert.text)
         -- And the stale list must be gone, not left wearing the new headers.
         local first = panel.children[ICUI.ROW .. "_1"].children.ic_row_a.text
         assert(string.find(first, "failed to draw", 1, true),
             "the list must say it failed, got: " .. first)
     end)
-    ICUI.draw_govs = saved
+    ICUI.draw_log = saved
 end)
 
 check("the share label prints the share, and only where there is room",
@@ -7962,97 +7968,6 @@ check("portrait_path refuses the three unresolvable shapes", function()
     IC_TEST_PORTRAITS["7"] = "ui/portraits/portholes/chd/face_7.png"
     assert(ICUI.portrait_path(7) == "ui/portraits/portholes/chd/face_7.png",
         "a resolving id returns its porthole")
-end)
-
-check("a filled seat draws the overseer's face, an empty one draws nothing",
-function()
-    IC.state = {}
-    -- HIS OWN HOUSE, because a governor can only ever be that now. The crest
-    -- still has to resolve, and uzkulak's faction IS F, which make_faction has
-    -- just registered - so house_icon finds a flag without a second faction
-    -- being invented, and registering one here would replace F with an empty
-    -- faction and lose the character.
-    local nakh = make_character(3, ANY_SEAT, "crown", "prov_a")
-    make_faction(F, IC.CHD_SUBCULTURE, {nakh}, {"prov_a"})
-    IC.add_house(F, "crown")
-    endow(F)
-    assert(IC.faction_for_origin("uzkulak") == F,
-        "this fixture assumes the player's faction IS the uzkulak house")
-    IC_TEST_PORTRAITS = {["3"] = "ui/portraits/portholes/chd/overseer.png"}
-    IC.assign_governor(F, "prov_a", 3)
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.refresh()
-        local port = nil
-        for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            if row and row.visible and row.children.ic_row_a.text ~= ""
-               and row.children.ic_row_b.text ~= "-" then
-                port = row.children.ic_row_port
-                break
-            end
-        end
-        assert(port, "the governed province must be on screen to test its crest")
-        assert(face_of(port) == "ui/portraits/portholes/chd/overseer.png",
-            "the seat shows the man, not his house: got " .. tostring(face_of(port)))
-        -- EVERY LAYER THIS CELL IS WRITTEN TO MUST EXIST IN THE .twui.xml.
-        -- SetImagePath to an index the file never defined does nothing at all
-        -- and says nothing, so a face sent to a fourth layer would look exactly
-        -- like a face that never arrived.
-        for i in pairs(port.images) do
-            assert(i == ICUI.PLATE_INDEX or i == ICUI.FACE_INDEX
-                   or i == ICUI.MASK_INDEX,
-                "an image was written to layer " .. tostring(i)
-                .. ", which the .twui.xml does not define")
-        end
-        -- NO third argument. CA: "Resize the image metric to the size of the
-        -- image being specified. If this is not set, the incoming image will take
-        -- the size of the old." resize=true therefore grows the CELL to the
-        -- porthole's native size - measured in game as a face across half the
-        -- panel - and the default is what fits the face into the cell.
-        -- OF THE FACE'S OWN CALL, not of whichever setter happened to run
-        -- last. The plate and the tint are written to the same cell afterwards.
-        assert(port.image_resize_at[ICUI.FACE_INDEX] == nil,
-            "SetImagePath's 3rd arg resizes the CELL TO THE IMAGE, never the other "
-            .. "way round: got " .. tostring(port.image_resize_at[ICUI.FACE_INDEX]))
-    end)
-end)
-
-check("a face that will not resolve falls back to the house crest", function()
-    IC.state = {}
-    -- HIS OWN HOUSE, because a governor can only ever be that now. The crest
-    -- still has to resolve, and uzkulak's faction IS F, which make_faction has
-    -- just registered - so house_icon finds a flag without a second faction
-    -- being invented, and registering one here would replace F with an empty
-    -- faction and lose the character.
-    local nakh = make_character(3, ANY_SEAT, "crown", "prov_a")
-    make_faction(F, IC.CHD_SUBCULTURE, {nakh}, {"prov_a"})
-    IC.add_house(F, "crown")
-    endow(F)
-    assert(IC.faction_for_origin("uzkulak") == F,
-        "this fixture assumes the player's faction IS the uzkulak house")
-    IC_TEST_PORTRAITS = {}          -- the engine knows nobody
-    IC.assign_governor(F, "prov_a", 3)
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.refresh()
-        local port = nil
-        for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            if row and row.visible and row.children.ic_row_b.text ~= "-" then
-                port = row.children.ic_row_port
-                break
-            end
-        end
-        assert(port, "the governed province must be on screen")
-        -- Never the empty string, which is what an unguarded `if path then`
-        -- would have handed to SetImagePath: a blank square and no log line.
-        assert(port.image ~= "", "an empty imagepath draws a blank square")
-        assert(string.find(tostring(face_of(port)), "mon_64", 1, true),
-            "the fallback is the house crest, got " .. tostring(face_of(port)))
-    end)
 end)
 
 check("a party card draws its leader's face and its own crest", function()
@@ -8838,154 +8753,6 @@ check("the appointment list shows faces - that is the whole point of it", functi
     end)
 end)
 
-check("the governors list shows province NAMES, not province keys", function()
-    -- region:province_name() is documented as "KEY of the province containing the
-    -- region" - not a name. The display string lives in provinces__.loc. These are
-    -- three REAL vanilla keys with the REAL names read out of local_en.pack, so a
-    -- panel that builds the wrong loc key misses the table and puts the raw key on
-    -- screen, which is exactly what shipped.
-    IC.state = {}
-    local keys = {"wh3_main_combi_province_gash_kadrak",
-                  "wh3_main_combi_province_the_plain_of_zharr"}
-    IC_TEST_LOC = {
-        ["provinces_onscreen_wh3_main_combi_province_gash_kadrak"] = "Gash Kadrak",
-        ["provinces_onscreen_wh3_main_combi_province_the_plain_of_zharr"] =
-            "The Plain of Zharr",
-    }
-    make_faction(F, IC.CHD_SUBCULTURE, {}, keys)
-    IC.add_house(F, "legion")
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.refresh()
-        local seen = {}
-        for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            if row and row.visible then
-                local t = row.children.ic_row_a.text
-                assert(not string.find(t, "province_", 1, true),
-                    "row " .. i .. " shows a raw key: " .. t)
-                seen[t] = true
-            end
-        end
-        assert(seen["Gash Kadrak"], "Gash Kadrak is not on screen")
-        assert(seen["The Plain of Zharr"], "The Plain of Zharr is not on screen")
-    end)
-    IC_TEST_LOC = {}
-end)
-
-check("an ungoverned province wears no colours behind its silhouette",
-function()
-    -- ROWS ARE RECYCLED, so an empty seat has to have the last overseer's plate
-    -- and mask actively taken off it - and taken off with a TRANSPARENT png
-    -- rather than with the plain plate, which is an opaque brown box and reads
-    -- as a party rather than as nobody.
-    --
-    -- THE GOVERNED ROW IS HERE TOO because the branch has two sides: a build
-    -- that cleared every row would lose the house colour off the seats that
-    -- have one, and a check with only the empty case would pass on it.
-    IC.state = {}
-    local gov = make_character(31, ANY_SEAT, "legion", "prov_a")
-    make_faction(F, IC.CHD_SUBCULTURE, {gov}, {"prov_a", "prov_b"})
-    IC.add_house(F, "legion")
-    endow(F)
-    IC_TEST_PORTRAITS = {["31"] = "ui/portraits/portholes/chd/gov.png"}
-    assert(IC.assign_governor(F, "prov_a", 31),
-        "the fixture could not post an overseer")
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.sort.govs = 1
-        ICUI.refresh()
-        local held, empty
-        for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            if row and row.visible then
-                local port = row.children.ic_row_port
-                if face_of(port) == ICUI.SILHOUETTE then
-                    empty = port
-                elseif face_of(port) == "ui/portraits/portholes/chd/gov.png" then
-                    held = port
-                end
-            end
-        end
-        assert(empty, "no ungoverned province drew the silhouette")
-        assert(held, "the governed province did not draw its overseer's face")
-        assert(empty.images[ICUI.PLATE_INDEX] == ICUI.MASK_NONE,
-            "an ungoverned province is flying "
-            .. tostring(empty.images[ICUI.PLATE_INDEX]) .. " behind nobody")
-        assert(empty.images[ICUI.MASK_INDEX] == ICUI.MASK_NONE,
-            "an ungoverned province kept a tint on its mask layer: "
-            .. tostring(empty.images[ICUI.MASK_INDEX]))
-        assert(held.images[ICUI.PLATE_INDEX] == ICUI.plate_path("legion"),
-            "the governed province lost its house plate: "
-            .. tostring(held.images[ICUI.PLATE_INDEX]))
-    end)
-    IC_TEST_PORTRAITS = {}
-end)
-
-check("a sorted governors list opens the province it drew", function()
-    -- THE ROWS AND THE CLICK KEYS ARE ONE PERMUTATION OR THE PANEL LIES.
-    -- on_gov_click reads ICUI.gov_keys[row + scroll] and nothing else connects a
-    -- drawn row back to a province, so an order applied to the lines and not to
-    -- the keys offers Ash and releases the overseer of Zharr. Both tables are
-    -- individually correct in that state, which is why no other check here sees
-    -- it - the fault is only in the pairing.
-    --
-    -- THE DISPLAY NAMES ARE IN A DIFFERENT ORDER FROM THE KEYS ON PURPOSE. The
-    -- column sorts on what the player is SHOWN, and a fixture whose names and
-    -- keys agreed would pass just as happily on a build that sorted the keys.
-    IC.state = {}
-    local keys = {"prov_zharr", "prov_ash", "prov_mingol"}
-    IC_TEST_LOC = {
-        ["provinces_onscreen_prov_zharr"] = "Zharr",
-        ["provinces_onscreen_prov_ash"] = "Ash",
-        ["provinces_onscreen_prov_mingol"] = "Mingol",
-    }
-    make_faction(F, IC.CHD_SUBCULTURE, {}, keys)
-    IC.add_house(F, "legion")
-    local col = ICUI.sort_for_column("govs", 1)
-    assert(col, "column one of the governors list sorts on nothing")
-    local want = {{"Ash", "prov_ash"}, {"Mingol", "prov_mingol"},
-                  {"Zharr", "prov_zharr"}}
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.sort.govs = col
-        ICUI.sort_desc.govs = false
-        ICUI.refresh()
-        for i = 1, #want do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            assert(row and row.visible, "row " .. i .. " is not on screen")
-            assert(row.children.ic_row_a.text == want[i][1],
-                "row " .. i .. " draws " .. tostring(row.children.ic_row_a.text)
-                .. ", not " .. want[i][1])
-            assert(ICUI.gov_keys[i] == want[i][2],
-                "row " .. i .. " draws " .. want[i][1]
-                .. " and clicking it would open "
-                .. tostring(ICUI.gov_keys[i]))
-        end
-        -- AND THE KEYS COME BACK WITH THE ROWS ON THE SECOND CLICK. A reverse
-        -- that reverses one table is the same fault arriving one click later.
-        ICUI.sort_desc.govs = true
-        ICUI.refresh()
-        for i = 1, #want do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
-            local w = want[#want - i + 1]
-            assert(row.children.ic_row_a.text == w[1],
-                "reversed row " .. i .. " draws "
-                .. tostring(row.children.ic_row_a.text) .. ", not " .. w[1])
-            assert(ICUI.gov_keys[i] == w[2],
-                "reversed row " .. i .. " draws " .. w[1]
-                .. " and clicking it would open "
-                .. tostring(ICUI.gov_keys[i]))
-        end
-        ICUI.sort_desc.govs = false
-        ICUI.sort.govs = 1
-    end)
-    IC_TEST_LOC = {}
-end)
-
 check("an office card shows its holder's face, a vacant one a silhouette", function()
     IC.state = {}
     local ghorth = make_character(21, ANY_SEAT, "legion", "prov_a")
@@ -9036,43 +8803,6 @@ local function register_houses(slugs)
         end
     end
 end
-
-check("every province is reachable once the list outruns the pool", function()
-    -- This USED to test the court, which outran a 10-row pool. At 1600x900 the
-    -- pool is 15 and the court is 15, so the court no longer scrolls at all - the
-    -- check refused to run rather than passing on a list that fits, and is
-    -- repointed at the governors list, which a real empire always outruns.
-    IC.state = {}
-    factions = {}
-    local provs = {}
-    for i = 1, 40 do provs[i] = "province_" .. i end
-    make_faction(F, IC.CHD_SUBCULTURE, {}, provs)
-    IC.add_house(F, "temple")
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        local total = #IC.seats_named(F)
-        assert(total > ICUI.MAX_ROWS,
-            "vacuous unless the list outruns the pool: " .. total
-            .. " provinces, " .. ICUI.MAX_ROWS .. " rows")
-        local seen, at = {}, 0
-        while true do
-            ICUI.scroll.govs = at
-            ICUI.refresh()
-            for i = 1, ICUI.MAX_ROWS do
-                local row = panel.children[ICUI.ROW .. "_" .. i]
-                if row and row.visible and row.children.ic_row_a.text ~= "" then
-                    seen[row.children.ic_row_a.text] = true
-                end
-            end
-            local max = ICUI.max_scroll(total, ICUI.MAX_ROWS)
-            if at >= max then break end
-            at = math.min(at + ICUI.MAX_ROWS, max)
-        end
-        local n = 0
-        for _ in pairs(seen) do n = n + 1 end
-        assert(n == total, "scrolled the whole list and saw " .. n .. " of " .. total)
-    end)
-end)
 
 check("a taller row still centres its text and its face", function()
     -- The row grew 28 -> 44. Anything left at the old y=4 would sit high in the
@@ -9923,52 +9653,6 @@ check("both halves of an appointment draw the character's porthole", function()
     end)
     ICUI.pick = nil
     IC_TEST_CARDS = {}
-end)
-
-check("an empty cell says so in words", function()
-    -- A dash reads as a column that failed to draw. That is exactly how the
-    -- governors list was read.
-    IC.state = {}
-    factions = {}
-    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
-    IC.add_house(F, "temple")
-    with_fake_panel(function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
-        assert(row.visible, "an ungoverned province must still list")
-        assert(row.children.ic_row_b.text == "None assigned",
-            "the overseer column, got " .. row.children.ic_row_b.text)
-        -- EVERY CAPTIONED COLUMN SPEAKS, AND ONLY CAPTIONED COLUMNS DO.
-        --
-        -- The sweep used to name ic_row_c and ic_row_d. ic_row_c held the
-        -- overseer's party and holds nothing now - the crest beside his name is
-        -- the same answer in less room - so a typed list would have to drop it
-        -- and would then be asserting nothing about the column that replaced it.
-        --
-        -- WHAT MAKES AN EMPTY CELL READ AS A FAULT is the caption over it, so
-        -- the pair is what this pins: a header with words under it that has
-        -- none is the governors' own bug, and a cell blanked while its header
-        -- stayed is the way back into it.
-        local hdrs = {ic_row_a = "ic_hdr_a", ic_row_b = "ic_hdr_b",
-                      ic_row_c = "ic_hdr_c", ic_row_d = "ic_hdr_d"}
-        local spoke = 0
-        for cell, hdr in pairs(hdrs) do
-            local t = row.children[cell].text
-            assert(t ~= "-", cell .. " is a dash, which reads as a column that "
-                .. "failed to draw")
-            if (panel.children[hdr].text or "") ~= "" then
-                assert(t ~= "", cell .. " is empty under the heading "
-                    .. panel.children[hdr].text)
-                spoke = spoke + 1
-            else
-                assert(t == "", cell .. " says " .. t
-                    .. " under a heading that was left blank")
-            end
-        end
-        assert(spoke >= 3, "only " .. spoke .. " governors columns are captioned")
-    end)
 end)
 
 check("a bar segment says whose it is", function()
@@ -11066,8 +10750,10 @@ function()
         assert(IC.party_leader(F, "forge"),
             "the army landed and the Forge is still leaderless")
     end)
-    -- NOWHERE TO STAND is the pool's, the same turn.
+    -- NOWHERE TO STAND is the pool's, the same turn. Turn 3: on turn 1 the
+    -- pool is every party's answer whether there is ground or not.
     fielding(true, function(pool)
+        turn = 3
         cm._no_spawn_point = true
         make_faction(F, IC.CHD_SUBCULTURE,
                      {make_character(381, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
@@ -11082,13 +10768,90 @@ end)
 check("an AI party with no leader keeps the pool", function()
     -- THE AI RECRUITS FROM THE POOL ITSELF, and a free army every time one of
     -- its parties lost a leader would make it stronger for nothing.
+    -- TURN 3: on turn 1 every party is the pool's, the player's too.
     fielding(false, function(pool)
+        turn = 3
         make_faction(F, IC.CHD_SUBCULTURE,
                      {make_character(390, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
         IC.add_house(F, IC.CROWN)
         IC.add_house(F, "forge")
         IC.ensure_leaders(F)
         assert(#fielded == 0 and pool.n == 1, "an AI party was given an army")
+    end)
+end)
+
+-- THE START IS THE POOL'S (author, 2026-09-30: "On turn 1, only put a lord in
+-- the recruit pool"). The court is founded on the first tick, before the turn's
+-- own men arrive, and two lords stood alone at the Black Dwarf's capital
+-- paying upkeep for parties that had simply not been dealt a man yet.
+check("on turn 1 a player's leaderless party gets a lord in the pool, and no army follows him",
+function()
+    fielding(true, function(pool)
+        turn = 1
+        make_faction(F, IC.CHD_SUBCULTURE,
+                     {make_character(395, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.ensure_leaders(F)
+        assert(#fielded == 0, "turn 1 put " .. #fielded .. " lord(s) in the field")
+        assert(pool.n == 1, pool.n .. " lords went to the pool on turn 1, not 1")
+        -- THE PARTY'S ONE ARMY WAS HIM: unhired on turn 2, still no army.
+        turn = 2
+        IC.ensure_leaders(F)
+        assert(#fielded == 0 and pool.n == 1,
+            "turn 2 sent " .. #fielded .. " army and " .. (pool.n - 1) .. " more pool lord(s)")
+        -- AND A RELOAD KNOWS IT.
+        IC.save(F)
+        IC.state = {}
+        IC.load(F)
+        turn = 3
+        IC.ensure_leaders(F)
+        assert(#fielded == 0 and pool.n == 1, "a reload sent the army after all")
+    end)
+end)
+
+-- STILL A RECRUIT'S RANK (author, 2026-09-30: "but still can benefit from
+-- effects such as rank +3"). The engine gives recruit rank to a lord it
+-- recruits and not to one the script makes (wh3-script-spawned-lord-no-recruit-
+-- rank); a lord the script put in the pool and the player hired is between the
+-- two and has not been measured, so the court makes sure of it.
+local function hire(f, cqi, party, rank, agent)
+    local man = make_character(cqi, rank, party, "p_home")
+    man._faction, man._force, man._agent = f, true, agent
+    f._characters[#f._characters + 1] = man
+    core.listeners["ic_hired"]({character = function() return man end})
+    return man
+end
+
+check("a lord hired from the pool for a party that waited on one arrives at his recruit rank",
+function()
+    fielding(true, function(pool)
+        turn = 1
+        local f = make_faction(F, IC.CHD_SUBCULTURE,
+                               {make_character(396, ANY_SEAT, IC.CROWN, nil, true)}, {"p_home"})
+        -- +2, the Sorcery 5 figure the fielded-lord check reads too.
+        f._techs["wh3_dlc23_tech_chd_sorcery_5"] = true
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.ensure_leaders(F)
+        assert(IC.court(F).houses.forge.stored, "the fixture put no lord in the pool")
+        assert(core.listeners["ic_hired"], "nothing listens for a lord being hired")
+        -- AT RANK 1, as a lord the script made would stand.
+        local man = hire(f, 397, "forge", 1)
+        assert(#lord_levels == 1 and lord_levels[1].lookup == "cqi:397"
+            and lord_levels[1].level == 2 and lord_levels[1].by_level == true,
+            "the hired lord was not raised two ranks: " .. #lord_levels .. " call(s)")
+        -- ALREADY THERE, as a lord the engine raised itself: left alone.
+        lord_levels = {}
+        hire(f, 398, "forge", 3)
+        assert(#lord_levels == 0, "a lord at his recruit rank was raised again")
+        -- A HERO hired into that party is not a lord.
+        hire(f, 399, "forge", 1, "engineer")
+        assert(#lord_levels == 0, "a hero was raised to a lord's recruit rank")
+        -- A PARTY WAITING ON NOBODY is the engine's business alone.
+        IC.add_house(F, "chain")
+        hire(f, 400, "chain", 1)
+        assert(#lord_levels == 0, "a lord for a party that waited on nobody was raised")
     end)
 end)
 
@@ -13119,6 +12882,10 @@ function()
     IC.add_house(F, "legion")
     IC.court(F).standing[500] = 2000
     assert(IC.assign_governor(F, "prov_a", 500), "the fixture could not seat him")
+    -- GROWN FIRST (author, 2026-09-30: a governorship is earned a step a turn).
+    -- A one-village province is worth 1, one step. After that it must not move.
+    turn = 2
+    IC.turn(F)
     -- WHAT IT IS WORTH IS THE NEXT CHECK'S BUSINESS. This one is about the
     -- figure not MOVING, so it reads whatever the figure is and watches it.
     local want = IC.house_weight(F, "legion") - IC.member_weight(F, "legion")
@@ -13128,18 +12895,21 @@ function()
     -- it back, so a contribution stored in the saved weight runs away here
     -- exactly as one stored in house.weight does - which is why there is no
     -- separate check that the save does not carry it. This is that check.
-    for t = 2, 12 do
+    for t = 3, 13 do
         turn = t
         IC.turn(F)
     end
-    assert(IC.house_weight(F, "legion") - IC.member_weight(F, "legion") == want,
-        "eleven turns changed the governor's weight beyond his standing contribution")
+    -- TO A HAIR, NOT EXACTLY: measured after a turn his standing has decayed to
+    -- a fraction (15.9), and 26.9 - 15.9 is 10.999999999999998 in a double.
+    assert(math.abs(IC.house_weight(F, "legion") - IC.member_weight(F, "legion") - want) < 1e-9,
+        "eleven turns changed the governor's weight beyond his standing contribution: "
+        .. (IC.house_weight(F, "legion") - IC.member_weight(F, "legion")) .. " against " .. want)
 
     -- AND IT COMES OFF WHEN HE DOES. Derived means derived in both directions;
     -- a contribution that only ever appeared would be the same bug mirrored.
     IC.release_governor(F, "prov_a")
-    assert(IC.house_weight(F, "legion") - IC.member_weight(F, "legion")
-            == IC.TUNE.weight_start,
+    assert(math.abs(IC.house_weight(F, "legion") - IC.member_weight(F, "legion")
+            - IC.TUNE.weight_start) < 1e-9,
         "a released province left its weight behind: "
         .. IC.house_weight(F, "legion"))
 end)
@@ -17998,6 +17768,8 @@ function()
     endow(F)
     assert(IC.assign_governor(F, "prov_a", 1121), "the fixture lost prov_a")
     assert(IC.assign_governor(F, "prov_b", 1122), "the fixture lost prov_b")
+    -- A NEW GOVERNORSHIP GROWS A TURN AT A TIME (author, 2026-09-30): one step.
+    IC.grow_governors(F)
     IC.refresh_gov_weight(F)
     assert(IC.court(F).houses["legion"].gov_weight > 0,
         "the fixture gave the rival no province weight")
@@ -21819,7 +21591,10 @@ check("the panel's player is this machine's, read the forced way", function()
     assert(fallback == F, "a failed read did not fall back to the first human: " .. tostring(fallback))
 end)
 
-check("each of the twelve panel clicks sends in multiplayer and waits for its trigger", function()
+-- ELEVEN OF THE TWELVE: a governor's release is the Governors column's cross
+-- now, and "the column's cross sends its release in multiplayer and waits for
+-- the trigger" drives it (plan 2026-09-30 Task 6).
+check("each of the court panel's clicks sends in multiplayer and waits for its trigger", function()
     IC.state = {}
     turn = 1
     local f = make_faction(F, IC.CHD_SUBCULTURE,
@@ -21865,14 +21640,6 @@ check("each of the twelve panel clicks sends in multiplayer and waits for its tr
             ICUI.pick = nil
             IC.court(F).offices[office] = 501
             ICUI.on_office_click(ctx)
-        end},
-        {"release_governor", function()
-            ICUI.pick = nil
-            ICUI.view = "govs"
-            ICUI.gov_keys = {"prov_a"}
-            ICUI.scroll.govs = 0
-            IC.court(F).govs["prov_a"] = 501
-            ICUI.on_row_action(ctx)
         end},
         {"favour", function()
             ICUI.pick = nil
@@ -22573,6 +22340,9 @@ check("the tab and the sorts survive a reload in single player, and only there",
     assert(saved[ICUI.PREFS_KEY] == nil, "multiplayer wrote " .. tostring(saved[ICUI.PREFS_KEY]))
     reset()
     saved[ICUI.PREFS_KEY] = nil
+    -- THE SESSION HAS LOADED ITS PREFS. Left nil, the next check to open the
+    -- court loads whatever a close since has saved, over the view it set.
+    ICUI.prefs_loaded = true
 end)
 
 check("a house roster finds a man on the map, and offers nothing for one who is not there", function()
@@ -23021,6 +22791,16 @@ check("a feud is on the Petitions tab, one row per side, and the click sends arb
                     "the Back Them tooltip wears no loyalty picture: " .. tip)
                 assert(plain(row.children.ic_row_f.text) == "Make Peace",
                     "a feud row's second button reads " .. row.children.ic_row_f.text)
+                -- AND IT SAYS WHAT PEACE COSTS (author, 2026-09-30: "no tooltips
+                -- on make peace button").
+                local peace_tip = row.children.ic_row_f.tooltip or ""
+                assert(string.find(peace_tip, "Make Peace:", 1, true)
+                       and string.find(peace_tip, tostring(IC.favour_cost("gift")), 1, true),
+                    "the Make Peace button's tooltip reads " .. peace_tip)
+                -- ITS OWN, not the first button's: on a demand the first
+                -- button's is why ACCEPT is refused, which REFUSE must not wear.
+                assert(not string.find(peace_tip, "Back Them", 1, true),
+                    "the Make Peace button wears the Back Them tooltip: " .. peace_tip)
             end
         end
         assert(#rows == 2, #rows .. " feud rows, not one per side")
@@ -24037,82 +23817,6 @@ check("a stalled seat's rim is dimmed, not lit", function()
         assert(card.images[ICUI.RIMS.card.lit] == ICUI.MASK_NONE,
             "a stalled seat still wears the lit rim")
     end)
-end)
-
-check("a governed province's row is lit, an away one dim, and other views clear it", function()
-    IC.state = {}
-    turn = 1
-    local man = make_character(1, 20, "forge", "prov_a")
-    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
-    IC.add_house(F, IC.CROWN)
-    IC.add_house(F, "forge")
-    IC.court(F).govs["prov_a"] = 1
-    local keep = IC.governor_active
-    local ok, err = pcall(with_fake_panel, function(panel)
-        IC.governor_active = function() return true end
-        ICUI.view = "govs"
-        ICUI.refresh()
-        local row = panel.children[ICUI.gov_row("prov_a")]
-        -- THE ROW'S OWN ART: the card rim's 40px margin overlaps itself on a
-        -- 61px row and washes the whole row red (author, 2026-09-28).
-        assert(ICUI.RIM_ART_ROW and ICUI.RIM_ART_ROW ~= ICUI.RIM_ART,
-            "rows have no rim art of their own")
-        assert(row.images[ICUI.RIMS.row.lit] == ICUI.RIM_ART_ROW,
-            "a present governor's row is not lit with the row's rim: "
-            .. tostring(row.images[ICUI.RIMS.row.lit]))
-        local bare = panel.children[ICUI.gov_row("prov_b")]
-        assert(bare.images[ICUI.RIMS.row.lit] == ICUI.MASK_NONE,
-            "an ungoverned province is lit")
-        IC.governor_active = function() return false end
-        ICUI.refresh()
-        assert(row.images[ICUI.RIMS.row.dim] == ICUI.RIM_ART_ROW,
-            "an away governor's row is not dimmed")
-        -- THE POOL IS SHARED: the same row drawing the Record must drop the rim.
-        ICUI.view = "log"
-        ICUI.refresh()
-        for i = 1, ICUI.MAX_ROWS do
-            local r = panel.children[ICUI.ROW .. "_" .. i]
-            if r then
-                for _, index in pairs(ICUI.RIMS.row) do
-                    assert(r.images[index] == ICUI.MASK_NONE,
-                        "row " .. i .. " kept a governor's rim on the record")
-                end
-            end
-        end
-    end)
-    IC.governor_active = keep
-    assert(ok, err)
-end)
-
-check("releasing a governor is answered, and assigning one bursts his row", function()
-    IC.state = {}
-    turn = 1
-    local man = make_character(1, 20, "forge", "prov_a")
-    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a"})
-    IC.add_house(F, IC.CROWN)
-    IC.add_house(F, "forge")
-    assert(ICUI.ANSWERS.ungov, "releasing a governor has no answer at all")
-    sounds = {}
-    ICUI.ANSWERS.ungov("prov_a", true)
-    assert(sounds[1] == ICUI.SOUNDS.ungov, "a release played " .. tostring(sounds[1]))
-    ICUI.notice = nil
-    ICUI.ANSWERS.ungov("prov_a", false, "no governor")
-    assert(ICUI.notice and ICUI.notice ~= "", "a refused release said nothing")
-    IC.court(F).govs["prov_a"] = 1
-    local saved_cb = cm.callback
-    cm.callback = function() end
-    local ok, err = pcall(with_fake_panel, function(panel)
-        ICUI.view = "govs"
-        ICUI.refresh()
-        sounds = {}
-        ICUI.ANSWERS.gov("prov_a|1", true)
-        local row = panel.children[ICUI.gov_row("prov_a")]
-        assert(row.children[ICUI.BURST], "assigning a governor drew no burst on his row")
-        assert(sounds[1] == ICUI.SOUNDS.gov,
-            "assigning a governor played " .. tostring(sounds[1]))
-    end)
-    cm.callback = saved_cb
-    assert(ok, err)
 end)
 
 check("a granted demand, an accepted offer, a settled feud and a gift each say so", function()
@@ -25740,6 +25444,9 @@ check("a reload keeps the governors in the court's shares", function()
     endow(F)
     IC.assign_governor(F, "prov_a", 761)
     IC.assign_governor(F, "prov_b", 762)
+    -- A STEP OF GROWTH (author, 2026-09-30), which the reload must keep too.
+    IC.grow_governors(F)
+    IC.refresh_gov_weight(F)
     assert((IC.court(F).houses[IC.CROWN].gov_weight or 0) > 0,
         "the fixture's governors add no weight to begin with")
     local weight, share = IC.house_weight(F, IC.CROWN), IC.share(F, IC.CROWN)
@@ -26647,44 +26354,6 @@ check("a second flash inside the first one's time is not put out by the first on
     assert(ok, err)
 end)
 
-check("assigning a governor bursts the row his province is drawn on after the redraw", function()
-    -- LEFTOVER M3: the row was looked up before the click's redraw, and under a
-    -- sort by overseer the province moves the moment it has one.
-    IC.state = {}
-    turn = 1
-    local man = make_character(1, 20, "forge", "prov_b")
-    man._forename = "Aaz"
-    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
-    IC.add_house(F, IC.CROWN)
-    IC.add_house(F, "forge")
-    IC_TEST_LOC = {Aaz = "Aaz"}
-    local saved_cb = cm.callback
-    cm.callback = function() end
-    local ok, err = pcall(with_fake_panel, function(panel)
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.sort.govs = ICUI.sort_for_column("govs", 2)
-        ICUI.sort_desc.govs = false
-        ICUI.refresh()
-        local before = ICUI.gov_row("prov_b")
-        assert(IC.assign_governor(F, "prov_b", 1), "the fixture could not seat him")
-        ICUI.ANSWERS.gov("prov_b|1", true)
-        -- THE CLICK'S OWN REDRAW, in single player.
-        ICUI.refresh()
-        local after = ICUI.gov_row("prov_b")
-        assert(before and after and after ~= before,
-            "the fixture never moved the province's row, so this proves nothing")
-        assert(panel.children[after].children[ICUI.BURST],
-            "no burst on the row that now draws the province")
-        assert(not panel.children[before].children[ICUI.BURST],
-            "the burst landed on the row the province left")
-    end)
-    ICUI.sort.govs = 1
-    IC_TEST_LOC = {}
-    cm.callback = saved_cb
-    assert(ok, err)
-end)
-
 check("a flash is only held for a party card that is drawn", function()
     -- LEFTOVER M6: petitions are answered on the Petitions tab, which draws no
     -- party card, and the flash waited there to go off if the player opened
@@ -27059,46 +26728,7 @@ check("a governor's tooltip calls public order what the game calls it: control",
     end
 end)
 
-check("the Map tab opens the party map: one pinned marker per province, HUD hidden",
-function()
-    IC.state = {}
-    turn = 1
-    local gov = make_character(801, ANY_SEAT, "legion")
-    make_faction(F, IC.CHD_SUBCULTURE, {gov}, {"prov_a", "prov_b"})
-    IC.add_house(F, IC.CROWN)
-    IC.add_house(F, "legion")
-    IC.court(F).govs["prov_a"] = 801
-    with_fake_map(function(hud, panel, extra, layer)
-        ICUI.open()
-        map_click(ICUI.MAP_TAB)
-        assert(panel.destroyed, "the court stayed open under the map")
-        local l = layer()
-        assert(l, "no map layer was created")
-        assert(extra.paths[ICUI.MAP] == ICUI.PATH_MAP, "the layer came from " .. tostring(extra.paths[ICUI.MAP]))
-        assert(l.resized and l.w == extra.root.w and l.h == extra.root.h,
-            "the layer kept its file's size, not the screen's")
-        assert(l.visible == true, "the map hid its own layer")
-        assert(hud.visible == false, "the HUD shows over the party map")
-        local a, b = l.children[ICUI.MARKER .. "_1"], l.children[ICUI.MARKER .. "_2"]
-        assert(a and b, "not one marker per province")
-        assert(extra.paths[ICUI.MARKER .. "_1"] == ICUI.PATH_MARKER, "a marker from the wrong file")
-        -- PINNED: the settlement's own context, the id form Fortified Camps attests.
-        assert(a.context and a.context.cco == "CcoCampaignSettlement" and a.context.id == "700",
-            "the first marker was given " .. tostring(a.context and a.context.id))
-        assert(b.context.id == "701", "the second marker was given " .. tostring(b.context.id))
-        assert(a.images[ICUI.MK_PLATE] == ICUI.map_disc("legion"), "prov_a's plate: " .. tostring(a.images[ICUI.MK_PLATE]))
-        assert(b.images[ICUI.MK_PLATE] == ICUI.map_disc(nil), "ungoverned prov_b's plate: " .. tostring(b.images[ICUI.MK_PLATE]))
-        assert(a.images[ICUI.MK_CAPITAL] == ICUI.MK_RING_CAPITAL, "the capital's province wears no ring")
-        assert(b.images[ICUI.MK_CAPITAL] == ICUI.MASK_NONE, "another province wears the capital ring")
-        -- THE NAME IS THE MARKER'S OWN TEXT (ruling 9); the loc stub answers
-        -- nothing, so the province key is the fallback.
-        assert(a.text == "prov_a", "the name reads " .. tostring(a.text))
-        assert(next(a.children) == nil, "a marker grew a child, which the engine would draw at its corner")
-        assert(ICUI.map_keys[1] == "prov_a" and ICUI.map_keys[2] == "prov_b", "the click keys do not follow the markers")
-    end)
-end)
-
-check("a province's marker stands on its capital settlement, else the first held one",
+check("a province's pin stands on its capital settlement, else the first held one",
 function()
     IC.state = {}
     local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
@@ -27112,35 +26742,6 @@ function()
     local s = ICUI.map_region(F, "prov_b")
     assert(s and s:name() == "region_prov_b", "prov_b fell back to " .. tostring(s and s:name()))
     f._extra_regions, f._not_capital = nil, nil
-end)
-
-check("closing the party map returns to the court on Governors and gives the HUD back",
-function()
-    IC.state = {}
-    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
-    IC.add_house(F, IC.CROWN)
-    with_fake_map(function(hud, panel, extra, layer)
-        -- THE WAY A PLAYER GETS THERE: the court, then its Map tab.
-        ICUI.open()
-        ICUI.view = "intrigue"
-        map_click(ICUI.MAP_TAB)
-        -- AND A SECOND OPEN over the first: one layer, not two stacked.
-        local first = layer()
-        ICUI.map_open()
-        assert(layer() and layer() ~= first, "the second open did not replace the first")
-        assert(first.destroyed, "the first layer is still on the root under the second")
-        assert(hud.visible == false, "the HUD came back while the map was up")
-        map_click("ic_map_close")
-        assert(not layer(), "the map layer outlived its close button")
-        assert(not panel.destroyed, "the court did not come back")
-        assert(ICUI.view == "govs", "the court came back on " .. tostring(ICUI.view))
-        assert(hud.visible == false, "the HUD shows over the court")
-        ICUI.close()
-        assert(hud.visible == true, "the HUD stayed hidden after the map and the court both closed")
-        assert(extra.menu.visible == true and extra.icons.visible == true,
-            "a sibling of the HUD stayed hidden")
-        assert(extra.asleep.visible == false, "a panel that was already closed was opened")
-    end)
 end)
 
 check("an envoy puts the chosen work on that province for mission_turns", function()
@@ -27460,6 +27061,1689 @@ check("a failed mission's Record line names where it went", function()
     line = ICUI.intrigue_text({turn = 1, kind = "plot_failed", slug = "crown",
                                key = "circuit", n = 110})
     assert(line:find("Ride the Circuit", 1, true), line)
+end)
+
+check("rows that can ring nothing say why: the Crown, secession off, the grace period",
+function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local list, why = ICUI.map_outline(F, IC.CROWN)
+    assert(#list == 0 and why == "Your own house does not secede.", tostring(why))
+    in_grace(function()
+        turn = 4
+        local l2, w2 = ICUI.map_outline(F, "legion")
+        assert(#l2 == 0 and w2:find("7 more turns", 1, true), tostring(w2))
+    end)
+    local keep = IC.TUNE.secession
+    IC.TUNE.secession = false
+    local l3, w3 = ICUI.map_outline(F, "legion")
+    IC.TUNE.secession = keep
+    assert(#l3 == 0 and w3:find("switched off", 1, true), tostring(w3))
+    -- "No governor" rings the ungoverned.
+    local l4 = ICUI.map_outline(F, nil)
+    assert(#l4 == 1 and l4[1] == "prov_a", "no governor rings " .. #l4)
+end)
+
+check("an absorbed faction's party wears its own ring on the pins", function()
+    local slug = IC.ORIGINS[1].slug
+    assert(ICUI.gm_ring_path(slug) == "ui/derpy_ic/gm_ring_" .. slug .. ".png", ICUI.gm_ring_path(slug))
+    -- THE FILE EXISTS: the generator writes one per absorbed faction.
+    local f = io.open("Modding Files/pack/ui/derpy_ic/gm_ring_" .. slug .. ".png", "rb")
+    assert(f, "no ring was generated for " .. slug)
+    f:close()
+end)
+
+check("a pin's tooltip names the province, its governor, what it adds to his party, and its loyalty", function()
+    IC.state = {}
+    local g = make_character(831, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 831
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local tip = gm_pin(holder, 1).tooltip or ""
+        assert(tip:find("prov_a", 1, true), tip)
+        assert(tip:find(ICUI.character_name(g), 1, true), "no governor in: " .. tip)
+        assert(tip:find(ICUI.house_name("legion", F) .. ": +1 weight from this province", 1, true),
+            "no weight in: " .. tip)
+        assert(tip:find("Loyalty: " .. IC.province_loyalty(F, "prov_a"), 1, true), tip)
+        assert(tip:find("replace", 1, true), "a governed province does not say a click replaces: " .. tip)
+        local none = gm_pin(holder, 2).tooltip or ""
+        assert(none:find("No governor", 1, true), none)
+    end)
+end)
+
+check("replacing a governor records the one who left", function()
+    IC.state = {}
+    turn = 1
+    local a, b = make_character(851, ANY_SEAT, "legion"), make_character(852, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {a, b}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.assign_governor(F, "prov_a", 851)
+    IC.assign_governor(F, "prov_a", 851)      -- the same man again: nobody left
+    IC.assign_governor(F, "prov_a", 852)
+    local off = 0
+    for _, e in ipairs(IC.court(F).log or {}) do
+        if e.kind == "gov_off" and e.key == "prov_a" then off = off + 1 end
+    end
+    assert(off == 1, "the Record shows " .. off .. " governors leaving prov_a, not 1")
+    assert(IC.court(F).govs["prov_a"] == 852, "the new governor did not take the seat")
+end)
+
+check("a pin's tooltip names the party its province would go with, and only that one", function()
+    IC.state = {}
+    turn = 1
+    local g = make_character(861, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 861
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local takes = {}
+        for _, p in ipairs(IC.defecting_provinces(F, "legion")) do takes[p] = true end
+        assert(next(takes), "the fixture's legion would take nothing, so this proves nothing")
+        local line = "Would go with " .. ICUI.house_name("legion", F)
+        for i, p in pairs(ICUI.gm_keys) do
+            local tip = gm_pin(holder, i).tooltip or ""
+            assert((tip:find(line, 1, true) ~= nil) == (takes[p] == true), p .. ": " .. tip)
+        end
+    end)
+end)
+
+-- WHAT A PARTY WOULD TAKE walks the whole court (IC.share -> every man's
+-- party), so asking it once per pin and once per row froze a mid-game realm
+-- for seconds a click (final review, 2026-10-01): a refresh asks each party
+-- once, however many provinces there are.
+check("a Governors refresh asks what each party would take the same number of times at 2 provinces and at 6", function()
+    local function asks(n, page)
+        IC.state = {}
+        turn = 1
+        local a, b = make_character(871, ANY_SEAT, "legion"), make_character(872, ANY_SEAT, "forge")
+        local provs = {}
+        for i = 1, n do provs[i] = "prov_" .. string.char(96 + i) end
+        make_faction(F, IC.CHD_SUBCULTURE, {a, b}, provs)
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "legion")
+        IC.add_house(F, "forge")
+        IC.court(F).govs["prov_a"], IC.court(F).govs["prov_b"] = 871, 872
+        local defect, share = IC.defecting_provinces, IC.share
+        local d, s = 0, 0
+        local out
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.gm_page = page
+            ICUI.open()
+            assert(IC.secession_on(), "secession is off here, so no tip asks anything")
+            IC.defecting_provinces = function(...) d = d + 1 return defect(...) end
+            IC.share = function(...) s = s + 1 return share(...) end
+            local ok, err = pcall(ICUI.refresh)
+            IC.defecting_provinces, IC.share = defect, share
+            assert(ok, err)
+            out = {d, s}
+        end)
+        return out
+    end
+    for _, page in ipairs({"provinces", "parties"}) do
+        local few, many = asks(2, page), asks(6, page)
+        assert(few[1] == many[1], page .. ": what a party would take asked " .. few[1]
+            .. " times at 2 provinces, " .. many[1] .. " at 6")
+        assert(few[2] == many[2], page .. ": a party's share asked " .. few[2]
+            .. " times at 2 provinces, " .. many[2] .. " at 6")
+    end
+end)
+
+check("a governorship's weight follows its province's settlement levels", function()
+    IC.state = {}
+    local g = make_character(1901, ANY_SEAT, "legion")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 1901
+    local function weight_at(capital, minors)
+        f._levels = {prov_a = capital}
+        f._extra_regions = {}
+        for i, lv in ipairs(minors) do
+            f._extra_regions[i] = {province = "prov_a", name = "region_prov_a_" .. i,
+                                   cqi = 1950 + i, level = lv}
+        end
+        IC.refresh_gov_weight(F)
+        return IC.court(F).houses.legion.gov_weight
+    end
+    -- THE SPEC'S TABLE (section 4): 1 -> 1, 7 -> 4, 11 -> 6, 20 -> 10.
+    assert(weight_at(1, {}) == 1, "a level-1 village gives " .. weight_at(1, {}))
+    assert(weight_at(3, {2, 2}) == 4, "capital 3 and two minors at 2 give " .. weight_at(3, {2, 2}))
+    assert(weight_at(5, {3, 3}) == 6, "capital 5 and two minors at 3 give " .. weight_at(5, {3, 3}))
+    assert(weight_at(5, {5, 5, 5}) == 10, "four maxed settlements give " .. weight_at(5, {5, 5, 5}))
+    -- THE CROWN, which governs nothing here, gets none of it.
+    assert(IC.court(F).houses[IC.CROWN].gov_weight == 0, "the Crown took a governorship's weight")
+    f._levels, f._extra_regions = nil, nil
+end)
+
+check("a ruin counts nothing, and a province of ruins still gives 1", function()
+    IC.state = {}
+    local g = make_character(1911, ANY_SEAT, "legion")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 1911
+    -- CAPITAL 2 AND A RUIN: 2 levels -> 1. A ruin counted as a village would
+    -- make it 3 -> 2.
+    f._levels = {prov_a = 2}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_ruin", cqi = 1961, level = 0}}
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 1,
+        "capital 2 and a ruin gave " .. IC.court(F).houses.legion.gov_weight)
+    -- NOTHING BUT RUINS: never less than 1.
+    f._levels = {prov_a = 0}
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 1,
+        "a province of ruins gave " .. IC.court(F).houses.legion.gov_weight)
+    f._levels, f._extra_regions = nil, nil
+end)
+
+check("a settlement lost or upgraded moves its party's weight at the next turn", function()
+    IC.state = {}
+    IC.home_prov = {}
+    turn = 1
+    local g = make_character(1921, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    -- SEATED THROUGH THE MODEL, which saves: IC.turn reloads the court from the
+    -- save, and a governor written straight into court.govs is gone by then.
+    IC.assign_governor(F, "prov_a", 1921)
+    f._levels = {prov_a = 3}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1971, level = 3}}
+    -- GROWN IN FULL FIRST, a step a turn: 6 levels are worth 3.
+    for t = 1, 4 do turn = t IC.turn(F) end
+    assert(IC.court(F).govs.prov_a == 1921, "the fixture lost its governor in the turn")
+    assert(IC.court(F).houses.legion.gov_weight == 3, "6 levels gave " .. IC.court(F).houses.legion.gov_weight)
+    -- THE MINOR SETTLEMENT FALLS, and the capital is raised to 5.
+    f._extra_regions = nil
+    f._levels = {prov_a = 5}
+    turn = 5
+    IC.turn(F)
+    assert(IC.court(F).houses.legion.gov_weight == 3, "5 levels gave " .. IC.court(F).houses.legion.gov_weight)
+    -- DOWN TO 1 LEVEL: the weight falls at once, not a step a turn.
+    f._levels = {prov_a = 1}
+    turn = 6
+    IC.turn(F)
+    assert(IC.court(F).houses.legion.gov_weight == 1, "1 level gave " .. IC.court(F).houses.legion.gov_weight)
+    f._levels = nil
+    turn = 1
+end)
+
+check("an away governor still earns his party the province's weight", function()
+    IC.state = {}
+    -- A LORD IN THE FIELD, standing in prov_b: only he can be away.
+    local g = make_character(1931, ANY_SEAT, "legion", "prov_b")
+    g._force = true
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 1931
+    -- 8 LEVELS, which the old flat rule could not give: 4 weight, not 3.
+    f._levels = {prov_a = 5, prov_b = 1}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1991, level = 3}}
+    assert(not IC.governor_active(F, "prov_a"), "the fixture's governor is not away")
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 4,
+        "an away governor of 8 levels gave " .. IC.court(F).houses.legion.gov_weight)
+    f._levels, f._extra_regions = nil, nil
+end)
+
+check("an AI court's new governorship grows like the player's", function()
+    IC.state = {}
+    IC.home_prov = {}
+    turn = 1
+    local g = make_character(1941, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.assign_governor(F, "prov_a", 1941)
+    f._levels = {prov_a = 5}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1981, level = 2}}
+    local saved = cm.get_human_factions
+    cm.get_human_factions = function() return {} end
+    local ok, err = pcall(function()
+        assert(not IC.is_human(F), "the fixture's court is still the player's")
+        IC.turn(F)
+        assert(IC.court(F).govs.prov_a == 1941, "the AI court's turn replaced its governor")
+        -- WHICHEVER PARTY HE IS DEALT TO: an AI court rolls its men at its turn.
+        local slug = IC.house_of_cqi(F, 1941)
+        -- ONE STEP of the 4 that 7 levels are worth.
+        assert(slug and IC.court(F).houses[slug].gov_weight == 1,
+            "an AI court's new governor gave " .. tostring(slug and IC.court(F).houses[slug].gov_weight)
+            .. " after one turn")
+    end)
+    cm.get_human_factions = saved
+    f._levels, f._extra_regions = nil, nil
+    assert(ok, err)
+end)
+
+-- A GOVERNORSHIP'S WEIGHT GROWS (author, 2026-09-30: "assigning governor quickly
+-- shouldnt change the influence directly, it should be gradual").
+check("a new governor adds nothing at once and grows one a turn to his province's worth", function()
+    IC.state = {}
+    IC.home_prov = {}
+    turn = 1
+    local g = make_character(1951, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    -- 7 LEVELS: worth 4.
+    f._levels = {prov_a = 5}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1952, level = 2}}
+    local before = IC.house_weight(F, "legion")
+    IC.assign_governor(F, "prov_a", 1951)
+    assert(IC.court(F).houses.legion.gov_weight == 0,
+        "an appointment added " .. IC.court(F).houses.legion.gov_weight .. " at once")
+    assert(IC.house_weight(F, "legion") == before, "an appointment moved the party's weight at once")
+    for t = 1, 4 do
+        turn = t
+        IC.turn(F)
+        assert(IC.court(F).govs.prov_a == 1951, "the fixture lost its governor in turn " .. t)
+        assert(IC.court(F).houses.legion.gov_weight == t,
+            "turn " .. t .. " gave " .. IC.court(F).houses.legion.gov_weight)
+    end
+    turn = 5
+    IC.turn(F)
+    assert(IC.court(F).houses.legion.gov_weight == 4,
+        "a governorship grew past its province's worth: " .. IC.court(F).houses.legion.gov_weight)
+    -- THE PROVINCE DEVELOPS TO 11 LEVELS, worth 6: it climbs a step, it does not jump.
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1952, level = 3},
+                        {province = "prov_a", name = "region_prov_a_minor2", cqi = 1953, level = 3}}
+    turn = 6
+    IC.turn(F)
+    assert(IC.court(F).houses.legion.gov_weight == 5,
+        "a province raised to a worth of 6 took the weight to " .. IC.court(F).houses.legion.gov_weight)
+    f._levels, f._extra_regions = nil, nil
+    turn = 1
+end)
+
+check("a governor replaced or released takes his grown weight with him", function()
+    IC.state = {}
+    IC.home_prov = {}
+    turn = 1
+    local a = make_character(1961, ANY_SEAT, "legion", "prov_a")
+    local b = make_character(1962, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {a, b}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    f._levels = {prov_a = 5}            -- worth 3
+    IC.assign_governor(F, "prov_a", 1961)
+    for t = 1, 2 do turn = t IC.turn(F) end
+    assert(IC.court(F).govs.prov_a == 1961, "the fixture lost its governor")
+    assert(IC.court(F).houses.legion.gov_weight == 2, "two turns gave " .. IC.court(F).houses.legion.gov_weight)
+    -- HIS OWN PARTY'S OTHER MAN starts again from nothing.
+    IC.assign_governor(F, "prov_a", 1962)
+    assert(IC.court(F).houses.legion.gov_weight == 0,
+        "a replacement kept his predecessor's " .. IC.court(F).houses.legion.gov_weight)
+    turn = 3
+    IC.turn(F)
+    assert(IC.court(F).houses.legion.gov_weight == 1, "the replacement's first turn gave "
+        .. IC.court(F).houses.legion.gov_weight)
+    -- THE SITTING MAN APPOINTED AGAIN keeps what he has grown.
+    IC.assign_governor(F, "prov_a", 1962)
+    assert(IC.court(F).houses.legion.gov_weight == 1, "reappointing the sitting governor reset him")
+    IC.release_governor(F, "prov_a")
+    assert(IC.court(F).houses.legion.gov_weight == 0,
+        "a released governorship still gave " .. IC.court(F).houses.legion.gov_weight)
+    f._levels = nil
+    turn = 1
+end)
+
+check("a province that loses a settlement between turns loses its grown weight at once", function()
+    -- THE TURN'S OWN GROWTH clamps too, but it runs at the next turn start. Any
+    -- appointment before then refreshes the sum, and a lost settlement must
+    -- not be carried in it until the turn comes round.
+    IC.state = {}
+    local g = make_character(1981, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    f._levels = {prov_a = 5}            -- worth 3
+    IC.assign_governor(F, "prov_a", 1981)
+    for _ = 1, 3 do IC.grow_governors(F) end
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 3, "the fixture grew " .. IC.court(F).houses.legion.gov_weight)
+    f._levels = {prov_a = 1}            -- worth 1
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 1,
+        "a province worth 1 still gave " .. IC.court(F).houses.legion.gov_weight)
+    f._levels = nil
+end)
+
+check("a save keeps a governorship's growth, and an older save's governors count in full", function()
+    IC.state = {}
+    local g = make_character(1976, ANY_SEAT, "legion", "prov_a")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    f._levels = {prov_a = 5}            -- worth 3
+    IC.assign_governor(F, "prov_a", 1976)
+    IC.grow_governors(F)
+    IC.grow_governors(F)
+    local packed = IC.pack(F)
+    IC.unpack(F, packed)
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 2,
+        "a save gave back " .. IC.court(F).houses.legion.gov_weight .. " of 2 grown")
+    -- A SAVE FROM BEFORE THE GROWTH writes "province,cqi" only: that governor
+    -- has served, and his party must not lose the weight on the update.
+    local fields = {}
+    for field in string.gmatch(packed .. "|", "([^|]*)|") do fields[#fields + 1] = field end
+    fields[3] = "prov_a,1976"
+    IC.unpack(F, table.concat(fields, "|"))
+    IC.refresh_gov_weight(F)
+    assert(IC.court(F).houses.legion.gov_weight == 3,
+        "an older save's governor counted " .. IC.court(F).houses.legion.gov_weight .. " of 3")
+    f._levels = nil
+end)
+
+check("the Help page states the weight rule with the court's own number", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    local vars = ICUI.help_vars(F)
+    assert(vars.levels_per_weight == 2, "levels per weight reads " .. tostring(vars.levels_per_weight))
+    assert(vars.gov_weight_per_turn == 1, "growth per turn reads " .. tostring(vars.gov_weight_per_turn))
+    local grows = false
+    for _, topic in ipairs(ICUI.HELP) do
+        for _, line in ipairs(topic.lines or {}) do
+            if line:find("{gov_weight_per_turn}", 1, true) then grows = true end
+        end
+    end
+    assert(grows, "no Help line says a governorship's weight grows a turn at a time")
+    local found = false
+    for _, topic in ipairs(ICUI.HELP) do
+        for _, line in ipairs(topic.lines or {}) do
+            if line:find("{levels_per_weight}", 1, true) then found = true end
+            assert(not line:find("weight and loyalty the way a seat does", 1, true),
+                "the Help page still says a governorship's weight counts the way a seat does")
+        end
+    end
+    assert(found, "no Help line states the weight rule")
+end)
+
+check("the Governors tab pins a pin, a face and two plates on each province's settlement", function()
+    IC.state = {}
+    turn = 1
+    local gov = make_character(3101, ANY_SEAT, "legion")
+    local bare = make_character(3102, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {gov, bare}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 3101
+    IC.court(F).govs["prov_c"] = 3102
+    IC_TEST_PORTRAITS = {["3101"] = "ui/portraits/portholes/chd/overseer.png"}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local pa, fa = gm_pin(holder, 1), gm_face(holder, 1)
+        local pb, fb = gm_pin(holder, 2), gm_face(holder, 2)
+        local pc, fc = gm_pin(holder, 3), gm_face(holder, 3)
+        assert(pa and fa and pb and fb and pc and fc, "not a pin and a face per province")
+        -- TWO PLATES OF THEIR OWN (author, 2026-09-30: "no text, the ui is
+        -- stretched, use the default borders"): the name, then the loyalty, each
+        -- on CA's plate at its own height, made after the pin so they draw over
+        -- its point.
+        local na, la = gm_name(holder, 1), gm_loyal(holder, 1)
+        local nb, lb = gm_name(holder, 2), gm_loyal(holder, 2)
+        assert(na and la and nb and lb and gm_name(holder, 3) and gm_loyal(holder, 3),
+            "not a name plate and a loyalty plate per province")
+        assert(extra.paths[ICUI.GM_NAME .. "_1"] == ICUI.PATH_GM_NAME,
+            "a name plate from " .. tostring(extra.paths[ICUI.GM_NAME .. "_1"]))
+        assert(extra.paths[ICUI.GM_LOYAL .. "_1"] == ICUI.PATH_GM_LOYAL,
+            "a loyalty plate from " .. tostring(extra.paths[ICUI.GM_LOYAL .. "_1"]))
+        -- HIS PARTY'S FLAG ON THE PIN (author, 2026-09-30: "no flag or
+        -- indication what the governer party is"): a badge on the head, made
+        -- after the face so it draws over its edge.
+        local ba, bb = gm_badge(holder, 1), gm_badge(holder, 2)
+        assert(ba and bb and gm_badge(holder, 3), "not a party badge per province")
+        assert(extra.paths[ICUI.GM_BADGE .. "_1"] == ICUI.PATH_GM_BADGE,
+            "a badge from " .. tostring(extra.paths[ICUI.GM_BADGE .. "_1"]))
+        assert(extra.paths[ICUI.GM_PIN .. "_1"] == ICUI.PATH_GM_PIN,
+            "a pin from " .. tostring(extra.paths[ICUI.GM_PIN .. "_1"]))
+        assert(extra.paths[ICUI.GM_FACE .. "_1"] == ICUI.PATH_GM_FACE,
+            "a face from " .. tostring(extra.paths[ICUI.GM_FACE .. "_1"]))
+        -- THE PIN FIRST: the face must draw over it.
+        local at = {}
+        for k, c in ipairs(holder.order) do at[c.name] = k end
+        assert(at[pa.name] < at[fa.name], "prov_a's face was made before its pin, so it draws under it")
+        assert(at[pa.name] < at[na.name] and at[pa.name] < at[la.name],
+            "prov_a's plates were made before its pin, so its point draws over them")
+        assert(at[fa.name] < at[ba.name], "prov_a's badge was made before its face, so the face hides it")
+        -- ONE CONTEXT FOR BOTH, the settlement's cqi.
+        assert(pa.context and pa.context.cco == "CcoCampaignSettlement" and pa.context.id == "700",
+            "prov_a's pin was given " .. tostring(pa.context and pa.context.id))
+        assert(fa.context and fa.context.cco == "CcoCampaignSettlement" and fa.context.id == "700",
+            "prov_a's face is not pinned where its pin is")
+        assert(pb.context.id == "701" and fb.context.id == "701", "prov_b's pair is not on its settlement")
+        for _, c in ipairs({na, la}) do
+            assert(c.context and c.context.cco == "CcoCampaignSettlement" and c.context.id == "700",
+                c.name .. " is not pinned where prov_a's pin is")
+        end
+        assert(nb.context.id == "701" and lb.context.id == "701", "prov_b's plates are not on its settlement")
+        assert(ba.context and ba.context.cco == "CcoCampaignSettlement" and ba.context.id == "700"
+               and bb.context.id == "701", "a badge is not pinned where its pin is")
+        -- GOVERNED: his party's crest. EMPTY: none.
+        assert(ba.images[ICUI.GB_CREST] == ICUI.crest("legion"),
+            "prov_a's badge shows " .. tostring(ba.images[ICUI.GB_CREST]))
+        assert(bb.images[ICUI.GB_CREST] == ICUI.MASK_NONE,
+            "an empty seat's badge shows " .. tostring(bb.images[ICUI.GB_CREST]))
+        -- HIS PARTY'S COLOUR ON THE NAME PLATE (author, 2026-09-30: "the map
+        -- doesnt show the political influence colors of each party"); none on
+        -- an empty seat's.
+        assert(na.images[ICUI.GN_WASH] == ICUI.gm_wash_path("legion"),
+            "prov_a's name plate is washed " .. tostring(na.images[ICUI.GN_WASH]))
+        assert(nb.images[ICUI.GN_WASH] == ICUI.MASK_NONE,
+            "an empty seat's name plate wears a party's colour: " .. tostring(nb.images[ICUI.GN_WASH]))
+        assert(ICUI.gm_wash_path("legion") ~= ICUI.gm_wash_path("crown"), "every party washes one colour")
+        -- GOVERNED: his party's ring and his face, no crest over it.
+        assert(pa.images[ICUI.GP_PARTY] == ICUI.gm_ring_path("legion"),
+            "prov_a's ring: " .. tostring(pa.images[ICUI.GP_PARTY]))
+        assert(fa.images[ICUI.GF_PORT] == "ui/portraits/portholes/chd/overseer.png",
+            "prov_a's face: " .. tostring(fa.images[ICUI.GF_PORT]))
+        assert(fa.images[ICUI.GF_CREST] == ICUI.MASK_NONE, "a crest drawn over a face that resolved")
+        assert(fa.image_resize_at[ICUI.GF_PORT] == nil,
+            "the face was set with a resize, which blows the component up to the portrait")
+        -- A FACE THAT WILL NOT RESOLVE shows his party's crest instead.
+        assert(ICUI.crest("legion"), "the fixture's party has no crest to fall back on")
+        assert(fc.images[ICUI.GF_PORT] == ICUI.MASK_NONE and fc.images[ICUI.GF_CREST] == ICUI.crest("legion"),
+            "an unresolved face drew " .. tostring(fc.images[ICUI.GF_PORT]) .. " / " .. tostring(fc.images[ICUI.GF_CREST]))
+        -- UNGOVERNED: a dark head and no ring.
+        assert(pb.images[ICUI.GP_PARTY] == ICUI.MASK_NONE, "an empty seat wears a ring")
+        assert(fb.images[ICUI.GF_PORT] == ICUI.MASK_NONE and fb.images[ICUI.GF_CREST] == ICUI.MASK_NONE,
+            "an empty seat shows a face")
+        -- THE CAPITAL'S RING on the capital's province only.
+        assert(pa.images[ICUI.GP_CAPITAL] == ICUI.MK_RING_CAPITAL, "the capital's province wears no ring")
+        assert(pb.images[ICUI.GP_CAPITAL] == ICUI.MASK_NONE, "another province wears the capital ring")
+        assert(pa.images[ICUI.GP_OUTLINE] == ICUI.MASK_NONE, "a province is ringed with nothing chosen")
+        -- ONE LINE ON EACH PLATE: the name, then loyalty. The pin carries none -
+        -- its padded text drew off the plate and measured every name too long.
+        assert(na.text == "prov_a", "prov_a's name plate reads " .. tostring(na.text))
+        assert(la.text == string.format("Loyalty %d%%", IC.province_loyalty(F, "prov_a")),
+            "prov_a's loyalty plate reads " .. tostring(la.text))
+        assert((pa.text or "") == "", "the pin still carries text: " .. tostring(pa.text))
+        assert(fa.text == "", "the face carries text, which its mask would clip")
+        assert(pa.tooltip and pa.tooltip:find("prov_a", 1, true) and pa.tooltip_all_states == true,
+            "the pin has no tooltip on every state")
+        assert(next(pa.children) == nil and next(fa.children) == nil
+               and next(na.children) == nil and next(la.children) == nil
+               and next(ba.children) == nil,
+            "a pin grew a child, which the engine would draw at its corner")
+        assert(ICUI.gm_keys[1] == "prov_a" and ICUI.gm_keys[2] == "prov_b" and ICUI.gm_keys[3] == "prov_c",
+            "the click keys do not follow the pins")
+    end)
+    IC_TEST_PORTRAITS = {}
+end)
+
+check("the Governors view clears the backdrop and lets the map have the mouse; leaving it puts both back",
+function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "court"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(panel.interactive == true, "the court does not take the mouse")
+        map_click("ic_tab_govs")
+        assert(panel.images[0] == ICUI.MASK_NONE, "the throne room still covers the map: " .. tostring(panel.images[0]))
+        assert(panel.interactive == false, "the panel still eats every click on the map")
+        assert(gm_pin(holder, 1) and gm_pin(holder, 2), "no pins on the Governors tab")
+        -- EVERY WAY OUT BUT CLOSE, which destroys the panel with its pins.
+        for _, tab in ipairs({"ic_tab_court", "ic_tab_offices", "ic_tab_intrigue",
+                              "ic_tab_petitions", "ic_tab_log", "ic_help"}) do
+            map_click("ic_tab_govs")
+            local pin, plate = gm_pin(holder, 1), gm_name(holder, 1)
+            assert(pin and plate, "no pin to leave behind before " .. tab)
+            map_click(tab)
+            assert(plate.destroyed and gm_name(holder, 1) == nil and gm_loyal(holder, 1) == nil
+                   and gm_badge(holder, 1) == nil, tab .. " left the plates up")
+            assert(panel.images[0] == ICUI.GM_BACKDROP, tab .. " left the map showing: " .. tostring(panel.images[0]))
+            assert(panel.interactive == true, tab .. " left the panel letting clicks through")
+            assert(pin.destroyed and gm_pin(holder, 1) == nil, tab .. " left the pins up")
+            if tab == "ic_help" then map_click("ic_help") end
+        end
+    end)
+end)
+
+check("the Governors view hides the court's list, its headers and its pager", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "log"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(panel.children[ICUI.ROW .. "_1"].visible, "the fixture's Record drew no row, so this check watches nothing")
+        map_click("ic_tab_govs")
+        for i = 1, ICUI.MAX_ROWS do
+            assert(not panel.children[ICUI.ROW .. "_" .. i].visible, "row " .. i .. " of the last tab's list shows over the map")
+        end
+        for _, keys in ipairs({ICUI.HDR_KEYS, ICUI.HSORT_KEYS, {"ic_page_prev", "ic_page_lbl", "ic_page_next"}}) do
+            for _, name in ipairs(keys) do
+                assert(not panel.children[name].visible, name .. " shows over the map")
+            end
+        end
+    end)
+end)
+
+check("a pin opens the governor picker for its province, and a lost province redraws instead", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_2")
+        assert(ICUI.pick and ICUI.pick.kind == "gov" and ICUI.pick.key == "prov_b",
+            "the pin opened " .. tostring(ICUI.pick and ICUI.pick.key))
+        assert(not panel.destroyed, "the pin closed the court")
+        -- IN THE COLUMN, ON THE MAP (spec section 3; Task 5 ends plan ruling 4).
+        assert(panel.images[0] == ICUI.MASK_NONE and panel.interactive == false,
+            "the picker put the backdrop back over the map")
+        ICUI.pick = nil
+        ICUI.refresh()
+        -- prov_b FALLS between the draw and the click.
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+        map_click(ICUI.GM_PIN .. "_2")
+        assert(ICUI.pick == nil, "a lost province reached the picker")
+        assert(gm_pin(holder, 1) and gm_pin(holder, 2) == nil, "the view did not redraw on the stale click")
+        assert(gm_name(holder, 2) == nil and gm_loyal(holder, 2) == nil and gm_badge(holder, 2) == nil,
+            "a lost province's plates stayed on the map")
+    end)
+end)
+
+check("selecting a settlement or a character through the Governors view closes the court", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    local ctx = {character = function() return nil end, garrison_residence = function() return nil end}
+    for _, name in ipairs({"ic_map_char_selected", "ic_map_settlement_selected"}) do
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.open()
+            core.listeners[name](ctx)
+            assert(panel.destroyed, name .. " left the court up over what the player selected")
+            assert(hud.visible == true, name .. " left the HUD hidden")
+        end)
+        -- ON ANY OTHER TAB the court is opaque: nothing was selected through it.
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "court"
+            ICUI.pick = nil
+            ICUI.open()
+            core.listeners[name](ctx)
+            assert(not panel.destroyed, name .. " closed the court from the Court tab")
+        end)
+    end
+end)
+
+check("the pins' holder is the screen at any screen size, not the court's box", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    for _, screen in ipairs({{2560, 1080}, {1600, 900}}) do
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.open()
+            local at = screen[1] .. "x" .. screen[2]
+            assert(holder.x == 0 and holder.y == 0, at .. ": the holder sits at " .. holder.x .. "," .. holder.y)
+            assert(holder.w == screen[1] and holder.h == screen[2],
+                at .. ": the holder is " .. holder.w .. "x" .. holder.h)
+            assert(gm_pin(holder, 1), "no pin at " .. at)
+        end, screen)
+    end
+    ICUI.apply_scale(1920)
+end)
+
+check("a refresh repaints the pins in place rather than remaking them", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local pin, face = gm_pin(holder, 1), gm_face(holder, 1)
+        local plate, loyal, badge = gm_name(holder, 1), gm_loyal(holder, 1), gm_badge(holder, 1)
+        assert(plate and loyal and badge, "the fixture drew no plates, so this check watches nothing")
+        ICUI.refresh()
+        -- A PIN MADE FROM LUA STARTS AT THE HOLDER'S CORNER: remade on every
+        -- click, every pin would flash there.
+        assert(gm_pin(holder, 1) == pin and not pin.destroyed, "a refresh remade prov_a's pin")
+        assert(gm_face(holder, 1) == face and not face.destroyed, "a refresh remade prov_a's face")
+        assert(gm_name(holder, 1) == plate and not plate.destroyed
+               and gm_loyal(holder, 1) == loyal and not loyal.destroyed
+               and gm_badge(holder, 1) == badge and not badge.destroyed, "a refresh remade prov_a's plates")
+    end)
+end)
+
+check("a name plate cuts a province name too long for it, and the pin's tooltip keeps it whole", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    -- A WORD BREAK BETWEEN THE PLATE AND THE PIN: "The Ash Plain Burns..." is
+    -- 176px at the stub's 8px a character, so a cut to the pin's 180 keeps it and
+    -- a cut to the plate's 156 does not. A name whose cut is the same at both
+    -- widths let a cut to the whole pin pass.
+    local long = "The Ash Plain Burns and Everything Beyond"
+    IC_TEST_LOC = {provinces_onscreen_prov_a = long}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local pin, plate = gm_pin(holder, 1), gm_name(holder, 1)
+        local name = plate and plate.text
+        assert(name and name ~= long and name:sub(-3) == "...", "the name was not cut: " .. tostring(name))
+        -- THE PLATE'S INSIDE, NOT ITS BOX (author, 2026-09-30: "the text are
+        -- going out of the ui"): the plate's two caps take the rest.
+        assert(ICUI.GM_NAME_W and ICUI.GM_NAME_W < plate.w, "no plate width narrower than the plate's box")
+        assert(#name * plate.text_px <= ICUI.GM_NAME_W,
+            "the cut name still overruns the plate: " .. name)
+        assert(pin.tooltip:find(long, 1, true), "the tooltip lost the whole name")
+    end)
+    IC_TEST_LOC = {}
+end)
+
+check("a name plate keeps a name that fits whole", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC_TEST_LOC = {provinces_onscreen_prov_a = "Gash Kadrak"}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local plate = gm_name(holder, 1)
+        assert(plate and plate.text == "Gash Kadrak", "a short name drew as " .. tostring(plate and plate.text))
+    end)
+    IC_TEST_LOC = {}
+end)
+
+-- ESCAPE, AS CA'S OWN PANELS DO IT (author, 2026-09-30: "the ui is gone after
+-- pressing escape, escape button should close the UI court first"). The stub
+-- keeps CA's two rules: stealing a held name is an error, and a fired entry is
+-- removed before its callback runs.
+local function with_escape(fn)
+    local held = {}
+    local steal, release = cm.steal_escape_key_with_callback, cm.release_escape_key_with_callback
+    cm.steal_escape_key_with_callback = function(_cm, name, cb)
+        assert(not held[name], "the Escape key stolen twice under " .. tostring(name))
+        held[name] = cb
+    end
+    cm.release_escape_key_with_callback = function(_cm, name) held[name] = nil end
+    local ok, err = pcall(fn, held)
+    cm.steal_escape_key_with_callback, cm.release_escape_key_with_callback = steal, release
+    if not ok then error(err, 0) end
+end
+
+check("Escape closes the court and gives the HUD back, from any view", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    for _, view in ipairs({"govs", "court"}) do
+        with_escape(function(held)
+            with_fake_govmap(function(hud, panel, extra, holder)
+                ICUI.view = view
+                ICUI.pick = nil
+                ICUI.open()
+                ICUI.refresh()          -- a redraw must not steal it again
+                local name, fire = next(held)
+                assert(fire, view .. ": the court does not hold the Escape key while it is up")
+                held[name] = nil        -- CA removes a fired entry, then calls it
+                fire()
+                assert(panel.destroyed, view .. ": Escape left the court up")
+                assert(hud.visible == true, view .. ": Escape left the HUD hidden")
+                assert(next(held) == nil, view .. ": the court holds the key after Escape closed it")
+            end)
+        end)
+    end
+end)
+
+check("closing the court any other way lets go of the Escape key", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    with_escape(function(held)
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "court"
+            ICUI.pick = nil
+            ICUI.open()
+            assert(next(held), "the court does not hold the Escape key while it is up")
+            ICUI.close()
+            assert(next(held) == nil, "the court kept the Escape key after it closed, "
+                .. "so the player's next Escape does nothing")
+        end)
+    end)
+end)
+
+check("the column shows on the Governors view only, the footer's plate with the footer", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        -- THE HINT AND THE PAGER are the page's to show: the Provinces page has
+        -- no hint, and one page has no pager (their own checks below).
+        local sometimes = {ic_gm_hint = true, ic_gm_prev = true, ic_gm_page = true, ic_gm_next = true}
+        for _, name in ipairs(ICUI.GM_KEYS) do
+            if not sometimes[name] then
+                assert(panel.children[name].visible, name .. " is hidden on the Governors view")
+            end
+        end
+        assert(gm_row(panel, 1), "no column rows were made")
+        -- THE FOOTER'S PLATE ONLY WITH SOMETHING ON IT.
+        assert(panel.children.ic_gm_foot.visible == panel.children.ic_alert.visible,
+            "the footer's plate shows without the footer, or the footer without its plate")
+        ICUI.notice = "Something to say."
+        ICUI.refresh()
+        assert(panel.children.ic_alert.visible and panel.children.ic_gm_foot.visible,
+            "the footer line has no plate under it over the map")
+        ICUI.notice = nil
+        map_click("ic_tab_court")
+        for _, name in ipairs(ICUI.GM_KEYS) do
+            assert(not panel.children[name].visible, name .. " shows on the Court tab")
+        end
+        assert(not panel.children.ic_gm_foot.visible, "the footer's plate shows on the Court tab")
+        for i = 1, ICUI.GM_ROWS do
+            assert(not gm_row(panel, i).visible, "column row " .. i .. " shows on the Court tab")
+        end
+    end)
+end)
+
+check("the column's toggles light their page and switch it", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.gm_page = "provinces"
+        ICUI.open()
+        local t1, t2 = panel.children.ic_gm_tog_1, panel.children.ic_gm_tog_2
+        assert(t2.images[ICUI.GM_TOG_ART[1]] == ICUI.GM_ROUND_ART.selected[1], "Provinces is not lit on its own page")
+        assert(t1.images[ICUI.GM_TOG_ART[1]] == ICUI.GM_ROUND_ART.live[1], "Parties is lit off its page")
+        assert(panel.children.ic_gm_head.text == "Provinces", "the column heads " .. panel.children.ic_gm_head.text)
+        map_click("ic_gm_tog_1")
+        assert(ICUI.gm_page == "parties", "the Parties toggle went to " .. tostring(ICUI.gm_page))
+        assert(t1.images[ICUI.GM_TOG_ART[1]] == ICUI.GM_ROUND_ART.selected[1]
+               and t1.images[ICUI.GM_TOG_ART[2]] == ICUI.GM_ROUND_ART.selected[2],
+            "Parties is not lit in both states on its own page")
+        assert(t2.images[ICUI.GM_TOG_ART[1]] == ICUI.GM_ROUND_ART.live[1], "Provinces stayed lit")
+        assert(panel.children.ic_gm_head.text == "Parties", "the column heads " .. panel.children.ic_gm_head.text)
+    end)
+end)
+
+check("the Parties page lists every party with what it governs and would take", function()
+    IC.state = {}
+    turn = 1
+    local g1, g2 = make_character(811, ANY_SEAT, "legion"), make_character(812, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1, g2}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 811
+    IC.court(F).govs["prov_c"] = 812
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        local legion = gm_row(panel, 2)
+        assert(legion.visible, "the legion's row is hidden")
+        assert(legion.children.ic_gr_l1.text == ICUI.house_name("legion", F), legion.children.ic_gr_l1.text)
+        assert(legion.children.ic_gr_l2.text == "Governs 2", legion.children.ic_gr_l2.text)
+        local take = #IC.defecting_provinces(F, "legion")
+        assert(legion.children.ic_gr_l3.text == string.format("Would take %d", take),
+            "the take count reads " .. legion.children.ic_gr_l3.text)
+        assert(legion.children.ic_gr_crest.visible and legion.children.ic_gr_crest.images[0] == ICUI.crest("legion"),
+            "the legion's row wears no crest")
+        assert(not legion.children.ic_gr_face.visible, "a party row draws a portrait")
+        local none = gm_row(panel, 3)
+        assert(none.children.ic_gr_l1.text == "No governor", none.children.ic_gr_l1.text)
+        assert(none.children.ic_gr_l2.text == "1 province", none.children.ic_gr_l2.text)
+        assert(not gm_row(panel, 4).visible, "a spare row is drawn")
+        assert(not panel.children.ic_gm_next.visible, "a pager for one page")
+    end)
+end)
+
+check("choosing a party rings exactly what it would take, and again clears it", function()
+    IC.state = {}
+    turn = 1
+    local g1 = make_character(821, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 821
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        map_click(ICUI.GM_ROW .. "_2")
+        local want = {}
+        for _, p in ipairs(IC.defecting_provinces(F, "legion")) do want[p] = true end
+        assert(next(want), "the fixture's legion would take nothing, so this proves nothing")
+        for i, p in pairs(ICUI.gm_keys) do
+            local ring = gm_pin(holder, i).images[ICUI.GP_OUTLINE]
+            assert((ring == ICUI.MK_RING_OUTLINE) == (want[p] == true), p .. " is ringed " .. tostring(ring))
+        end
+        assert(gm_row(panel, 2).images[0] == ICUI.GM_ROW_ART.selected[1]
+               and gm_row(panel, 2).images[1] == ICUI.GM_ROW_ART.selected[2],
+            "the chosen row does not look chosen in both states")
+        assert(gm_row(panel, 1).images[0] == ICUI.GM_ROW_ART.live[1], "another row looks chosen")
+        map_click(ICUI.GM_ROW .. "_2")
+        for i in pairs(ICUI.gm_keys) do
+            assert(gm_pin(holder, i).images[ICUI.GP_OUTLINE] == ICUI.MASK_NONE, "a second click left a ring")
+        end
+        assert(gm_row(panel, 2).images[0] == ICUI.GM_ROW_ART.live[1], "a second click left the row chosen")
+    end)
+end)
+
+check("a party that rings nothing says why, in the hint and on its tooltip", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        assert(panel.children.ic_gm_hint.text == "Click a party to see what it would take.",
+            "the hint reads " .. panel.children.ic_gm_hint.text)
+        map_click(ICUI.GM_ROW .. "_1")          -- the Crown
+        assert(panel.children.ic_gm_hint.text == "Your own house does not secede.",
+            "the Crown's hint reads " .. panel.children.ic_gm_hint.text)
+        local keep = IC.TUNE.secession
+        IC.TUNE.secession = false
+        map_click(ICUI.GM_ROW .. "_2")          -- the legion, secession off
+        IC.TUNE.secession = keep
+        assert(panel.children.ic_gm_hint.text:find("switched off", 1, true),
+            "the legion's hint reads " .. panel.children.ic_gm_hint.text)
+        assert(gm_row(panel, 2).tooltip:find("switched off", 1, true),
+            "the legion's tooltip does not say why: " .. tostring(gm_row(panel, 2).tooltip))
+        assert(gm_row(panel, 2).children.ic_gr_l3.visible == false, "a row that takes nothing still counts")
+    end)
+end)
+
+check("a realm with no province says so on the Parties page", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        assert(next(ICUI.gm_keys) == nil, "a pin for no province")
+        assert(panel.children.ic_gm_hint.text == "You hold no province.", panel.children.ic_gm_hint.text)
+    end)
+end)
+
+check("a court with more parties than rows pages its Parties page", function()
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    for _, slug in ipairs(IC.PARTIES) do IC.add_house(F, slug) end
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        local rows = ICUI.map_rows(F)
+        assert(#rows > ICUI.GM_ROWS, "the fixture fits one page, so this proves nothing")
+        local pages = math.ceil(#rows / ICUI.GM_ROWS)
+        assert(panel.children.ic_gm_next.visible, "no pager for " .. #rows .. " rows")
+        assert(panel.children.ic_gm_page.text == "Page 1 of " .. pages, panel.children.ic_gm_page.text)
+        for _ = 2, pages do map_click("ic_gm_next") end
+        assert(panel.children.ic_gm_page.text == "Page " .. pages .. " of " .. pages, panel.children.ic_gm_page.text)
+        map_click("ic_gm_next")                  -- past the end: stays
+        assert(panel.children.ic_gm_page.text == "Page " .. pages .. " of " .. pages, "Next ran past the last page")
+        -- "NO GOVERNOR" IS STILL THE LAST ROW, on the last page.
+        local last = gm_row(panel, #rows - (pages - 1) * ICUI.GM_ROWS)
+        assert(last.children.ic_gr_l1.text == "No governor", "the last row reads " .. last.children.ic_gr_l1.text)
+        -- A CHOICE ON THE LAST PAGE is a row of the whole list.
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ICUI.gm_party == (pages - 1) * ICUI.GM_ROWS + 1, "the last page's first row chose " .. tostring(ICUI.gm_party))
+        map_click("ic_gm_prev")
+        assert(gm_row(panel, 1).images[0] == ICUI.GM_ROW_ART.live[1], "page one's first row wears the other page's choice")
+    end)
+end)
+
+check("the Governors view reopens with nothing chosen", function()
+    IC.state = {}
+    local g1 = make_character(831, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 831
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ICUI.gm_party == 2, "the fixture chose nothing")
+        -- ANOTHER TAB AND BACK.
+        map_click("ic_tab_court")
+        map_click("ic_tab_govs")
+        assert(ICUI.gm_party == nil, "a tab and back kept the choice")
+        map_click(ICUI.GM_ROW .. "_2")
+        -- CLOSED AND REOPENED.
+        ICUI.close()
+        ICUI.view = "govs"
+        ICUI.gm_sync()
+        assert(ICUI.gm_party == nil, "a reopen kept the choice")
+    end)
+end)
+
+check("in the Governors view every visible text cell sits on a plate", function()
+    IC.state = {}
+    local g1 = make_character(841, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 841
+    -- 2560x1080 PUTS THE BOX 320px IN, so a row placed from the screen's corner
+    -- and not the box's falls off the column.
+    for _, screen in ipairs({{1920, 1080}, {1600, 900}, {2560, 1080}}) do
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.gm_page = "provinces"
+            ICUI.notice = "Something to say."
+            ICUI.open()
+            local plates = {}
+            for _, name in ipairs(ICUI.GM_PLATES) do
+                local p = panel.children[name]
+                if p.visible then plates[#plates + 1] = p end
+            end
+            local function on_plate(c)
+                for _, p in ipairs(plates) do
+                    if c.x >= p.x and c.y >= p.y and c.x + c.w <= p.x + p.w and c.y + c.h <= p.y + p.h then
+                        return true
+                    end
+                end
+                return false
+            end
+            local function walk(parent, where)
+                for _, c in ipairs(parent.order) do
+                    if c.visible and c ~= holder then
+                        if c.text ~= "" then
+                            assert(on_plate(c), screen[1] .. "x" .. screen[2] .. ": " .. where .. c.name
+                                .. " at " .. c.x .. "," .. c.y .. " " .. c.w .. "x" .. c.h
+                                .. " reads '" .. c.text .. "' over the bare map")
+                        end
+                        walk(c, where .. c.name .. " > ")
+                    end
+                end
+            end
+            walk(panel, "")
+            -- AND THE PARTIES PAGE, whose rows carry text.
+            map_click("ic_gm_tog_1")
+            assert(gm_row(panel, 1).visible and gm_row(panel, 1).children.ic_gr_l1.text ~= "",
+                "the Parties page drew no row, so its rows are not held to a plate")
+            walk(panel, "parties: ")
+            -- AND THE PICKER PAGE, now drawn on the map (Task 5).
+            map_click(ICUI.GM_PIN .. "_1")
+            assert(ICUI.pick and gm_row(panel, 1).visible,
+                "the picker drew no card, so its cards are not held to a plate")
+            walk(panel, "picker: ")
+            ICUI.pick = nil
+            ICUI.notice = nil
+        end, screen)
+    end
+    ICUI.gm_page = "provinces"
+    ICUI.apply_scale(1920)
+end)
+
+check("a Provinces row draws its governor's face, his crest, or an empty seat", function()
+    IC.state = {}
+    local seen = make_character(3201, ANY_SEAT, "legion")
+    local bare = make_character(3202, ANY_SEAT, "legion")
+    local away = make_character(3203, ANY_SEAT, "legion", "prov_elsewhere")
+    away._force = true
+    make_faction(F, IC.CHD_SUBCULTURE, {seen, bare, away}, {"prov_a", "prov_b", "prov_c", "prov_d"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 3201
+    IC.court(F).govs["prov_c"] = 3202
+    IC.court(F).govs["prov_d"] = 3203
+    IC_TEST_PORTRAITS = {["3201"] = "ui/portraits/portholes/chd/overseer.png"}
+    IC_TEST_LOC = {provinces_onscreen_prov_a = "The Plain of Zharr"}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(ICUI.gm_page == "provinces", "the column opened on " .. tostring(ICUI.gm_page))
+        local a, b, c, d = gm_row(panel, 1), gm_row(panel, 2), gm_row(panel, 3), gm_row(panel, 4)
+        -- A NAME, NOT A KEY.
+        assert(a.children.ic_gr_l1.text == "The Plain of Zharr", "row 1 reads " .. a.children.ic_gr_l1.text)
+        assert(a.children.ic_gr_l2.text == ICUI.character_name(seen), "row 1's governor reads " .. a.children.ic_gr_l2.text)
+        -- HIS FACE, ON HIS PARTY'S PLATE, WITH HIS PARTY'S CREST ON ITS CORNER.
+        assert(a.children.ic_gr_face.visible and a.children.ic_gr_face.images[ICUI.FACE_INDEX]
+               == "ui/portraits/portholes/chd/overseer.png", "row 1 draws no face")
+        assert(a.children.ic_gr_face.images[ICUI.PLATE_INDEX] == ICUI.plate_path("legion"), "row 1's face has no party plate")
+        assert(a.children.ic_gr_badge.visible and a.children.ic_gr_badge.images[0] == ICUI.crest("legion"),
+            "row 1 wears no party crest")
+        -- +N WEIGHT, THE MODEL'S OWN FIGURE.
+        local w = IC.gov_weight_of(IC.province_levels(F).prov_a)
+        assert(a.children.ic_gr_l3.text == string.format("%d%%, +%d weight", IC.province_loyalty(F, "prov_a"), w),
+            "row 1's last line reads " .. a.children.ic_gr_l3.text)
+        assert(a.children.ic_gr_icon.visible and a.children.ic_gr_icon.images[0]
+               == ICUI.gm_fealty(IC.province_loyalty(F, "prov_a")), "row 1 has no loyalty icon")
+        -- AN EMPTY SEAT: the silhouette on NO plate, "None assigned", no weight.
+        assert(b.children.ic_gr_face.images[ICUI.FACE_INDEX] == ICUI.SILHOUETTE, "an empty seat draws " .. tostring(b.children.ic_gr_face.images[ICUI.FACE_INDEX]))
+        assert(b.children.ic_gr_face.images[ICUI.PLATE_INDEX] == ICUI.MASK_NONE, "an empty seat wears a colour")
+        assert(b.children.ic_gr_l2.text == "None assigned", "an empty seat's governor reads " .. b.children.ic_gr_l2.text)
+        assert(not b.children.ic_gr_l3.text:find("weight", 1, true), "an empty seat adds weight: " .. b.children.ic_gr_l3.text)
+        assert(not b.children.ic_gr_badge.visible, "an empty seat wears a party crest")
+        -- A FACE THAT WILL NOT RESOLVE: his party's crest in its place.
+        assert(not c.children.ic_gr_face.visible, "an unresolved face still draws")
+        assert(c.children.ic_gr_crest.visible and c.children.ic_gr_crest.images[0] == ICUI.crest("legion"),
+            "an unresolved face has no crest in its place")
+        -- AWAY, IN WORDS.
+        assert(d.children.ic_gr_l2.text:find("(away)", 1, true), "an away governor reads " .. d.children.ic_gr_l2.text)
+        -- WHAT HIS RANK ADDS rides on the tooltip.
+        -- "he adds +", NOT "rank": map_tip's own governor line already says "rank N".
+        assert(a.tooltip:find("he adds +", 1, true), "row 1's tooltip does not say what his rank adds")
+        -- A ROW IS CHOSEN, NOT APPOINTED: the pin's "Click to replace" is wrong here.
+        assert(a.tooltip:find("Click to choose this province.", 1, true)
+               and not a.tooltip:find("Click to replace", 1, true), "row 1's tooltip reads: " .. a.tooltip)
+    end)
+    IC_TEST_PORTRAITS, IC_TEST_LOC = nil, nil
+end)
+
+check("choosing a province moves the camera to it, keeping the zoom, and rings its pin; again clears it", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    local was_cam, was_pos = cm.scroll_camera_from_current, cm.get_camera_position
+    local moved = {}
+    cm.get_camera_position = function() return 10, 20, 30, 0.5, 40 end
+    cm.scroll_camera_from_current = function(_, correct, time, pos) moved[#moved + 1] = pos end
+    local ok, err = pcall(with_fake_govmap, function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ICUI.gm_sel == "prov_b", "the second row chose " .. tostring(ICUI.gm_sel))
+        assert(#moved == 1, #moved .. " camera moves for one choice")
+        local p = moved[1]
+        assert(p[1] == 301 and p[2] == 400, "the camera went to " .. p[1] .. "," .. p[2])
+        assert(p[3] == 30 and p[4] == 0.5 and p[5] == 40, "the camera's zoom and bearing were not kept")
+        assert(gm_pin(holder, 2).images[ICUI.GP_OUTLINE] == ICUI.MK_RING_OUTLINE, "the chosen province's pin is not ringed")
+        assert(gm_pin(holder, 1).images[ICUI.GP_OUTLINE] == ICUI.MASK_NONE, "another pin is ringed")
+        assert(gm_row(panel, 2).images[0] == ICUI.GM_ROW_ART.selected[1], "the chosen row does not look chosen")
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ICUI.gm_sel == nil, "a second click kept the choice")
+        assert(#moved == 1, "clearing the choice moved the camera")
+        assert(gm_pin(holder, 2).images[ICUI.GP_OUTLINE] == ICUI.MASK_NONE, "a cleared choice left its ring")
+    end)
+    cm.scroll_camera_from_current, cm.get_camera_position = was_cam, was_pos
+    assert(ok, err)
+end)
+
+check("the round buttons: disabled with nothing chosen, hidden on Parties, the cross only for a governed province",
+function()
+    IC.state = {}
+    local g = make_character(3211, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 3211
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local ok_b, no_b = panel.children.ic_gm_ok, panel.children.ic_gm_no
+        assert(ok_b.visible and ok_b.disabled == true, "the check is live with nothing chosen")
+        assert(no_b.visible and no_b.disabled == true, "the cross is live with nothing chosen")
+        map_click("ic_gm_ok")
+        assert(ICUI.pick == nil, "a disabled check opened a picker")
+        -- A GOVERNED PROVINCE: both live.
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ok_b.disabled == false and no_b.visible and no_b.disabled == false,
+            "a governed province's buttons are not both live")
+        -- AN EMPTY ONE: nothing to release, so no cross.
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ok_b.disabled == false, "an empty province cannot be given a governor")
+        assert(not no_b.visible, "the cross offers to release nobody")
+        -- THE PARTIES PAGE has neither.
+        map_click("ic_gm_tog_1")
+        assert(not ok_b.visible and not no_b.visible and not panel.children.ic_gm_btns.visible,
+            "the round buttons show on the Parties page")
+        for i = 1, 3 do assert(not panel.children["ic_gm_sort_" .. i].visible, "a sort shows on the Parties page") end
+    end)
+end)
+
+check("the check opens the governor picker for the chosen province", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_ROW .. "_2")
+        map_click("ic_gm_ok")
+        assert(ICUI.pick and ICUI.pick.kind == "gov" and ICUI.pick.key == "prov_b",
+            "the check opened " .. tostring(ICUI.pick and ICUI.pick.key))
+    end)
+end)
+
+check("the cross releases the selected province, whatever page it is on", function()
+    IC.state = {}
+    local provinces, men = {}, {}
+    for i = 1, ICUI.GM_ROWS + 2 do
+        provinces[i] = "prov_" .. string.char(96 + i)
+        men[i] = make_character(3300 + i, ANY_SEAT, "legion")
+    end
+    make_faction(F, IC.CHD_SUBCULTURE, men, provinces)
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    for i, p in ipairs(provinces) do IC.court(F).govs[p] = 3300 + i end
+    local last = provinces[#provinces]
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_next")
+        -- PAGE TWO'S SECOND ROW is the ninth province.
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ICUI.gm_sel == last, "page two's second row chose " .. tostring(ICUI.gm_sel))
+        map_click("ic_gm_no")
+        assert(IC.court(F).govs[last] == nil, "the cross did not release " .. last)
+        assert(IC.court(F).govs[provinces[2]] == 3302, "the cross released page one's second row")
+        -- ANSWERED, and the row redrawn empty.
+        assert(gm_row(panel, 2).children.ic_gr_l2.text == "None assigned", "the released row still names a governor")
+    end)
+end)
+
+check("a sorted Provinces page chooses and appoints the province it drew, and keeps it through a sort", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC_TEST_LOC = {provinces_onscreen_prov_a = "Cinder", provinces_onscreen_prov_b = "Ash",
+                   provinces_onscreen_prov_c = "Basalt"}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
+        ICUI.open()
+        map_click("ic_gm_sort_1")                  -- by Province: Ash, Basalt, Cinder
+        assert(gm_row(panel, 1).children.ic_gr_l1.text == "Ash", "the first row reads " .. gm_row(panel, 1).children.ic_gr_l1.text)
+        assert(panel.children.ic_gm_sort_1.text:find("Province", 1, true)
+               and panel.children.ic_gm_sort_1.text ~= "Province", "the sorted column is not lit")
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ICUI.gm_sel == "prov_b", "the first row chose " .. tostring(ICUI.gm_sel))
+        -- RE-SORTED UNDER IT: the choice is a province, not a row.
+        map_click("ic_gm_sort_1")                  -- descending: Cinder, Basalt, Ash
+        assert(ICUI.gm_sel == "prov_b", "a sort moved the choice to " .. tostring(ICUI.gm_sel))
+        assert(gm_row(panel, 3).images[0] == ICUI.GM_ROW_ART.selected[1], "the chosen province's new row does not look chosen")
+        assert(gm_pin(holder, 2).images[ICUI.GP_OUTLINE] == ICUI.MK_RING_OUTLINE, "a sort moved the ring")
+        map_click("ic_gm_ok")
+        assert(ICUI.pick and ICUI.pick.key == "prov_b", "the check after a sort opened " .. tostring(ICUI.pick and ICUI.pick.key))
+        -- AND THE THIRD CLICK IS MAP ORDER AGAIN.
+        ICUI.pick = nil
+        map_click("ic_gm_sort_1")
+        assert(ICUI.sort.govs == 1, "the third click did not hand back map order")
+    end)
+    IC_TEST_LOC = nil
+    ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
+end)
+
+check("every province is reachable once the Provinces page outruns its rows", function()
+    IC.state = {}
+    local provinces = {}
+    for i = 1, ICUI.GM_ROWS * 2 + 1 do provinces[i] = "prov_" .. string.char(96 + i) end
+    make_faction(F, IC.CHD_SUBCULTURE, {}, provinces)
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local seen = {}
+        for page = 1, 3 do
+            for i = 1, ICUI.GM_ROWS do
+                local r = ICUI.gm_rows[i]
+                if r then seen[r.key] = true end
+            end
+            if page < 3 then map_click("ic_gm_next") end
+        end
+        for _, p in ipairs(provinces) do assert(seen[p], p .. " is on no page") end
+        assert(panel.children.ic_gm_page.text == "Page 3 of 3", panel.children.ic_gm_page.text)
+    end)
+end)
+
+check("a chosen province that is lost clears the choice and releases nothing", function()
+    IC.state = {}
+    local g = make_character(3221, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 3221
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_ROW .. "_2")
+        assert(ICUI.gm_sel == "prov_b", "the fixture chose nothing")
+        make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+        -- REDRAWN BEFORE ANY CLICK: the choice goes with the province, and the
+        -- check with it.
+        ICUI.refresh()
+        assert(ICUI.gm_sel == nil, "a redraw kept a lost province chosen")
+        assert(panel.children.ic_gm_ok.disabled == true, "the check stays live for a lost province")
+        ICUI.gm_sel = "prov_b"
+        map_click("ic_gm_ok")
+        assert(ICUI.pick == nil, "a lost province reached the picker")
+        assert(ICUI.gm_sel == nil, "the lost province is still chosen")
+    end)
+end)
+
+check("a sort starts the Provinces page again from its first page", function()
+    IC.state = {}
+    local provinces = {}
+    for i = 1, ICUI.GM_ROWS + 2 do provinces[i] = "prov_" .. string.char(96 + i) end
+    make_faction(F, IC.CHD_SUBCULTURE, {}, provinces)
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_next")
+        assert(panel.children.ic_gm_page.text == "Page 2 of 2", "the fixture never reached page two")
+        map_click("ic_gm_sort_1")
+        assert(panel.children.ic_gm_page.text == "Page 1 of 2", "a sort left the page on " .. panel.children.ic_gm_page.text)
+    end)
+    ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
+end)
+
+check("a province's loyalty icon follows its loyalty", function()
+    assert(ICUI.gm_fealty(IC.TUNE.prov_defect_floor) == ICUI.GM_FEALTY.low, "at the defection floor")
+    assert(ICUI.gm_fealty(IC.TUNE.prov_loyalty_start) == ICUI.GM_FEALTY.medium, "at the starting loyalty")
+    assert(ICUI.gm_fealty(IC.TUNE.prov_loyalty_start + 1) == ICUI.GM_FEALTY.high, "above the starting loyalty")
+    assert(ICUI.GM_FEALTY.low ~= ICUI.GM_FEALTY.medium and ICUI.GM_FEALTY.medium ~= ICUI.GM_FEALTY.high,
+        "two bands share one icon")
+end)
+
+check("a pin's tooltip says what its province adds to its party", function()
+    IC.state = {}
+    local g = make_character(3231, ANY_SEAT, "legion")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 3231
+    f._levels = {prov_a = 3}
+    f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1990, level = 4}}
+    IC.refresh_gov_weight(F)
+    local tip = ICUI.map_tip(F, "prov_a")
+    local want = string.format("%s: +4 weight from this province (7 settlement levels), %d%% of the court",
+                               ICUI.house_name("legion", F), math.floor(IC.share(F, "legion") + 0.5))
+    assert(tip:find(want, 1, true), "the tooltip reads: " .. tip)
+    f._levels, f._extra_regions = nil, nil
+end)
+
+-- THE WEIGHT IS EARNED A STEP A TURN (Task 2's gradual weight, after the plan):
+-- the pin and the row say what the province adds NOW, and what it grows to.
+check("a governorship still growing shows what it adds now and what it grows to", function()
+    IC.state = {}
+    local g = make_character(3241, ANY_SEAT, "legion")
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {g}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    f._levels = {prov_a = 3}
+    local court = IC.court(F)
+    court.govs["prov_a"] = 3241
+    court.gov_grown = {prov_a = 1}
+    local worth = IC.gov_weight_of(3)
+    assert(worth > 1, "the fixture's province is worth " .. worth .. ", so nothing is left to grow")
+    local tip = ICUI.map_tip(F, "prov_a")
+    local want = string.format("%s: +1 weight from this province (3 settlement levels, growing to +%d)",
+                               ICUI.house_name("legion", F), worth)
+    assert(tip:find(want, 1, true), "the tooltip reads: " .. tip)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local l3 = gm_row(panel, 1).children.ic_gr_l3.text
+        assert(l3 == string.format("%d%%, +1 of %d weight", IC.province_loyalty(F, "prov_a"), worth),
+            "the row reads " .. l3)
+    end)
+    -- GROWN IN FULL, the plain figure again.
+    court.gov_grown.prov_a = worth
+    assert(not ICUI.map_tip(F, "prov_a"):find("growing", 1, true), "a grown governorship still says it grows")
+    f._levels = nil
+end)
+
+check("the column's cross sends its release in multiplayer and waits for the trigger", function()
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(3251, ANY_SEAT, "legion")}, {"prov_a"})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_a"] = 3251
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local ran, was = 0, IC.release_governor
+    IC.release_governor = function() ran = ran + 1 return true end
+    local ok, err = pcall(with_fake_govmap, function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_ROW .. "_1")
+        with_mp(F, function(sent)
+            map_click("ic_gm_no")
+            assert(ran == 0, "the cross released before its trigger came back")
+            assert(#sent == 1, "the cross sent " .. #sent .. " triggers")
+            deliver(sent[1])
+            assert(ran == 1, "the cross's trigger reached the model " .. ran .. " times")
+        end)
+    end)
+    IC.release_governor = was
+    cm.get_human_factions = function() return {} end
+    assert(ok, err)
+end)
+
+-- THE PICKER PAGE'S ROW FOR A MAN, whichever slot the sort put him in.
+local function gm_pick_row(panel, cqi)
+    for i = 1, ICUI.GM_ROWS do
+        local r = ICUI.gm_rows[i]
+        if r and r.key == cqi then return gm_row(panel, i), r end
+    end
+    return nil
+end
+
+check("a pin opens the governor picker in the column, over the map, with the court's own men", function()
+    IC.state = {}
+    local free = make_character(3401, ANY_SEAT, "legion")
+    local busy = make_character(3402, ANY_SEAT, "legion")
+    local bare = make_character(3403, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {free, busy, bare}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 3402
+    IC_TEST_PORTRAITS = {["3401"] = "ui/portraits/portholes/chd/free.png"}
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        assert(ICUI.gm_live_page() == "picker", "the pin opened " .. ICUI.gm_live_page())
+        assert(panel.children.ic_gm_head.text == ICUI.GM_PAGE_TITLE.picker, "the head reads " .. panel.children.ic_gm_head.text)
+        -- THE QUESTION, NAMING THE PROVINCE (spec section 3), on the section line.
+        assert((panel.children.ic_lbl_section.text or ""):find("Choose who governs prov_a", 1, true),
+            "the section line reads " .. tostring(panel.children.ic_lbl_section.text))
+        -- NOT THE COURT'S FULL-SCREEN LIST.
+        assert(not panel.children[ICUI.ROW .. "_1"].visible, "the court's own picker shows over the map")
+        -- THE PROVINCE BEING CHOSEN FOR is ringed on the map.
+        assert(gm_pin(holder, 1).images[ICUI.GP_OUTLINE] == ICUI.MK_RING_OUTLINE, "the province being chosen for is not ringed")
+        -- A FREE MAN: his face, his party, his rank and influence.
+        local row = gm_pick_row(panel, 3401)
+        assert(row and row.visible, "the free man has no card")
+        assert(row.children.ic_gr_l1.text:find(ICUI.character_name(free), 1, true), "his card reads " .. row.children.ic_gr_l1.text)
+        assert(row.children.ic_gr_l2.text == ICUI.house_name("legion", F), "his party reads " .. row.children.ic_gr_l2.text)
+        assert(row.children.ic_gr_l3.text == string.format("Rank %d, %d influence", free:rank(), IC.standing(F, 3401)),
+            "his last line reads " .. row.children.ic_gr_l3.text)
+        assert(row.children.ic_gr_face.images[ICUI.FACE_INDEX] == "ui/portraits/portholes/chd/free.png", "his card has no face")
+        assert(row.children.ic_gr_badge.visible and row.children.ic_gr_badge.images[0] == ICUI.crest("legion"), "his face wears no crest")
+        assert(row.images[0] == ICUI.GM_ROW_ART.live[1], "a free man's card does not look live")
+        -- A MAN WITH NO FACE: his party's crest in its place.
+        local plain = gm_pick_row(panel, 3403)
+        assert(plain and plain.children.ic_gr_crest.visible and plain.children.ic_gr_crest.images[0] == ICUI.crest("legion"),
+            "a man with no face has no crest in its place")
+        -- A BUSY MAN: drawn inactive, the reason first, and not choosable.
+        local held, r = gm_pick_row(panel, 3402)
+        assert(held and held.images[0] == ICUI.GM_ROW_ART.inactive[1], "a busy man's card does not look inactive")
+        assert(held.tooltip:find("^Busy%.") , "a busy man's tooltip does not open with why: " .. held.tooltip)
+        assert(held.tooltip:find(IC.standing(F, 3402) .. " influence. Holds: prov_b.", 1, true),
+            "a busy man's tooltip does not carry his influence and what he holds: " .. held.tooltip)
+        sounds = {}
+        for i = 1, ICUI.GM_ROWS do
+            if ICUI.gm_rows[i] == r then map_click(ICUI.GM_ROW .. "_" .. i) end
+        end
+        assert(ICUI.gm_pick_sel == nil, "a busy man was chosen")
+        -- AND THE CLICK SAYS NO, out loud; the reason is on his tooltip.
+        local refused = false
+        for _, s in ipairs(sounds) do if s == ICUI.SOUNDS.refused then refused = true end end
+        assert(refused, "a click on a busy man's card made no refusal sound")
+    end)
+    IC_TEST_PORTRAITS = nil
+end)
+
+check("the check appoints the chosen man, and the answer returns to the page the picker came from", function()
+    for _, from in ipairs({"provinces", "parties"}) do
+        IC.state = {}
+        local man = make_character(3411, ANY_SEAT, "legion")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "legion")
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.open()
+            if from == "parties" then map_click("ic_gm_tog_1") end
+            map_click(ICUI.GM_PIN .. "_2")
+            local ok_b = panel.children.ic_gm_ok
+            assert(ok_b.visible and ok_b.disabled == true, from .. ": the check is live with no man chosen")
+            assert(panel.children.ic_gm_no.visible and panel.children.ic_gm_no.disabled == false,
+                from .. ": the cross cannot go back")
+            map_click("ic_gm_ok")
+            assert(IC.court(F).govs.prov_b == nil, from .. ": a dead check appointed someone")
+            local row = gm_pick_row(panel, 3411)
+            for i = 1, ICUI.GM_ROWS do
+                if gm_row(panel, i) == row then map_click(ICUI.GM_ROW .. "_" .. i) end
+            end
+            assert(ICUI.gm_pick_sel == 3411, from .. ": the card chose " .. tostring(ICUI.gm_pick_sel))
+            assert(row.images[0] == ICUI.GM_ROW_ART.selected[1], from .. ": the chosen card does not look chosen")
+            assert(ok_b.disabled == false, from .. ": the check is dead with a man chosen")
+            map_click("ic_gm_ok")
+            assert(IC.court(F).govs.prov_b == 3411, from .. ": the check did not appoint him")
+            assert(ICUI.pick == nil and ICUI.gm_live_page() == from,
+                from .. ": the answer landed on " .. ICUI.gm_live_page())
+            assert(panel.images[0] == ICUI.MASK_NONE, from .. ": the answer put the backdrop back")
+            -- THE PIN REDRAWN in the new governor's party colour (spec section 3).
+            assert(gm_pin(holder, 2).images[ICUI.GP_PARTY] == ICUI.gm_ring_path("legion"),
+                from .. ": the pin still wears " .. tostring(gm_pin(holder, 2).images[ICUI.GP_PARTY]))
+        end)
+    end
+end)
+
+check("the cross, a toggle and a tab each abandon the picker", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(3421, ANY_SEAT, "legion")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        map_click("ic_gm_no")
+        assert(ICUI.pick == nil and ICUI.gm_live_page() == "provinces", "the cross left " .. ICUI.gm_live_page())
+        assert(IC.court(F).govs.prov_a == nil, "the cross appointed someone")
+        map_click(ICUI.GM_PIN .. "_1")
+        map_click("ic_gm_tog_1")
+        assert(ICUI.pick == nil and ICUI.gm_live_page() == "parties", "the toggle left " .. ICUI.gm_live_page())
+        map_click(ICUI.GM_PIN .. "_1")
+        map_click("ic_tab_offices")
+        assert(ICUI.pick == nil and ICUI.view == "offices", "the tab left the picker up")
+        assert(panel.images[0] == ICUI.GM_BACKDROP and panel.interactive == true, "the tab left the map showing")
+    end)
+end)
+
+check("a man who stops being free, or a province lost, between the draw and the check appoints nobody", function()
+    IC.state = {}
+    local man = make_character(3431, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ICUI.gm_pick_sel == 3431, "the fixture chose nobody")
+        -- HE TAKES prov_b behind the panel's back.
+        IC.court(F).govs.prov_b = 3431
+        -- REDRAWN BEFORE ANY CLICK: the choice goes, and the check with it.
+        ICUI.refresh()
+        assert(ICUI.gm_pick_sel == nil, "a redraw kept a man no longer free chosen")
+        assert(panel.children.ic_gm_ok.disabled == true, "the check stays live for a man no longer free")
+        ICUI.gm_pick_sel = 3431
+        map_click("ic_gm_ok")
+        assert(IC.court(F).govs.prov_a == nil, "a man no longer free was appointed")
+        assert(ICUI.gm_pick_sel == nil and ICUI.gm_live_page() == "picker", "the stale choice was kept, or the picker shut")
+        IC.court(F).govs.prov_b = nil
+        ICUI.refresh()
+        map_click(ICUI.GM_ROW .. "_1")
+        -- prov_a FALLS between the draw and the click.
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {"prov_b"})
+        map_click("ic_gm_ok")
+        assert(IC.court(F).govs.prov_a == nil, "a lost province was given a governor")
+        assert(ICUI.pick == nil, "the picker stayed up for a province no longer held")
+    end)
+end)
+
+check("a picker with more men than cards pages, and a new pin opens it on page one with nobody chosen", function()
+    IC.state = {}
+    local men = {}
+    for i = 1, ICUI.GM_ROWS + 2 do men[i] = make_character(3440 + i, ANY_SEAT, "legion") end
+    make_faction(F, IC.CHD_SUBCULTURE, men, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        assert(panel.children.ic_gm_page.text == "Page 1 of 2", panel.children.ic_gm_page.text)
+        map_click("ic_gm_next")
+        -- ITS OWN PAGE COUNT: the Provinces page under it has one page.
+        assert(panel.children.ic_gm_page.text == "Page 2 of 2", "next landed on " .. panel.children.ic_gm_page.text)
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ICUI.gm_pick_sel ~= nil, "page two's first card chose nobody")
+        map_click(ICUI.GM_PIN .. "_2")
+        assert(ICUI.pick.key == "prov_b", "the second pin opened " .. tostring(ICUI.pick.key))
+        assert(panel.children.ic_gm_page.text == "Page 1 of 2", "a new pin opened on " .. panel.children.ic_gm_page.text)
+        assert(ICUI.gm_pick_sel == nil, "a new pin kept the last man chosen")
+    end)
+end)
+
+check("the column's check sends its appointment in multiplayer and waits for the trigger", function()
+    IC.state = {}
+    turn = 1
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {make_character(3461, ANY_SEAT, "legion")}, {"prov_a"})
+    f._cqi = 41
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    cm.get_human_factions = function() return {F} end
+    IC.register()
+    local ran, was = 0, IC.assign_governor
+    IC.assign_governor = function() ran = ran + 1 return true end
+    local ok, err = pcall(with_fake_govmap, function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        map_click(ICUI.GM_ROW .. "_1")
+        with_mp(F, function(sent)
+            map_click("ic_gm_ok")
+            assert(ran == 0, "the check appointed before its trigger came back")
+            assert(ICUI.pick, "the picker shut before the answer came")
+            assert(#sent == 1, "the check sent " .. #sent .. " triggers")
+            deliver(sent[1])
+            assert(ran == 1, "the check's trigger reached the model " .. ran .. " times")
+            assert(ICUI.pick == nil, "the picker stayed up after its answer")
+        end)
+    end)
+    IC.assign_governor = was
+    cm.get_human_factions = function() return {} end
+    assert(ok, err)
+end)
+
+check("the tab strip has no Map tab and no gap where it stood", function()
+    assert(ICUI.PANEL_XY.ic_tab_map == nil, "PANEL_XY still places a Map tab")
+    local tabs = {}
+    for id in pairs(ICUI.TAB_VIEW) do tabs[#tabs + 1] = ICUI.PANEL_XY[id] end
+    table.sort(tabs, function(a, b) return a[1] < b[1] end)
+    local first = tabs[2][1] - (tabs[1][1] + tabs[1][3])
+    for i = 2, #tabs do
+        local gap = tabs[i][1] - (tabs[i - 1][1] + tabs[i - 1][3])
+        assert(gap == first, string.format("a %dpx gap before the tab at x %d, where the rest have %d",
+                                           gap, tabs[i][1], first))
+    end
+    -- EVERY ATTENTION MARKER ON ITS OWN TAB'S RIGHT-HAND SKULL, 34px in from its end.
+    for view, mark in pairs(ICUI.MARKS) do
+        local tab, m = ICUI.PANEL_XY["ic_tab_" .. view], ICUI.PANEL_XY[mark]
+        assert(m[1] == tab[1] + tab[3] - 34, mark .. " is not on its tab's skull")
+    end
+end)
+
+check("the Help tells the player how to choose a governor on the map", function()
+    local found = false
+    for _, topic in ipairs(ICUI.HELP) do
+        for _, line in ipairs(topic.lines) do
+            if line:find("pin", 1, true) and line:find("Governors tab", 1, true) then found = true end
+        end
+    end
+    assert(found, "no Help line says how the Governors tab's map is used")
+end)
+
+check("the old party map is gone: no layer, no marker file, no listener of its own", function()
+    assert(ICUI.map_open == nil and ICUI.MAP == nil and ICUI.PATH_MARKER == nil,
+        "the old map's code is still loaded")
+    for _, n in ipairs({"derpy_ic_map.twui.xml", "derpy_ic_map_marker.twui.xml"}) do
+        local f = io.open("Modding Files/pack/ui/campaign ui/" .. n, "rb")
+        if f then f:close() end
+        assert(f == nil, n .. " is still in the pack's folder, and the build would ship it")
+    end
+    assert(core.listeners["ic_map_turn_end"] == nil, "the old map's turn-end listener is still registered")
+end)
+
+check("ending the turn on the Governors view closes the court, pins and all, and a reopen starts afresh",
+function()
+    IC.state = {}
+    local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click("ic_gm_tog_1")
+        map_click(ICUI.GM_ROW .. "_1")
+        assert(ICUI.gm_party == 1, "the fixture chose no party")
+        core.listeners["ic_turn_end"]({faction = function() return f end})
+        assert(panel.destroyed, "the turn ended with the court up over the map")
+        assert(hud.visible == true, "the turn ended with the HUD still hidden")
+        assert(ICUI.gm_was_on == false, "the closed court still counts the view as up")
+        ICUI.open()
+        assert(ICUI.gm_party == nil, "a reopen after the turn kept the last choice")
+    end)
 end)
 
 check("no parties' turn failed anywhere in the run", function()

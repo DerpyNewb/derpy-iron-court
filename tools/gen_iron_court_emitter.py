@@ -244,7 +244,13 @@ def _state(c, name, sguid, entries, target):
 
 def component(c):
     kw = c.kw
-    attrs = ['this="%s"' % c.gid, 'id="%s"' % c.name, 'tooltipslocalised="true"']
+    attrs = ['this="%s"' % c.gid, 'id="%s"' % c.name]
+    # THE POINT ContextWorldSpaceComponent PINS, as a fraction of the box: CA's
+    # map pins write "0.50,1.00", the bottom centre. Where CA's file carries it,
+    # before tooltipslocalised. Absent, the engine picks, and ours landed off.
+    if kw.get("anchor") is not None:
+        attrs.append('component_anchor_point="%.2f,%.2f"' % tuple(kw["anchor"]))
+    attrs.append('tooltipslocalised="true"')
     if kw.get("tooltip"):
         # literal, not {{tr:}} - see the TIP_* block for the measurement behind that
         attrs.append('componentleveltooltip="%s"' % _esc(kw["tooltip"]))
@@ -256,8 +262,15 @@ def component(c):
     # silent with no error, so only use categories that actually appear there.
     if kw.get("sound"):
         attrs.append('soundcategory="%s"' % kw["sound"])
-    attrs += ['uniqueguid="%s"' % c.gid,
-              'currentstate="%s"' % c.sid, 'defaultstate="%s"' % c.sid]
+    attrs.append('uniqueguid="%s"' % c.gid)
+    # A MASK (CA's kislev_atamans drag_icon): the GUID of this component's OWN
+    # mask componentimage, the cig the layer list below writes for that index.
+    # Between uniqueguid and currentstate, where CA's file carries it. A GUID
+    # naming anything else fails in silence; gen_ic_ui.check_masks holds it.
+    if kw.get("mask") is not None:
+        attrs.append('maskimage="%s"'
+                     % c.gid.replace("-D000-", "-D%03d-" % (kw["mask"] * 2 + 1)))
+    attrs += ['currentstate="%s"' % c.sid, 'defaultstate="%s"' % c.sid]
     out = "\t\t<%s\n\t\t\t%s>\n" % (c.name, "\n\t\t\t".join(attrs))
 
     # A CONTEXT COLOUR BINDING - the one and only way a COLOUR can vary at runtime.
@@ -278,8 +291,7 @@ def component(c):
     # colour, and the mask's transparent 82% stays untouched.
     # CALLBACKS. colour_from is the one with a shorthand; `callbacks` takes any
     # other as {"id", "object"?, "function"?, "props": [(name, value)]} - the party
-    # map's markers carry CA's ContextWorldSpaceComponent and ContextOpacitySetter
-    # this way. The colour setter's output is byte-identical to before.
+    # map's markers carry CA's ContextWorldSpaceComponent this way. The colour setter's output is byte-identical to before.
     cbs = []
     cc = kw.get("colour_from")
     if cc:
