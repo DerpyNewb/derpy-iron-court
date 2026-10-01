@@ -300,7 +300,8 @@ BCD7264A and 5D2C688C; the repo's CHANGELOG has one entry for the three.
 ## 12. The region highlight and the levels-per-point slider (2026-10-01)
 
 Build `88EE51F2` (MD5 `88ee51f2b29f6bc21f3a0cd37a703062`), deployed to data/ when the game
-closed (`deploy_iron_court.py --wait`, backup `.bak_pre_auto_20261001_173012`), **not pushed**.
+closed (`deploy_iron_court.py --wait`, backup `.bak_pre_auto_20261001_173012`), pushed to
+GitHub on 2026-10-01 as 1d143a6.
 The author asked for both of the spec's section 8 items back ("add back tinting CA's own region
 overlay by party colour. and the settings slider for the weight per settlement level").
 
