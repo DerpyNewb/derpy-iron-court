@@ -36,6 +36,13 @@ MANIFEST = [(p, p) for p in [
     _UI + "derpy_gg_list.twui.xml",
     _UI + "derpy_gg_frow.twui.xml",
     _UI + "derpy_gg_opener.twui.xml",
+    # THE DERPY HUD HUB: this pack's copy, its source and the tool that writes the copies.
+    _MOD + "derpy_hub_gg.lua",
+    _UI + "derpy_hub_gg.twui.xml",
+    _UI + "derpy_hub_plate_gg.twui.xml",
+    "Modding Files/source/derpy_hub/derpy_hud_hub.lua",
+    "tools/_hub_harness.lua",
+    "tools/sync_derpy_hub.py",
     # Each race's own panel and card (gen_guilds_ui.FRAMES) - text, naming CA art by path.
     *[_UI + "derpy_gg_%s_%s.twui.xml" % (kind, race)
       for race in ("brt", "cth", "def", "dwf", "emp", "hef", "ksl")
@@ -103,6 +110,8 @@ MANIFEST = [(p, p) for p in [
      "docs/history/HANDOFF_20260925_GUILDS_MP_MCT.md"),
     ("docs/sessions/HANDOFF_20260925_GUILDS_QOL.md",
      "docs/history/HANDOFF_20260925_GUILDS_QOL.md"),
+    ("docs/sessions/HANDOFF_20261001_HUD_HUB_PLAN.md",
+     "docs/history/HANDOFF_20261001_HUD_HUB_PLAN.md"),
     ("docs/superpowers/specs/2026-09-27-great-guilds-bounties-v2-design.md",
      "docs/design/2026-09-27-great-guilds-bounties-v2-design.md"),
     ("docs/superpowers/plans/2026-09-27-great-guilds-bounties-v2.md",

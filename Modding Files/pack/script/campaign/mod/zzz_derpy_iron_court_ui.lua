@@ -37,6 +37,17 @@ ICUI.BTN_SIZE = 44          -- must match OPENER_W/H in tools/gen_ic_ui.py
 ICUI.BTN_GAP  = 4
 ICUI.BTN_TRIES = 12
 
+-- THE HUB (tools/sync_derpy_hub.py, spec 2026-10-01). With a second Derpy opener on
+-- the HUD, one hub button takes the strip slot and shows this button in a row on
+-- hover. While the hub manages it, the hub owns its place and visibility; this
+-- file still makes it, writes its tooltip, greys it and pulses it.
+ICUI.HUB_KEY = "ic"
+
+function ICUI.hubbed()
+    return DERPY_HUB ~= nil and DERPY_HUB.manages ~= nil
+        and DERPY_HUB.manages(ICUI.HUB_KEY) == true
+end
+
 -- Row origin and pitch, panel-relative. tools/gen_ic_ui.py declares the same two
 -- numbers as ROWS_X / ROWS_Y / ROW_PITCH and import_iron_court.py refuses to pack
 -- if they drift apart.
@@ -1488,6 +1499,8 @@ function ICUI.gate_opener(waiting, live)
     local button = comp(ICUI.BTN)
     if not button then return end
     if live == nil then live = ICUI.player_turn() end
+    -- WHAT THE HUB READS (its live() probe): the state drawn, not re-derived.
+    ICUI.opener_live = live and true or false
     if live then
         pcall(function() button:SetDisabled(false) end)
         pcall(ICUI.grey_look, button, false)
@@ -1505,6 +1518,7 @@ end
 function ICUI.pulse_opener(on)
     local button = comp(ICUI.BTN)
     if not button then return end
+    ICUI.pulsing = on == true
     -- EACH STATE BY NAME: with none named CA's call touches only the CURRENT
     -- state, and a pulse started in hover would outlive the stop in standard.
     for _, state in ipairs({"standard", "hover"}) do
@@ -1549,6 +1563,16 @@ function ICUI.place_opener(attempt, quiet)
         pcall(function() root():CreateComponent(ICUI.BTN, ICUI.PATH_OPENER) end)
         button = comp(ICUI.BTN)
         if not button then return retry("could not create the button") end
+    end
+
+    -- THE HUB PLACES IT while it manages this button: one MoveTo owner, or the
+    -- two fight at every turn start. Made above, so the hub has something to find.
+    -- The tooltip is still written here, as on the placed path below: it is what
+    -- gates the pulse, and the hub's own pulse reads that. Not when quiet, which
+    -- is the turn-start call - no loc read from a turn handler.
+    if ICUI.hubbed() then
+        if not quiet then ICUI.update_opener_tip() end
+        return true
     end
 
     local x, y, why = ICUI.btn_anchor()
@@ -7317,6 +7341,16 @@ end)
 core:add_listener("ic_opener_place", "FactionTurnStart", true, function()
     ICUI.place_opener(1, true)
 end, true)
+
+-- THE HUB'S REGISTRATION. A plain table, so it works whether this file loads before or
+-- after any hub copy. live/wants read what gate_opener and pulse_opener last drew.
+DERPY_HUB_QUEUE = DERPY_HUB_QUEUE or {}
+table.insert(DERPY_HUB_QUEUE, {
+    key = ICUI.HUB_KEY, button = ICUI.BTN, order = 1,
+    label = function() return "The Iron Court" end,
+    live = function() return ICUI.opener_live ~= false end,
+    wants = function() return ICUI.pulsing == true end,
+})
 
 -- THE SUMMARY, on the player's own turn start and ONE TICK LATE: this file's
 -- listeners are registered before the model's, so read now it would describe

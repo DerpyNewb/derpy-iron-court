@@ -79,6 +79,11 @@ SCRIPTS = [
 UI = [("Modding Files/pack/ui/campaign ui/%s" % os.path.basename(p),
        "ui/campaign ui/%s" % os.path.basename(p)) for p in V.UI_FILES]
 
+# THE DERPY HUD HUB's two files for this pack, from the sync tool's own list. Same
+# (workspace-relative source, in-pack path) shape as SCRIPTS.
+import sync_derpy_hub as _HUB              # noqa: E402
+HUB = _HUB.pack_files("ic")
+
 # EVERY PNG THE GENERATOR OWNS, off its own list rather than a folder listing: a
 # stray PNG in that folder must not ship, and a house whose plate was never
 # written must not be quietly skipped.
@@ -238,7 +243,7 @@ def main(argv):
         call("import_tsv", {"pack_key": key, "table_path": path, "tsv_path": tsv})
         print("  %s" % path)
 
-    for src, dest in SCRIPTS + UI + ART:
+    for src, dest in SCRIPTS + UI + ART + HUB:
         full = os.path.join(ROOT, *src.split("/"))
         if not os.path.isfile(full):
             sys.stderr.write("REFUSING: missing %s\n" % full)
@@ -269,7 +274,7 @@ def main(argv):
     # table and the check simply stopped asking about it, and it passed. Every
     # name here comes from G.TSV_META, which is the generator's own account of
     # what it writes, so nothing this deploy script does can quiet it.
-    want = [p for _src, p in SCRIPTS + UI + ART]
+    want = [p for _src, p in SCRIPTS + UI + ART + HUB]
     want += ["db/%s/%s" % (G.TSV_META[t][0], G.PACK_NAME)
              for t in G.TSV_META if t != "loc"]
     want += ["text/db/%s.loc" % G.PACK_NAME]

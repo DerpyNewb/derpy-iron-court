@@ -5120,6 +5120,30 @@ end"""),
     ("the Petitions marker left on the old tab", U,
      """    ic_mark_petitions = {1200, 64, 28, 28},""",
      """    ic_mark_petitions = {1444, 64, 28, 28},"""),
+    # ---- the HUD hub -------------------------------------------------------
+    ("the court button moved by its own placement while the hub manages it", U,
+     """    if ICUI.hubbed() then
+        if not quiet then ICUI.update_opener_tip() end""",
+     """    if false then
+        if not quiet then ICUI.update_opener_tip() end"""),
+    ("the hub-managed court button left with no tooltip and no pulse", U,
+     """        if not quiet then ICUI.update_opener_tip() end
+        return true""",
+     """        return true"""),
+    ("the hub-managed court tooltip written from the turn-start handler", U,
+     """        if not quiet then ICUI.update_opener_tip() end
+        return true""",
+     """        ICUI.update_opener_tip()
+        return true"""),
+    ("the hub told the court button is live while it is grey", U,
+     """    ICUI.opener_live = live and true or false""",
+     """    ICUI.opener_live = true"""),
+    ("the hub never told the court is waiting on a decision", U,
+     """    ICUI.pulsing = on == true""",
+     """    ICUI.pulsing = false"""),
+    ("the court button registered with the hub under another key", U,
+     """    key = ICUI.HUB_KEY, button = ICUI.BTN, order = 1,""",
+     """    key = "court", button = ICUI.BTN, order = 1,"""),
 ]
 
 

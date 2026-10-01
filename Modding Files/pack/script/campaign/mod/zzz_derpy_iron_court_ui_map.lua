@@ -154,6 +154,8 @@ function ICUI.map_register()
                       leave_on_select, true)
     core:add_listener("ic_map_settlement_selected", "SettlementSelected", true,
                       leave_on_select, true)
+    cm:repeat_real_callback(function() pcall(ICUI.gm_zoom_poll) end,
+                            ICUI.GM_ZOOM_MS, "ic_gm_zoom")
 end
 
 -- ---------------------------------------------------------------------------
@@ -823,6 +825,32 @@ function ICUI.gm_light(faction)
         end
     end)
     ICUI.gm_lit = key
+    ICUI.gm_lit_d = ICUI.gm_cam_d()
+end
+
+-- A ZOOM DROPS IT (seen in play 2026-10-01: zoom out and back in and the
+-- party's provinces show the plain map). The engine resets the overlay on a
+-- zoom, raises no event and has no getter, so the poll re-lights once the
+-- camera has come to rest at a distance other than the one it was lit at.
+ICUI.GM_ZOOM_MS = 300
+ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_ZOOM_MS"
+function ICUI.gm_cam_d()
+    local ok, _x, _y, d = pcall(function() return cm:get_camera_position() end)
+    if ok and type(d) == "number" then return d end
+end
+
+local function moved(a, b) return math.abs(a - b) > 0.01 end
+
+function ICUI.gm_zoom_poll()
+    if ICUI.gm_lit == "" then ICUI.gm_last_d = nil return end
+    local d = ICUI.gm_cam_d()
+    if not d then return end
+    local rested = ICUI.gm_last_d and not moved(d, ICUI.gm_last_d)
+    ICUI.gm_last_d = d
+    if rested and (not ICUI.gm_lit_d or moved(d, ICUI.gm_lit_d)) then
+        ICUI.gm_lit = ""
+        ICUI.gm_light(ICUI.player())
+    end
 end
 
 function ICUI.gm_to_page(page)

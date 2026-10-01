@@ -24,6 +24,10 @@ MAP_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lu
 PARTIES_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
 MCT_LUA = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
 SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA, MCT_LUA, MAP_LUA]
+# THE DERPY HUD HUB's copy for this pack (tools/sync_derpy_hub.py). In SCRIPTS so luac,
+# check_lua_api and check_lua_undeclared see it: it is where DERPY_HUB is declared.
+import sync_derpy_hub as _HUB            # noqa: E402
+SCRIPTS = SCRIPTS + [_HUB.lua_rel("ic")]
 # The UI file legitimately reads other mods' globals (EX.BUTTON_SIZE,
 # GGUI.BTN_SIZE) and our own model's (IC.HOUSES). check_lua_undeclared does not
 # resolve TABLE.FIELD, so the union of what the whole pack AND its optional
@@ -1191,8 +1195,11 @@ def verify():
     #
     #     The harness asserts the permissions inside its Resize stub, but only on
     #     paths a check drives; this catches an unexercised call site too.
+    #     NOT THE HUB COPY: it ships in three mods and cannot call ICUI. It sets both
+    #     permissions where it makes the plate, and tools/_hub_harness.lua's Resize stub
+    #     refuses a call without them.
     for script in SCRIPTS:
-        if not os.path.isfile(script):
+        if not os.path.isfile(script) or script == _HUB.lua_rel("ic"):
             continue
         body = _CLU._blank(io.open(script, encoding="utf-8").read())
         for m in re.finditer(r"(\w+)\s*:\s*Resize\s*\(", body):
@@ -1205,6 +1212,10 @@ def verify():
                 "%s calls %s:Resize directly (%s) - route it through ICUI.resize, "
                 "which sets SetCanResizeWidth/Height first"
                 % (os.path.basename(script), m.group(1), line.strip()[:60]))
+
+    # 6z. THE HUB COPY IS THE SOURCE'S. A hand edit to derpy_hub_ic.lua would ship a hub
+    #     that no other mod has.
+    problems += ["hub: " + p for p in _HUB.check()]
 
     # 7. The Lua parses, and the model behaves. luac catches syntax; the harness
     #    drives the branches no static check reaches.

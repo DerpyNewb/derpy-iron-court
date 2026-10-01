@@ -88,6 +88,7 @@ _DOCS = [
     "HANDOFF_20260929_IRON_COURT_FULL_SWEEP.md",
     "HANDOFF_20260930_IRON_COURT_PARTY_MAP.md",
     "HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md",
+    "HANDOFF_20261001_HUD_HUB_PLAN.md",
     "CA_CHD_UI_FX_20260928.md",
     "IC_FEEDBACK_AUDIT_20260928.md",
 ]]
@@ -113,8 +114,15 @@ def manifest(root=ROOT):
         _UI + "derpy_ic_gm_name.twui.xml",
         _UI + "derpy_ic_gm_loyal.twui.xml",
         _UI + "derpy_ic_gm_badge.twui.xml",
+        _MOD + "derpy_hub_ic.lua",
+        _UI + "derpy_hub_ic.twui.xml",
+        _UI + "derpy_hub_plate_ic.twui.xml",
+        "Modding Files/source/derpy_hub/derpy_hud_hub.lua",
     ] + _tsvs(root) + ["tools/" + n for n in (
         "_iron_court_harness.lua",
+        "_hub_harness.lua",
+        "sync_derpy_hub.py",
+        "gen_guilds_emitter.py",
         "gen_iron_court.py",
         "gen_iron_court_emitter.py",
         "gen_ic_ui.py",

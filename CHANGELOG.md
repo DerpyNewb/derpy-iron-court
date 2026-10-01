@@ -5,6 +5,18 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-01 - build 92AF83D6
+
+Deployed 2026-10-01. MD5 `92AF83D6CE748B6E9A2565F53DAAC8A1`, 9,740,671 bytes, 1,795 files.
+
+- **One HUD button for the author's mods.** With two or more of The Iron Court, The Great
+  Guilds and the Zharr Exchange installed, one button beside the top bar replaces their
+  three. Hovering it unfolds their buttons in a column on a plate; moving away folds them
+  back. With one of them installed, nothing changes. The same hub file ships in each mod,
+  and the newest copy serves all three. Detail: `docs/history/HANDOFF_20261001_HUD_HUB_PLAN.md`.
+- **The party highlight survives a zoom.** Zooming the map out and back in used to drop the
+  Governors tab's party highlight. It now comes back once the camera stops.
+
 ## 2026-10-01 - build 88EE51F2
 
 Deployed 2026-10-01. MD5 `88EE51F2B29F6BC21F3A0CD37A703062`, 9,702,675 bytes, 1,791 files.

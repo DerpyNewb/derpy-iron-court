@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="Derpy HUD hub - the plate behind the column"
+	precache_condition="">
+	<hierarchy>
+		<root this="DH040001-D000-4000-B000000000000001">
+			<derpy_hub_plate this="DH040004-D000-4000-B000000000000004"/>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="DH040001-D000-4000-B000000000000001"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="DH040001-D000-4000-B000000000000001"
+			currentstate="DH040002-D000-4000-B000000000000002"
+			defaultstate="DH040002-D000-4000-B000000000000002">
+			<states>
+				<standard
+					this="DH040002-D000-4000-B000000000000002"
+					name="standard"
+					width="76"
+					height="56"
+					uniqueguid="DH040002-D000-4000-B000000000000002">
+				</standard>
+			</states>
+		</root>
+		<derpy_hub_plate
+			this="DH040004-D000-4000-B000000000000004"
+			id="derpy_hub_plate"
+			tooltipslocalised="true"
+			uniqueguid="DH040004-D000-4000-B000000000000004"
+			currentstate="DH040005-D000-4000-B000000000000005"
+			defaultstate="DH040005-D000-4000-B000000000000005">
+			<componentimages>
+				<component_image
+					this="DH040004-D001-4000-B000000000000004"
+					uniqueguid="DH040004-D001-4000-B000000000000004"
+					imagepath="ui/derpy_hub/plate.png"/>
+			</componentimages>
+			<states>
+				<standard
+					this="DH040005-D000-4000-B000000000000005"
+					name="standard"
+					width="76"
+					height="56"
+					interactive="true"
+					uniqueguid="DH040005-D000-4000-B000000000000005">
+					<imagemetrics>
+						<image
+							this="DH040004-D002-4000-B000000000000004"
+							uniqueguid="DH040004-D002-4000-B000000000000004"
+							componentimage="DH040004-D001-4000-B000000000000004"
+							offset="0.00,0.00"
+							width="76"
+							height="56"
+							margin="36.00,36.00,16.00,16.00"/>
+					</imagemetrics>
+				</standard>
+			</states>
+		</derpy_hub_plate>
+	</components>
+</layout>

@@ -990,6 +990,11 @@ cm = {
         deferred[#deferred + 1] = delay or 0
         if fn then fn() end
     end,
+    -- Kept by name, never run: a check that needs a poll runs it by hand.
+    repeats = {},
+    repeat_real_callback = function(self, fn, ms, name)
+        self.repeats[name] = {fn = fn, ms = ms}
+    end,
     -- A FORCE INTERFACE, NOT A KEY AND NOT A CHARACTER. CA: "Heals the supplied
     -- military force back to full health." The character beside it in the same
     -- loop takes a lookup STRING, so the two conventions sit one line apart and
@@ -4092,6 +4097,104 @@ check("a second run of place_opener is quiet, and re-places the same button",
     assert(noisy == 0,
         "a re-run that changed nothing still logged " .. noisy .. " placement line(s)")
     ICUI.btn_at = nil
+end)
+
+-- THE HUB (spec 2026-10-01). With a second Derpy opener installed, one hub button takes
+-- this slot and moves this button into a row it shows on hover. Two owners of one MoveTo
+-- fight every turn start, so place_opener must still MAKE the button (the hub can only
+-- manage what exists) and must not move or show it.
+check("place_opener defers to the hub when managed, and places itself when not", function()
+    with_neighbours(true, true)
+    ICUI.btn_at = nil
+    local opener, moves, shown = nil, 0, nil
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    local saved_root, saved_cb, saved_hub = core.get_ui_root, cm.callback, DERPY_HUB
+    local r = {
+        Dimensions = function() return 1920, 1080 end,
+        Position = function() return 0, 0 end,
+        CreateComponent = function(_self, name)
+            if name ~= ICUI.BTN then return end
+            opener = {x = -1, y = -1,
+                      Position = function(self) return self.x, self.y end,
+                      Dimensions = function() return ICUI.BTN_SIZE, ICUI.BTN_SIZE end,
+                      MoveTo = function(self, x, y) self.x, self.y = x, y; moves = moves + 1 end,
+                      SetVisible = function(_self, on)
+                          IC_NEED_BOOL("SetVisible", on); shown = on end,
+                      RegisterTopMost = function() end,
+                      PropagatePriority = function() end,
+                      SetInteractive = function() end}
+        end,
+    }
+    core.get_ui_root = function() return r end
+    find_uicomponent = function(_parent, name)
+        if name == ICUI.BTN then return opener or false end
+        if name == "resources_bar" then return ui_stub.bar end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    cm.callback = function() end
+
+    -- AND STILL WRITES THE TOOLTIP, WHICH IS WHAT GATES THE PULSE. A managed button
+    -- that skips update_opener_tip keeps the static twui tooltip and never pulses, so
+    -- the hub (which reads ICUI.pulsing) never pulses either - for the whole first turn
+    -- of a load. The quiet turn-start call must still not, as unmanaged: no loc read
+    -- from a turn handler.
+    local saved_tip, tips = ICUI.update_opener_tip, 0
+    ICUI.update_opener_tip = function() tips = tips + 1 return true end
+    DERPY_HUB = {version = 1, manages = function(key) return key == "ic" end}
+    local ok, err = pcall(ICUI.place_opener, 1)
+    local managed_moves, managed_shown, managed_tips = moves, shown, tips
+    pcall(ICUI.place_opener, 1, true)
+    local quiet_tips = tips - managed_tips
+    ICUI.update_opener_tip = saved_tip
+    DERPY_HUB = {version = 1, manages = function() return false end}
+    ICUI.btn_at = nil
+    pcall(ICUI.place_opener, 1)
+
+    DERPY_HUB = saved_hub
+    find_uicomponent, is_uicomponent = saved_find, saved_is
+    core.get_ui_root, cm.callback = saved_root, saved_cb
+    ICUI.btn_at = nil
+    assert(ok, "place_opener threw: " .. tostring(err))
+    assert(opener ~= nil, "managed, the button must still be created for the hub to find")
+    assert(managed_moves == 0, "managed, place_opener still moved the button")
+    assert(managed_shown == nil, "managed, place_opener still set its visibility")
+    assert(moves == 1 and shown == true, "unmanaged, it must place and show itself as before")
+    assert(managed_tips == 1, "managed, place_opener never wrote the tooltip, so the court "
+           .. "button keeps the static one and the hub never pulses")
+    assert(quiet_tips == 0, "managed, the quiet turn-start call wrote the tooltip from a "
+           .. "turn handler")
+end)
+
+check("the court registers with the hub and reports its own grey and pulse", function()
+    local mine
+    for _, e in ipairs(DERPY_HUB_QUEUE or {}) do
+        if e.key == "ic" then mine = e end
+    end
+    assert(mine, "no DERPY_HUB_QUEUE entry with key ic")
+    assert(mine.button == ICUI.BTN and mine.order == 1, "wrong button or order")
+    assert(mine.label() == "The Iron Court", "label was " .. tostring(mine.label()))
+    local saved_find = find_uicomponent
+    local stub = setmetatable({Id = function() return ICUI.BTN end,
+                               Position = function() return 0, 0 end},
+                              {__index = function() return function() end end})
+    find_uicomponent = function(_p, name)
+        if name == ICUI.BTN then return stub end
+        return false
+    end
+    ICUI.gate_opener(false, false)
+    local grey_live, grey_wants = mine.live(), mine.wants()
+    -- gate_opener(waiting, live): live with nothing waiting, then live and waiting,
+    -- which is the court's own pulse.
+    ICUI.gate_opener(false, true)
+    local idle_live, idle_wants = mine.live(), mine.wants()
+    ICUI.gate_opener(true, true)
+    local wait_wants = mine.wants()
+    ICUI.gate_opener(false, true)
+    find_uicomponent = saved_find
+    assert(grey_live == false and grey_wants == false, "greyed: live/wants must be false/false")
+    assert(idle_live == true and idle_wants == false, "live and idle: true/false")
+    assert(wait_wants == true, "a pulsing button must report that it wants attention")
 end)
 
 check("no turn handler writes the court button's tooltip", function()
@@ -28069,6 +28172,56 @@ check("choosing a party lights CA's overlay on what it governs, and every way ou
         end)
     end)
     CampaignUI = was
+    if not ok then error(err, 0) end
+end)
+
+check("a zoom that drops the party's highlight gets it back once the camera rests", function()
+    -- SEEN IN PLAY 2026-10-01: zoom out and back in and the chosen party's
+    -- provinces show the plain map. The engine resets the overlay on a zoom,
+    -- says nothing, and has no getter, so ICUI.gm_lit still thought it lit.
+    IC.state = {}
+    turn = 1
+    local g1 = make_character(841, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1}, {"prov_a", "prov_b"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 841
+    local modes, was, was_pos = 0, CampaignUI, cm.get_camera_position
+    local d = 30
+    cm.get_camera_position = function() return 10, 20, d, 0.5, 40 end
+    CampaignUI = {
+        SetOverlayMode = function() modes = modes + 1 end,
+        SetOverlayVisible = function() end,
+    }
+    local ok, err = pcall(function()
+        with_fake_govmap(function()
+            cm.repeats = {}
+            ICUI.register()
+            local poll = cm.repeats.ic_gm_zoom
+            assert(poll and poll.ms <= 500, "no zoom poll, or one too slow to notice")
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.open()
+            map_click("ic_gm_tog_1")
+            map_click(ICUI.GM_ROW .. "_2")
+            assert(modes == 1, "choosing the party lit it " .. modes .. " times")
+            poll.fn(); poll.fn()
+            assert(modes == 1, "a still camera re-lit the highlight")
+            d = 80                                   -- zooming out
+            poll.fn()
+            assert(modes == 1, "re-lit mid-zoom, before the camera came to rest")
+            poll.fn()
+            assert(modes == 2, "the camera rested at a new zoom and nothing re-lit")
+            poll.fn(); poll.fn()
+            assert(modes == 2, "re-lit again at the same zoom")
+            map_click(ICUI.GM_ROW .. "_2")           -- the choice cleared
+            d = 30
+            poll.fn(); poll.fn()
+            assert(modes == 2, "with nothing chosen a zoom lit something")
+            ICUI.close()
+        end)
+    end)
+    CampaignUI, cm.get_camera_position = was, was_pos
     if not ok then error(err, 0) end
 end)
 
