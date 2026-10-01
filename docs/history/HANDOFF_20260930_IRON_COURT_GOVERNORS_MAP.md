@@ -198,3 +198,10 @@ After the final review's fix pass:
 
 `780A41C5` - see the head of this file. The pictures are `ic_gm_provinces.png` and
 `ic_gm_picker.png` (and `_1600`, `_2560`) in `.skilltree_cache/ui_preview/`.
+
+## 8. Pushed
+
+Pushed to GitHub on 2026-10-01 as 48e294a (build `780A41C5`), together with `1C3AEB24`
+(the party map, `HANDOFF_20260930_IRON_COURT_PARTY_MAP.md`). The repo README, DEVELOPMENT.md
+(852 checks, 954 mutants, six tabs) and CHANGELOG were updated with it, and the two old Map tab
+files were deleted from the repo, which the sync does not do on its own.
