@@ -132,7 +132,7 @@ ICUI.MAX_ROWS = 12
 ICUI.GM_ROW = "ic_gm_row"
 ICUI.PATH_GM_ROW = "ui/campaign ui/derpy_ic_gm_row"
 ICUI.GM_ROWS = 7
-ICUI.GM_ROW_X, ICUI.GM_ROW_Y, ICUI.GM_ROW_W, ICUI.GM_ROW_H, ICUI.GM_ROW_PITCH = 16, 318, 412, 76, 80
+ICUI.GM_ROW_X, ICUI.GM_ROW_Y, ICUI.GM_ROW_W, ICUI.GM_ROW_H, ICUI.GM_ROW_PITCH = 16, 330, 412, 76, 80
 ICUI.GM_ROW_CHILD_XY = {
     ic_gr_face  = {10, 9, 104, 57},
     ic_gr_crest = {10, 20, 36, 36},
@@ -279,24 +279,24 @@ ICUI.PANEL_XY = {
     -- THE GOVERNORS VIEW'S PLATES AND COLUMN (spec 2026-09-30 section 6): every
     -- line the view keeps sits on one of the three plates. Must match
     -- tools/gen_ic_ui.py (check_gm_plates).
-    ic_gm_top        = {0, 0, 1920, 124},
+    ic_gm_top        = {0, 0, 1920, 128},
     ic_gm_foot       = {0, 1014, 1920, 66},
-    ic_gm_col        = {0, 124, 503, 890},
-    ic_gm_head       = {10, 128, 425, 60},
-    ic_gm_tog_1      = {76, 194, 56, 56},
-    ic_gm_tog_2      = {312, 194, 56, 56},
-    ic_gm_tog_lbl_1  = {44, 252, 120, 26},
-    ic_gm_tog_lbl_2  = {280, 252, 120, 26},
-    ic_gm_hint       = {16, 286, 412, 26},
-    ic_gm_sort_1     = {16, 286, 132, 26},
-    ic_gm_sort_2     = {156, 286, 132, 26},
-    ic_gm_sort_3     = {296, 286, 132, 26},
-    ic_gm_btns       = {0, 920, 444, 90},
-    ic_gm_ok         = {150, 937, 56, 56},
-    ic_gm_no         = {238, 937, 56, 56},
-    ic_gm_prev       = {16, 880, 136, 34},
-    ic_gm_page       = {156, 884, 132, 26},
-    ic_gm_next       = {292, 880, 136, 34},
+    ic_gm_col        = {0, 0, 503, 1080},
+    ic_gm_head       = {10, 128, 425, 90},
+    ic_gm_tog_1      = {76, 214, 56, 56},
+    ic_gm_tog_2      = {312, 214, 56, 56},
+    ic_gm_tog_lbl_1  = {44, 270, 120, 30},
+    ic_gm_tog_lbl_2  = {280, 270, 120, 30},
+    ic_gm_hint       = {16, 302, 412, 26},
+    ic_gm_sort_1     = {16, 302, 132, 26},
+    ic_gm_sort_2     = {156, 302, 132, 26},
+    ic_gm_sort_3     = {296, 302, 132, 26},
+    ic_gm_btns       = {0, 922, 444, 90},
+    ic_gm_ok         = {150, 939, 56, 56},
+    ic_gm_no         = {238, 939, 56, 56},
+    ic_gm_prev       = {16, 888, 136, 34},
+    ic_gm_page       = {156, 892, 132, 26},
+    ic_gm_next       = {292, 888, 136, 34},
     ic_tab_court     = {18, 62, 240, 32},
     ic_tab_offices   = {262, 62, 240, 32},
     ic_tab_govs      = {506, 62, 240, 32},
@@ -390,6 +390,8 @@ ICUI.PANEL_XY = {
     -- THE FILL BUTTON, the offices tab's alone, in the same row: that tab never
     -- pages. FILL_W in tools/gen_ic_ui.py.
     ic_fill          = {850, 978, 220, 34},
+    -- THE ZIGGURAT THE OFFICES TAB'S CARDS STAND ON (ZIG_PAD in gen_ic_ui.py).
+    ic_zig_bg        = {0, 124, 1920, 853},
     ic_alert         = {18, 1018, 1884, 44},
 }
 -- Segment width is derived from the house count in BOTH files. It was a literal
@@ -6485,6 +6487,8 @@ function ICUI.refresh()
         -- again here would be dead code.
         show(comp(ICUI.CARD .. "_" .. i, panel), view == "offices")
     end
+    -- AND THE ZIGGURAT THEY STAND ON, with them.
+    show(comp("ic_zig_bg", panel), view == "offices")
     -- The move cards belong to the intrigue view and to nothing else. Same rule,
     -- same reason: CreateComponent makes a VISIBLE component, so one this loop
     -- does not reach has never been hidden since the panel was built.
@@ -7519,6 +7523,8 @@ ICUI.NOT_SCALED = {
 -- nothing at 1920. Must match COMPACT_OVERRIDES in tools/gen_ic_ui.py, which
 -- names the string that forced each one; the packing gate compares them.
 ICUI.COMPACT_OVERRIDES = {
+    ic_title = {0, 1, 0, -1},
+    ic_alert = {0, 1, 0, -1},
     ic_card_name = {-1, 0, 2, 0},
     ic_plot_icon = {-5, 0, 0, 0},
     ic_plot_name = {-5, 0, 10, 0},

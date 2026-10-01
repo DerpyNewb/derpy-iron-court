@@ -5,6 +5,27 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-01 - build 032D28A3
+
+Deployed 2026-10-01. MD5 `032D28A37A873CFDEF0772E67AB0F891`, 9,700,060 bytes, 1,791 files. It
+gathers three builds after 780A41C5, all from the author's in-game look at the Governors tab:
+BCD7264A, 5D2C688C and this one. The detail is in sections 9 to 11 of
+`docs/history/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md`.
+
+- **The Governors strip and labels are no longer stretched.** The top strip and footer slice
+  CA's plate with its own rail thickness, so the section line no longer sits on a rail, and
+  "Parties" and "Provinces" fit their fields.
+- **The Governors column runs the full height of the screen.** CA's side panel art is a whole
+  screen tall. Squeezed between the strip and the footer, it left the map showing under the
+  column whenever the footer was hidden. Its title is back at CA's 90px, spikes whole.
+- **Party rows start their text beside the crest**, not where a portrait's text would start.
+  A row with no loyalty icon lines its third line up with the other two.
+- **The Offices tab stands on a ziggurat**: a stepped tower behind the office cards, one tier
+  per row of seats.
+- New checks: the strip's rails, the column's full height and its stack, the ziggurat behind
+  every card, and the Parties rows' line positions.
+- Harness 852 -> 853 checks, 954 -> 958 mutants, 0 unexplained.
+
 ## 2026-10-01 - build 780A41C5
 
 Deployed 2026-10-01. MD5 `780A41C5E6826840A6E261564ECC2313`, 9,686,440 bytes, 1,790 files. It

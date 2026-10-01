@@ -1242,6 +1242,11 @@ def render(path=None, view="court", box_w=1920):
     hidden |= set(k for k in G.PANEL_LAYOUT if k.startswith("ic_help_"))
     if view != "offices":
         hidden.add("ic_fill")
+    # THE ZIGGURAT IS THE OFFICES TAB'S, with its cards.
+    if not re.search(r'show\(comp\("ic_zig_bg", panel\), view == "offices"\)', ui):
+        raise SystemExit("ICUI.refresh no longer gates ic_zig_bg as this reads it")
+    if view != "offices":
+        hidden.add("ic_zig_bg")
     # THE COLUMN'S WORDS, off the map Lua, so a reworded label reaches the picture.
     _titles = dict(re.findall(r'(\w+) = "([^"]+)"', re.search(
         r'ICUI\.GM_PAGE_TITLE = \{([^}]*)\}', lua("ui_map")).group(1)))

@@ -456,6 +456,22 @@ function ICUI.gm_fill_row(row, r)
         row:SetImagePath(art[1], 0)
         row:SetImagePath(art[2], 1)
     end)
+    -- NO PORTRAIT, NO PORTRAIT'S GAP: a Parties row's lines start beside its
+    -- crest, as far from it as it is from the frame (author, 2026-10-01:
+    -- "parties tab is not aligned properly"), and with no loyalty icon the
+    -- third line lines up with the other two (the picker's rows too).
+    -- gm_make_rows puts every cell back at each draw.
+    local xy, rx, ry = ICUI.GM_ROW_CHILD_XY, row:Position()
+    local dx = r.face and 0 or (2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3] - xy.ic_gr_l1[1])
+    local shift = {ic_gr_l1 = dx, ic_gr_l2 = dx, ic_gr_icon = dx,
+                   ic_gr_l3 = dx + (r.fealty and 0 or xy.ic_gr_l1[1] - xy.ic_gr_l3[1])}
+    for cname, d in pairs(shift) do
+        local c, b = comp(cname, row), xy[cname]
+        if c then
+            c:MoveTo(rx + b[1] + d, ry + b[2])
+            if cname ~= "ic_gr_icon" then ICUI.resize(c, b[3] - d, b[4]) end
+        end
+    end
     for _, key in ipairs({"l1", "l2", "l3"}) do
         local c = comp("ic_gr_" .. key, row)
         if c then

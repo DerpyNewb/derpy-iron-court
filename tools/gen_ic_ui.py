@@ -214,29 +214,33 @@ PANEL_LAYOUT = {
     # THE GOVERNORS VIEW'S PLATES AND COLUMN (spec 2026-09-30 section 6). Text
     # on a live map has no reliable contrast, so every line this view keeps sits
     # on one of the three plates (check_gm_plates). The column is CA's
-    # Hell-Forge side panel at its own 503: opaque 0-443, then its fade.
-    "ic_gm_top": (0, 0, 1920, 124),
+    # Hell-Forge side panel at its own 503x1080, opaque 0-443 then its fade,
+    # from the screen's top (the strip draws over it) to its foot, so the map
+    # never shows under it when the footer is hidden. Its title at its own 90.
+    "ic_gm_top": (0, 0, 1920, 128),
     "ic_gm_foot": (0, 1014, 1920, 66),
-    "ic_gm_col": (0, 124, 503, 890),
-    "ic_gm_head": (10, 128, 425, 60),
-    "ic_gm_tog_1": (76, 194, 56, 56),
-    "ic_gm_tog_2": (312, 194, 56, 56),
-    "ic_gm_tog_lbl_1": (44, 252, 120, 26),
-    "ic_gm_tog_lbl_2": (280, 252, 120, 26),
-    "ic_gm_hint": (16, 286, 412, 26),
+    "ic_gm_col": (0, 0, 503, 1080),
+    "ic_gm_head": (10, 128, 425, 90),
+    # OVER THE TITLE'S BOTTOM SPIKE TIPS, which the toggles draw after.
+    "ic_gm_tog_1": (76, 214, 56, 56),
+    "ic_gm_tog_2": (312, 214, 56, 56),
+    # AT THE ART'S OWN 30, its dark field rows 4-22 (GM_PLATE_RAIL).
+    "ic_gm_tog_lbl_1": (44, 270, 120, 30),
+    "ic_gm_tog_lbl_2": (280, 270, 120, 30),
+    "ic_gm_hint": (16, 302, 412, 26),
     # THE PROVINCES PAGE'S SORT, in the hint's slot: the hint is the Parties
     # page's and these are the Provinces page's, never both on screen.
-    "ic_gm_sort_1": (16, 286, 132, 26),
-    "ic_gm_sort_2": (156, 286, 132, 26),
-    "ic_gm_sort_3": (296, 286, 132, 26),
+    "ic_gm_sort_1": (16, 302, 132, 26),
+    "ic_gm_sort_2": (156, 302, 132, 26),
+    "ic_gm_sort_3": (296, 302, 132, 26),
     # CA'S ACCEPT AND CANCEL on the Hell-Forge's own button plate.
-    "ic_gm_btns": (0, 920, 444, 90),
-    "ic_gm_ok": (150, 937, 56, 56),
-    "ic_gm_no": (238, 937, 56, 56),
-    # THE COURT'S PAGER, same sizes, under the seventh row (318 + 7 * 80 = 878).
-    "ic_gm_prev": (16, 880, 136, 34),
-    "ic_gm_page": (156, 884, 132, 26),
-    "ic_gm_next": (292, 880, 136, 34),
+    "ic_gm_btns": (0, 922, 444, 90),
+    "ic_gm_ok": (150, 939, 56, 56),
+    "ic_gm_no": (238, 939, 56, 56),
+    # THE COURT'S PAGER, same sizes, under the seventh row (330 + 6 * 80 + 76 = 886).
+    "ic_gm_prev": (16, 888, 136, 34),
+    "ic_gm_page": (156, 892, 132, 26),
+    "ic_gm_next": (292, 888, 136, 34),
     # THE SORT CONTROL, on the tab row's far right and ending where the close
     # button ends (1902). The row is free from 784 to 1596, but the control is
     # right-aligned instead: it belongs to the list below it rather than to the
@@ -743,7 +747,7 @@ ROW_LAYOUT = {
 # Hell-Forge unit block, which stretches between 16px caps. Must match
 # ICUI.GM_ROW_* and ICUI.GM_ROW_CHILD_XY in the panel Lua (import_iron_court).
 GM_ROW_FILE = "derpy_ic_gm_row.twui.xml"
-GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_H, GM_ROW_PITCH = 16, 318, 412, 76, 80
+GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_H, GM_ROW_PITCH = 16, 330, 412, 76, 80
 GM_ROWS = 7
 GM_ROW_LAYOUT = {
     "ic_gr_face": (10, 9, 104, 57),     # a porthole, PORT_BOX's own shape
@@ -769,6 +773,10 @@ GM_ROW_RAIL = (12, 11, 13, 11)      # top, right, bottom, left, in the art's pix
 GM_ROW_CLEAR = ("ic_gr_l1", "ic_gr_l2", "ic_gr_l3", "ic_gr_icon")
 GM_COL_ART = GM_HF + "side_panerl_bg.png"          # CA's spelling
 GM_HEAD_ART = GM_HF + "side_panel_title.png"
+# THEIR OWN SIZES, measured off CA's art: the column is a whole 1920x1080
+# screen's side, and the title is 90 tall with its spikes. check_gm_plates.
+GM_COL_ART_W, GM_COL_ART_H = 503, 1080
+GM_HEAD_ART_H = 90
 GM_TOG_LABEL_ART = "ui/skins/default/dlc23_tower_of_zharr/tab_sub_title.png"
 GM_ROUND = "ui/skins/default/button_round_medium_%s.png"
 GM_TOG_ICONS = {
@@ -828,6 +836,16 @@ FILL_W = 220
 PANEL_LAYOUT["ic_fill"] = (CARDS_X + (CONTENT_W - FILL_W) // 2,
                            PANEL_LAYOUT["ic_page_prev"][1], FILL_W,
                            PANEL_LAYOUT["ic_page_prev"][3])
+# THE ZIGGURAT THE SEATS STAND ON (author, 2026-10-01: "the silhouette im
+# talking about is the background ziggurat"). A tier behind each row of cards,
+# reaching ZIG_PAD past them, and a two-step shrine above the top one, up to
+# just under the section line. The cards cover its middle; what shows is its
+# stepped outline, which is the point. check_ziggurat.
+ZIG_PAD_X, ZIG_PAD_Y = CARDS_X, CARD_GAP_Y // 2
+PANEL_LAYOUT["ic_zig_bg"] = (
+    0, PANEL_LAYOUT["ic_lbl_section"][1] + PANEL_LAYOUT["ic_lbl_section"][3] + 4, PANEL_W,
+    CARD_GRID[-1][1] + CARD_H + ZIG_PAD_Y
+    - (PANEL_LAYOUT["ic_lbl_section"][1] + PANEL_LAYOUT["ic_lbl_section"][3] + 4))
 # ---------------------------------------------------------------------------
 # THE INTRIGUE TAB: ONE COLUMN PER CATEGORY OF MOVE.
 #
@@ -1975,6 +1993,85 @@ def silhouette_pixels():
     return rows
 
 
+ZIG_PATH = PLATE_DIR + "/offices_ziggurat.png"
+ZIG_FILL = (16, 10, 7, 170)             # dark, and the backdrop shows through it
+ZIG_RIM = (150, 96, 50, 230)            # bronze, the cards' own frame
+ZIG_RIM_PX = 3
+# THE SHRINE: (half-width as a fraction of the top tier's, height as a fraction
+# of the room between the top tier and the box's top).
+ZIG_SHRINE = ((0.33, 0.55), (0.15, 1.0))
+
+
+def ziggurat_boxes():
+    """The tower as (x0, y0, x1, y1) in panel pixels: a tier per card row, then the shrine."""
+    out = []
+    for ry in sorted(set(y for _x, y in CARD_GRID)):
+        xs = [x for x, y in CARD_GRID if y == ry]
+        out.append((max(0, min(xs) - ZIG_PAD_X), ry - ZIG_PAD_Y,
+                    min(PANEL_W, max(xs) + CARD_W + ZIG_PAD_X), ry + CARD_H + ZIG_PAD_Y))
+    top, room = out[0], out[0][1] - PANEL_LAYOUT["ic_zig_bg"][1]
+    mid = (top[0] + top[2]) // 2
+    for fw, fh in ZIG_SHRINE:
+        half = int((top[2] - top[0]) * fw)
+        out.append((mid - half, top[1] - int(room * fh), mid + half, top[1]))
+    return out
+
+
+def ziggurat_pixels():
+    """RGBA rows for the box: the tower filled dark, its outline in bronze.
+
+    Each row is a bitmask, so the rim is a 3px erosion done with shifts and
+    ANDs rather than a per-pixel walk over 1.6 million pixels.
+    """
+    import itertools
+    x0, y0, w, h = PANEL_LAYOUT["ic_zig_bg"]
+    full = (1 << w) - 1
+    masks = [0] * h
+    for a, b, c, d in ziggurat_boxes():
+        a, c = max(0, a - x0), min(w, c - x0)
+        span = ((1 << (c - a)) - 1) << (w - c)      # bit w-1-x is pixel x
+        for y in range(max(0, b - y0), min(h, d - y0)):
+            masks[y] |= span
+    clear, fill, rim = bytes(4), bytes(ZIG_FILL), bytes(ZIG_RIM)
+    rows = []
+    for y, m in enumerate(masks):
+        core = m
+        for dy in range(1, ZIG_RIM_PX + 1):
+            core &= (masks[y - dy] if y >= dy else 0) & (masks[y + dy] if y + dy < h else 0)
+        for _ in range(ZIG_RIM_PX):
+            core &= (core << 1) & (core >> 1) & full
+        runs = itertools.groupby(zip(format(m, "0%db" % w), format(m & ~core, "0%db" % w)))
+        rows.append(b"".join((rim if r == "1" else fill if i == "1" else clear) * len(list(g))
+                             for (i, r), g in runs))
+    return rows
+
+
+def check_ziggurat(rows=None, layout=None):
+    """The tower sits between the section line and the fill button, and every
+    card stands on it: the pixel just past each card corner is part of it."""
+    lay = layout or PANEL_LAYOUT
+    rows = ziggurat_pixels() if rows is None else rows
+    out = []
+    x0, y0, w, h = lay["ic_zig_bg"]
+    if (len(rows[0]) // 4, len(rows)) != (w, h):
+        out.append("ic_zig_bg: the art is %dx%d in a %dx%d box, so it stretches"
+                   % (len(rows[0]) // 4, len(rows), w, h))
+    sec, fill = lay["ic_lbl_section"], lay["ic_fill"]
+    if y0 < sec[1] + sec[3]:
+        out.append("ic_zig_bg starts at %d, over the section line ending at %d" % (y0, sec[1] + sec[3]))
+    if y0 + h > fill[1]:
+        out.append("ic_zig_bg ends at %d, under the fill button at %d" % (y0 + h, fill[1]))
+    for cx, cy in CARD_GRID:
+        for px, py in ((cx - 1, cy - 1), (cx + CARD_W, cy - 1),
+                       (cx - 1, cy + CARD_H), (cx + CARD_W, cy + CARD_H)):
+            u, v = px - x0, py - y0
+            if not (0 <= v < len(rows) and 0 <= u < len(rows[v]) // 4) or rows[v][4 * u + 3] == 0:
+                out.append("the card at (%d, %d) hangs off the ziggurat at (%d, %d)" % (cx, cy, px, py))
+    if rows[0][3] or rows[0][-1]:
+        out.append("ic_zig_bg's top corners are filled: a block, not a ziggurat")
+    return out
+
+
 def plate_pixels(hexcol):
     """RGBA bytes for one plate. Pure function of the colour - no PIL needed."""
     r = int(hexcol[1:3], 16)
@@ -2706,6 +2803,7 @@ def build_plates():
     out[RIM_FAIL_ART] = seat_rim_pixels(rgb=RIM_FAIL_RGB)
     out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
+    out[ZIG_PATH] = ziggurat_pixels()
     return out
 
 
@@ -3256,6 +3354,11 @@ def _panel_order(name):
     Sorted by name otherwise, because a GUID is derived from the name and its
     position and an unstable order is a file that differs from itself.
     """
+    if name == "ic_zig_bg":
+        # SECOND, after the Governors pins that must be first (check_gm) and
+        # never share a view with it: the offices tab's cards and every line
+        # stand over it.
+        return (-3, name)
     if name == "ic_gm_pins":
         # FIRST OF ALL (check_gm), and under tier -1 on purpose: make_ic_backdrop
         # takes every tier -1 name for an opaque plate on every view.
@@ -3286,6 +3389,12 @@ def _panel():
     panel = root.add(EU.C("derpy_ic_panel", PANEL_W, PANEL_H, layers=PANEL_LAYERS))
     for name in sorted(PANEL_LAYOUT, key=_panel_order):
         _x, _y, w, h = PANEL_LAYOUT[name]
+        if name == "ic_zig_bg":
+            # A PICTURE AND NOTHING ELSE: not interactive, or it eats the cards' gaps.
+            panel.add(EU.C(name, w, h, layers=[
+                {"path": ZIG_PATH, "offset": (0, 0), "dw": 0, "dh": 0,
+                 "margin": 0, "colour": None, "dock": None}]))
+            continue
         if name == "ic_gm_pins":
             # NO ART AND NO CLICKS: the bare map beside a pin must take the click.
             panel.add(EU.C(name, w, h))
@@ -3293,7 +3402,7 @@ def _panel():
         if name in ("ic_gm_top", "ic_gm_foot", "ic_gm_col"):
             # OPAQUE, AND IT TAKES THE CLICK: over the live map a click on its
             # blank must not fall through and select what stands under it.
-            art, margin = ((GM_COL_ART, 0) if name == "ic_gm_col" else (GM_PLATE, (0, 12)))
+            art, margin = ((GM_COL_ART, 0) if name == "ic_gm_col" else (GM_PLATE, GM_PLATE_MARGIN))
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=[_gm_full(art, margin)]))
             continue
@@ -3309,7 +3418,9 @@ def _panel():
                            hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(GM_TOG_ICONS[name], 12)]))
             continue
         if name.startswith("ic_gm_tog_lbl_"):
-            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_TOG_LABEL_ART, (0, 12))], **TAB_TEXT))
+            # THE WORD IN THE FIELD: (top, bottom) padding of the art's rails.
+            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_TOG_LABEL_ART, GM_PLATE_MARGIN)],
+                           **dict(TAB_TEXT, ty="%.2f,%.2f" % GM_PLATE_RAIL)))
             continue
         if name == "ic_gm_hint":
             panel.add(EU.C(name, w, h, **style(name, valign="Center")))
@@ -3783,6 +3894,11 @@ COMPACT_FONTS = {
 # scale on their own - so widening one needs its gap narrowed to match, or the
 # cards overlap. Measured 2026-09-24 with check() at 1600.
 COMPACT_OVERRIDES = {
+    # THE GOVERNORS STRIP AND FOOT keep CA's 4px top rail at its own size while
+    # their boxes shrink, so the title and the footer line, 4px in at 1920, round
+    # onto it at 1600 (check_gm_plates).
+    "ic_title": (0, 1, 0, -1),
+    "ic_alert": (0, 1, 0, -1),
     # THE OFFICE CARD. "Warden of the Caravan Roads" measures 248px at 14px and
     # needs 254 with its 6px inset; the name had 253. It takes a pixel of the
     # frame band on each side - 24 in from the edge, where the frame's ink
@@ -3863,7 +3979,7 @@ NOT_GEOMETRY = [
     "CARD_TIERS", "CARD_WIDEST", "PLOT_COUNTS", "PLOT_COLS", "PLOT_DEPTH",
     "PLOT_BLURB_LINES", "VISIBLE_ROWS", "PARTY_COLS", "PARTY_ROWS", "PARTY_SLOTS",
     "OPENER_W", "OPENER_H", "STANDING_W", "STANDING_H", "EDICT_NOTE_W", "EDICT_NOTE_H", "LAYOUT_TABLES",
-    "FX_KEYS", "CROWN_CELLS", "GM_ROW_ART_H", "GM_ROW_RAIL",
+    "FX_KEYS", "CROWN_CELLS", "GM_ROW_ART_H", "GM_COL_ART_W", "GM_COL_ART_H", "GM_HEAD_ART_H", "GM_ROW_RAIL", "GM_PLATE_RAIL", "GM_PLATE_MARGIN",
     "PANEL_LAYERS", "ROW_LAYERS", "CARD_LAYERS", "PORT_LAYERS", "CARD_PORT_LAYERS",
     "FACE_LAYERS", "OPENER_LAYERS", "CLOSE_LAYERS", "CLOSE_HOVER", "HELP_LAYERS", "HELP_HOVER", "HELP_ICON", "HELP_SLOTS", "OPENER_HOVER",
     "BTN_LAYERS", "BTN_HOVER", "PAGE_LAYERS", "PAGE_HOVER", "SORT_LAYERS",
@@ -3902,6 +4018,8 @@ NOT_GEOMETRY = [
     "ACT_BUTTONS",
     # The fill button's 1920 width, the same: it built PANEL_LAYOUT["ic_fill"].
     "FILL_W",
+    # The ziggurat's art: ziggurat_pixels builds it at 1920, and its box scales.
+    "ZIG_PAD_X", "ZIG_PAD_Y", "ZIG_FILL", "ZIG_RIM", "ZIG_RIM_PX", "ZIG_SHRINE",
     "_i",       # the move-category heading loop's counter, left behind by it
     "FRAME_INK",
 ]
@@ -4576,6 +4694,14 @@ GM_BADGE_BOX = (_GM_CX + 8, 28, 26, 26)
 # 23-24, a flat #141414 face between them from x 5, a shadow under. Only its
 # middle stretches sideways, between the two caps its margin keeps whole.
 GM_PLATE = "ui/skins/default/dlc23_chd_hell_forge/sub_title.png"
+# ITS RAILS, and the toggle labels' tab_sub_title.png has the same profile: both
+# are 113x30, frame in rows 0-3, a dark field in rows 4-22, frame and shadow in
+# rows 23-29 (measured off CA's art). Sliced with no vertical margin they SCALE:
+# at 124px the strip's bottom rail and shadow ran 29px and the section line sat
+# on them, and at 26px a toggle's field was 15px under an 18px word (author,
+# 2026-10-01: "the ui is stretched and the ui is cut off"). check_gm_plates.
+GM_PLATE_RAIL = (4, 7)                  # top, bottom, in the art's own pixels
+GM_PLATE_MARGIN = (8, 12)               # vertical, horizontal
 GM_PLATE_H = 30
 GM_PLATE_CAP = 12
 GM_PLATE_GAP = 2
@@ -4784,6 +4910,26 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
         out.append("the column's %d rows %r run outside the column %r" % (GM_ROWS, pool, col))
     if GM_ROW_Y + GM_ROW_PITCH * (GM_ROWS - 1) + GM_ROW_H > lay["ic_gm_prev"][1]:
         out.append("the column's last row runs under its pager")
+    # CA'S ART AT ITS OWN SIZE (author, 2026-10-01: "the left panel is still
+    # cutting off on the top and bottom"). The column art is a whole screen's
+    # side: ended at the footer's top, the map showed under it whenever the
+    # footer was hidden. The title squeezed to 60 had its spikes flattened
+    # against the strip.
+    s = PANEL_H / float(GM_COL_ART_H)       # the art's scale on this screen
+    if (col[1], col[3]) != (0, PANEL_H) or abs(col[2] - GM_COL_ART_W * s) > 1:
+        out.append("ic_gm_col %r is not CA's %dx%d column from the screen's top to its "
+                   "foot: cut short, the map shows under it" % (col, GM_COL_ART_W * s, PANEL_H))
+    if abs(lay["ic_gm_head"][3] - GM_HEAD_ART_H * s) > 1:
+        out.append("ic_gm_head is %dpx tall, not the title art's %d: its spikes squash"
+                   % (lay["ic_gm_head"][3], GM_HEAD_ART_H * s))
+    # AND THE COLUMN'S STACK, top to bottom, with nothing over the next.
+    stack = [("ic_gm_head", lay["ic_gm_head"]), ("ic_gm_tog_lbl_1", lay["ic_gm_tog_lbl_1"]),
+             ("ic_gm_hint", lay["ic_gm_hint"]), ("the rows", pool),
+             ("ic_gm_prev", lay["ic_gm_prev"]), ("ic_gm_btns", lay["ic_gm_btns"]),
+             ("ic_gm_foot", lay["ic_gm_foot"])]
+    for (a, ab), (b, bb) in zip(stack, stack[1:]):
+        if ab[1] + ab[3] > bb[1]:
+            out.append("%s ends at %d, under %s at %d" % (a, ab[1] + ab[3], b, bb[1]))
     rt = row_text if row_text is not None else EU.layout(
         EU.assign(_gm_row(), GUID_PREFIXES[GM_ROW_FILE]), "")
     order = re.findall(r"<(ic_gr_\w+) this=", rt.split("<hierarchy>", 1)[-1])
@@ -4792,6 +4938,32 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
                 or order.index(over) < order.index("ic_gr_face"):
             out.append("%s: %s is declared before ic_gr_face, so the face draws over "
                        "it" % (GM_ROW_FILE, over))
+    # THE SUB-TITLE PLATES: rails at the art's own thickness, and every word on
+    # one inside its dark field (GM_PLATE_RAIL).
+    blocks = _component_blocks(text)
+    rt_, rb_ = GM_PLATE_RAIL
+    for name in ["ic_gm_top", "ic_gm_foot"] + sorted(n for n in lay if n.startswith("ic_gm_tog_lbl_")):
+        blk = blocks.get(name, "")
+        m = re.search(r'margin="([\d.]+),[\d.]+,([\d.]+),', blk)
+        if not m or float(m.group(1)) < max(GM_PLATE_RAIL) or float(m.group(2)) < max(GM_PLATE_RAIL):
+            out.append("%s: its plate slices with vertical margin %s, under the %dpx rails, "
+                       "so the rails stretch with it" % (name, m and m.groups(), max(GM_PLATE_RAIL)))
+        px, py, pw, ph = lay[name]
+        field = (py + rt_, py + ph - rb_)
+        if name.startswith("ic_gm_tog_lbl_"):
+            # ITS OWN WORD: the text area is the box less its (top, bottom) padding.
+            ty = re.search(r'textyoffset="([-\d.]+),([-\d.]+)"', blk)
+            top, bot = (float(ty.group(1)), float(ty.group(2))) if ty else (0.0, 0.0)
+            if py + top < field[0] or py + ph - bot > field[1]:
+                out.append("%s: its word's area %d..%d is not inside the plate's field %d..%d"
+                           % (name, py + top, py + ph - bot, field[0], field[1]))
+        else:
+            # THE LINES IT HOLDS: every text cell inside the plate's box.
+            for cell, box in sorted(lay.items()):
+                if cell in has_text and cell not in GM_PLATES and inside(box, lay[name]) \
+                        and (box[1] < field[0] or box[1] + box[3] > field[1]):
+                    out.append("%s %r crosses %s's rails: its field is %d..%d"
+                               % (cell, box, name, field[0], field[1]))
     # EVERY LINE AND THE ICON CLEAR THE ROW'S OWN RAILS.
     rl = row_layout or GM_ROW_LAYOUT
     s = GM_ROW_H / float(GM_ROW_ART_H)
@@ -5324,6 +5496,7 @@ def check():
     # "the corners are not filled" on CA's rounded one).
     out.extend(check_seat_rim())
     out.extend(check_portrait_frame())
+    out.extend(check_ziggurat())
 
     # 2. The prefix is ours, and DE15 is retired.
     for fname, text in all_files.items():
@@ -5649,6 +5822,10 @@ def check():
             # a pie - the same exemption and the same reason as ic_hdr_ above.
             # They sit where the row strip sits because that is where a heading
             # belongs, and the court is not one of the views they draw on.
+            continue
+        if name == "ic_zig_bg":
+            # THE OFFICES TAB'S, behind its cards. The harness holds it hidden
+            # on every other view ("...no other view shows it").
             continue
         if name.startswith("ic_help_") and name != "ic_help":
             # THE HELP PAGE, which is a view of its own and draws no pie. The
@@ -7519,6 +7696,10 @@ def selftest():
     assert any("ic_gr_badge is declared before ic_gr_face" in e
                for e in check_gm_plates(row_text=_under)), \
         "a row whose face draws over its badge went unreported"
+    # THE PLATE RAILS RULE FIRES: the section line on the strip's rail.
+    assert any("ic_lbl_section" in e and "rails" in e for e in check_gm_plates(
+        dict(PANEL_LAYOUT, ic_lbl_section=(18, PANEL_LAYOUT["ic_gm_top"][3] - 14, 1884, 12)))), \
+        "a line on the strip's bottom rail went unreported"
     # THE RAILS RULE FIRES, on the third line as it shipped in 73806344.
     assert any("ic_gr_l3" in e and "rails" in e for e in check_gm_plates(
         row_layout=dict(GM_ROW_LAYOUT, ic_gr_l3=(148, 52, 256, 20)))), \
@@ -7529,6 +7710,16 @@ def selftest():
     assert any("run outside the column" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_col=(0, 124, 300, 890)))), \
         "a row pool wider than its column went unreported"
+    # THE FULL-HEIGHT RULE FIRES, on the column and the title as 5D2C688C shipped them.
+    assert any("cut short" in e for e in check_gm_plates(
+        dict(PANEL_LAYOUT, ic_gm_col=(0, 128, 503, 886)))), \
+        "a column that stops at the footer went unreported"
+    assert any("spikes squash" in e for e in check_gm_plates(
+        dict(PANEL_LAYOUT, ic_gm_head=(10, 128, 425, 60)))), \
+        "a squashed column title went unreported"
+    assert any("under ic_gm_foot" in e for e in check_gm_plates(
+        dict(PANEL_LAYOUT, ic_gm_btns=(0, 1000, 444, 90)))), \
+        "the button plate over the footer went unreported"
     _pn = EU.layout(EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
     assert any("first child" in e for e in check_gm(
         panel_text=_pn.replace("<ic_gm_pins ", "<ic_gm_pinz ", 1))), \
@@ -7599,6 +7790,14 @@ def selftest():
     assert not check_seat_rim(), check_seat_rim()
     assert check_seat_rim([bytes(r) for r in _rim]),         "check_seat_rim passed a rim whose corners are cut away"
     assert not check_portrait_frame(), check_portrait_frame()
+    # THE ZIGGURAT RULE FIRES: a tower with nothing drawn, and one over the section line.
+    assert not check_ziggurat(), check_ziggurat()
+    _zw, _zh = PANEL_LAYOUT["ic_zig_bg"][2:]
+    assert any("hangs off" in e for e in check_ziggurat(rows=[bytes(4 * _zw)] * _zh)), \
+        "cards standing on nothing went unreported"
+    assert any("section line" in e for e in check_ziggurat(
+        layout=dict(PANEL_LAYOUT, ic_zig_bg=(0, 100, _zw, _zh)))), \
+        "a ziggurat over the section line went unreported"
     _fr = [bytearray(r) for r in frame_pixels()]
     for _r in (_fr[0], _fr[-1]):
         for _i in range(3, len(_r), 4):

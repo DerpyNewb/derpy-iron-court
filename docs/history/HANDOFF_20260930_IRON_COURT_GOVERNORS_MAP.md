@@ -205,3 +205,93 @@ Pushed to GitHub on 2026-10-01 as 48e294a (build `780A41C5`), together with `1C3
 (the party map, `HANDOFF_20260930_IRON_COURT_PARTY_MAP.md`). The repo README, DEVELOPMENT.md
 (852 checks, 954 mutants, six tabs) and CHANGELOG were updated with it, and the two old Map tab
 files were deleted from the repo, which the sync does not do on its own.
+
+## 9. The author's look at 780A41C5 (2026-10-01): stretched, cut off, and a ziggurat
+
+Build `BCD7264A` (MD5 `bcd7264a1aca63e7f67144da92e8c389`), deployed to data/ (backup
+`.bak_pre_auto_20261001_092746`), **not pushed**.
+
+- **Stretched: the strip and foot plates.** Both are CA's `sub_title.png`, 113x30, sliced with no
+  vertical margin, so at 124px its rails grew about 4x and the bottom rail and shadow ran
+  ~29px. They now slice at `GM_PLATE_MARGIN` (8, 12) and keep CA's own thickness.
+- **Cut off: the section line and the toggle words.** The section line sat on that rail; the
+  strip is now 128 tall (the column starts at 128) and the line is inside the field. "Parties"
+  and "Provinces" drew 18px tall in a 15px field. Measured off the screenshot, the same
+  `header_18` draws 18px with no text padding and 10px with 8px of it, so the engine sizes a line
+  to its box's free height. The plates are now the art's native 30px with (4, 7) text padding,
+  the art's own rails.
+- `check_gm_plates` now refuses a sub-title plate without a rail-sized vertical margin, a
+  line on one of its rails, and a toggle word outside the field (`GM_PLATE_RAIL`, measured off
+  the art). RED first on the strip, foot and both toggles, at 1920, 1600 and 2560; at 1600 the
+  title and the footer line rounded 1px onto the unscaled rail, fixed with two 1px compact
+  overrides.
+- **The ziggurat, misread.** BCD7264A drew a ziggurat as an empty office's portrait. The
+  author meant a ziggurat in the BACKGROUND behind the office cards, and asked for the portrait
+  change to be reverted. See section 10.
+- Gates: harness 852, gen --check and --selftest ok (2531 guids), preview ok, backdrop ok, 310
+  panel-Lua mutants caught.
+
+## 10. The ziggurat behind the Offices tab (2026-10-01)
+
+Build `5D2C688C` (MD5 `5d2c688ceaac8fbd5775a5e5ec32105a`), deployed to data/ (backup
+`.bak_pre_auto_20261001_095542`), **not pushed**.
+
+- **The portrait change is reverted**, byte for byte: `silhouette_pixels` is again what it was
+  before BCD7264A, `outlined_pixels` and `office_ziggurat.png` are gone (the generator prunes it),
+  and an empty office draws `ICUI.SILHOUETTE` again.
+- **`ic_zig_bg`**, a panel child behind the cards: `ui/derpy_ic/offices_ziggurat.png`, 1920x853 at
+  (0, 124). It has one tier per row of cards, reaching `ZIG_PAD` (18, 7) past them, and a two-step
+  shrine up to just under the section line. The fill is dark at alpha 170 and the 3px rim is
+  bronze. The cards cover the middle, so what shows is the stepped outline. `ziggurat_pixels`
+  builds each row as a bitmask, so the rim is an erosion done with shifts.
+- **Draw order:** `_panel_order` puts it at tier -3, after `ic_gm_pins`, which `check_gm`
+  requires to be first. The cards are created at runtime as later panel children, so they draw
+  over it.
+- **Shown only on Offices**, by the card loop in `ICUI.refresh`: `show(comp("ic_zig_bg", panel),
+  view == "offices")`. Under a picker `view` is "pick", so it hides with the cards. The preview
+  parses that line.
+- **Checks:**
+  - `check_ziggurat` covers three things: the box sits between the section line and the fill
+    button; the pixel just past every card corner is part of the tower; and its top corners are
+    clear, so it is a silhouette and not a block. Selftest negatives exist for an empty picture
+    and for a box over the section line.
+  - The harness has a new check that Offices shows it and no other view does, and a layout
+    offset for it.
+  - There are two new mutants, both caught: the ziggurat shown on every tab, and never shown.
+  - The pie-overlap rule exempts it, as it does the other view-only cells.
+- Gates: harness 853, gen --check (626 components) and --selftest ok, preview ok, backdrop ok,
+  luac, API and literal-left clean.
+
+## 11. The column cut off, and the Parties rows (2026-10-01)
+
+Build `032D28A3` (MD5 `032d28a37a873cfdef0772e67ab0f891`), deployed to data/ (backup
+`.bak_pre_auto_20261001_161538`), **not pushed**.
+
+- **Cut off top and bottom** (author: "the left panel is still cutting off on the top and
+  bottom"). CA's `side_panerl_bg.png` is 503x1080, a whole screen's side; it was squeezed into
+  886 from 128 to the footer's top, so whenever the footer line was hidden the map showed under
+  the column's last 66px. `ic_gm_col` is now (0, 0, 503, 1080); the strip and the footer draw
+  over it (tier -2, sorted by name). The title, `side_panel_title.png`, is 90 tall with its
+  spikes and was at 60, flattening them against the strip; it is now 90, and everything under
+  it moved down (toggles 214, labels 270, hint and sorts 302, rows from 330, pager 888, buttons
+  922). The toggles draw over the title's bottom spike tips. The button plate stays at 90 (CA's
+  is 136; there is no room for it and seven rows).
+- `check_gm_plates` now refuses a column that is not the art's full height from the screen's
+  top, a title not at the art's height (both scaled per screen), and any overlap down the
+  column's stack, title to footer. Selftest negatives for all three, from 5D2C688C's numbers.
+- **The Parties rows** (author: "parties tab is not aligned properly"). A party row has a 36px
+  crest and no portrait, but its lines started at x 124, the portrait's place. `ICUI.gm_fill_row`
+  now moves a faceless row's lines to beside the crest (2 x crest inset + crest width = 56), and
+  a row with no loyalty icon has its third line lined up with the other two, which also tidies
+  the picker's "Rank N" rows. `gm_make_rows` re-places every cell each draw, so nothing carries
+  between pages.
+- Harness: the Parties-page check measures the lines at 56 on a party row and on No governor,
+  and back at 124 (third line 144 with its icon) on the Provinces page. Two new mutants, both
+  caught: the shift dropped, and the no-icon third line left in place. A third (no reset for a
+  faced row) survived as equivalent, because `gm_make_rows` already resets, and was dropped.
+- The packing gate caught `ic_gm_head` left at 60 in the Lua's PANEL_XY after the generator
+  had moved; the harness does not compare the two.
+- Gates: harness 853, gen --check and --selftest ok (2539 guids), preview ok, backdrop ok,
+  luac, API and literal-left clean. The preview cannot draw the Parties page; the author's
+  in-game screenshots (2026-10-01) show both pages right: the column full height, the title's
+  spikes whole, and the Parties rows' lines beside their crests.

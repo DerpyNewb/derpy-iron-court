@@ -4514,6 +4514,9 @@ check("every panel, row and card cell has a layout offset", function()
     end
     -- THE OFFICES TAB'S FILL BUTTON, in the pager's row.
     want["ic_fill"] = true
+    -- AND THE ZIGGURAT ITS CARDS STAND ON: with no offset it would sit at the
+    -- box's corner, a stepped shape under nothing.
+    want["ic_zig_bg"] = true
     -- THE TWO COLUMN HEADERS AND THE RULE BETWEEN THEM. The court tab is the
     -- only two-column view and these three are what make it read as one.
     for _, name in ipairs(ICUI.COLUMN_KEYS) do
@@ -22455,6 +22458,28 @@ check("the fill button's plan gives a claimed seat to its own party, and applies
     cm.get_human_factions = function() return {} end
 end)
 
+check("the offices tab stands its cards on the ziggurat, and no other view shows it", function()
+    -- THE TOWER BEHIND THE SEATS (author, 2026-10-01: "the silhouette im
+    -- talking about is the background ziggurat"). It goes with the cards: on
+    -- the offices tab and nowhere else, and not under a picker, which hides
+    -- the cards it stands behind.
+    local function shown(view, pick)
+        local vis
+        ICUI.view, ICUI.pick = view, pick
+        with_fake_panel(function(panel)
+            ICUI.refresh()
+            vis = panel.children.ic_zig_bg and panel.children.ic_zig_bg.visible
+        end)
+        ICUI.pick = nil
+        return vis
+    end
+    assert(shown("offices") == true, "the offices tab draws no ziggurat behind its cards")
+    for _, view in ipairs({"court", "govs", "intrigue", "log", "petitions", "help"}) do
+        assert(shown(view) == false, "the ziggurat shows on the " .. view .. " tab")
+    end
+    ICUI.view = "court"
+end)
+
 check("the fill button shows its plan on the offices tab and answers every click", function()
     fill_fixture()
     local function draw(view)
@@ -27918,9 +27943,28 @@ check("the Parties page lists every party with what it governs and would take", 
         assert(legion.children.ic_gr_crest.visible and legion.children.ic_gr_crest.images[0] == ICUI.crest("legion"),
             "the legion's row wears no crest")
         assert(not legion.children.ic_gr_face.visible, "a party row draws a portrait")
+        -- ITS LINES BESIDE THE CREST, as far from it as it is from the frame,
+        -- and not where a portrait's lines start (author, 2026-10-01: "parties
+        -- tab is not aligned properly").
+        local xy = ICUI.GM_ROW_CHILD_XY
+        -- The third line follows the loyalty icon, and with no icon it lines
+        -- up with the other two.
+        local function lines_at(row, x)
+            local l3 = row.children.ic_gr_icon.visible and xy.ic_gr_l3[1] - xy.ic_gr_l1[1] or 0
+            for k, at in pairs({ic_gr_l1 = x, ic_gr_l2 = x, ic_gr_l3 = x + l3}) do
+                assert(row.children[k].x == row.x + at, k .. " starts at " .. tostring(row.children[k].x - row.x)
+                       .. " in its row, not " .. at)
+            end
+        end
+        local beside = 2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3]
+        lines_at(legion, beside)
         local none = gm_row(panel, 3)
         assert(none.children.ic_gr_l1.text == "No governor", none.children.ic_gr_l1.text)
         assert(none.children.ic_gr_l2.text == "1 province", none.children.ic_gr_l2.text)
+        lines_at(none, beside)
+        -- AND BACK BESIDE THE PORTRAIT on the Provinces page, in the same pool.
+        map_click("ic_gm_tog_2")
+        lines_at(gm_row(panel, 1), xy.ic_gr_l1[1])
         assert(not gm_row(panel, 4).visible, "a spare row is drawn")
         assert(not panel.children.ic_gm_next.visible, "a pager for one page")
     end)
