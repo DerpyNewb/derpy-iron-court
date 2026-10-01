@@ -5,6 +5,20 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-01 - build 88EE51F2
+
+Deployed 2026-10-01. MD5 `88EE51F2B29F6BC21F3A0CD37A703062`, 9,702,675 bytes, 1,791 files.
+The detail is in section 12 of `docs/history/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md`.
+
+- **A party's provinces light up.** Choosing a party on the Governors tab's Parties page lights
+  the regions it governs with CA's own map overlay (mode 13, the engine's one highlight: it takes
+  no colour, so there is no colour per party). "No governor" lights the ungoverned provinces.
+  Clearing the choice, another page, another tab or closing the court turns it off, and the
+  court only turns off an overlay it lit. Probed in game first; seen working with the court open.
+- **New setting: settlement levels per point of governor weight.** A Custom slider, 1 to 5,
+  default 2 - the rule as it shipped. Every difficulty keeps 2, and an older save plays at 2.
+- Harness 853 -> 855 checks, 958 -> 965 mutants, 0 unexplained.
+
 ## 2026-10-01 - build 032D28A3
 
 Deployed 2026-10-01. MD5 `032D28A37A873CFDEF0772E67AB0F891`, 9,700,060 bytes, 1,791 files. It

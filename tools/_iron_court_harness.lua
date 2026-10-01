@@ -20784,7 +20784,7 @@ check("each difficulty sets its fourteen numbers", function()
         "the preset table has drifted from the design")
 end)
 
-check("every difficulty names exactly the fourteen numbers", function()
+check("every difficulty names exactly the fifteen numbers", function()
     local numbers = {}
     for _, key in ipairs(IC.TUNE_ORDER) do
         if type(IC.TUNE_DEFAULTS[key]) == "number" then numbers[key] = true end
@@ -20813,6 +20813,30 @@ check("a difficulty ignores the sliders and Custom reads them", function()
         assert(t.loyalty_start == 70, "custom ignored the slider: " .. tostring(t.loyalty_start))
         assert(t.secede_turns == IC.TUNE_DEFAULTS.secede_turns,
             "an unset slider read " .. tostring(t.secede_turns))
+    end)
+end)
+
+check("a governorship's weight follows the settlement levels per point setting", function()
+    -- THE WEIGHT RULE ON THE SETTINGS PAGE (author, 2026-10-01: "add back ...
+    -- the settings slider for the weight per settlement level"). Two levels a
+    -- point is the rule as it shipped; the slider changes it under Custom.
+    assert(IC.TUNE_DEFAULTS.gov_levels_per_weight == 2,
+        "the default is " .. tostring(IC.TUNE_DEFAULTS.gov_levels_per_weight) .. " levels a point, not 2")
+    for n, want in pairs({[1] = 7, [2] = 4, [3] = 3}) do
+        IC.apply_tune({gov_levels_per_weight = n})
+        assert(IC.gov_weight_of(7) == want, string.format(
+            "7 levels at %d a point gave %s, not %d", n, tostring(IC.gov_weight_of(7)), want))
+    end
+    IC.apply_tune({gov_levels_per_weight = 5})
+    assert(IC.gov_weight_of(1) == 1, "a village under 5 a point gave " .. tostring(IC.gov_weight_of(1)))
+    IC.apply_tune(IC.TUNE_DEFAULTS)
+    with_mct(stub_mct({preset = "custom", gov_levels_per_weight = 3}), function()
+        local v = IC.read_mct_or_defaults().gov_levels_per_weight
+        assert(v == 3, "custom ignored the levels per point slider: " .. tostring(v))
+    end)
+    with_mct(stub_mct({preset = "harsh", gov_levels_per_weight = 3}), function()
+        local v = IC.read_mct_or_defaults().gov_levels_per_weight
+        assert(v == 2, "a difficulty read the levels per point slider: " .. tostring(v))
     end)
 end)
 
@@ -27968,6 +27992,84 @@ check("the Parties page lists every party with what it governs and would take", 
         assert(not gm_row(panel, 4).visible, "a spare row is drawn")
         assert(not panel.children.ic_gm_next.visible, "a pager for one page")
     end)
+end)
+
+check("choosing a party lights CA's overlay on what it governs, and every way out turns it off", function()
+    -- CA'S OWN REGION OVERLAY (author, 2026-10-01: "add back tinting CA's own
+    -- region overlay by party colour"; the engine takes no colour, so it is
+    -- mode 13's one highlight, on what the chosen party GOVERNS - the rings
+    -- already mark what it would take). Probed in game 2026-10-01: mode 13
+    -- lights exactly the regions it is handed, land only.
+    IC.state = {}
+    turn = 1
+    local g1 = make_character(831, ANY_SEAT, "legion")
+    make_faction(F, IC.CHD_SUBCULTURE, {g1}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    IC.court(F).govs["prov_b"] = 831
+    -- A SOUR PROVINCE the legion would carry off but does not govern, so what
+    -- it governs and what it would take are two different sets here.
+    IC.court(F).prov["prov_c"] = IC.TUNE.prov_defect_floor
+    local calls, was = {}, CampaignUI
+    CampaignUI = {
+        SetOverlayMode = function(mode, mask, ...)
+            local regions = {...}
+            table.sort(regions)
+            calls[#calls + 1] = {what = "mode", mode = mode, mask = mask, regions = table.concat(regions, ",")}
+        end,
+        SetOverlayVisible = function(on) calls[#calls + 1] = {what = "visible", on = on} end,
+    }
+    local function last(what)
+        for i = #calls, 1, -1 do
+            if calls[i].what == what then return calls[i] end
+        end
+    end
+    local ok, err = pcall(function()
+        with_fake_govmap(function(hud, panel, extra, holder)
+            ICUI.view = "govs"
+            ICUI.pick = nil
+            ICUI.open()
+            assert(#calls == 0, "the overlay was touched before any party was chosen")
+            map_click("ic_gm_tog_1")
+            assert(#calls == 0, "the Parties page lit the overlay with nothing chosen")
+            map_click(ICUI.GM_ROW .. "_2")
+            local m = last("mode")
+            assert(m and m.mode == ICUI.GM_OVERLAY_MODE and m.mask == 0,
+                "the legion's choice set no highlight mode")
+            assert(#IC.defecting_provinces(F, "legion") > 1,
+                "the legion would take only what it governs, so this proves nothing")
+            assert(m.regions == "region_prov_b", "the legion lit " .. tostring(m.regions))
+            assert(calls[#calls].what == "visible" and calls[#calls].on == true,
+                "the highlight was set but never shown")
+            local n = #calls
+            ICUI.refresh()
+            assert(#calls == n, "a redraw with the same choice called the overlay again")
+            map_click(ICUI.GM_ROW .. "_3")
+            assert(last("mode").regions == "region_prov_a,region_prov_c",
+                "No governor lit " .. tostring(last("mode").regions))
+            map_click(ICUI.GM_ROW .. "_3")
+            assert(calls[#calls].what == "visible" and calls[#calls].on == false,
+                "clearing the choice left the overlay on")
+            map_click(ICUI.GM_ROW .. "_2")
+            map_click("ic_gm_tog_2")
+            assert(calls[#calls].on == false, "the Provinces page left the party's regions lit")
+            -- THE CHOICE OUTLIVES THE PAGE, as its rings do.
+            map_click("ic_gm_tog_1")
+            assert(calls[#calls].on == true, "back on Parties the chosen party's regions are not lit")
+            map_click("ic_tab_court")
+            assert(calls[#calls].on == false, "another tab left the party's regions lit")
+            n = #calls
+            ICUI.refresh()
+            assert(#calls == n, "the Court tab turned off an overlay it had not lit")
+            map_click("ic_tab_govs")
+            map_click("ic_gm_tog_1")
+            map_click(ICUI.GM_ROW .. "_2")
+            ICUI.close()
+            assert(calls[#calls].on == false, "closing the court left the party's regions lit")
+        end)
+    end)
+    CampaignUI = was
+    if not ok then error(err, 0) end
 end)
 
 check("choosing a party rings exactly what it would take, and again clears it", function()

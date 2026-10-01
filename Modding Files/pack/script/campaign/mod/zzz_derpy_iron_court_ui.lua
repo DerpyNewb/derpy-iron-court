@@ -5228,7 +5228,7 @@ function ICUI.help_vars(faction)
         if type(v) == "number" then vars[k] = v end
     end
     -- THE WEIGHT RULE IN THE PLAYER'S TERMS: levels per point of weight.
-    vars.levels_per_weight = 1 / IC.TUNE.weight_per_gov_level
+    vars.levels_per_weight = IC.TUNE.gov_levels_per_weight
     vars.seats = #IC.OFFICES
     vars.tiers = #IC.TIERS
     local low, high = nil, nil

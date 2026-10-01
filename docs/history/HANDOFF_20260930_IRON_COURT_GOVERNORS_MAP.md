@@ -296,3 +296,41 @@ BCD7264A and 5D2C688C; the repo's CHANGELOG has one entry for the three.
   luac, API and literal-left clean. The preview cannot draw the Parties page; the author's
   in-game screenshots (2026-10-01) show both pages right: the column full height, the title's
   spikes whole, and the Parties rows' lines beside their crests.
+
+## 12. The region highlight and the levels-per-point slider (2026-10-01)
+
+Build `88EE51F2` (MD5 `88ee51f2b29f6bc21f3a0cd37a703062`), deployed to data/ when the game
+closed (`deploy_iron_court.py --wait`, backup `.bak_pre_auto_20261001_173012`), **not pushed**.
+The author asked for both of the spec's section 8 items back ("add back tinting CA's own region
+overlay by party colour. and the settings slider for the weight per settlement level").
+
+- **The probe** (in game, the wh3_mcp bridge's two files, court closed, Warfleet of Uzkulak):
+  `CampaignUI.SetOverlayMode(mode, 0, region...)` then `SetOverlayVisible(true)` both return
+  without error. Mode 0 coloured the island's land; mode 13 (TUTORIAL_REGION_HIGHLIGHT) lit it
+  gold and orange; mode 13 with only Estragon's Island listed left the Zermuda island in view
+  unlit, so it lights exactly the regions handed to it. Land only: sea stays uncoloured. No
+  RGB argument and one set at a time, so a colour per party is impossible; the author chose
+  "what it governs" for the one highlight, since the pins' red rings already mark what it would
+  take. Turning it on also shows the region name labels, as holding space does, and the camera
+  seemed to shift between shots (possibly the author playing; unconfirmed).
+- **`ICUI.gm_light(faction)`**, after `gm_ring` in every Governors redraw: on the Parties page
+  with a party chosen, the faction's regions in `IC.provinces_of_house` (No governor:
+  `map_outline(faction, nil)`, the ungoverned provinces) go to mode 13 and the overlay shows.
+  Another tab (gm_sync's off branch), a page switch and `ICUI.close` clear it. It remembers the
+  lit set in `ICUI.gm_lit` and calls the engine only when the set changes, and turns the overlay
+  off only when it lit it, so the player's own overlay is not touched. Both calls are pcall'd.
+- **`gov_levels_per_weight`** replaces `weight_per_gov_level` (0.5): `IC.gov_weight_of` is
+  `max(1, ceil(levels / n))`, n = 2 by default, a whole number because MCT's sliders step. It is
+  appended to `IC.TUNE_ORDER` (so an older save plays at 2), named 2 by every difficulty in
+  `IC.PRESETS` and the MCT file's copy, and a Custom slider 1-5. The Help page's
+  `levels_per_weight` and the preview read it.
+- Harness 855 (two new checks). Ten new mutants, all caught. Two of the overlay's survived
+  first: the fixture's legion would take only what it governs (a sour prov_c now separates the
+  sets), and the test clicked the chosen party off before the tab it meant to test - a page
+  switch keeps the choice, as the rings do.
+- Gates: gen --check, preview --check and --selftest, luac on all four files, API, literal-left
+  and undeclared clean. `check_lua_api` flags `ai_test_tower_of_zharr.lua`'s
+  `cm:ritual_is_locked()`, another session's file.
+- **In game (the author, 2026-10-01): yes to all three** - the highlight shows with the court
+  open, the camera holds still when it switches, and the region name labels it brings are fine.
+  Still owed: the slider in a new Custom campaign.

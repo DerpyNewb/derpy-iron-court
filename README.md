@@ -122,7 +122,8 @@ campaign map with the court still open: every province you hold wears a Chaos Dw
 its governor's face, his party's colour and flag, the province's name and its loyalty, and a
 column on the left lists your parties, your provinces and the candidates for a governorship.
 A governorship gives its party weight by how developed the province is - one for every two
-settlement levels, at least one - earned a step a turn. It is sized to the screen, from 1600x900
+settlement levels by default, at least one - earned a step a turn. Choosing a party lights the
+regions it governs with CA's own map highlight. It is sized to the screen, from 1600x900
 up to 2560x1440; below 1920 wide it uses a compact layout one font size down. A man's exact
 influence also shows beside his rank on the character details panel. Event cards raised
 while the panel is open wait until it closes. The button's tooltip sums up the court: your
@@ -138,7 +139,8 @@ With the Mod Configuration Tool installed, the Iron Court page has:
 
 - **Difficulty:** Gentle, Default, Harsh, Ruthless or Custom. It sets how many rival parties
   the court starts with (1, 3, 4 or 5), how loyal they are, how fast they turn, and what
-  favours cost. Custom opens fourteen numbers to edit.
+  favours cost. Custom opens fifteen numbers to edit, the settlement levels per point of
+  governor weight among them.
 - **Systems:** rival parties act on their own; other Chaos Dwarf factions have courts;
   parties can secede; a weak Crown pushes rivals out; your own party can split; show routine
   event messages. Plus a detailed log for bug reports.

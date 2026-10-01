@@ -153,6 +153,9 @@ local NUMBERS = {
      "How many turns an appointment runs. Dismissing a man before his term is up "
      .. "angers his party. When a term ends, the same man cannot take that office "
      .. "again for 3 turns, and his party is not rewarded when he does."},
+    {"gov_levels_per_weight", "Settlement levels per point of governor weight", 2, 1, 5, 1,
+     "A governor's party gains one point of weight for every this many settlement "
+     .. "levels in his province, rounded up. Every governor is worth at least one."},
 }
 
 for i = 1, #NUMBERS do
@@ -178,6 +181,7 @@ local PRESET_VALUES = {
         influence_trickle = 7, settlement_influence = 30,
         favour_gift_cost = 400, favour_secure_cost = 1800,
         party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
     harsh = {
         loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
@@ -185,6 +189,7 @@ local PRESET_VALUES = {
         influence_trickle = 4, settlement_influence = 20,
         favour_gift_cost = 800, favour_secure_cost = 3200,
         party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
     ruthless = {
         loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
@@ -192,6 +197,7 @@ local PRESET_VALUES = {
         influence_trickle = 3, settlement_influence = 16,
         favour_gift_cost = 1000, favour_secure_cost = 4000,
         party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
 }
 

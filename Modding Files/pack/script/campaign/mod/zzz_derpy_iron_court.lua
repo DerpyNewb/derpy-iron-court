@@ -443,9 +443,12 @@ IC.TUNE = {
     weight_start        = 10,   -- a house entering court
     weight_per_office   = 6,
     -- A GOVERNORSHIP IS WORTH ITS PROVINCE (author, 2026-09-30): one weight
-    -- for every two settlement levels held there, rounded up, never less than
-    -- 1 - a level-1 village counts 1, a level-5 capital 5 (IC.gov_weight_of).
-    weight_per_gov_level = 0.5,
+    -- for every this many settlement levels held there, rounded up, never less
+    -- than 1 - a level-1 village counts 1, a level-5 capital 5 (IC.gov_weight_of).
+    -- A Custom slider since 2026-10-01 (author: "add back ... the settings
+    -- slider for the weight per settlement level"); whole levels, as MCT's
+    -- sliders step, where the old weight_per_gov_level was 0.5.
+    gov_levels_per_weight = 2,
     -- AND IT IS EARNED, NOT HANDED OVER (author, 2026-09-30: "assigning
     -- governor quickly shouldnt change the influence directly, it should be
     -- gradual"): a new governor starts from nothing and gains this much a turn
@@ -611,7 +614,7 @@ IC.TUNE = {
 }
 
 -- ---------------------------------------------------------------------------
--- SETTINGS. Fourteen numbers and six switches belong to the player, through MCT.
+-- SETTINGS. Fifteen numbers and six switches belong to the player, through MCT.
 -- Each is read ONCE, frozen into the save as derpy_ic_tuned, and applied over
 -- IC.TUNE, so every IC.TUNE.x read in this mod is unchanged and a save plays
 -- on the numbers it started with whatever MCT says later.
@@ -630,6 +633,7 @@ IC.TUNE_ORDER = {
     "rivals_min", "rivals_max", "term_turns",
     "parties_act", "ai_courts", "secession", "pressure", "crown_split",
     "detailed_log", "all_cards",
+    "gov_levels_per_weight",
 }
 
 -- Today's values, taken off IC.TUNE before anything can change it.
@@ -649,6 +653,7 @@ IC.PRESETS = {
         influence_trickle = 7, settlement_influence = 30,
         favour_gift_cost = 400, favour_secure_cost = 1800,
         party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
     harsh = {
         loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
@@ -656,6 +661,7 @@ IC.PRESETS = {
         influence_trickle = 4, settlement_influence = 20,
         favour_gift_cost = 800, favour_secure_cost = 3200,
         party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
     ruthless = {
         loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
@@ -668,6 +674,7 @@ IC.PRESETS = {
         -- FIVE RIVALS FILL THE GRID. Only four can rise under a banner of their
         -- own (IC.REBEL_POOL); a fifth that leaves joins one already risen.
         party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
+        gov_levels_per_weight = 2,
     },
 }
 
@@ -3012,7 +3019,7 @@ end
 
 -- WHAT A GOVERNORSHIP OVER `levels` SETTLEMENT LEVELS ADDS TO ITS PARTY.
 function IC.gov_weight_of(levels)
-    return math.max(1, math.ceil((levels or 0) * IC.TUNE.weight_per_gov_level))
+    return math.max(1, math.ceil((levels or 0) / IC.TUNE.gov_levels_per_weight))
 end
 
 -- WHAT EACH GOVERNOR HAS GROWN SO FAR, capped at his province's worth. A

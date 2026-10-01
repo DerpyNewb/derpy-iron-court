@@ -329,7 +329,11 @@ function ICUI.gm_sync()
     pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ICUI.GM_BACKDROP, 0) end)
     panel:SetInteractive(not on)
     ICUI.gm_show_column(panel, on)
-    if not on then ICUI.gm_clear_pins(panel) return end
+    if not on then
+        ICUI.gm_clear_pins(panel)
+        ICUI.gm_light(nil)
+        return
+    end
     -- THE COURT'S LIST FURNITURE, which this view does not draw and which the
     -- last tab may have left showing.
     for _, keys in ipairs({ICUI.HDR_KEYS, ICUI.HSORT_KEYS,
@@ -342,6 +346,7 @@ function ICUI.gm_sync()
     ICUI.gm_draw_pins(panel, faction, memo)
     ICUI.gm_draw_column(panel, faction, memo)
     ICUI.gm_ring(panel, faction)
+    ICUI.gm_light(faction)
     -- THE FOOTER'S PLATE, under the footer line while it has something to say.
     local alert, said = comp("ic_alert", panel), false
     if alert then pcall(function() said = alert:Visible() end) end
@@ -412,6 +417,7 @@ end
 local court_close = ICUI.close
 function ICUI.close(...)
     ICUI.gm_was_on = false
+    ICUI.gm_light(nil)
     return court_close(...)
 end
 
@@ -776,6 +782,47 @@ function ICUI.gm_ring(panel, faction)
                              ICUI.GP_OUTLINE)
         end
     end
+end
+
+-- CA'S OWN REGION OVERLAY, LIT OVER WHAT THE CHOSEN PARTY GOVERNS (author,
+-- 2026-10-01: "add back tinting CA's own region overlay by party colour").
+-- The engine takes no colour: mode 13, TUTORIAL_REGION_HIGHLIGHT, is its one
+-- plain highlight, and one set shows at a time. Probed in game 2026-10-01: it
+-- lights exactly the regions handed to it, land only. "No governor" lights the
+-- provinces nobody governs. Called only when the set changes, and turned off
+-- only when this lit it, so the player's own overlay is left alone.
+ICUI.GM_OVERLAY_MODE = 13
+ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_OVERLAY_MODE"
+ICUI.gm_lit = ""
+function ICUI.gm_light(faction)
+    local regions = {}
+    if faction and ICUI.gm_on() and ICUI.gm_live_page() == "parties" and ICUI.gm_party then
+        local r = ICUI.map_rows(faction)[ICUI.gm_party]
+        if r then
+            local mine = {}
+            local list = r.slug and IC.provinces_of_house(faction, r.slug)
+                         or (ICUI.map_outline(faction, nil))
+            for _, p in ipairs(list) do mine[p] = true end
+            pcall(function()
+                local held = cm:get_faction(faction):region_list()
+                for i = 0, held:num_items() - 1 do
+                    local reg = held:item_at(i)
+                    if mine[reg:province():key()] then regions[#regions + 1] = reg:name() end
+                end
+            end)
+        end
+    end
+    local key = table.concat(regions, ",")
+    if key == ICUI.gm_lit then return end
+    pcall(function()
+        if #regions > 0 then
+            CampaignUI.SetOverlayMode(ICUI.GM_OVERLAY_MODE, 0, unpack(regions))
+            CampaignUI.SetOverlayVisible(true)
+        else
+            CampaignUI.SetOverlayVisible(false)
+        end
+    end)
+    ICUI.gm_lit = key
 end
 
 function ICUI.gm_to_page(page)

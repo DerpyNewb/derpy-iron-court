@@ -1462,7 +1462,7 @@ def render(path=None, view="court", box_w=1920):
         fealty = dict(re.findall(r'(high|medium|low) = "(ui/skins/default/icon_fealty_\w+\.png)"',
                                  lua("ui_map")))
         tune = _tune(lua("model"))
-        rate = float(tune["weight_per_gov_level"])
+        rate = 1.0 / float(tune["gov_levels_per_weight"])
         floor, start = int(tune["prov_defect_floor"]), int(tune["prov_loyalty_start"])
 
         def band(loyal):
