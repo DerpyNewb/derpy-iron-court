@@ -209,7 +209,7 @@ files were deleted from the repo, which the sync does not do on its own.
 ## 9. The author's look at 780A41C5 (2026-10-01): stretched, cut off, and a ziggurat
 
 Build `BCD7264A` (MD5 `bcd7264a1aca63e7f67144da92e8c389`), deployed to data/ (backup
-`.bak_pre_auto_20261001_092746`), **not pushed**.
+`.bak_pre_auto_20261001_092746`), pushed with 032D28A3 as f0936a0 (section 11).
 
 - **Stretched: the strip and foot plates.** Both are CA's `sub_title.png`, 113x30, sliced with no
   vertical margin, so at 124px its rails grew about 4x and the bottom rail and shadow ran
@@ -234,7 +234,7 @@ Build `BCD7264A` (MD5 `bcd7264a1aca63e7f67144da92e8c389`), deployed to data/ (ba
 ## 10. The ziggurat behind the Offices tab (2026-10-01)
 
 Build `5D2C688C` (MD5 `5d2c688ceaac8fbd5775a5e5ec32105a`), deployed to data/ (backup
-`.bak_pre_auto_20261001_095542`), **not pushed**.
+`.bak_pre_auto_20261001_095542`), pushed with 032D28A3 as f0936a0 (section 11).
 
 - **The portrait change is reverted**, byte for byte: `silhouette_pixels` is again what it was
   before BCD7264A, `outlined_pixels` and `office_ziggurat.png` are gone (the generator prunes it),
@@ -265,7 +265,8 @@ Build `5D2C688C` (MD5 `5d2c688ceaac8fbd5775a5e5ec32105a`), deployed to data/ (ba
 ## 11. The column cut off, and the Parties rows (2026-10-01)
 
 Build `032D28A3` (MD5 `032d28a37a873cfdef0772e67ab0f891`), deployed to data/ (backup
-`.bak_pre_auto_20261001_161538`), **not pushed**.
+`.bak_pre_auto_20261001_161538`), pushed to GitHub on 2026-10-01 as f0936a0, with
+BCD7264A and 5D2C688C; the repo's CHANGELOG has one entry for the three.
 
 - **Cut off top and bottom** (author: "the left panel is still cutting off on the top and
   bottom"). CA's `side_panerl_bg.png` is 503x1080, a whole screen's side; it was squeezed into
