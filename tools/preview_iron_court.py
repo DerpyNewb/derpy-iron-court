@@ -838,17 +838,15 @@ def gm_hidden(G, view, n_rows):
     Off the Governors view, all of them (ICUI.gm_show_column). On it: the footer's
     plate, which shows with the footer line and the demo has none; the hint,
     which the Provinces page hides and the picker shows only for an empty list;
-    the sort, which is the Provinces page's alone; and the pager when the page
-    holds the whole list (ICUI.gm_draw_page).
+    and the sort on a picker with nobody in it, where the hint takes its place.
+    The list's slider is not a PANEL_LAYOUT cell and is not drawn here.
     """
     gm = set(n for n in G.PANEL_LAYOUT if n.startswith("ic_gm_"))
     if view not in ("gm_provinces", "gm_picker"):
         return gm
     out = {"ic_gm_foot", "ic_gm_hint"}
-    if view == "gm_picker":
+    if view == "gm_picker" and n_rows == 0:
         out |= {"ic_gm_sort_1", "ic_gm_sort_2", "ic_gm_sort_3"}
-    if n_rows <= G.GM_ROWS:
-        out |= {"ic_gm_prev", "ic_gm_page", "ic_gm_next"}
     return out
 
 
@@ -1203,7 +1201,7 @@ def render(path=None, view="court", box_w=1920):
         # returns nil at exactly the threshold, and the demo court sits on 20 - the
         # threshold itself - so drawing it unconditionally put a line on the picture
         # that the panel would not draw.
-        "ic_alert": ("Your own house holds %d%% of the court. Below %d%% you rule "
+        "ic_alert": ("Your own party holds %d%% of the court. Below %d%% you rule "
                      "on sufferance." % (court[0][2], _sufferance)
                      if court[0][2] < _sufferance else ""),
     }
@@ -1254,10 +1252,12 @@ def render(path=None, view="court", box_w=1920):
         "ic_gm_head": _titles["picker" if view == "gm_picker" else "provinces"],
         "ic_gm_tog_lbl_1": _titles["parties"],
         "ic_gm_tog_lbl_2": _titles["provinces"],
-        "ic_gm_sort_1": "Province", "ic_gm_sort_2": "Governor", "ic_gm_sort_3": "Loyalty",
-        "ic_gm_page": "Page 1 of %d" % max(1, -(-_gm_n // G.GM_ROWS)),
-        "ic_gm_prev": "Previous", "ic_gm_next": "Next",
     })
+    # THE SORT BUTTONS' WORDS, off the map Lua: the picker's are its own.
+    _sorts = re.search(r'ICUI\.%s = \{(.*)\}$' % (
+        "GM_PICK_SORTS" if view == "gm_picker" else "GM_SORTS"), lua("ui_map"), re.M).group(1)
+    for i, word in enumerate(re.findall(r'\{"([^"]+)", \d+\}', _sorts)):
+        STRINGS["ic_gm_sort_%d" % (i + 1)] = word
     # THE ACTION BAR, off the panel's own tables. ICUI.draw_actions shows the
     # three buttons for a chosen rival and the hint otherwise, and ICUI.refresh
     # hides all four on every other view.
@@ -2171,9 +2171,8 @@ def selftest():
             assert gm_hidden(_G, _v, 0) >= _gm, "%s draws the Governors column" % _v
     _prov = gm_hidden(_G, "gm_provinces", _G.GM_ROWS)
     assert "ic_gm_col" not in _prov and "ic_gm_sort_1" not in _prov and "ic_gm_hint" in _prov
-    assert "ic_gm_next" in _prov, "one page of provinces draws a pager"
-    _pick = gm_hidden(_G, "gm_picker", _G.GM_ROWS + 1)
-    assert "ic_gm_sort_1" in _pick and "ic_gm_next" not in _pick
+    assert "ic_gm_sort_1" not in gm_hidden(_G, "gm_picker", 1), "a picker with men draws no sorts"
+    assert "ic_gm_sort_1" in gm_hidden(_G, "gm_picker", 0), "an empty picker draws sorts over its hint"
     # AND THE MAP SHOWS THROUGH: the court's backdrop is not drawn on this view.
     _out = os.path.join(PG.CACHE, "selftest_gm.png")
     render(path=_out, view="gm_provinces")

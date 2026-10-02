@@ -335,3 +335,93 @@ overlay by party colour. and the settings slider for the weight per settlement l
 - **In game (the author, 2026-10-01): yes to all three** - the highlight shows with the court
   open, the camera holds still when it switches, and the region name labels it brings are fine.
   Still owed: the slider in a new Custom campaign.
+
+## 13. The column scrolls, the candidates sort, and the text pass (2026-10-01)
+
+The author: "theres no sorting of candidates, no scrollbar for selecting a governor". They chose
+the wheel and a slider over the pager, for all three pages of the column.
+
+- **The list.** CA's own scrolling list (`listview > list_clip > list_box`, `vslider > handle`),
+  emitted by the Guilds emitter as `derpy_ic_gm_list.twui.xml` (IC54) and checked by
+  `check_scroll_parts()`. A card has six cells and a row inside a list must have none, so
+  `list_box` holds one EMPTY row per entry (`derpy_ic_gm_sp.twui.xml`, IC55). That row gives the
+  list its length. The seven cards are made into `list_clip`, over it, and never move.
+  `ICUI.gm_scroll_poll` (every 50ms) reads `list_box`'s y against `list_clip`'s and redraws the
+  cards that many entries on. A new page, a new length, a re-sort or a new pin destroys and
+  remakes the list, at the top. The rows narrowed from 412 to 392 to make room for the slider.
+  The pager (`ic_gm_prev` / `_page` / `_next`) is gone. See `docs/CUSTOM_UI.md`, "Cards that
+  need children".
+- **The picker sorts.** `ICUI.GM_PICK_SORTS`: Available, Rank, Influence, the court's own
+  `pick` modes (columns 5, 3, 4). The buttons show on a picker that has rows. `picker_lines`
+  already sorted by them.
+- **Found by the selftest:** the list file was missing from `ui_file_names()`, which is
+  `import_iron_court.py`'s pack list. It would have built, checked green and never shipped.
+- **The text pass** (the author: "check for typical AI usage and generation of text, follow CA's
+  style of writing"). The audit measured CA's `local_en.pack`. Rule lines are terse, past tense
+  and dash-free (0 dashes in 503 trait explanations). Event tags are never in capitals (0 of
+  910). "Zharr-Naggrund" is always hyphenated. A character's level is his rank. About 70 strings
+  were rewritten. Paired dash asides, "worth watching" and aphoristic closers are gone from the
+  rule lines, event bodies and Record lines. "House" became "party" and "overseer" became
+  "governor" wherever they meant the court's role. The event tags and move results are in
+  title case ("Bribe - Success!"). Agenda tooltip headings are coloured, not capitalised. The
+  MCT names the Record tab.
+  Kept on purpose:
+  - the office card's "lvl": it measures 94 of 100px, and "rank" overflows it.
+  - the primary/secondary slot order on the event cards: CA puts the headline in primary, and
+    the court puts the body there. That order needs a look in game before it is swapped.
+  - the panel title "Hashut's Court".
+- Gates: harness 860, 988 mutants, 0 unexplained, before the text pass; the text pass's ten
+  touched mutants were re-run and all caught. Twenty-two mutants are new (scroll, slider, list
+  rebuild, picker sorts), and ten pager anchors were moved onto the list.
+- Built and deployed to `data/` as `3FBD2B1A` (the court has no Workshop entry).
+- **Owed in game:** the wheel over a card scrolls the list; the slider drags; the cards follow
+  within a frame or two; and a scrolled list starts again at the top after a sort or a new pin.
+
+## 14. The known-bug pass (2026-10-02)
+
+Build `DE2E446C`, deployed to data/ at 09:48 once the game closed (backup
+`.bak_pre_auto_20261002_094811`); full write-up `HANDOFF_20261002_IRON_COURT_KNOWN_BUG_PASS.md`. `24F2E575`
+(everything here but the edict fix) went to data/ first, with backup
+`.bak_pre_auto_20261002_094135`. Not pushed.
+The author asked for the open bug list re-checked against the live pack and then fixed. Four
+items on the old lists were already fixed or moot (the late multiplayer answer, sabotage,
+news to non-Chaos-Dwarf humans, and vassal news, since vassal parties were cut on 09-27).
+The other six:
+
+- **Three silent sounds.** `ICUI.SOUNDS` `gov` / `ungov` / `dismiss` were `sound_settings.xml`
+  hook keys, not events. They are now `UI_CAM_Click_Kislev_Select_Available_Atamans`,
+  `UI_CLICK_Recruitment_Cancel` and `UI_CLICK_Custom_Battle_Remove_Unit`, all in
+  `event_data__core.dat`. New `gen_iron_court.check_sound_names()` holds every `UI_` literal in
+  the court's Lua to that registry. It reported exactly the three old names before the fix,
+  and the selftest pins a hook key failing.
+- **A full rebel pool wakes a dead house** (the author: "can it be a different rebel
+  faction?"). `IC.rebel_faction` now goes pool first, then a dead `IC.ORIGINS` house
+  faction, and joins a running rising only when every house is alive. A woken house flies its
+  own crest (there is no runtime crest setter) under the party's name, which
+  `IC.rebel_rename_all` already restores on load. Every Chaos Dwarf faction permits all seven
+  `IC.REBEL_GENERALS` (read out of db.pack). Untried in game: a rising waking a house that was
+  never its own.
+- **`IC.rebel_sour` sours both ways.** It read the rebels' own regard, which is the number on
+  the player's diplomacy screen and the 09-18 complaint. It then applied `(rebels, other)`,
+  which by CA's order moves the OTHER faction's regard, so every souring ran all 30 steps. Each
+  step now applies `(other, rebels)` and `(rebels, other)`. That covers the 09-18 complaint
+  and the 09-27 spec ("the others dislike the rebels"), and the read moves whichever way the
+  order really runs. The harness's `standing_of` is now directional (`(x, y, n)` moves y's
+  regard for x); the old symmetric `pair_key` sum is why this passed every check.
+- **The edict relight works by id.** The grey pass skips any button the engine had already
+  made inactive, records the ids it greys (adding up across the 0.1s and 0.5s passes), and the
+  relight gives back only those. Before, one global flag lit every inactive button. A new
+  harness case has the engine lock one button before the court greys the other. Still owed in
+  game: whether the engine reuses a button id across settlements for a lock of its own (full
+  sweep handoff section 5).
+- **`ICUI.confirm`** finds the card again by id inside the panel when it stops the pulse,
+  instead of using a handle that may have been destroyed. A new harness case shuts the court
+  before the stop.
+- **`IC.may_send_diplomats`** stops scanning once the target is found.
+
+Harness 861. The 24 touched mutants (five re-aimed, six new) and all 22 edict mutants (two
+new) were caught. One survived
+first: the self-secession check met a dead house before the fallback it tests, so it now uses
+`every_faction_risen()`, as do the three join checks. Full mutation run not repeated. The gate,
+luac, API, literal-left and undeclared checks are clean, and 1797 files are verified in the
+saved pack.

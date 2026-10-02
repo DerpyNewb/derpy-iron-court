@@ -225,9 +225,9 @@ MUTANTS = [
     # The player is never shown both at once, which is why this is invisible in
     # a screenshot and needs a check.
     ("a move card quoting odds the picker already shows live", M,
-     """         "He dies. -%d loyalty from his house.",
+     """         "He dies. -%d loyalty from his party.",
          IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died)""",
-     """         "%d%% odds. He dies. -%d loyalty from his house.",
+     """         "%d%% odds. He dies. -%d loyalty from his party.",
          IC.TUNE.plot_chance_murder, IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died)"""),
 
     # ---- feedback for a click the player made -----------------------------
@@ -236,10 +236,18 @@ MUTANTS = [
     # has ever appointed to flashing for the rest of the campaign. It looks
     # correct on the first click, which is the only one anybody tests by hand.
     ("a confirmation pulse that never stops", U,
-     """    cm:callback(function()
-        pcall(function() pulse_uicomponent(c, false, 0, false) end)
-    end, ICUI.PULSE_SECONDS)""",
+     """        if again then
+            pcall(function() pulse_uicomponent(again, false, 0, false) end)
+        end""",
      """"""),
+    # THE STOP THROUGH THE OLD HANDLE (2026-10-02). The court can shut inside
+    # those seconds, and a destroyed component's handle is not an error a
+    # pcall catches.
+    ("the pulse stopped through a handle its court may have destroyed", U,
+     """        if again then
+            pcall(function() pulse_uicomponent(again, false, 0, false) end)
+        end""",
+     """        pcall(function() pulse_uicomponent(c, false, 0, false) end)"""),
 
     # ONE SOUND FOR BOTH OUTCOMES, which is a sound that says nothing. Sacking a
     # man and seating one are opposite acts and the confirmation is the only
@@ -715,10 +723,14 @@ end"""),
     # one rebel faction, one civil war - and it costs the player the ability to
     # tell two rebellions apart on the map.
     ("every party that leaves joining the same rebel faction", M,
-     """            local dead = false
-            pcall(function() dead = f:is_dead() end)
-            if dead then return key, true end""",
-     """            return key, true"""),
+     """        local dead = false
+        pcall(function() dead = f:is_dead() end)
+        return dead""",
+     """        return true"""),
+    # A FULL POOL JOINING A RISING WHILE A HOUSE LIES DEAD (2026-10-02).
+    ("a full pool joining a running rising while a dead house is free", M,
+     """        if key and key ~= exclude and dead_one(key) then return key, true end""",
+     """        if false then return key, true end"""),
 
     # AND THE WAR DROPPED. The land still changes hands and the army still
     # stands on it, and the faction holding your provinces is at peace with you -
@@ -1857,6 +1869,16 @@ end"""),
         -- interface, the pcall ate the refusal and every souring ran all steps.
         pcall(function() now = a:diplomatic_standing_with(other) end)
         if now and now <= IC.TUNE.rebel_relation then break end
+        -- BOTH WAYS (2026-10-02). CA's five calls put the faction whose regard
+        -- moves SECOND, so (rebels, other) alone moved other's regard and left
+        -- the one read above - the rebels' own, the number on the player's
+        -- diplomacy screen - where it was, and every souring ran all its steps.
+        -- The spec also wants the others to dislike the rebels, so each step
+        -- moves both; the read then moves whichever way the order really runs.
+        pcall(function()
+            cm:apply_dilemma_diplomatic_bonus(other, rebels,
+                                              IC.TUNE.rebel_relation_step)
+        end)
         pcall(function()
             cm:apply_dilemma_diplomatic_bonus(rebels, other,
                                               IC.TUNE.rebel_relation_step)
@@ -1869,6 +1891,32 @@ end"""),
                                           IC.TUNE.rebel_relation_step)
     end)
     return 1"""),
+
+    # ONE WAY ONLY (2026-10-02): each half of the souring dropped. The
+    # rebels' own regard is the number on the player's diplomacy screen; the
+    # others' regard for the rebels is what the spec asks for.
+    ("the rebels soured on nobody, only disliked", M,
+     """        pcall(function()
+            cm:apply_dilemma_diplomatic_bonus(other, rebels,
+                                              IC.TUNE.rebel_relation_step)
+        end)""",
+     """"""),
+    ("the rebels disliking everyone and disliked by nobody", M,
+     """        pcall(function()
+            cm:apply_dilemma_diplomatic_bonus(rebels, other,
+                                              IC.TUNE.rebel_relation_step)
+        end)
+        n = n + 1""",
+     """        n = n + 1"""),
+
+    # THE EDICT RELIGHT BY ID (2026-10-02): the old relight gave back every
+    # inactive button, the engine's own locks with the court's.
+    ("the relight giving back every inactive edict", U,
+     """                if not mine[c:Id()] then return end""",
+     """"""),
+    ("the grey pass counting the engine's lock as its own", U,
+     """                if not to and not mine[id] then return end""",
+     """"""),
 
     # THE COMPARISON THE WRONG WAY ROUND. Attitude runs from -230 to +230 and
     # "sour enough" is a number BELOW the target, which reads backwards to
@@ -3245,8 +3293,8 @@ end"""),
 
     # THE FIVE BUGS OF 2026-09-25. Each fix undone, and one fix made too wide.
     ("a full pool's fallback allowed to be the seceding court itself", M,
-     """            if key ~= exclude then fallback = fallback or key end""",
-     """            fallback = fallback or key"""),
+     """        if key ~= exclude then fallback = fallback or key end""",
+     """        fallback = fallback or key"""),
     ("a party joining a running rising renames it again", M,
      """    if rebels and flying and (waking or not risen or risen == "") then""",
      """    if rebels and flying then"""),
@@ -3992,7 +4040,7 @@ end"""),
      """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])""",
      """                ICUI.confirm(nil, true)"""),
     ("a province given to the ritual sound", U,
-     """    gov         = "UI_CAMPAIGN_EDICT_ISSUED",""",
+     """    gov         = "UI_CAM_Click_Kislev_Select_Available_Atamans",""",
      """    gov         = ICUI.SOUND_SEAT,"""),
     ("two answers sharing one sound", U,
      """    decline     = "UI_CAM_HUD_Diplomacy_Response_Deal_Declined",""",
@@ -4237,8 +4285,8 @@ end"""),
      """            local man = last and not posted[last.cqi]""",
      """            local man = last"""),
     ("the split tooltip printing a weight as a share", U,
-     """            .. "belongs to that party go with it, out of your share of the court.\"""",
-     """            .. "belongs to that party go with it, and 5% of the court off your share.\""""),
+     """            .. "share of the court.\"""",
+     """            .. "share of the court, 5% of it.\""""),
     ("risings left out of the rotation", P,
      """    for i = 1, #IC.REBEL_POOL do candidates[#candidates + 1] = IC.REBEL_POOL[i] end""",
      """"""),
@@ -4648,7 +4696,7 @@ end"""),
      """    rows[#rows + 1] = {slug = nil}""",
      """"""),
     ("the Crown's row ringing its provinces", UM,
-     """    if slug == IC.CROWN then return {}, "Your own house does not secede." end""",
+     """    if slug == IC.CROWN then return {}, "Your own party cannot secede." end""",
      """"""),
     ("the grace period ringing a threat", UM,
      """    if not IC.secession_on() then
@@ -4715,8 +4763,9 @@ end"""),
      """    panel:SetInteractive(not on)""",
      """    panel:SetInteractive(false)"""),
     ("another tab leaves the pins up", UM,
-     """    if not on then ICUI.gm_clear_pins(panel) return end""",
-     """    if not on then return end"""),
+     """        ICUI.gm_clear_pins(panel)
+        ICUI.gm_light(nil)""",
+     """        ICUI.gm_light(nil)"""),
     ("the face and plates made before the pin", UM,
      """                for k, name in ipairs(names) do pins:CreateComponent(name, paths[k]) end""",
      """                for k = #names, 1, -1 do pins:CreateComponent(names[k], paths[k]) end"""),
@@ -4897,8 +4946,12 @@ end"""),
      """    if false then ICUI.gm_reset() end"""),
     ("a closed court remembers the view", UM,
      """    ICUI.gm_was_on = false
+    ICUI.gm_list_key = nil
+    ICUI.gm_light(nil)
     return court_close(...)""",
-     """    return court_close(...)"""),
+     """    ICUI.gm_list_key = nil
+    ICUI.gm_light(nil)
+    return court_close(...)"""),
     ("a toggle lit off its page", UM,
      """        local art = ICUI.GM_ROUND_ART[p == page and "selected" or "live"]""",
      """        local art = ICUI.GM_ROUND_ART["live"]"""),
@@ -4906,7 +4959,7 @@ end"""),
      """                tog:SetImagePath(art[2], ICUI.GM_TOG_ART[2])""",
      """                tog:SetImagePath(ICUI.GM_ROUND_ART.live[2], ICUI.GM_TOG_ART[2])"""),
     ("a chosen party's row not marked", UM,
-     """                if (r.look or "live") == "live" and chosen(r, at + i) then r.look = "selected" end""",
+     """                if (r.look or "live") == "live" and chosen(r, i) then r.look = "selected" end""",
      """                if false then r.look = "selected" end"""),
     ("a row's look set in one state only", UM,
      """        row:SetImagePath(art[2], 1)""",
@@ -4914,12 +4967,9 @@ end"""),
     ("a spare row left showing", UM,
      """            show(row, r ~= nil)""",
      """            show(row, true)"""),
-    ("a party's choice by slot, not by row of the list", UM,
-     """        local at = (ICUI.gm_scroll.parties or 0) * ICUI.GM_ROWS + n""",
-     """        local at = n"""),
     ("a second click on a party does not clear it", UM,
-     """        ICUI.gm_party = (ICUI.gm_party ~= at) and at or nil""",
-     """        ICUI.gm_party = at"""),
+     """        ICUI.gm_party = (ICUI.gm_party ~= n) and n or nil""",
+     """        ICUI.gm_party = n"""),
     ("the chosen party rings nothing", UM,
      """            for _, p in ipairs((ICUI.map_outline(faction, r.slug))) do ringed[p] = true end""",
      """            for _, p in ipairs({}) do ringed[p] = true end"""),
@@ -4929,16 +4979,73 @@ end"""),
     ("the hint forgets why a party rings nothing", UM,
      """            set_text(hint, (chosen and chosen.why) or "Click a party to see what it would take.")""",
      """            set_text(hint, "Click a party to see what it would take.")"""),
-    ("the pager runs past the last page", UM,
-     """    ICUI.gm_scroll[page] = math.max(0, math.min(ICUI.gm_scroll[page] or 0, pages - 1))""",
-     """    ICUI.gm_scroll[page] = math.max(0, ICUI.gm_scroll[page] or 0)"""),
-    ("a pager shown for one page", UM,
-     """        show(comp(name, panel), pages > 1)""",
-     """        show(comp(name, panel), true)"""),
-    ("the column's rows placed at the screen's corner, not the box's", UM,
-     """    px, py = px + ICUI.OX, py + ICUI.OY
-    for i = 1, ICUI.GM_ROWS do""",
-     """    for i = 1, ICUI.GM_ROWS do"""),
+    ("a slider shown for a list that fits", UM,
+     """        show(slider, n > ICUI.GM_ROWS)""",
+     """        show(slider, true)"""),
+    ("the column's cards placed at the screen's corner, not the holder's", UM,
+     """        host, count = holder, n
+        x, y = holder:Position()""",
+     """        host, count = holder, n
+        x, y = 0, 0"""),
+    # THE SCROLLING LIST (author, 2026-10-01: "no scrollbar for selecting a governor").
+    ("the list never made again", UM,
+     """    if list and key == ICUI.gm_list_key then""",
+     """    if list then"""),
+    ("every redraw makes the list again", UM,
+     """    if list and key == ICUI.gm_list_key then""",
+     """    if false then"""),
+    ("the old list left under the new", UM,
+     """    if list then pcall(function() list:Destroy() end) end""",
+     """    local _ = list"""),
+    ("a list made again leaves its holder off the window's top", UM,
+     """        if holder then
+            holder:MoveTo(x, y)""",
+     """        if holder then"""),
+    ("the list placed at the screen's corner", UM,
+     """    list:MoveTo(x, y)""",
+     """    list:MoveTo(0, 0)"""),
+    ("the clip window left the file's size", UM,
+     """        ICUI.resize(clip, ICUI.GM_ROW_W, h)""",
+     """        local _ = h"""),
+    ("the slider on top of the cards", UM,
+     """        slider:MoveTo(x + ICUI.GM_ROW_W + ICUI.GM_SLIDER_GAP, y)""",
+     """        slider:MoveTo(x, y)"""),
+    ("a list with no length", UM,
+     """        for i = 1, n do
+            local name = ICUI.GM_SP""",
+     """        for i = 1, 0 do
+            local name = ICUI.GM_SP"""),
+    ("the empty rows never laid out", UM,
+     """        pcall(function() box:Layout() end)""",
+     """        local _ = box"""),
+    ("the cards never follow the list", UM,
+     """    if hy ~= by then holder:MoveTo(hx, by) end""",
+     """"""),
+    ("a scroll redraws the court", UM,
+     """    if panel then ICUI.gm_follow(panel) end""",
+     """    if panel then ICUI.gm_follow(panel) ICUI.refresh() end"""),
+    ("the cards made on the panel, outside the list", UM,
+     """    local holder = list and comp(ICUI.GM_HOLDER, list)""",
+     """    local holder = nil"""),
+    ("the list left up on another tab", UM,
+     """    show(comp(ICUI.GM_LIST, panel), on)""",
+     """    local _ = on"""),
+    ("the scroll poll never started", UM,
+     """    cm:repeat_real_callback(function() pcall(ICUI.gm_scroll_poll) end,
+                            ICUI.GM_SCROLL_MS, "ic_gm_scroll")""",
+     ""),
+    # THE PICKER'S SORTS.
+    ("the picker has no sorts", UM,
+     """    if page == "picker" then return ICUI.GM_PICK_SORTS, "pick" end""",
+     """    if false then return ICUI.GM_PICK_SORTS, "pick" end"""),
+    ("the picker's sorts sort the Provinces page", UM,
+     """    if page == "picker" then return ICUI.GM_PICK_SORTS, "pick" end""",
+     """    if page == "picker" then return ICUI.GM_PICK_SORTS, "govs" end"""),
+    ("the picker's sort buttons drawn as the Provinces page's", UM,
+     """        ICUI.gm_draw_sorts(panel, page)
+    else""",
+     """        ICUI.gm_draw_sorts(panel, "provinces")
+    else"""),
     # THE PROVINCES PAGE (plan 2026-09-30 Task 4).
     ("a province's weight on its tooltip from the flat rule", UM,
      """                ICUI.house_name(slug, faction_key), now, levels, levels == 1 and "" or "s",""",
@@ -5000,8 +5107,8 @@ end"""),
      """    if false then
         ICUI.gm_sel = nil"""),
     ("the sort lands mid-list after a re-sort", UM,
-     """        ICUI.gm_scroll.provinces = 0""",
-     """        ICUI.gm_scroll.provinces = ICUI.gm_scroll.provinces"""),
+     """        ICUI.gm_rescroll()                -- a re-sort starts at the top""",
+     """        local _ = 0"""),
     ("the loyalty icon high at the start", UM,
      """    if loyalty > IC.TUNE.prov_loyalty_start then return ICUI.GM_FEALTY.high end""",
      """    if loyalty >= IC.TUNE.prov_loyalty_start then return ICUI.GM_FEALTY.high end"""),
@@ -5063,21 +5170,21 @@ end"""),
      """        -- BACK TO THE PAGE IT CAME FROM, with nothing done.
         local _ = ICUI.pick"""),
     ("a new pin keeps the last man chosen", UM,
-     """    ICUI.gm_scroll.picker = 0
+     """    ICUI.gm_rescroll()
     ICUI.gm_pick_sel = nil""",
-     """    ICUI.gm_scroll.picker = 0"""),
-    ("a new pin opens on the last picker's page", UM,
-     """    ICUI.gm_scroll.picker = 0
+     """    ICUI.gm_rescroll()"""),
+    ("a new pin opens where the last picker was scrolled", UM,
+     """    ICUI.gm_rescroll()
     ICUI.gm_pick_sel = nil""",
      """    ICUI.gm_pick_sel = nil"""),
     ("the province being chosen for not ringed", UM,
      """    if page == "picker" then ringed[ICUI.pick.key] = true end""",
      """    if false then ringed[ICUI.pick.key] = true end"""),
-    ("the picker shares the Provinces page's scroll", UM,
+    ("the picker shares the Provinces page's list", UM,
      """    local page = ICUI.gm_live_page()
-    local pages = math.max(1, math.ceil(#rows / ICUI.GM_ROWS))""",
+    local key = page .. "|" .. n .. "|" .. ICUI.gm_list_gen""",
      """    local page = ICUI.gm_page
-    local pages = math.max(1, math.ceil(#rows / ICUI.GM_ROWS))"""),
+    local key = page .. "|" .. n .. "|" .. ICUI.gm_list_gen"""),
     # THE PARTIES ROWS' LINES BESIDE THE CREST (author, 2026-10-01).
     ("a party row's lines left in the portrait's place", UM,
      """    local dx = r.face and 0 or (2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3] - xy.ic_gr_l1[1])""",
@@ -5102,9 +5209,24 @@ end"""),
      """    if faction and ICUI.gm_on() and ICUI.gm_live_page() == "parties" and ICUI.gm_party then""",
      """    if faction and ICUI.gm_on() and ICUI.gm_party then"""),
     ("closing the court leaves the regions lit", UM,
-     """    ICUI.gm_was_on = false
+     """    ICUI.gm_list_key = nil
     ICUI.gm_light(nil)""",
-     """    ICUI.gm_was_on = false"""),
+     """    ICUI.gm_list_key = nil"""),
+    # ---- the drawn-whole column (2026-10-02) ------------------------------
+    ("the holder sized to one screen of cards", UM,
+     """math.max(ICUI.GM_ROWS, n) * ICUI.GM_ROW_PITCH)""",
+     """ICUI.GM_ROWS * ICUI.GM_ROW_PITCH)"""),
+    ("only one screen of cards drawn", UM,
+     """        host, count = holder, n
+        x, y = holder:Position()""",
+     """        host, count = holder, math.min(n, ICUI.GM_ROWS)
+        x, y = holder:Position()"""),
+    ("every card line rewritten on every redraw", UM,
+     """            if ICUI.gm_drawn[id .. "/" .. cname] ~= want then""",
+     """            if true then"""),
+    ("the line memo kept across a new list", UM,
+     """    ICUI.gm_list_key, ICUI.gm_drawn = nil, {}""",
+     """    ICUI.gm_list_key = nil"""),
     ("another tab leaves the regions lit", UM,
      """        ICUI.gm_clear_pins(panel)
         ICUI.gm_light(nil)""",

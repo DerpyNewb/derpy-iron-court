@@ -20,8 +20,8 @@ m:set_title("The Iron Court")
 m:set_author("derpy")
 m:set_description("Parties vie for the offices of your court. The difficulty, the "
     .. "numbers and whether other factions have courts are read once, when a "
-    .. "campaign starts, and are then fixed for the life of that save - change them "
-    .. "from the main menu before starting a new one. The other switches can be "
+    .. "campaign starts, and are then fixed for the life of that save. Change them "
+    .. "from the main menu before starting a new campaign. The other switches can be "
     .. "changed at any time. None of it is used in multiplayer, where every player "
     .. "gets the defaults.")
 
@@ -96,10 +96,10 @@ local SWITCHES = {
      "A Crown whose loyalty runs out splits into a new party. Off, it never does, "
      .. "and a countdown already running stops.", true},
     {"all_cards", "Show routine event messages", "systems",
-     "Off, routine news - a seat standing empty, a party joining the court, a "
-     .. "feud starting or ending, a party passed over for its own office - is "
-     .. "written to the court's Log tab without an event message. Warnings, "
-     .. "demands, offers and the results of your own moves always show one.", true},
+     "When off, routine news (empty seats, parties joining, feuds starting or "
+     .. "ending, a party passed over for its own office) goes only to the court's "
+     .. "Record tab. Warnings, demands, offers and the results of your own moves "
+     .. "always show an event message.", true},
     {"detailed_log", "Detailed log", "debug",
      "Writes the court's routine events to script_log.txt. Failures are always "
      .. "written.", true},
@@ -154,7 +154,7 @@ local NUMBERS = {
      .. "angers his party. When a term ends, the same man cannot take that office "
      .. "again for 3 turns, and his party is not rewarded when he does."},
     {"gov_levels_per_weight", "Settlement levels per point of governor weight", 2, 1, 5, 1,
-     "A governor's party gains one point of weight for every this many settlement "
+     "A governor's party gains one point of weight per this many settlement "
      .. "levels in his province, rounded up. Every governor is worth at least one."},
 }
 

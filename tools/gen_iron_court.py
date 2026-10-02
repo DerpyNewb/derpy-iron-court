@@ -17,6 +17,7 @@ import io
 import json
 import os
 import re
+import struct
 import sys
 
 PACK_NAME = "derpy_iron_court"
@@ -102,8 +103,8 @@ ENVOY_EFFECT = {"ctl": E_ENVOY_CTL, "arm": E_ENVOY_ARM,
 ENVOY_BLURB = {
     "ctl": "An envoy of the court is keeping order here.",
     "arm": "An envoy of the court is driving the forges here.",
-    "raw": "An envoy of the court is working the mines here harder.",
-    "lab": "An envoy of the court is seeing that fewer labourers are worked to death here.",
+    "raw": "An envoy of the court is driving the mines here harder.",
+    "lab": "An envoy of the court is seeing that fewer Labourers are worked to death here.",
 }
 # ONE PAIR CA DOES NOT SHIP, KEPT ON PURPOSE (plan ruling 5). CA's only province
 # bundle scope for raw materials is province_to_province_own_factionwide - every
@@ -261,12 +262,12 @@ PARTIES = [
 CROWN = "crown"
 
 PARTY_GOV_BLURB = {
-    "crown":   "Your own men hold it, and it is quiet because they are watched.",
+    "crown":   "Your own men hold it, and they are watched.",
     "temple":  "The temples take the province in hand and it grows for Hashut.",
     "forge":   "Forge-guild overseers run the province like a workshop floor.",
     "chain":   "The slavers work the province to the bone and account for every hour.",
     "legion":  "A garrison town under a soldier costs less to keep than it should.",
-    "ledger":  "Brokers take the province's books in hand, and the tribute arrives whole.",
+    "ledger":  "Brokers keep the province's books, and the tribute arrives whole.",
     "tower":   "Tower clerks read everything that passes through, and pass it on.",
     "road":    "The caravan men keep the roads open whatever the season.",
     "hearth":  "The old clans hold it, and men come back to the muster faster.",
@@ -310,15 +311,15 @@ BACKGROUNDS = {
 BG_COLOUR = {
     "household":  "He stood at your door before he ever stood in a battle line.",
     "blood":      "Close enough to the line to be dangerous, and he knows it.",
-    "sworn":      "He swore to the throne personally, and takes that literally.",
+    "sworn":      "He swore to the throne in person, and means every word.",
     "acolyte":    "Temple-raised. He still says the words under his breath.",
     "ashpriest":  "He has burned enough offerings to have stopped smelling them.",
-    "taurukh":    "Half a bull and entirely a zealot, which is the usual pairing.",
+    "taurukh":    "Half bull and wholly zealot, like all his kind.",
     "daemonsmith": "He talks to what he binds, and it is not clear who is listening.",
     "gunnery":    "He can tell you what a barrel will do before it does it.",
     "furnace":    "Twenty years at a furnace mouth. His eyes are not what they were.",
     "overseer":   "He counts a work gang the way other men count coin.",
-    "driver":     "Cheerful, loud, and entirely without a floor.",
+    "driver":     "Loud and cheerful, and entirely without mercy.",
     "wrangler":   "He handles hobgoblins, which means he trusts nothing that moves.",
     "immortal":   "He has stood in the front rank and expects the courtesy of it.",
     "infernal":   "Masked so long that the face underneath is a rumour.",
@@ -328,7 +329,7 @@ BG_COLOUR = {
     "harbour":    "He knows what every hull on the Sea of Dread is carrying.",
     "apprentice": "Never finished the Tower. Nobody asks him why.",
     "clerk":      "He has read more of the Tower's word than he was meant to.",
-    "omens":      "He reads the sky and tells you only the parts you can act on.",
+    "omens":      "He reads the sky and tells you only what you need to hear.",
     "caravan":    "He has crossed the Wastes enough times to have stopped counting.",
     "roadwarden": "He keeps a road open by making the alternative worse.",
     "pathfinder": "He goes out further than anyone sensible and comes back.",
@@ -478,7 +479,7 @@ OFFICES = [
         "name": "Grand Overseer of the Forge",
         "affinity": "forge",
         "tier": 1,
-        "blurb": "The forges of Zharr Naggrund answer to one voice, and it is his.",
+        "blurb": "The forges of Zharr-Naggrund answer to one voice, and it is his.",
         "vacant_blurb": "No hand guides the forges. Output slips and no one is blamed.",
         "effects": [(E_ARMAMENTS, 5, BOON), (E_RAWMAT, 4, BOON)],
         "vacancy": [(E_ARMAMENTS, 2, MALUS)],
@@ -559,7 +560,7 @@ OFFICES = [
         "affinity": "hearth",
         "tier": 4,
         "blurb": "Brick and slag leave his kilns cheaper than anyone can explain.",
-        "vacant_blurb": "The kilns burn on regardless, and the bill arrives regardless.",
+        "vacant_blurb": "The kilns burn on unwatched, and the bill still arrives.",
         "effects": [(E_CONSTRUCT, 8, BOON)],
         "vacancy": [(E_CONSTRUCT, 4, MALUS)],
     },
@@ -599,7 +600,7 @@ OFFICES = [
         "affinity": "legion",
         "tier": 4,
         "blurb": "Raiding is an accounting exercise, and he keeps the account.",
-        "vacant_blurb": "The raiders keep their own accounts, which is to say they keep the takings.",
+        "vacant_blurb": "The raiders keep their own accounts, and most of the takings.",
         "effects": [(E_RAID, 10, BOON)],
         "vacancy": [(E_RAID, 5, MALUS)],
     },
@@ -666,32 +667,34 @@ def standing_trait_key(tier):
 # What the band is CALLED, and what it tells the player. Both are about a SEAT
 # rather than a number, because the number is already on the court panel and
 # what a player wants off a character card is "can he take the job".
+def _tier_lc(tier):
+    """A tier's name mid-sentence: "the Lower Step", not "The Lower Step"."""
+    return "the" + TIER_NAME[tier][3:]
+
+
 STANDING_BAND = {
     0: ("Unproven at Court",
-        "He has done nothing the Iron Court thinks worth remembering.",
-        "No seat of the court is open to him. Influence is earned in the "
-        "field - a victory, a settlement taken, a rank won - and by holding "
-        "a seat once he has one."),
+        "The Iron Court has yet to learn his name.",
+        "Too little influence for any seat at court. Influence is earned by "
+        "winning battles, taking settlements, gaining ranks and holding a seat."),
     4: ("Noticed at Court",
-        "His name has begun to come up, and not only when something breaks.",
-        "He has earned enough influence to be seated on %s, the lowest tier "
-        "of the ziggurat." % TIER_NAME[4]),
+        "The court has begun to say his name.",
+        "Has enough influence for a seat on %s, the lowest tier." % _tier_lc(4)),
     3: ("Spoken For at Court",
-        "A house or two would take him, and one of them says so out loud.",
-        "He has earned enough influence to be seated on %s." % TIER_NAME[3]),
+        "A party or two would take him, and one says so openly.",
+        "Has enough influence for a seat on %s." % _tier_lc(3)),
     2: ("Weighed at Court",
         "The old ones have stopped talking over him when he speaks.",
-        "He has earned enough influence to be seated at %s." % TIER_NAME[2]),
+        "Has enough influence for a seat at %s." % _tier_lc(2)),
     1: ("Fit for the Apex",
         "There is no room above him but Hashut's own.",
-        "He has earned enough influence for any seat in the court, %s "
-        "included." % TIER_NAME[1]),
+        "Has enough influence for any seat, %s included." % _tier_lc(1)),
 }
 
 AMBITION_BANDS = {
-    "cautious": ("Cautious", "His influence carries less weight in the Iron Court.",
+    "cautious": ("Cautious", "He keeps his head down and his claims modest.",
                  "His influence counts 25% less towards his party's."),
-    "steady": ("Steady", "His influence carries its usual weight in the Iron Court.",
+    "steady": ("Steady", "He asks for what he is owed, and no more.",
                "His influence counts as usual towards his party's."),
     "ambitious": ("Ambitious", "Every honour becomes another claim on the Iron Court.",
                   "His influence counts 25% more towards his party's."),
@@ -699,11 +702,11 @@ AMBITION_BANDS = {
 
 ORIGIN_COLOUR = {
     "conclave":     "Conclave-raised, and never lets anyone forget which tower taught him.",
-    "astragoth":    "Old blood, old rites, and a back that has never once bent.",
+    "astragoth":    "Old blood and old rites. His back has never bent.",
     "azgorh":       "Forge-bred in Azgorh, and smells of it at forty paces.",
     "zhatan":       "Raised in the Warhost, where a man is his last campaign.",
     "skullstack":   "Company-raised: he prices a man before he greets him.",
-    "khorakk":    "Born to the bull-cult, and it shows in everything he does.",
+    "khorakk":    "Born to the bull-cult, and never lets anyone forget it.",
     "uzkulak":    "Raised on a deck, counting other men's cargo.",
     "artificers": "Snakebeard's people take apart anything that holds still.",
     "fists":      "Temple-drilled, and proud of the scars that took.",
@@ -723,7 +726,7 @@ ORIGIN_COLOUR = {
     "zornuzkul":  "Born on the Great Skull Land. He does not discuss it.",
     "gash":       "Gash Kadrak: orc country, and he grew up armed.",
     "mines":      "Born underground and never entirely comfortable above it.",
-    "wastes":     "Waste-born, and he still eats like the next meal is theoretical.",
+    "wastes":     "Waste-born, and he still eats as if the next meal may never come.",
 }
 
 
@@ -855,14 +858,13 @@ EVENT_FIXED = {
 EVENTS = [
     ("plot_ok", True, "chd/diplomacy", "Positive",
      "The Court Moves",
-     "Your move succeeded. The court has felt it, and the parties have "
-     "adjusted their opinion of you accordingly.",
-     "SUCCESS"),
+     "Your move has succeeded, and the court has taken note!",
+     "Success!"),
     ("plot_fail", True, "chd/army_morale_down", "Negative",
      "The Court Refuses",
-     "Your move failed. What it cost you is spent, and the party it was "
-     "aimed at now knows you tried.",
-     "FAILURE"),
+     "Your move has failed. The influence is spent, and its target knows "
+     "who tried.",
+     "Failure"),
     # THE ONE THE PLAYER DID NOT DO. A term running out empties a seat with no
     # input from the player at all, which is exactly why it needs telling: the
     # 2026-09-15 report was "no event when officers are removed from office".
@@ -876,7 +878,7 @@ EVENTS = [
      "A Party Enters the Court",
      "A faction you absorbed has brought its men into your court as a party "
      "of its own. It holds weight now, and it will expect seats.",
-     "THE COURT GROWS"),
+     "The Court Grows"),
     # THE MOST EXPENSIVE THING THAT CAN HAPPEN, and the panel's alert bar was
     # the only place it was said.
     ("secede_warn", True, "chd/settlement_lost", "Negative",
@@ -884,7 +886,7 @@ EVENTS = [
      "A party has begun counting down to secession. When the count runs out it "
      "takes its provinces with it. Settle with it, or take its seats away "
      "before it can.",
-     "SECESSION PENDING"),
+     "Secession Pending!"),
     # TRANSIENT, ALONE: six offices can snub six parties in one turn.
     ("snub", False, "chd/army_morale_down", "Negative",
      "A Party Is Slighted",
@@ -904,10 +906,10 @@ EVENTS = [
     # and says nothing whatsoever about it.
     ("secede_done", True, "chd/settlement_lost", "Negative",
      "A Party Has Broken With You",
-     "A party has left your court. It has taken land with it, and there is an "
-     "army of its own people standing on that land. Its seats are empty and its "
-     "men have come home to your own house.",
-     "SECESSION"),
+     "A party has broken away from your court, taking land with it, and an "
+     "army of its own now stands on that land. Its seats are empty, and its "
+     "remaining men now serve your own party.",
+     "Secession!"),
     # AND THE ONE THAT COMES BEFORE ANY OF THEM. secede_warn fires only when a
     # party has a big enough share of the court to be worth counting down; a
     # small party with nothing to lose rots to the floor without a single card
@@ -915,10 +917,9 @@ EVENTS = [
     # and it lands while the player can still buy it off.
     ("loyalty_warn", True, "chd/army_morale_down", "Negative",
      "A Party Turns Against You",
-     "A party's loyalty has fallen far enough to be worth watching. Give it a "
-     "seat, or buy it off - a party that reaches the bottom does not wait, and "
-     "it leaves with whatever land it holds.",
-     "DISLOYALTY"),
+     "A party's loyalty is falling dangerously low. Give it a seat or buy it "
+     "off. If its loyalty runs out, it leaves at once and takes its land with it.",
+     "Disloyalty"),
     # YOUR OWN HOUSE, COMING APART. The Crown cannot secede from itself, so
     # until 2026-09-18 its loyalty was written every turn and read by nothing.
     # This is what it costs now. chd/faction is the same picture party_joined
@@ -926,11 +927,10 @@ EVENTS = [
     # court did not have yesterday.
     ("splinter", True, "chd/faction", "Negative",
      "Your Own House Splits",
-     "Your party's loyalty has run out. The men who will not answer to you any "
-     "more have organised as an interest of their own - they hold a share of "
-     "the court that used to be yours, and they will expect seats like any "
-     "other party.",
-     "A NEW PARTY"),
+     "Your party's loyalty has run out. The men who no longer answer to you "
+     "have formed a party of their own. They take a share of the court that was "
+     "yours, and will expect seats like any other party.",
+     "A New Party"),
     # THE SECOND NOTICE ON A SECESSION. secede_warn lands at the top of a
     # five-turn clock and nothing was said again until the party was gone - and
     # Provoke, which shortens that clock outright, skipped the opening card too,
@@ -941,80 +941,78 @@ EVENTS = [
      "A party that began counting down to secession is close to the end of it. "
      "When the count runs out it leaves, and it takes the provinces it holds "
      "with it. There will be no further warning.",
-     "SECESSION IMMINENT"),
+     "Secession Imminent!"),
     # AND THE ONE YOUR OWN HOUSE NEVER GAVE. The split used to happen on the
     # turn the Crown's loyalty crossed the line, with its card arriving in the
     # same frame - which tells the player what has happened, never what is
     # about to. This is the warning that now runs in front of it.
     ("splinter_warn", True, "chd/faction", "Negative",
      "Your Own House Is Turning",
-     "Your party's loyalty has run out. The men who will not answer to you any "
-     "more are organising as an interest of their own, and when they finish "
-     "they will hold a share of the court that is currently yours. Win them "
-     "back before it is settled, or lose them.",
-     "A SPLIT PENDING"),
+     "Your party's loyalty has run out, and the men who no longer answer to "
+     "you are forming a party of their own. Restore your party's loyalty "
+     "before they break away!",
+     "Split Pending"),
     # A PARTY WITH NOTHING TO TAKE. Author, 2026-09-23: a party with nobody in it
     # and no province to its name broke up instead of seceding, where before it
     # "seceded" into another rising's faction, renamed it and started a war.
     ("dissolved", True, "chd/faction", "Neutral",
      "A Party Dissolves",
-     "A party with nobody left in it and no province to its name has broken up "
-     "rather than walk out. Nobody leaves and nothing is lost; its share of the "
-     "court is simply gone.",
-     "PARTY DISSOLVED"),
+     "A party with no members and no province has dissolved. You lose nothing, "
+     "and its share of the court is gone.",
+     "Party Dissolved"),
     ("party_plot_warn", True, "chd/army_morale_down", "Negative",
      "A Party Moves Against You",
      "One of the court's parties is preparing to strike at the Crown next turn. "
-     "Open the Iron Court: their card names the man and the move, and what "
+     "Open the Iron Court: its card names the man and the move, and what "
      "would stop it.",
-     "WARNING"),
+     "Warning!"),
     ("party_plot_ok", True, "chd/army_morale_down", "Negative",
      "The Court Strikes at the Crown",
-     "A party's move against the Crown has landed. The court record says who "
+     "A party's move against the Crown has landed. The Record tab says who "
      "did it and what it cost you.",
-     "STRUCK"),
+     "Struck"),
     ("party_plot_fail", True, "chd/diplomacy", "Positive",
      "A Plot Is Foiled",
      "A party tried to move against the Crown and failed. What it spent is "
-     "gone, and the court record names them.",
-     "FOILED"),
+     "gone, and the Record tab names it.",
+     "Foiled!"),
     ("party_plot_dropped", True, "chd/diplomacy", "Neutral",
      "A Plot Comes to Nothing",
      "The move a party was preparing against the Crown has fallen apart "
      "before it could land.",
-     "ABANDONED"),
+     "Abandoned"),
     ("party_feud", True, "chd/faction", "Neutral",
      "A Feud in the Court",
      "Two parties have turned on each other. While the feud lasts they strike "
      "at each other rather than at you.",
-     "FEUD"),
+     "Feud"),
     ("party_feud_end", True, "chd/faction", "Neutral",
      "A Feud Ends",
      "A feud between two parties is over. Either may turn its attention back "
      "to the Crown.",
-     "FEUD OVER"),
+     "Feud Over"),
     ("party_feud_murder", True, "chd/army_morale_down", "Negative",
      "Blood Between Parties",
      "A feud at court has ended in a killing. One of your men is dead at the hands "
-     "of a rival party. The court record names both sides.",
-     "KILLED"),
+     "of a rival party. The Record tab names both sides.",
+     "Killed"),
     ("party_demand", True, "chd/diplomacy", "Neutral",
      "A Party Makes a Demand",
-     "One of the court's parties demands a post for one of its men. Their card "
-     "names the man and the post. Grant it and their loyalty rises; refuse it, "
+     "One of the court's parties demands a post for one of its men. Its card "
+     "names the man and the post. Grant it and its loyalty rises; refuse it, "
      "or let the time run out, and it falls.",
-     "DEMAND"),
+     "Demand"),
     ("party_demand_refused", True, "chd/army_morale_down", "Negative",
      "A Demand Refused",
-     "A party's demand went unmet. They will remember it, and their loyalty "
-     "has fallen.",
-     "REFUSED"),
+     "A party's demand went unmet. It will remember, and its loyalty has "
+     "fallen.",
+     "Refused"),
     ("party_offer", True, "chd/diplomacy", "Positive",
      "A Party Offers a Favour",
-     "A loyal party offers the Crown something for nothing. Their card says "
-     "what. Click it to accept or decline, but the offer will not wait long, "
-     "and the other parties will notice if you take it.",
-     "OFFER"),
+     "A loyal party offers the Crown a favour. Answer it on the Petitions tab "
+     "before it lapses, and know that the other parties will resent it if you "
+     "accept.",
+     "Offer"),
     # THE TURN BEFORE office_lost (author, 2026-09-25). The call site names the
     # seat when only one is ending; the default below is for two or more.
     ("term_soon", True, "chd/civilisation_down", "Neutral",
@@ -1022,38 +1020,38 @@ EVENTS = [
      "An officer's term ends at the start of your next turn, and his seat will "
      "stand empty. He cannot take the same seat straight back, so decide now "
      "who follows him.",
-     "TERMS END"),
+     "Terms End"),
     ("party_sabotage", True, "chd/army_morale_down", "Negative",
      "An Office Sabotaged",
      "A feuding party has sabotaged an office held by its rival. Its bonus is "
      "lost for a few turns; the Offices tab shows which seat and for how long.",
-     "SABOTAGE"),
+     "Sabotage!"),
     ("party_withhold", True, "chd/army_morale_down", "Negative",
      "A Party Withholds Its Service",
      "A party whose loyalty has fallen low has told its officers to stop working "
      "for you. Every office its men hold gives no bonus for a few turns. Secure "
      "their loyalty and they return to work at once.",
-     "WITHHELD"),
+     "Withheld"),
     ("realm_secede", False, "chd/army_morale_down", "Negative",
      "A Rival Court Splits",
      "A party in another Chaos Dwarf court has broken away and risen in "
-     "rebellion. Your court log names them; the camera button shows where.",
-     "REBELLION"),
+     "rebellion. The Record tab names them; the camera button shows where.",
+     "Rebellion!"),
     # THE THREE THE COURT DID IN SILENCE (author, 2026-09-29: "add event cards
     # to the three"). A death the court arranged - a plot, a feud - has its own
     # card already and does not raise this one.
     ("officer_died", True, "chd/army_morale_down", "Negative",
      "An Officer Is Dead",
-     "One of your officers has died. Whatever he held for you - a seat at "
-     "court, a province to govern - stands empty until you fill it.",
+     "One of your officers has died. His seat at court or his province "
+     "stands empty until you fill it.",
      # NAMES THE SEAT AT THE CALL SITE, as office_lost does.
      None),
     # BOTH COUNTS: a party's secession and your own house's split.
     ("threat_over", True, "chd/diplomacy", "Positive",
      "A Party Stands Down",
-     "A party that was preparing to break with you has stood down. Nothing "
-     "leaves your court, for now - its loyalty is still worth watching.",
-     "STOOD DOWN"),
+     "A party that was preparing to break with you has stood down, for now. "
+     "Keep watch on its loyalty.",
+     "Stood Down"),
     ("stall_end", True, "chd/diplomacy", "Positive",
      "An Office Is Back at Work",
      "An office that stood stalled is working again, and its bonus applies "
@@ -1077,18 +1075,18 @@ DEMAND_REWARD_TEXT = "The party's loyalty rises."
 DEMANDS = [
     ("derpy_ic_demand_office", "A Party Demands an Office",
      "One of the court's parties wants one of its men seated in a vacant "
-     "office. Their party card names the man and the office. Seat him before "
-     "the time runs out and their loyalty rises; let it run out, or give the "
+     "office. Its party card names the man and the office. Seat him before "
+     "the time runs out and its loyalty rises; let it run out, or give the "
      "office to someone else, and it falls.",
-     "The office is filled as they asked, and the party is satisfied.",
-     "Seat the party's man in the office they named (see their party card)."),
+     "The office is filled as it asked, and the party is satisfied.",
+     "Seat the party's man in the office it named (see its party card)."),
     ("derpy_ic_demand_province", "A Party Demands a Province",
-     "One of the court's parties wants one of its men made overseer of a "
-     "province. Their party card names the man and the province. Appoint him "
-     "before the time runs out and their loyalty rises; let it run out, or "
+     "One of the court's parties wants one of its men made governor of a "
+     "province. Its party card names the man and the province. Appoint him "
+     "before the time runs out and its loyalty rises; let it run out, or "
      "give the province to someone else, and it falls.",
-     "The province has the overseer they asked for, and the party is satisfied.",
-     "Make the party's man overseer of the province they named (see their "
+     "The province has the governor it asked for, and the party is satisfied.",
+     "Make the party's man governor of the province it named (see its "
      "party card)."),
 ]
 
@@ -1134,7 +1132,7 @@ CONTROL_BANDS = [
      "The Crown is first among the parties, and no more than first.",
      [(E_ORDER, 2, BOON)]),
     ("contested", 10, "A Contested Court",
-     "Every decree is a negotiation, and every negotiation has a price.",
+     "No decree passes without a bargain struck.",
      [(E_ORDER, 2, MALUS), (E_UPKEEP, 5, MALUS)]),
     ("lost", 0, "The Court Is Not Yours",
      "The parties rule and the Crown is consulted, when there is time.",
@@ -1335,8 +1333,8 @@ def build():
         loc.append({"key": "derpy_ic_control_name_" + slug,
                     "text": name, "tooltip": "false"})
 
-    emit("derpy_ic_gov_base", "Overseer of the Province",
-         "An Overseer of the court sits here, and the province knows it.",
+    emit("derpy_ic_gov_base", "Governor of the Province",
+         "A governor of the court sits here, and the province knows it.",
          "faction", GOVERNOR_BASE)
 
     # ONE PER PARTY, and the key kept the "gov_house" stem so a save made
@@ -1344,7 +1342,7 @@ def build():
     # takes the old one off. The nine parties replace sixteen houses.
     for slug, display, effect, magnitude in PARTIES:
         emit(bundle_key("gov_house", slug),
-             "Overseer: " + display, PARTY_GOV_BLURB[slug],
+             "Governor: " + display, PARTY_GOV_BLURB[slug],
              "faction", [(effect, magnitude, BOON)])
 
     # THE ENVOY'S FOUR (spec 2026-09-29 section 6): one province, for
@@ -1433,7 +1431,7 @@ def build():
         emit_trait(origin_trait_key(slug),
                    "Born: " + display[0].upper() + display[1:],
                    ORIGIN_COLOUR[slug],
-                   "Where he came from. It says nothing about what he wants.",
+                   "Where he was born. It has no effect at court.",
                    "His origin has been struck from the rolls.", "derpy_ic_cat_origin")
 
     # WHAT HE IS, which is the whole of the membership rule. A background
@@ -1443,8 +1441,7 @@ def build():
         emit_trait(bg_trait_key(slug),
                    display,
                    BG_COLOUR[slug],
-                   "What he did before you had a use for him, and who that "
-                   "puts him with at court.",
+                   "His former trade. It decides which party he sits with.",
                    "He has left the trade behind, whatever he says.", party_cat(party))
 
     # WHICH PARTY HE SITS WITH (author, 2026-09-29: "there is no place
@@ -1483,7 +1480,7 @@ def build():
                    office["blurb"],
                    ", ".join(effect_line(e, m, i)
                              for e, m, i in scaled(office, "effects")),
-                   "He has been stripped of the office, and everyone saw it.",
+                   "He no longer holds the office.",
                    "derpy_ic_cat_office")
 
     # ---- the event feed ---------------------------------------------------
@@ -1533,14 +1530,14 @@ def build():
     # caller's key when it has one, so a move with no row of its own
     # still says something rather than drawing the empty plate.
     #
-    # UPPERCASED TO MATCH THE OUTCOME IT IS JOINED TO. The plate carries
-    # two things and they are read as one line.
+    # CA'S OWN FORM, "Scout Ruins - Success!": title case, never capitals (CA
+    # ships 0 event feed strings in capitals of 910).
     for move_key, move_name in model_moves():
         loc.append({"key": move_result_key(move_key, True),
-                    "text": move_name.upper() + " - SUCCESS",
+                    "text": move_name + " - Success!",
                     "tooltip": "false"})
         loc.append({"key": move_result_key(move_key, False),
-                    "text": move_name.upper() + " - FAILURE",
+                    "text": move_name + " - Failure",
                     "tooltip": "false"})
 
     missions = []
@@ -2109,6 +2106,52 @@ def check_gov_rank_constants():
     return out
 
 
+def sound_registry():
+    """Every Wwise event name the game knows, lowercased - the `event_data__core.dat`
+    list in audio_base_bnk.pack (docs/SOUNDS.md section 2). Names are hashed
+    lowercased, so the match is case-insensitive."""
+    import read_pack_index
+    from read_vanilla_db import DB_PACK
+    hits = read_pack_index.read(os.path.join(os.path.dirname(DB_PACK),
+                                             "audio_base_bnk.pack"),
+                                "event_data__core.dat")
+    if not hits:
+        return None
+    d = hits[0][2]
+    n, = struct.unpack_from("<I", d, 0)
+    pos, names = 4, set()
+    for _ in range(n):
+        size, = struct.unpack_from("<I", d, pos)
+        pos += 4
+        names.add(d[pos:pos + size].decode("ascii").lower())
+        pos += size + 4
+    return names
+
+
+def unknown_sounds(lua_text, names):
+    """Every UI_ sound literal in the Lua that is not an event. A hook key from
+    sound_settings.xml, or a made-up name, plays nothing and raises nothing -
+    three shipped that way until 2026-10-02."""
+    found = set(re.findall(r'"((?:UI|ui)_[A-Za-z0-9_]+)"', lua_text))
+    return sorted(s for s in found if s.lower() not in names)
+
+
+def check_sound_names():
+    names = sound_registry()
+    if not names:
+        return ["audio_base_bnk.pack has no event_data__core.dat - the sound check cannot run"]
+    mod = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                       "Modding Files", "pack", "script", "campaign", "mod")
+    out = []
+    for fn in sorted(os.listdir(mod)):
+        if fn.startswith("zzz_derpy_iron_court") and fn.endswith(".lua"):
+            text = io.open(os.path.join(mod, fn), encoding="utf-8").read()
+            for s in unknown_sounds(text, names):
+                out.append("%s plays %s, which is not a sound event - silent"
+                           % (fn, s))
+    return out
+
+
 def check_recruit_rank():
     have = _lua_recruit_rank()
     if have is None:
@@ -2152,6 +2195,7 @@ def check():
     out.extend(check_demand_keys())
     out.extend(check_recruit_rank())
     out.extend(check_gov_rank_constants())
+    out.extend(check_sound_names())
 
     # 1. Effect keys must exist in vanilla, and the declared is_positive_value_good
     #    must match. A wrong sign flag silently inverts a reward into a penalty.
@@ -2750,6 +2794,13 @@ def selftest():
     # a house was added - which is a selftest reporting on its own literals
     # rather than on the data. What is actually invariant is that the counts
     # AGREE across the five tables, and that nothing is duplicated.
+    # THE SOUND CHECK REPORTS A HOOK KEY and passes a real event in any case.
+    _names = {"ui_click_recruitment_cancel"}
+    assert unknown_sounds('play("UI_CAMPAIGN_RECRUITMENT_CANCEL")', _names) \
+        == ["UI_CAMPAIGN_RECRUITMENT_CANCEL"], "a hook key passed the sound check"
+    assert unknown_sounds('play("UI_CLICK_Recruitment_Cancel")', _names) == [], \
+        "a real event failed the sound check on case"
+
     n_origins = len(ORIGINS)
     n_offices = len(OFFICES)
     assert n_origins >= 10, "the ten modded houses are the floor, got %d" % n_origins

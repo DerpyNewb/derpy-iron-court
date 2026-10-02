@@ -51,7 +51,7 @@ function ICUI.map_outline(faction_key, slug)
         end
         return out, nil
     end
-    if slug == IC.CROWN then return {}, "Your own house does not secede." end
+    if slug == IC.CROWN then return {}, "Your own party cannot secede." end
     if not IC.secession_on() then
         local left = IC.grace_left()
         if IC.TUNE.secession ~= false and left > 0 then
@@ -140,8 +140,6 @@ function ICUI.map_register()
             ICUI.gm_to_page(ICUI.GM_TOGS[id])
         elseif string.match(id or "", "^" .. ICUI.GM_ROW .. "_%d+$") and comp(ICUI.PANEL) then
             ICUI.gm_row_click(tonumber(string.match(id, "_(%d+)$")))
-        elseif (id == "ic_gm_prev" or id == "ic_gm_next") and comp(ICUI.PANEL) then
-            ICUI.gm_step(id == "ic_gm_next" and 1 or -1)
         elseif string.match(id or "", "^ic_gm_sort_%d$") and comp(ICUI.PANEL) then
             ICUI.gm_sort_click(tonumber(string.match(id, "(%d)$")))
         elseif id == "ic_gm_ok" and comp(ICUI.PANEL) then
@@ -154,6 +152,8 @@ function ICUI.map_register()
                       leave_on_select, true)
     core:add_listener("ic_map_settlement_selected", "SettlementSelected", true,
                       leave_on_select, true)
+    cm:repeat_real_callback(function() pcall(ICUI.gm_scroll_poll) end,
+                            ICUI.GM_SCROLL_MS, "ic_gm_scroll")
     cm:repeat_real_callback(function() pcall(ICUI.gm_zoom_poll) end,
                             ICUI.GM_ZOOM_MS, "ic_gm_zoom")
 end
@@ -384,7 +384,6 @@ ICUI.GM_PLATES = {"ic_gm_top", "ic_gm_foot", "ic_gm_col"}
 -- SHOWN WITH THE VIEW. ic_gm_foot is not here: it shows with the footer line.
 ICUI.GM_KEYS = {"ic_gm_top", "ic_gm_col", "ic_gm_head", "ic_gm_tog_1", "ic_gm_tog_2",
                 "ic_gm_tog_lbl_1", "ic_gm_tog_lbl_2", "ic_gm_hint",
-                "ic_gm_prev", "ic_gm_page", "ic_gm_next",
                 "ic_gm_sort_1", "ic_gm_sort_2", "ic_gm_sort_3", "ic_gm_btns", "ic_gm_ok", "ic_gm_no"}
 ICUI.GM_TOGS = {ic_gm_tog_1 = "parties", ic_gm_tog_2 = "provinces"}
 ICUI.GM_PAGE_TITLE = {parties = "Parties", provinces = "Provinces", picker = "Candidates"}
@@ -403,57 +402,191 @@ ICUI.GM_ROUND_ART = {
     selected = {ROUND .. "selected.png", ROUND .. "selected_hover.png"},
 }
 ICUI.gm_page = "provinces"           -- plan ruling 15
-ICUI.gm_scroll = {parties = 0, provinces = 0, picker = 0}
 ICUI.gm_party = nil                  -- the chosen Parties row, of the whole list
-ICUI.gm_rows = {}                    -- slot -> the row table drawn there
+ICUI.gm_rows = {}                    -- entry -> the row table drawn there
 ICUI.gm_was_on = false
 
 -- NOTHING CHOSEN: a view entered afresh starts clean.
 function ICUI.gm_reset()
     ICUI.gm_party = nil
     ICUI.gm_sel = nil
-    ICUI.gm_scroll = {parties = 0, provinces = 0, picker = 0}
+    ICUI.gm_rescroll()
 end
 
--- THE COURT CLOSED FORGETS THE VIEW, so a reopen on Governors is afresh.
+-- THE COURT CLOSED FORGETS THE VIEW, so a reopen on Governors is afresh, and
+-- leaves the poll nothing to follow.
 local court_close = ICUI.close
 function ICUI.close(...)
     ICUI.gm_was_on = false
+    ICUI.gm_list_key = nil
     ICUI.gm_light(nil)
     return court_close(...)
 end
 
 function ICUI.gm_show_column(panel, on)
     for _, name in ipairs(ICUI.GM_KEYS) do show(comp(name, panel), on) end
+    show(comp(ICUI.GM_LIST, panel), on)
     for i = 1, ICUI.GM_ROWS do show(comp(ICUI.GM_ROW .. "_" .. i, panel), on) end
     if not on then show(comp("ic_gm_foot", panel), false) end
 end
 
--- THE ROW POOL, made the first time and placed every time, from the box's
--- origin, as ICUI.layout places the court's.
-function ICUI.gm_make_rows(panel)
+-- THE COLUMN SCROLLS (author, 2026-10-01: "no scrollbar for selecting a
+-- governor"; the mouse wheel and a slider, the pager gone). CA's own list, the
+-- Great Guilds' proven shape (docs/CUSTOM_UI.md, "Scrolling lists"). A card has
+-- six cells, and a row inside a list must have none, so list_box holds one EMPTY
+-- row per entry: that gives the list its length, and it is what the engine
+-- scrolls.
+--
+-- DRAWN WHOLE (2026-10-02, docs/CUSTOM_UI.md "Drawn whole", the Zharr Exchange's
+-- proven build). Every entry's card is made once, at its own index, under one
+-- holder in list_clip; gm_scroll_poll puts the holder where list_box is, and the
+-- holder's one MoveTo carries every card. Nothing is redrawn to scroll. The
+-- column first drew seven cards and redrew them for each new scroll position,
+-- which the Exchange measured at 25-200ms a redraw: it froze a drag and then
+-- trailed the bar.
+--
+-- REBUILT, NOT REWOUND: nothing documented scrolls a list from script, and moving
+-- list_box by hand is how a list scrolls to somewhere it is not. A new page, a
+-- new length or a re-sort makes the list again, at the top, and the cards with
+-- it - they are inside it.
+ICUI.GM_SCROLL_MS = 16               -- every frame: the cards trail the bar by up to one tick
+ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_SCROLL_MS"
+ICUI.GM_HOLDER = "ic_gm_rows"
+ICUI.gm_list_gen = 0
+ICUI.gm_list_key = nil               -- what the built list is, nil while none is
+-- WHAT EACH CARD'S LINES ALREADY SAY. A drawn-whole list rewrites every card on
+-- every refresh, and ICUI.cut_text measures once a word. Card lines only - no
+-- other code writes them - and emptied whenever the cards are made again.
+ICUI.gm_drawn = {}
+
+-- THE NEXT DRAW STARTS THE LIST AGAIN, at the top.
+function ICUI.gm_rescroll()
+    ICUI.gm_list_gen = ICUI.gm_list_gen + 1
+end
+
+function ICUI.gm_list(panel, n)
+    local page = ICUI.gm_live_page()
+    local key = page .. "|" .. n .. "|" .. ICUI.gm_list_gen
+    local list = comp(ICUI.GM_LIST, panel)
+    if list and key == ICUI.gm_list_key then
+        -- KEPT, AND STILL SCROLLED: the holder belongs where the list has gone.
+        ICUI.gm_follow(panel)
+        return list
+    end
+    if list then pcall(function() list:Destroy() end) end
+    ICUI.gm_list_key, ICUI.gm_drawn = nil, {}
+    pcall(function() panel:CreateComponent(ICUI.GM_LIST, ICUI.PATH_GM_LIST) end)
+    list = comp(ICUI.GM_LIST, panel)
+    if not list then return nil end
     local px, py = panel:Position()
-    px, py = px + ICUI.OX, py + ICUI.OY
-    for i = 1, ICUI.GM_ROWS do
-        local name = ICUI.GM_ROW .. "_" .. i
-        if not comp(name, panel) then
-            panel:CreateComponent(name, ICUI.path(ICUI.PATH_GM_ROW))
+    local x, y = px + ICUI.OX + ICUI.GM_ROW_X, py + ICUI.OY + ICUI.GM_ROW_Y
+    local h = ICUI.GM_ROWS * ICUI.GM_ROW_PITCH
+    list:MoveTo(x, y)
+    ICUI.resize(list, ICUI.GM_ROW_W + ICUI.GM_SLIDER_GAP + ICUI.GM_SLIDER_W, h)
+    local clip, slider = comp("list_clip", list), comp("vslider", list)
+    if clip then
+        clip:MoveTo(x, y)
+        ICUI.resize(clip, ICUI.GM_ROW_W, h)
+    end
+    if slider then
+        slider:MoveTo(x + ICUI.GM_ROW_W + ICUI.GM_SLIDER_GAP, y)
+        ICUI.resize(slider, ICUI.GM_SLIDER_W, h)
+        -- THE TRAVEL IS A NUMBER, not a size: Resize never reaches it.
+        pcall(function() slider:SetProperty("maxValue", h - ICUI.GM_HANDLE_H) end)
+        local handle = comp("handle", slider)
+        if handle then
+            pcall(function() handle:SetProperty("max_height", h - ICUI.GM_HANDLE_H) end)
         end
-        local row = comp(name, panel)
-        if row then
-            local x = px + ICUI.GM_ROW_X
-            local y = py + ICUI.GM_ROW_Y + (i - 1) * ICUI.GM_ROW_PITCH
-            row:MoveTo(x, y)
+        show(slider, n > ICUI.GM_ROWS)
+    end
+    local box = comp("list_box", list)
+    if box then
+        for i = 1, n do
+            local name = ICUI.GM_SP .. "_" .. i
+            pcall(function() box:CreateComponent(name, ICUI.PATH_GM_SP) end)
+            local sp = comp(name, box)
+            if sp then ICUI.resize(sp, ICUI.GM_ROW_W, ICUI.GM_ROW_PITCH) end
+        end
+        -- Without it the rows sit stacked at the box's origin.
+        pcall(function() box:Layout() end)
+    end
+    -- THE HOLDER, made straight into the clip window: the Exchange ADOPTS a
+    -- holder its panel file declares, and this one has nothing to hand back -
+    -- its cards go when the list does. The empty-row file is the right shape:
+    -- one component, no image, no children. Over list_box, so the wheel on a
+    -- card reaches the list through its parents.
+    if clip then
+        pcall(function() clip:CreateComponent(ICUI.GM_HOLDER, ICUI.PATH_GM_SP) end)
+        local holder = comp(ICUI.GM_HOLDER, clip)
+        if holder then
+            holder:MoveTo(x, y)
+            ICUI.resize(holder, ICUI.GM_ROW_W, math.max(ICUI.GM_ROWS, n) * ICUI.GM_ROW_PITCH)
+        end
+    end
+    ICUI.gm_list_key = key
+    return list
+end
+
+-- THE CARDS FOLLOW THE LIST: the engine scrolls list_box, and the holder goes
+-- where it is. Two reads and at most one move, however long the list.
+function ICUI.gm_follow(panel)
+    local list = comp(ICUI.GM_LIST, panel)
+    local clip = list and comp("list_clip", list)
+    local box, holder = clip and comp("list_box", clip), clip and comp(ICUI.GM_HOLDER, clip)
+    if not (box and holder) then return end
+    local hx, hy = holder:Position()
+    local _bx, by = box:Position()
+    if hy ~= by then holder:MoveTo(hx, by) end
+end
+
+-- THE POLL: there is no scroll event and no Lua wheel event. UI-only and local,
+-- so safe in multiplayer. NOTHING IS REDRAWN HERE, and it returns at once with
+-- no list built, since it runs for the whole campaign.
+function ICUI.gm_scroll_poll()
+    if not ICUI.gm_list_key or ICUI.view ~= "govs" then return end
+    local panel = comp(ICUI.PANEL)
+    if panel then ICUI.gm_follow(panel) end
+end
+
+-- EVERY CARD, from the holder's top at its own index, each made and placed once:
+-- placed by hand, the holder's MoveTo carries it from then on. With no holder -
+-- the list could not be made - the first GM_ROWS cards go into the panel,
+-- unscrolled, and are placed every draw, as before the list. Returns where the
+-- cards are and how many of them there are.
+function ICUI.gm_make_rows(panel, n)
+    local list = comp(ICUI.GM_LIST, panel)
+    local holder = list and comp(ICUI.GM_HOLDER, list)
+    local host, count, x, y
+    if holder then
+        host, count = holder, n
+        x, y = holder:Position()
+    else
+        local px, py = panel:Position()
+        host, count = panel, math.min(n, ICUI.GM_ROWS)
+        x, y = px + ICUI.OX + ICUI.GM_ROW_X, py + ICUI.OY + ICUI.GM_ROW_Y
+    end
+    for i = 1, count do
+        local name = ICUI.GM_ROW .. "_" .. i
+        local row = comp(name, host)
+        local fresh = not row
+        if fresh then
+            pcall(function() host:CreateComponent(name, ICUI.path(ICUI.PATH_GM_ROW)) end)
+            row = comp(name, host)
+        end
+        if row and (fresh or host == panel) then
+            local rx, ry = x, y + (i - 1) * ICUI.GM_ROW_PITCH
+            row:MoveTo(rx, ry)
             ICUI.resize(row, ICUI.GM_ROW_W, ICUI.GM_ROW_H)
             for cname, b in pairs(ICUI.GM_ROW_CHILD_XY) do
                 local c = comp(cname, row)
                 if c then
-                    c:MoveTo(x + b[1], y + b[2])
+                    c:MoveTo(rx + b[1], ry + b[2])
                     ICUI.resize(c, b[3], b[4])
                 end
             end
         end
     end
+    return host, count
 end
 
 -- ONE ROW FROM `r`. A field left nil hides its cell, so a page never shows the
@@ -467,8 +600,8 @@ function ICUI.gm_fill_row(row, r)
     -- NO PORTRAIT, NO PORTRAIT'S GAP: a Parties row's lines start beside its
     -- crest, as far from it as it is from the frame (author, 2026-10-01:
     -- "parties tab is not aligned properly"), and with no loyalty icon the
-    -- third line lines up with the other two (the picker's rows too).
-    -- gm_make_rows puts every cell back at each draw.
+    -- third line lines up with the other two (the picker's rows too). Placed
+    -- from the row's own position each draw, so a scrolled card is right too.
     local xy, rx, ry = ICUI.GM_ROW_CHILD_XY, row:Position()
     local dx = r.face and 0 or (2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3] - xy.ic_gr_l1[1])
     local shift = {ic_gr_l1 = dx, ic_gr_l2 = dx, ic_gr_icon = dx,
@@ -480,10 +613,17 @@ function ICUI.gm_fill_row(row, r)
             if cname ~= "ic_gr_icon" then ICUI.resize(c, b[3] - d, b[4]) end
         end
     end
+    local id = row:Id()
     for _, key in ipairs({"l1", "l2", "l3"}) do
-        local c = comp("ic_gr_" .. key, row)
+        local cname = "ic_gr_" .. key
+        local c = comp(cname, row)
         if c then
-            ICUI.fit_cut(c, r[key] or "")
+            -- THE SHIFT IS IN THE MEMO: it changes the line's width, and so its cut.
+            local want = tostring(r[key] or "") .. "|" .. shift[cname]
+            if ICUI.gm_drawn[id .. "/" .. cname] ~= want then
+                ICUI.fit_cut(c, r[key] or "")
+                ICUI.gm_drawn[id .. "/" .. cname] = want
+            end
             show(c, r[key] ~= nil)
         end
     end
@@ -498,33 +638,24 @@ function ICUI.gm_fill_row(row, r)
     row:SetTooltipText(r.tip or "", "", true)
 end
 
--- ONE PAGE OF `rows` INTO THE POOL, with the pager. `chosen(r, n)` says whether
--- row n of the whole list is the chosen one.
+-- EVERY CARD OF THE PAGE. `chosen(r, n)` says whether entry n is the chosen one.
 function ICUI.gm_draw_page(panel, rows, chosen)
-    local page = ICUI.gm_live_page()
-    local pages = math.max(1, math.ceil(#rows / ICUI.GM_ROWS))
-    ICUI.gm_scroll[page] = math.max(0, math.min(ICUI.gm_scroll[page] or 0, pages - 1))
-    local at = ICUI.gm_scroll[page] * ICUI.GM_ROWS
+    ICUI.gm_list(panel, #rows)
+    local host, count = ICUI.gm_make_rows(panel, #rows)
     ICUI.gm_rows = {}
-    for i = 1, ICUI.GM_ROWS do
-        local row = comp(ICUI.GM_ROW .. "_" .. i, panel)
-        local r = rows[at + i]
+    -- THE PANEL'S FALLBACK CARDS outlive a shorter page; the holder's do not.
+    for i = 1, (host == panel) and ICUI.GM_ROWS or count do
+        local row = comp(ICUI.GM_ROW .. "_" .. i, host)
+        local r = i <= count and rows[i] or nil
         if row then
             show(row, r ~= nil)
             if r then
-                if (r.look or "live") == "live" and chosen(r, at + i) then r.look = "selected" end
+                if (r.look or "live") == "live" and chosen(r, i) then r.look = "selected" end
                 ICUI.gm_fill_row(row, r)
                 ICUI.gm_rows[i] = r
             end
         end
     end
-    for _, name in ipairs({"ic_gm_prev", "ic_gm_page", "ic_gm_next"}) do
-        show(comp(name, panel), pages > 1)
-    end
-    set_text(comp("ic_gm_prev", panel), "Previous")
-    set_text(comp("ic_gm_next", panel), "Next")
-    set_text(comp("ic_gm_page", panel),
-             string.format("Page %d of %d", ICUI.gm_scroll[page] + 1, pages))
 end
 
 -- THE PARTIES PAGE: the party map's legend, as built - the court's parties in
@@ -557,6 +688,18 @@ ICUI.gm_sel = nil                    -- the chosen province on the Provinces pag
 -- by column. Map order is what a third click returns to (plan ruling 13).
 ICUI.GM_SORTS = {{"Province", 1}, {"Governor", 2}, {"Loyalty", 4}}
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_SORTS"
+-- THE CANDIDATES' SORT (author, 2026-10-01: "theres no sorting of candidates"):
+-- the court's own picker modes (ICUI.SORTS.pick), so a sort chosen on either
+-- picker holds on both. Who can be appointed, then rank, then Influence.
+ICUI.GM_PICK_SORTS = {{"Available", 5}, {"Rank", 3}, {"Influence", 4}}
+ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_PICK_SORTS"
+
+-- THE PAGE'S SORT BUTTONS and the court view they sort, or nil.
+function ICUI.gm_sorts(page)
+    if page == "provinces" then return ICUI.GM_SORTS, "govs" end
+    if page == "picker" then return ICUI.GM_PICK_SORTS, "pick" end
+    return nil
+end
 ICUI.GM_FEALTY = {high = "ui/skins/default/icon_fealty_high.png",
                   medium = "ui/skins/default/icon_fealty_medium.png",
                   low = "ui/skins/default/icon_fealty_low.png"}
@@ -581,7 +724,7 @@ function ICUI.gm_open_picker(province)
     ICUI.pick = {kind = "gov", key = province}
     ICUI.scroll.pick = 0
     ICUI.notice = nil
-    ICUI.gm_scroll.picker = 0
+    ICUI.gm_rescroll()
     ICUI.gm_pick_sel = nil
     ICUI.refresh()
 end
@@ -688,7 +831,6 @@ function ICUI.gm_enable(c, on)
 end
 
 function ICUI.gm_draw_column(panel, faction, memo)
-    ICUI.gm_make_rows(panel)
     local page = ICUI.gm_live_page()
     for id, p in pairs(ICUI.GM_TOGS) do
         local tog = comp(id, panel)
@@ -722,6 +864,7 @@ function ICUI.gm_draw_column(panel, faction, memo)
         end)
         show(hint, #rows == 0)
         if #rows == 0 then set_text(hint, "No characters in this faction.") end
+        ICUI.gm_draw_sorts(panel, page)
     else
         show(hint, false)
         local rows, keys = ICUI.gm_province_rows(faction, memo)
@@ -730,14 +873,7 @@ function ICUI.gm_draw_column(panel, faction, memo)
         for _, k in ipairs(keys) do if k == ICUI.gm_sel then held = true end end
         if not held then ICUI.gm_sel = nil end
         ICUI.gm_draw_page(panel, rows, function(r) return r.key == ICUI.gm_sel end)
-        for i, s in ipairs(ICUI.GM_SORTS) do
-            local c = comp("ic_gm_sort_" .. i, panel)
-            if c then
-                local active = ICUI.sort.govs == ICUI.sort_for_column("govs", s[2])
-                set_text(c, active and string.format("[[col:%s]]%s[[/col]]", ICUI.SORT_LIT, s[1]) or s[1])
-                pcall(function() c:SetImagePath(ICUI.sort_arrow_path("govs", s[2]), 0) end)
-            end
-        end
+        ICUI.gm_draw_sorts(panel, page)
     end
     -- THE ROUND BUTTONS: the Provinces page's. The cross only for a province
     -- with a governor to release; both dead with nothing chosen. Worked out
@@ -753,7 +889,12 @@ function ICUI.gm_draw_column(panel, faction, memo)
         btns, ok_on, no_on, no_shown = true, ICUI.gm_pick_sel ~= nil, true, true
         ok_tip, no_tip = "Appoint the chosen man.", "Go back without choosing."
     end
-    for i = 1, #ICUI.GM_SORTS do show(comp("ic_gm_sort_" .. i, panel), page == "provinces") end
+    local sorts = ICUI.gm_sorts(page)
+    for i = 1, #ICUI.GM_SORTS do
+        -- The picker's hint sits where the buttons do; it shows only on an empty list.
+        show(comp("ic_gm_sort_" .. i, panel),
+             sorts ~= nil and (page ~= "picker" or #ICUI.gm_rows > 0))
+    end
     show(comp("ic_gm_btns", panel), btns)
     show(comp("ic_gm_ok", panel), btns)
     show(comp("ic_gm_no", panel), btns and no_shown)
@@ -762,6 +903,20 @@ function ICUI.gm_draw_column(panel, faction, memo)
     local ok_b, no_b = comp("ic_gm_ok", panel), comp("ic_gm_no", panel)
     if ok_b then ok_b:SetTooltipText(ok_tip, "", true) end
     if no_b then no_b:SetTooltipText(no_tip, "", true) end
+end
+
+-- THE PAGE'S SORT BUTTONS: the lit label and the arrow, as the court's headers.
+function ICUI.gm_draw_sorts(panel, page)
+    local sorts, view = ICUI.gm_sorts(page)
+    if not sorts then return end
+    for i, s in ipairs(sorts) do
+        local c = comp("ic_gm_sort_" .. i, panel)
+        if c then
+            local active = ICUI.sort[view] == ICUI.sort_for_column(view, s[2])
+            set_text(c, active and string.format("[[col:%s]]%s[[/col]]", ICUI.SORT_LIT, s[1]) or s[1])
+            pcall(function() c:SetImagePath(ICUI.sort_arrow_path(view, s[2]), 0) end)
+        end
+    end
 end
 
 -- THE RED RINGS: what the chosen party would take.
@@ -874,8 +1029,7 @@ function ICUI.gm_row_click(n)
         return
     end
     if ICUI.gm_page == "parties" then
-        local at = (ICUI.gm_scroll.parties or 0) * ICUI.GM_ROWS + n
-        ICUI.gm_party = (ICUI.gm_party ~= at) and at or nil
+        ICUI.gm_party = (ICUI.gm_party ~= n) and n or nil
     elseif ICUI.gm_page == "provinces" then
         local r = ICUI.gm_rows[n]
         if r and r.key then
@@ -890,18 +1044,13 @@ function ICUI.gm_row_click(n)
     ICUI.refresh()
 end
 
--- A PAGE ON: gm_draw_page clamps it to the list.
-function ICUI.gm_step(delta)
-    local page = ICUI.gm_live_page()
-    ICUI.gm_scroll[page] = math.max(0, (ICUI.gm_scroll[page] or 0) + delta)
-    ICUI.refresh()
-end
-
 function ICUI.gm_sort_click(i)
-    local s = ICUI.GM_SORTS[i]
-    if not s or not ICUI.gm_on() or ICUI.gm_live_page() ~= "provinces" then return end
-    if ICUI.click_column("govs", s[2]) then
-        ICUI.gm_scroll.provinces = 0
+    if not ICUI.gm_on() then return end
+    local sorts, view = ICUI.gm_sorts(ICUI.gm_live_page())
+    local s = sorts and sorts[i]
+    if not s then return end
+    if ICUI.click_column(view, s[2]) then
+        ICUI.gm_rescroll()                -- a re-sort starts at the top
         ICUI.refresh()
     end
 end

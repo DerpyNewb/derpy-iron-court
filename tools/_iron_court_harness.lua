@@ -590,18 +590,14 @@ garrisons = {}
 bonuses = {}
 standing_base = 76
 
-function pair_key(a, b)
-    if tostring(a) < tostring(b) then
-        return tostring(a) .. "|" .. tostring(b)
-    end
-    return tostring(b) .. "|" .. tostring(a)
-end
-
--- Base plus everything applied to this pair, in either direction.
+-- A'S REGARD FOR B: base plus every bonus that moved it. DIRECTIONAL since
+-- 2026-10-02 - all five of CA's calls put the faction whose regard moves
+-- SECOND, so (x, y, n) moves y's regard for x. A symmetric sum here let
+-- IC.rebel_sour read one side and move the other with every check green.
 function standing_of(a, b)
     local total = standing_base
     for i = 1, #bonuses do
-        if pair_key(bonuses[i].a, bonuses[i].b) == pair_key(a, b) then
+        if bonuses[i].b == a and bonuses[i].a == b then
             total = total + bonuses[i].n
         end
     end
@@ -614,6 +610,15 @@ function in_rebel_pool(key)
         if IC.REBEL_POOL[i] == key then return true end
     end
     return false
+end
+
+-- EVERY RISING AND EVERY HOUSE ALIVE: the only world in which a fifth party
+-- joins a running rising, since a full pool wakes a dead house first.
+function every_faction_risen()
+    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    for i = 1, #IC.ORIGINS do
+        if IC.ORIGINS[i].faction then rebel_alive[IC.ORIGINS[i].faction] = true end
+    end
 end
 
 cm = {
@@ -4610,8 +4615,7 @@ check("every panel, row and card cell has a layout offset", function()
     -- the box's corner.
     for _, name in ipairs({"ic_gm_top", "ic_gm_foot", "ic_gm_col", "ic_gm_head",
                            "ic_gm_tog_1", "ic_gm_tog_2", "ic_gm_tog_lbl_1",
-                           "ic_gm_tog_lbl_2", "ic_gm_hint", "ic_gm_prev",
-                           "ic_gm_page", "ic_gm_next", "ic_gm_sort_1", "ic_gm_sort_2",
+                           "ic_gm_tog_lbl_2", "ic_gm_hint", "ic_gm_sort_1", "ic_gm_sort_2",
                            "ic_gm_sort_3", "ic_gm_btns", "ic_gm_ok", "ic_gm_no"}) do
         want[name] = true
     end
@@ -5578,7 +5582,9 @@ local function with_fake_root(fn, break_creation, screen)
     find_uicomponent = function(parent, name)
         if name == "hud_campaign" then return hud end
         if type(parent) == "table" and parent.children and parent ~= r then
-            return parent.children[name] or false
+            -- EVERY DESCENDANT, as CA's own: "searches through all descendants".
+            -- The Governors column's cards live inside its list's clip window.
+            return fake_find(parent, name) or false
         end
         if name == ICUI.PANEL then return created and panel or false end
         return false
@@ -5592,6 +5598,18 @@ local function with_fake_root(fn, break_creation, screen)
     find_uicomponent, is_uicomponent = saved_find, saved_is
     core.get_ui_root, cm.get_human_factions = saved_root, saved_human
     if not ok then error(err, 0) end
+end
+
+-- CA's find_uicomponent: a direct child first, then every descendant.
+function fake_find(p, name)
+    if p.children[name] then return p.children[name] end
+    for _, k in ipairs(p.order or {}) do
+        if k.children then
+            local f = fake_find(k, name)
+            if f then return f end
+        end
+    end
+    return nil
 end
 
 local function with_fake_panel(fn)
@@ -5652,19 +5670,61 @@ local function with_fake_govmap(fn, screen)
             end
         end
         -- A COLUMN ROW IS MADE WITH ITS CHILDREN, as the row's .twui.xml
-        -- declares them, each its file's size so ICUI.fit_cut has a width.
-        local panel_make = panel.CreateComponent
-        function panel:CreateComponent(n, p)
-            panel_make(self, n, p)
-            local row = self.children[n]
-            if row and ICUI.PATH_GM_ROW and p == ICUI.path(ICUI.PATH_GM_ROW)
-               and next(row.children) == nil then
-                for k, box in pairs(ICUI.GM_ROW_CHILD_XY) do
-                    row:CreateComponent(k)
-                    row.children[k].w, row.children[k].h = box[3], box[4]
+        -- declares them, each its file's size so ICUI.fit_cut has a width. AND
+        -- THE LIST with its reserved parts: list_clip > list_box, vslider >
+        -- handle. list_box rides with list_clip, `dy` below it, as the engine
+        -- docks it; gm_scroll_to moves `dy` the way the wheel would.
+        local function hosts_cells(host)
+            local make = host.CreateComponent
+            function host:CreateComponent(n, p)
+                make(self, n, p)
+                extra.paths[n] = extra.paths[n] or p
+                local c = self.children[n]
+                if not c then return end
+                if ICUI.PATH_GM_ROW and p == ICUI.path(ICUI.PATH_GM_ROW)
+                   and next(c.children) == nil then
+                    for k, box in pairs(ICUI.GM_ROW_CHILD_XY) do
+                        c:CreateComponent(k)
+                        c.children[k].w, c.children[k].h = box[3], box[4]
+                    end
+                elseif ICUI.PATH_GM_LIST and p == ICUI.PATH_GM_LIST
+                       and next(c.children) == nil then
+                    c:CreateComponent("list_clip")
+                    c:CreateComponent("vslider")
+                    local clip = c.children.list_clip
+                    clip:CreateComponent("list_box")
+                    c.children.vslider:CreateComponent("handle")
+                    local box = clip.children.list_box
+                    box.dy = 0
+                    function box:Layout() self.laid = true end
+                    local move = clip.MoveTo
+                    function clip:MoveTo(x, y)
+                        move(self, x, y)
+                        box.x, box.y = x, y + box.dy
+                    end
+                    hosts_cells(clip)
+                elseif ICUI.GM_HOLDER and n == ICUI.GM_HOLDER and next(c.children) == nil then
+                    -- THE HOLDER'S MoveTo CARRIES ITS CARDS, as the engine's
+                    -- does (measured in game 2026-10-02, docs/CUSTOM_UI.md):
+                    -- that one fact is the whole of the drawn-whole list, so a
+                    -- stub that left the cards behind could not test it.
+                    local function shift(k, dx, dy)
+                        for _, kid in ipairs(k.order) do
+                            kid.x, kid.y = kid.x + dx, kid.y + dy
+                            shift(kid, dx, dy)
+                        end
+                    end
+                    function c:MoveTo(x, y)
+                        local dx, dy = x - self.x, y - self.y
+                        self.x, self.y = x, y
+                        shift(self, dx, dy)
+                        self.moves = (self.moves or 0) + 1
+                    end
+                    hosts_cells(c)
                 end
             end
         end
+        hosts_cells(panel)
         -- MAP ORDER ON THE PROVINCES PAGE: these checks name rows by position, and
         -- the sort and the page are session state an earlier check may have moved.
         ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
@@ -5684,7 +5744,46 @@ local function gm_name(holder, i) return holder.children[(ICUI.GM_NAME or "ic_gm
 local function gm_loyal(holder, i) return holder.children[(ICUI.GM_LOYAL or "ic_gm_loyal") .. "_" .. i] end
 local function gm_badge(holder, i) return holder.children[(ICUI.GM_BADGE or "ic_gm_badge") .. "_" .. i] end
 -- THE i-th ROW OF THE COLUMN, or nil.
-local function gm_row(panel, i) return panel.children[(ICUI.GM_ROW or "ic_gm_row") .. "_" .. i] end
+local function gm_row(panel, i) return fake_find(panel, (ICUI.GM_ROW or "ic_gm_row") .. "_" .. i) end
+-- THE COLUMN'S LIST, and whether its slider shows.
+local function gm_list(panel) return fake_find(panel, ICUI.GM_LIST or "listview") end
+local function gm_slider_shown(panel)
+    local list = gm_list(panel)
+    return list ~= nil and list.children.vslider.visible ~= false
+end
+-- THE CARDS' HOLDER, and how many entries it has gone down, read off where it
+-- actually is against the clip window - never off a counter the Lua keeps.
+local function gm_holder(panel) return fake_find(panel, ICUI.GM_HOLDER or "ic_gm_rows") end
+local function gm_scrolled(panel)
+    local clip = gm_list(panel).children.list_clip
+    return (clip.y - gm_holder(panel).y) / ICUI.GM_ROW_PITCH
+end
+-- THE ENTRIES WHOSE CARDS SIT INSIDE THE CLIP WINDOW, top to bottom.
+local function gm_on_screen(panel)
+    local clip = gm_list(panel).children.list_clip
+    local out = {}
+    for i = 1, #ICUI.gm_rows do
+        local row = gm_row(panel, i)
+        if row and row.visible and row.y >= clip.y
+           and row.y + ICUI.GM_ROW_PITCH <= clip.y + clip.h then
+            out[#out + 1] = i
+        end
+    end
+    table.sort(out, function(a, b) return gm_row(panel, a).y < gm_row(panel, b).y end)
+    return out
+end
+-- SCROLL THE LIST k ENTRIES DOWN, as the wheel or the slider would, and run
+-- the poll that the engine's real-time clock would run.
+local function gm_scroll_to(panel, k)
+    local list = gm_list(panel)
+    assert(list, "the column has no list")
+    local clip = list.children.list_clip
+    local box = clip.children.list_box
+    box.dy = -k * ICUI.GM_ROW_PITCH
+    box.y = clip.y + box.dy
+    assert(cm.repeats.ic_gm_scroll, "no scroll poll registered")
+    cm.repeats.ic_gm_scroll.fn()
+end
 
 -- THE k-th PARTY CARD THAT ACTUALLY DREW. The court tab pages a grid of ten
 -- the way the other tabs window a pool of rows, so "the first party on screen"
@@ -14236,7 +14335,7 @@ check("a rebellion joining one already running crowns nobody", function()
     party_of(1, 0)
     -- EVERY FACTION IN THE POOL ALREADY ALIVE, which is what a fifth secession
     -- meets. rebel_faction falls back to the first that exists.
-    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    every_faction_risen()
     local key, waking = IC.rebel_faction()
     assert(key, "no rebel faction was available at all")
     assert(waking == false,
@@ -15021,6 +15120,9 @@ function()
     assert(standing_of(rebels, F) <= IC.TUNE.rebel_relation,
         "the rebellion reads " .. standing_of(rebels, F)
         .. " on the diplomacy screen")
+    -- AND THE COURT IT LEFT DISLIKES IT BACK (spec 2026-09-27 section 8).
+    assert(standing_of(F, rebels) <= IC.TUNE.rebel_relation,
+        "the court it left still regards the rebellion at " .. standing_of(F, rebels))
     -- AND THE TARGET IS ACTUALLY A NEGATIVE ONE, read off TUNE so the knob and
     -- the check cannot agree with each other at a friendly number.
     assert(IC.TUNE.rebel_relation < 0,
@@ -15040,9 +15142,10 @@ function()
     IC.secede(F, "legion")
     local need = math.ceil((standing_base - IC.TUNE.rebel_relation)
                            / -IC.TUNE.rebel_relation_step)
-    assert(#bonuses == need,
-        #bonuses .. " penalties were applied where " .. need .. " reach the "
-        .. "target - the loop is counting, not reading")
+    -- TWO PENALTIES A STEP, one each way (2026-10-02).
+    assert(#bonuses == 2 * need,
+        #bonuses .. " penalties were applied where " .. need .. " steps of two reach "
+        .. "the target - the loop is counting, not reading")
     assert(need < IC.TUNE.rebel_relation_max,
         "the fixture needs " .. need .. " penalties and the cap is "
         .. IC.TUNE.rebel_relation_max .. ", so this cannot tell early "
@@ -15066,9 +15169,9 @@ function()
     bonuses = {}
     IC.secede(F, "legion")
     standing_base = saved
-    assert(#bonuses == IC.TUNE.rebel_relation_max,
+    assert(#bonuses == 2 * IC.TUNE.rebel_relation_max,
         #bonuses .. " penalties were applied against a cap of "
-        .. IC.TUNE.rebel_relation_max)
+        .. IC.TUNE.rebel_relation_max .. " steps of two")
 end)
 
 check("a rebellion against somebody else's court still sours on the player",
@@ -15089,6 +15192,10 @@ function()
         "the court it left reads " .. standing_of(rebels, F))
     assert(standing_of(rebels, other) <= IC.TUNE.rebel_relation,
         "the watching player reads " .. standing_of(rebels, other))
+    assert(standing_of(F, rebels) <= IC.TUNE.rebel_relation,
+        "the court it left regards the rebellion at " .. standing_of(F, rebels))
+    assert(standing_of(other, rebels) <= IC.TUNE.rebel_relation,
+        "the watching player regards the rebellion at " .. standing_of(other, rebels))
 end)
 
 check("a rebellion is not made to hate itself", function()
@@ -15515,7 +15622,7 @@ function()
     -- the check is about nothing: it was written that way first and passed for
     -- free. rebel_faction falls back to the first faction that EXISTS once none
     -- of them is dead, which is the case the snapshot is for.
-    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    every_faction_risen()
     forces, lord_levels = {}, {}
     IC.secede(F, "legion")
     local risen = forces[1].faction
@@ -15683,7 +15790,19 @@ check("a click the player made is answered, and the answer stops", function()
     -- ICUI.confirm touches nothing on the component but hands it to
     -- pulse_uicomponent, so an id is the whole of what a fixture owes it. The
     -- full fake panel tree exists further up and would be machinery for nothing.
-    local card = {Id = function() return "ic_card_3" end}
+    -- THE STOP FINDS THE CARD AGAIN BY ID inside the panel (2026-10-02), so
+    -- the panel and the card have to be findable; Position is what
+    -- is_uicomponent asks of a component.
+    local card = {Id = function() return "ic_card_3" end, Position = function() return 0, 0 end}
+    local panel = {Position = function() return 0, 0 end}
+    local panel_up = true
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    find_uicomponent = function(_parent, name)
+        if not panel_up then return nil end
+        if name == ICUI.PANEL then return panel end
+        if name == "ic_card_3" then return card end
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
     ICUI.confirm(card, true)
     assert(sounds[1] == ICUI.SOUND_OK,
         "a good click played " .. tostring(sounds[1]))
@@ -15712,6 +15831,19 @@ check("a click the player made is answered, and the answer stops", function()
     assert(#sounds == 1, "a confirmation with no card went silent")
     assert(#pulses == 0, "something was pulsed with no card to pulse")
 
+    -- A COURT SHUT BEFORE THE STOP: the card went with it, and its old handle
+    -- is not touched again - a destroyed component is not an error a pcall
+    -- catches.
+    sounds, pulses = {}, {}
+    cm.callback = function(_self, fn, delay)
+        panel_up = false
+        fn()
+    end
+    ICUI.confirm(card, true)
+    assert(#pulses == 1, "the pulse was touched " .. #pulses
+        .. " times after its court shut - the stop reached a destroyed card")
+
+    find_uicomponent, is_uicomponent = saved_find, saved_is
     cm.callback = saved_cb
 end)
 
@@ -17305,7 +17437,7 @@ check("the blood-oath is gated, singular, and dies with either man", function()
     local found
     for _, t in ipairs(terms) do
         if t.n == IC.TUNE.plot_oath_loyalty
-                and string.find(t.label, "oath", 1, true) then
+                and string.find(string.lower(t.label), "oath", 1, true) then
             found = t
         end
     end
@@ -20153,7 +20285,7 @@ check("the tooltip names the demanded man and post, and every offer", function()
     a.demand = {slug = "legion", kind = "gov", cqi = 311, key = "prov_a",
                 was = 0, ends = 11}
     tip = ICUI.agenda_tip(F, "legion")
-    assert(string.find(tip, "overseer of", 1, true)
+    assert(string.find(tip, "governor of", 1, true)
            and string.find(tip, "1 turn left", 1, true),
            "the province demand reads: " .. tip)
     local cases = {
@@ -20168,7 +20300,7 @@ check("the tooltip names the demanded man and post, and every offer", function()
     for _, case in ipairs(cases) do
         a.offers.forge = case.o
         tip = ICUI.agenda_tip(F, "forge")
-        assert(string.find(tip, "OFFERS: ", 1, true)
+        assert(string.find(tip, "[[col:yellow]]Offers:[[/col]] ", 1, true)
                and string.find(tip, case.want, 1, true),
                "the " .. case.o.kind .. " offer reads: " .. tip)
     end
@@ -20608,9 +20740,9 @@ check("the calm offer's tooltip reads with one colon", function()
     IC.agenda(F).offers.forge = {kind = "calm", n = IC.TUNE.party_offer_calm,
                                  target = "legion", ends = 13}
     local tip = bare(ICUI.agenda_tip(F, "forge"))
-    local _, colons = string.gsub(tip, ":", "")
+    local _, colons = string.gsub((string.gsub(tip, "%[%[/?col[^%]]*%]%]", "")), ":", "")
     assert(colons == 1, colons .. " colons: " .. tip)
-    assert(string.find(tip, "OFFERS: to calm " .. ICUI.house_name("legion", F)
+    assert(string.find(tip, "[[col:yellow]]Offers:[[/col]] to calm " .. ICUI.house_name("legion", F)
                        .. ". Their countdown stops and their loyalty rises by "
                        .. (IC.TUNE.party_offer_calm - IC.TUNE.party_offer_envy)
                        .. ". If they are still angry, it starts again next turn. "
@@ -20624,14 +20756,37 @@ end)
 -- handoffs' open lists and each pinned here before it was fixed.
 -- ---------------------------------------------------------------------------
 
-check("a fifth rising joins a running one and leaves its name alone", function()
-    -- THE POOL IS FULL: four risings alive, so a fifth party joins one of them
-    -- (see "a rebellion joining one already running crowns nobody"). It used to
-    -- RENAME that rising after itself, so the party that rose first lost its
-    -- name on the map and in the save.
+check("a fifth rising wakes a dead house rather than joining a running one", function()
+    -- THE POOL IS FULL (author, 2026-10-02: "can it be a different rebel
+    -- faction?"). A house faction that has died is still on the map, so the
+    -- fifth party rises under it - not the seceding court, not a live rising.
     party_of(1, 0)
     IC.name_party(F, "legion")
     for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    local woke = nil
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= F and not factions[key] then woke = woke or key end
+    end
+    assert(woke, "the fixture has no dead house, so this proves nothing")
+    local key, waking = IC.rebel_faction(F)
+    assert(key == woke and waking == true,
+        "a full pool answered " .. tostring(key) .. " (waking " .. tostring(waking)
+        .. ") where the dead house " .. woke .. " was free")
+    IC.secede(F, "legion")
+    assert(#forces >= 1 and forces[1].faction == woke,
+        "the party rose under " .. tostring(forces[1] and forces[1].faction))
+    assert(not in_rebel_pool(forces[1].faction), "it joined a running rising")
+end)
+
+check("a fifth rising joins a running one and leaves its name alone", function()
+    -- THE POOL IS FULL AND NO HOUSE IS DEAD: four risings alive, so a fifth
+    -- party joins one of them (see "a rebellion joining one already running
+    -- crowns nobody"). It used to RENAME that rising after itself, so the party
+    -- that rose first lost its name on the map and in the save.
+    party_of(1, 0)
+    IC.name_party(F, "legion")
+    every_faction_risen()
     local host = IC.rebel_faction()
     saved["derpy_ic_risen_" .. host] = "Covenant of the Older Rising"
     renames = {}
@@ -20651,7 +20806,7 @@ check("a rising's own court never secedes into the rising itself", function()
     -- alive, the fallback picked the first living pool key - which could be the
     -- court's own faction: war on itself, provinces handed to itself.
     party_of(1, 0)
-    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    every_faction_risen()
     for i = 1, #IC.REBEL_POOL do
         local own = IC.REBEL_POOL[i]
         local key = IC.rebel_faction_for(own, "legion")
@@ -24701,6 +24856,21 @@ function()
         ICUI.apply_edict_lock(regions[1])
         assert(plain_b.state == "inactive",
             "the court lit a button it never greyed: " .. plain_b.state)
+        -- AND ONE THE ENGINE HAD LOCKED BEFORE THE COURT GREYED THE REST (full
+        -- sweep 2026-09-29, the fifth reviewer): the relight gave back every
+        -- inactive button, not only the ones the court greyed.
+        plain_b.state, plain_b.disabled = "inactive", true
+        chosen_b.state, chosen_b.disabled = "selected", false
+        IC.court(F).govs["prov_ash"] = nil
+        assert(ICUI.apply_edict_lock(regions[1]) == "grey")
+        assert(chosen_b.state == "selected_inactive", "the live button was not greyed")
+        IC.court(F).govs["prov_ash"] = 77
+        assert(ICUI.apply_edict_lock(regions[1]) == "live")
+        assert(chosen_b.state == "selected" and not chosen_b.disabled,
+            "the button the court greyed was not given back: " .. chosen_b.state)
+        assert(plain_b.state == "inactive" and plain_b.disabled,
+            "the engine's own lock was lifted: " .. plain_b.state
+            .. ", disabled " .. tostring(plain_b.disabled))
         -- NO COURT: nothing judged, and no court made by asking.
         IC.state = {}
         assert(ICUI.edict_verdict(regions[1]) == nil, "a faction with no court was judged")
@@ -25712,7 +25882,7 @@ check("a rebel faction woken from the dead starts a court of its own", function(
     court = seceding_court()
     court.prov["prov_b"] = 80
     court.prov["prov_c"] = 80
-    for i = 1, #IC.REBEL_POOL do rebel_alive[IC.REBEL_POOL[i]] = true end
+    every_faction_risen()
     IC.add_house(R, "forge")
     IC.save(R)
     IC.secede(F, "legion")
@@ -27222,7 +27392,7 @@ function()
     IC.add_house(F, IC.CROWN)
     IC.add_house(F, "legion")
     local list, why = ICUI.map_outline(F, IC.CROWN)
-    assert(#list == 0 and why == "Your own house does not secede.", tostring(why))
+    assert(#list == 0 and why == "Your own party cannot secede.", tostring(why))
     in_grace(function()
         turn = 4
         local l2, w2 = ICUI.map_outline(F, "legion")
@@ -27997,7 +28167,7 @@ check("the column shows on the Governors view only, the footer's plate with the 
         ICUI.open()
         -- THE HINT AND THE PAGER are the page's to show: the Provinces page has
         -- no hint, and one page has no pager (their own checks below).
-        local sometimes = {ic_gm_hint = true, ic_gm_prev = true, ic_gm_page = true, ic_gm_next = true}
+        local sometimes = {ic_gm_hint = true}
         for _, name in ipairs(ICUI.GM_KEYS) do
             if not sometimes[name] then
                 assert(panel.children[name].visible, name .. " is hidden on the Governors view")
@@ -28018,7 +28188,8 @@ check("the column shows on the Governors view only, the footer's plate with the 
         end
         assert(not panel.children.ic_gm_foot.visible, "the footer's plate shows on the Court tab")
         for i = 1, ICUI.GM_ROWS do
-            assert(not gm_row(panel, i).visible, "column row " .. i .. " shows on the Court tab")
+            local row = gm_row(panel, i)
+            assert(not (row and row.visible), "column row " .. i .. " shows on the Court tab")
         end
     end)
 end)
@@ -28092,8 +28263,9 @@ check("the Parties page lists every party with what it governs and would take", 
         -- AND BACK BESIDE THE PORTRAIT on the Provinces page, in the same pool.
         map_click("ic_gm_tog_2")
         lines_at(gm_row(panel, 1), xy.ic_gr_l1[1])
-        assert(not gm_row(panel, 4).visible, "a spare row is drawn")
-        assert(not panel.children.ic_gm_next.visible, "a pager for one page")
+        local spare = gm_row(panel, 4)
+        assert(not (spare and spare.visible), "a spare row is drawn")
+        assert(not gm_slider_shown(panel), "a slider for one screen of rows")
     end)
 end)
 
@@ -28271,7 +28443,7 @@ check("a party that rings nothing says why, in the hint and on its tooltip", fun
         assert(panel.children.ic_gm_hint.text == "Click a party to see what it would take.",
             "the hint reads " .. panel.children.ic_gm_hint.text)
         map_click(ICUI.GM_ROW .. "_1")          -- the Crown
-        assert(panel.children.ic_gm_hint.text == "Your own house does not secede.",
+        assert(panel.children.ic_gm_hint.text == "Your own party cannot secede.",
             "the Crown's hint reads " .. panel.children.ic_gm_hint.text)
         local keep = IC.TUNE.secession
         IC.TUNE.secession = false
@@ -28299,7 +28471,7 @@ check("a realm with no province says so on the Parties page", function()
     end)
 end)
 
-check("a court with more parties than rows pages its Parties page", function()
+check("a court with more parties than rows scrolls its Parties page", function()
     IC.state = {}
     turn = 1
     make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b"})
@@ -28311,21 +28483,32 @@ check("a court with more parties than rows pages its Parties page", function()
         map_click("ic_gm_tog_1")
         local rows = ICUI.map_rows(F)
         assert(#rows > ICUI.GM_ROWS, "the fixture fits one page, so this proves nothing")
-        local pages = math.ceil(#rows / ICUI.GM_ROWS)
-        assert(panel.children.ic_gm_next.visible, "no pager for " .. #rows .. " rows")
-        assert(panel.children.ic_gm_page.text == "Page 1 of " .. pages, panel.children.ic_gm_page.text)
-        for _ = 2, pages do map_click("ic_gm_next") end
-        assert(panel.children.ic_gm_page.text == "Page " .. pages .. " of " .. pages, panel.children.ic_gm_page.text)
-        map_click("ic_gm_next")                  -- past the end: stays
-        assert(panel.children.ic_gm_page.text == "Page " .. pages .. " of " .. pages, "Next ran past the last page")
-        -- "NO GOVERNOR" IS STILL THE LAST ROW, on the last page.
-        local last = gm_row(panel, #rows - (pages - 1) * ICUI.GM_ROWS)
+        local most = #rows - ICUI.GM_ROWS
+        assert(gm_slider_shown(panel), "no slider for " .. #rows .. " rows")
+        -- DRAWN WHOLE: a card for every entry, the ones below the fold included.
+        assert(gm_row(panel, #rows) and gm_row(panel, #rows).visible,
+            "no card for entry " .. #rows .. " of " .. #rows)
+        local was = ICUI.refresh
+        local redraws = 0
+        ICUI.refresh = function(...) redraws = redraws + 1 return was(...) end
+        gm_scroll_to(panel, most)
+        ICUI.refresh = was
+        assert(redraws == 0, "a scroll redrew the court " .. redraws .. " times")
+        -- "NO GOVERNOR" IS STILL THE LAST ROW, at the window's foot, scrolled to the end.
+        local seen = gm_on_screen(panel)
+        assert(#seen == ICUI.GM_ROWS and seen[1] == most + 1 and seen[#seen] == #rows,
+            "scrolled to the end, the window shows entries " .. table.concat(seen, ","))
+        local last = gm_row(panel, #rows)
         assert(last.children.ic_gr_l1.text == "No governor", "the last row reads " .. last.children.ic_gr_l1.text)
-        -- A CHOICE ON THE LAST PAGE is a row of the whole list.
-        map_click(ICUI.GM_ROW .. "_1")
-        assert(ICUI.gm_party == (pages - 1) * ICUI.GM_ROWS + 1, "the last page's first row chose " .. tostring(ICUI.gm_party))
-        map_click("ic_gm_prev")
-        assert(gm_row(panel, 1).images[0] == ICUI.GM_ROW_ART.live[1], "page one's first row wears the other page's choice")
+        assert(last.children.ic_gr_l1.y == last.y + ICUI.GM_ROW_CHILD_XY.ic_gr_l1[2],
+            "the last card's line stayed behind when the card moved")
+        -- A CHOICE SCROLLED DOWN is a row of the whole list.
+        map_click(ICUI.GM_ROW .. "_" .. (most + 1))
+        assert(ICUI.gm_party == most + 1, "the scrolled first card chose " .. tostring(ICUI.gm_party))
+        assert(gm_scrolled(panel) == most, "a choice moved the list to " .. gm_scrolled(panel))
+        gm_scroll_to(panel, 0)
+        assert(gm_row(panel, 1).images[0] == ICUI.GM_ROW_ART.live[1], "the top card wears a choice made further down")
+        assert(gm_row(panel, most + 1).images[0] == ICUI.GM_ROW_ART.selected[1], "the chosen card lost its look")
     end)
 end)
 
@@ -28551,7 +28734,7 @@ check("the check opens the governor picker for the chosen province", function()
     end)
 end)
 
-check("the cross releases the selected province, whatever page it is on", function()
+check("the cross releases the selected province, however far the list is scrolled", function()
     IC.state = {}
     local provinces, men = {}, {}
     for i = 1, ICUI.GM_ROWS + 2 do
@@ -28567,15 +28750,22 @@ check("the cross releases the selected province, whatever page it is on", functi
         ICUI.view = "govs"
         ICUI.pick = nil
         ICUI.open()
-        map_click("ic_gm_next")
-        -- PAGE TWO'S SECOND ROW is the ninth province.
-        map_click(ICUI.GM_ROW .. "_2")
-        assert(ICUI.gm_sel == last, "page two's second row chose " .. tostring(ICUI.gm_sel))
+        gm_scroll_to(panel, 2)
+        -- SCROLLED TWO DOWN, THE LAST CARD ON SCREEN is the ninth province.
+        local seen = gm_on_screen(panel)
+        assert(seen[#seen] == #provinces, "the window's last card is entry " .. tostring(seen[#seen]))
+        map_click(ICUI.GM_ROW .. "_" .. seen[#seen])
+        assert(ICUI.gm_sel == last, "the last card chose " .. tostring(ICUI.gm_sel))
         map_click("ic_gm_no")
         assert(IC.court(F).govs[last] == nil, "the cross did not release " .. last)
-        assert(IC.court(F).govs[provinces[2]] == 3302, "the cross released page one's second row")
-        -- ANSWERED, and the row redrawn empty.
-        assert(gm_row(panel, 2).children.ic_gr_l2.text == "None assigned", "the released row still names a governor")
+        assert(IC.court(F).govs[provinces[ICUI.GM_ROWS]] == 3300 + ICUI.GM_ROWS,
+            "the cross released the unscrolled last card's province")
+        -- ANSWERED, and the card redrawn empty, still scrolled.
+        assert(gm_row(panel, #provinces).children.ic_gr_l2.text == "None assigned",
+            "the released card still names a governor")
+        assert(gm_scrolled(panel) == 2, "the answer moved the list to " .. gm_scrolled(panel))
+        seen = gm_on_screen(panel)
+        assert(seen[#seen] == #provinces, "after the answer the window ends at entry " .. tostring(seen[#seen]))
     end)
 end)
 
@@ -28612,7 +28802,7 @@ check("a sorted Provinces page chooses and appoints the province it drew, and ke
     ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
 end)
 
-check("every province is reachable once the Provinces page outruns its rows", function()
+check("every province is reachable by scrolling once the Provinces page outruns its rows", function()
     IC.state = {}
     local provinces = {}
     for i = 1, ICUI.GM_ROWS * 2 + 1 do provinces[i] = "prov_" .. string.char(96 + i) end
@@ -28622,16 +28812,17 @@ check("every province is reachable once the Provinces page outruns its rows", fu
         ICUI.view = "govs"
         ICUI.pick = nil
         ICUI.open()
-        local seen = {}
-        for page = 1, 3 do
-            for i = 1, ICUI.GM_ROWS do
+        local seen, most = {}, #provinces - ICUI.GM_ROWS
+        for k = 0, most do
+            gm_scroll_to(panel, k)
+            local shown = gm_on_screen(panel)
+            assert(shown[1] == k + 1, "scrolled to " .. k .. " the window starts at entry " .. tostring(shown[1]))
+            for _, i in ipairs(shown) do
                 local r = ICUI.gm_rows[i]
                 if r then seen[r.key] = true end
             end
-            if page < 3 then map_click("ic_gm_next") end
         end
-        for _, p in ipairs(provinces) do assert(seen[p], p .. " is on no page") end
-        assert(panel.children.ic_gm_page.text == "Page 3 of 3", panel.children.ic_gm_page.text)
+        for _, p in ipairs(provinces) do assert(seen[p], p .. " is never on screen") end
     end)
 end)
 
@@ -28661,7 +28852,7 @@ check("a chosen province that is lost clears the choice and releases nothing", f
     end)
 end)
 
-check("a sort starts the Provinces page again from its first page", function()
+check("a sort starts the Provinces list again at the top", function()
     IC.state = {}
     local provinces = {}
     for i = 1, ICUI.GM_ROWS + 2 do provinces[i] = "prov_" .. string.char(96 + i) end
@@ -28671,10 +28862,13 @@ check("a sort starts the Provinces page again from its first page", function()
         ICUI.view = "govs"
         ICUI.pick = nil
         ICUI.open()
-        map_click("ic_gm_next")
-        assert(panel.children.ic_gm_page.text == "Page 2 of 2", "the fixture never reached page two")
+        gm_scroll_to(panel, 2)
+        assert(gm_scrolled(panel) == 2, "the fixture never scrolled")
+        local before = gm_list(panel)
         map_click("ic_gm_sort_1")
-        assert(panel.children.ic_gm_page.text == "Page 1 of 2", "a sort left the page on " .. panel.children.ic_gm_page.text)
+        assert(gm_scrolled(panel) == 0, "a sort left the list at " .. gm_scrolled(panel))
+        assert(gm_list(panel) ~= before and before.destroyed, "a sort kept the scrolled list")
+        assert(gm_list(panel).children.list_clip.children.list_box.dy == 0, "the new list is not at its top")
     end)
     ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
 end)
@@ -28768,7 +28962,7 @@ end)
 
 -- THE PICKER PAGE'S ROW FOR A MAN, whichever slot the sort put him in.
 local function gm_pick_row(panel, cqi)
-    for i = 1, ICUI.GM_ROWS do
+    for i = 1, #ICUI.gm_rows do
         local r = ICUI.gm_rows[i]
         if r and r.key == cqi then return gm_row(panel, i), r end
     end
@@ -28820,7 +29014,7 @@ check("a pin opens the governor picker in the column, over the map, with the cou
         assert(held.tooltip:find(IC.standing(F, 3402) .. " influence. Holds: prov_b.", 1, true),
             "a busy man's tooltip does not carry his influence and what he holds: " .. held.tooltip)
         sounds = {}
-        for i = 1, ICUI.GM_ROWS do
+        for i = 1, #ICUI.gm_rows do
             if ICUI.gm_rows[i] == r then map_click(ICUI.GM_ROW .. "_" .. i) end
         end
         assert(ICUI.gm_pick_sel == nil, "a busy man was chosen")
@@ -28852,7 +29046,7 @@ check("the check appoints the chosen man, and the answer returns to the page the
             map_click("ic_gm_ok")
             assert(IC.court(F).govs.prov_b == nil, from .. ": a dead check appointed someone")
             local row = gm_pick_row(panel, 3411)
-            for i = 1, ICUI.GM_ROWS do
+            for i = 1, #ICUI.gm_rows do
                 if gm_row(panel, i) == row then map_click(ICUI.GM_ROW .. "_" .. i) end
             end
             assert(ICUI.gm_pick_sel == 3411, from .. ": the card chose " .. tostring(ICUI.gm_pick_sel))
@@ -28927,7 +29121,7 @@ check("a man who stops being free, or a province lost, between the draw and the 
     end)
 end)
 
-check("a picker with more men than cards pages, and a new pin opens it on page one with nobody chosen", function()
+check("a picker with more men than cards scrolls, and a new pin opens it at the top with nobody chosen", function()
     IC.state = {}
     local men = {}
     for i = 1, ICUI.GM_ROWS + 2 do men[i] = make_character(3440 + i, ANY_SEAT, "legion") end
@@ -28939,17 +29133,154 @@ check("a picker with more men than cards pages, and a new pin opens it on page o
         ICUI.pick = nil
         ICUI.open()
         map_click(ICUI.GM_PIN .. "_1")
-        assert(panel.children.ic_gm_page.text == "Page 1 of 2", panel.children.ic_gm_page.text)
-        map_click("ic_gm_next")
-        -- ITS OWN PAGE COUNT: the Provinces page under it has one page.
-        assert(panel.children.ic_gm_page.text == "Page 2 of 2", "next landed on " .. panel.children.ic_gm_page.text)
-        map_click(ICUI.GM_ROW .. "_1")
-        assert(ICUI.gm_pick_sel ~= nil, "page two's first card chose nobody")
+        -- ITS OWN LENGTH: the Provinces page under it fits on screen.
+        assert(gm_slider_shown(panel), "no slider for a picker longer than its cards")
+        gm_scroll_to(panel, 2)
+        assert(gm_scrolled(panel) == 2, "the picker scrolled to " .. gm_scrolled(panel))
+        -- THE CARDS MOVED WITH IT: the first card on screen is the picker's third man.
+        local top = gm_on_screen(panel)[1]
+        assert(top == 3 and ICUI.gm_rows[top].cqi == ICUI.gm_picker_rows(F)[3].cqi,
+            "the picker's cards did not scroll: the window starts at " .. tostring(top))
+        map_click(ICUI.GM_ROW .. "_" .. top)
+        assert(ICUI.gm_pick_sel ~= nil, "the scrolled first card chose nobody")
+        assert(ICUI.gm_pick_sel == ICUI.gm_rows[top].cqi, "the scrolled first card chose another man")
         map_click(ICUI.GM_PIN .. "_2")
         assert(ICUI.pick.key == "prov_b", "the second pin opened " .. tostring(ICUI.pick.key))
-        assert(panel.children.ic_gm_page.text == "Page 1 of 2", "a new pin opened on " .. panel.children.ic_gm_page.text)
+        assert(gm_scrolled(panel) == 0, "a new pin opened scrolled to " .. gm_scrolled(panel))
+        assert(gm_list(panel).children.list_clip.children.list_box.dy == 0, "a new pin kept the scrolled list")
         assert(ICUI.gm_pick_sel == nil, "a new pin kept the last man chosen")
     end)
+end)
+
+check("backing out of a picker as long as the Provinces page opens that page at its top", function()
+    -- THE PAGE IS IN THE LIST'S KEY. With the picker and the Provinces page the
+    -- same length, nothing else tells the two lists apart, and the Provinces
+    -- page came back scrolled to wherever the picker had been.
+    IC.state = {}
+    local provinces, men = {}, {}
+    for i = 1, ICUI.GM_ROWS + 2 do
+        provinces[i] = "prov_" .. string.char(96 + i)
+        men[i] = make_character(3500 + i, ANY_SEAT, "legion")
+    end
+    make_faction(F, IC.CHD_SUBCULTURE, men, provinces)
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        map_click(ICUI.GM_PIN .. "_1")
+        assert(#ICUI.gm_rows == #provinces,
+            "the fixture's picker has " .. #ICUI.gm_rows .. " entries, not " .. #provinces)
+        gm_scroll_to(panel, 2)
+        map_click("ic_gm_no")
+        assert(ICUI.gm_live_page() == "provinces", "the cross did not go back")
+        assert(gm_scrolled(panel) == 0, "the Provinces page came back scrolled to " .. gm_scrolled(panel))
+    end)
+end)
+
+check("the column's list: where the cards were, the cards inside its clip window, one empty row per entry", function()
+    IC.state = {}
+    local provinces = {}
+    for i = 1, ICUI.GM_ROWS + 3 do provinces[i] = "prov_" .. string.char(96 + i) end
+    make_faction(F, IC.CHD_SUBCULTURE, {}, provinces)
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        local list = gm_list(panel)
+        assert(list and extra.paths[ICUI.GM_LIST] == ICUI.PATH_GM_LIST, "no list, or one from another file")
+        local px, py = panel:Position()
+        local x, y = px + ICUI.OX + ICUI.GM_ROW_X, py + ICUI.OY + ICUI.GM_ROW_Y
+        local h = ICUI.GM_ROWS * ICUI.GM_ROW_PITCH
+        local clip, slider = list.children.list_clip, list.children.vslider
+        assert(list.x == x and list.y == y, "the list is not where the cards were")
+        assert(clip.x == x and clip.y == y and clip.w == ICUI.GM_ROW_W and clip.h == h,
+            "the clip window is " .. tostring(clip.w) .. "x" .. tostring(clip.h))
+        assert(slider.x == x + ICUI.GM_ROW_W + ICUI.GM_SLIDER_GAP and slider.y == y
+               and slider.w == ICUI.GM_SLIDER_W and slider.h == h, "the slider is not beside the cards")
+        assert(slider.visible ~= false, "no slider for " .. #provinces .. " provinces")
+        -- EVERY CARD, under one holder in the clip window, at its own index.
+        local holder = gm_holder(panel)
+        assert(holder and holder.parent == clip, "the cards' holder is not in the clip window")
+        assert(extra.paths[ICUI.GM_HOLDER] == ICUI.PATH_GM_SP, "the holder is not the empty-row file")
+        assert(holder.x == x and holder.y == y, "the holder is not at the window's top")
+        assert(holder.h == #provinces * ICUI.GM_ROW_PITCH, "the holder is " .. holder.h .. " tall")
+        for i = 1, #provinces do
+            local card = gm_row(panel, i)
+            assert(card and card.parent == holder, "card " .. i .. " is not in the holder")
+            assert(card.y == y + (i - 1) * ICUI.GM_ROW_PITCH, "card " .. i .. " is not at its index")
+        end
+        local box = clip.children.list_box
+        local n = 0
+        for _, k in pairs(box.children) do
+            n = n + 1
+            assert(next(k.children) == nil, "a row in the list has children")
+            assert(k.w == ICUI.GM_ROW_W and k.h == ICUI.GM_ROW_PITCH, "an empty row is the wrong size")
+        end
+        assert(n == #provinces, n .. " empty rows for " .. #provinces .. " provinces")
+        assert(box.laid, "the empty rows never laid out: all stacked at the box's top")
+        -- A REDRAW KEEPS IT; a new page makes it again.
+        local l1 = gm_row(panel, 1).children.ic_gr_l1
+        local set, writes = l1.SetText, 0
+        l1.SetText = function(self, ...) writes = writes + 1 return set(self, ...) end
+        ICUI.refresh()
+        assert(gm_list(panel) == list, "a redraw made the list again")
+        -- AND WRITES NO LINE THAT ALREADY SAYS IT: a drawn-whole list redraws
+        -- every card on every refresh (docs/CUSTOM_UI.md, Drawn whole, 10).
+        assert(writes == 0, "a redraw rewrote an unchanged line " .. writes .. " times")
+        -- A LIST MADE AGAIN IS NEW CARDS WITH NOTHING ON THEM, so the memo goes too.
+        local said = l1.text
+        ICUI.gm_rescroll()
+        ICUI.refresh()
+        assert(gm_list(panel) ~= list, "a rescroll kept the list")
+        assert(gm_row(panel, 1).children.ic_gr_l1.text == said,
+            "the new list's first card reads '" .. gm_row(panel, 1).children.ic_gr_l1.text
+            .. "', not '" .. said .. "'")
+        list = gm_list(panel)
+        map_click("ic_gm_tog_1")
+        assert(gm_list(panel) ~= list, "a new page kept the old list")
+        assert(not gm_slider_shown(panel), "a slider for a page that fits")
+        -- AND THE VIEW CLOSED HIDES IT.
+        map_click("ic_tab_court")
+        assert(gm_list(panel).visible == false, "the list stayed up on another tab")
+    end)
+end)
+
+check("the candidates sort by the court's own picker modes, from the column's buttons", function()
+    IC.state = {}
+    local men = {}
+    for i = 1, 3 do men[i] = make_character(3480 + i, ANY_SEAT, "legion") end
+    make_faction(F, IC.CHD_SUBCULTURE, men, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    local saved, saved_desc = ICUI.sort.pick, ICUI.sort_desc.pick
+    ICUI.sort.pick, ICUI.sort_desc.pick = 1, false
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(panel.children.ic_gm_sort_1.text == "Province", "the Provinces page lost its sorts")
+        map_click(ICUI.GM_PIN .. "_1")
+        for i, s in ipairs(ICUI.GM_PICK_SORTS) do
+            local c = panel.children["ic_gm_sort_" .. i]
+            assert(c.visible, "the picker hides sort button " .. i)
+            assert(c.text == s[1], "picker sort " .. i .. " reads " .. tostring(c.text))
+        end
+        -- RANK: the court's own pick mode, lit, and the rows in its order.
+        map_click("ic_gm_sort_2")
+        assert(ICUI.sort_mode("pick").key == "rank", "the Rank button sorts by " .. ICUI.sort_mode("pick").key)
+        assert(panel.children.ic_gm_sort_2.text ~= "Rank"
+               and panel.children.ic_gm_sort_2.text:find("Rank", 1, true), "the sorted column is not lit")
+        local lines = ICUI.picker_lines(F, IC.court(F))
+        for i = 1, math.min(#lines, ICUI.GM_ROWS) do
+            assert(ICUI.gm_rows[i].l1 == lines[i][1], "card " .. i .. " is not the court's sorted order")
+        end
+        -- AND THE PROVINCES PAGE'S SORT IS UNTOUCHED.
+        assert(ICUI.sort.govs == 1, "a picker sort moved the Provinces sort")
+    end)
+    ICUI.sort.pick, ICUI.sort_desc.pick = saved, saved_desc
 end)
 
 check("the column's check sends its appointment in multiplayer and waits for the trigger", function()

@@ -99,19 +99,31 @@ end
 -- is a Chaos Dwarf faction - so with the pool full its parties secede as well,
 -- and the first living key could be itself: war on itself, provinces handed to
 -- itself (found 2026-09-25).
+-- A FULL POOL WAKES A DEAD HOUSE (author, 2026-10-02: "can it be a different
+-- rebel faction?"). Joining a running rising is the last resort now: a house
+-- faction from IC.ORIGINS that has died or been confederated away is still on
+-- the map, the same revival a house rising under its own banner uses, and its
+-- name is put back on load by IC.rebel_rename_all. It flies that house's crest -
+-- there is no runtime crest setter - so it comes after the pool's own four.
 function IC.rebel_faction(exclude)
     local fallback = nil
-    for i = 1, #IC.REBEL_POOL do
-        local key = IC.REBEL_POOL[i]
+    local function dead_one(key)
         local ok, f = pcall(function() return cm:get_faction(key) end)
-        if ok and f and f ~= false then
-            if key ~= exclude then fallback = fallback or key end
-            local dead = false
-            pcall(function() dead = f:is_dead() end)
-            if dead then return key, true end
-        end
+        if not ok or not f or f == false then return false end
+        if key ~= exclude then fallback = fallback or key end
+        local dead = false
+        pcall(function() dead = f:is_dead() end)
+        return dead
     end
-    return fallback, false
+    for i = 1, #IC.REBEL_POOL do
+        if dead_one(IC.REBEL_POOL[i]) then return IC.REBEL_POOL[i], true end
+    end
+    local joined = fallback
+    for i = 1, #IC.ORIGINS do
+        local key = IC.ORIGINS[i].faction
+        if key and key ~= exclude and dead_one(key) then return key, true end
+    end
+    return joined, false
 end
 
 IC.REBEL_LORD = "wh3_dlc23_chd_overseer"
@@ -303,7 +315,7 @@ IC.PARTY_TRAITS = {
      n = function(ctx) return ctx.control >= 50 and 1 or -2 end},
     {key = "ambitious", name = "Ambitious",
      blurb = "Each office sharpens their appetite for the next.",
-     rule = "Nothing at no seat, -1 at one, -2 at two or more",
+     rule = "0 with no seat, -1 with one, -2 with two or more",
      n = function(ctx) return -math.min(ctx.held, 2) end},
     {key = "dutiful", name = "Dutiful",
      blurb = "They serve where ordered and ask for little.",
@@ -672,7 +684,7 @@ IC.PRESETS = {
         influence_trickle = 3, settlement_influence = 16,
         favour_gift_cost = 1000, favour_secure_cost = 4000,
         -- FIVE RIVALS FILL THE GRID. Only four can rise under a banner of their
-        -- own (IC.REBEL_POOL); a fifth that leaves joins one already risen.
+        -- own (IC.REBEL_POOL); a fifth wakes a dead house, or joins a rising.
         party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
         gov_levels_per_weight = 2,
     },
@@ -3341,7 +3353,7 @@ function IC.loyalty_terms(faction_key, slug)
     end
     if house.oath_mine and house.oath_theirs then
         terms[#terms + 1] = {
-            label = "Blood-oath",
+            label = "Blood-Oath",
             note = "The oath holds while both men live.",
             n = IC.TUNE.plot_oath_loyalty}
     end
@@ -3713,6 +3725,16 @@ function IC.rebel_sour(rebels, other, max_steps)
         -- interface, the pcall ate the refusal and every souring ran all steps.
         pcall(function() now = a:diplomatic_standing_with(other) end)
         if now and now <= IC.TUNE.rebel_relation then break end
+        -- BOTH WAYS (2026-10-02). CA's five calls put the faction whose regard
+        -- moves SECOND, so (rebels, other) alone moved other's regard and left
+        -- the one read above - the rebels' own, the number on the player's
+        -- diplomacy screen - where it was, and every souring ran all its steps.
+        -- The spec also wants the others to dislike the rebels, so each step
+        -- moves both; the read then moves whichever way the order really runs.
+        pcall(function()
+            cm:apply_dilemma_diplomatic_bonus(other, rebels,
+                                              IC.TUNE.rebel_relation_step)
+        end)
         pcall(function()
             cm:apply_dilemma_diplomatic_bonus(rebels, other,
                                               IC.TUNE.rebel_relation_step)
@@ -4347,7 +4369,7 @@ end
 
 IC.PLOT_CATS = {
     {key = "man",    name = "Against a Man"},
-    {key = "house",  name = "Against a House"},
+    {key = "house",  name = "Against a Party"},
     {key = "bond",   name = "Bonds"},
     {key = "errand", name = "Errands"},
     {key = "mission", name = "Missions"},
@@ -4370,7 +4392,7 @@ IC.PLOTS = {
          "+%d influence for him. +%d party loyalty. Stops their secession countdown.",
          IC.TUNE.plot_bribe_standing,
          IC.TUNE.plot_bribe_loyalty),
-     blurb = "Gold and labourers buy favour."},
+     blurb = "Gold and Labourers buy favour."},
     {key = "discredit", name = "Discredit",
      icon = "ui/campaign ui/skills/campaign_chaos_corruption.png",
      cat = "man",
@@ -4394,7 +4416,7 @@ IC.PLOTS = {
      cost = "plot_murder_cost",
      -- BOTH TERMS: ic_dead charges loyalty_member_died on top (sweep 2026-09-29).
      effect = string.format(
-         "He dies. -%d loyalty from his house.",
+         "He dies. -%d loyalty from his party.",
          IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died),
      blurb = "His party will know who arranged it."},
     -- Rome II-style actions against an entire party.
@@ -4501,7 +4523,7 @@ IC.PLOTS = {
      cat = "errand",
      cost = "plot_audience_cost",
      effect = string.format(
-         "+%d loyalty to every house in the court.",
+         "+%d loyalty to every party in the court.",
          IC.TUNE.plot_audience_loyalty),
      blurb = "A day of smoke and grievances."},
     {key = "circuit", name = "Ride the Circuit", aimed = false,
@@ -4528,7 +4550,7 @@ IC.PLOTS = {
      cat = "mission",
      cost = "plot_diplomats_cost",
      effect = string.format(
-         "A faction you have met regards you better. Not there again for %d turns.",
+         "Improves relations with a faction you have met. Each faction once per %d turns.",
          IC.TUNE.diplomats_rest),
      blurb = "Gifts and a long table."},
 }
@@ -4546,7 +4568,7 @@ end
 IC.FAVOURS = {
     {key = "gift", name = "Send a Gift",
      cost = "favour_gift_cost",
-     blurb = "Send labourers, ore, and strong drink. A small payment buys a little patience."},
+     blurb = "Send Labourers, ore and strong drink. A small payment buys a little patience."},
     {key = "secure", name = "Secure Loyalty",
      cost = "favour_secure_cost",
      blurb = "Take hostages and bind the party by oath. This delays rebellion but cannot save loyalty at zero."},
@@ -4660,9 +4682,9 @@ IC.ENVOY_TASKS = {
      bundle = "derpy_ic_envoy_ctl", icon = "wh3_dlc23_edict_chd_smoke_stacks.png"},
     {code = "arm", name = "Armaments", knob = "envoy_arm", fmt = "+%d%% armaments",
      bundle = "derpy_ic_envoy_arm", icon = "wh3_dlc23_edict_chd_higher_quotas.png"},
-    {code = "raw", name = "Raw materials", knob = "envoy_raw", fmt = "+%d%% raw materials",
+    {code = "raw", name = "Raw Materials", knob = "envoy_raw", fmt = "+%d%% Raw Materials",
      bundle = "derpy_ic_envoy_raw", icon = "chd_toz_district_industry.png"},
-    {code = "lab", name = "Labour", knob = "envoy_lab", fmt = "-%d%% labourers lost",
+    {code = "lab", name = "Labour", knob = "envoy_lab", fmt = "-%d%% Labourers lost",
      bundle = "derpy_ic_envoy_lab", icon = "public_order_jubilant.png"},
 }
 
@@ -4727,7 +4749,7 @@ function IC.may_send_diplomats(faction_key, target)
     pcall(function()
         local list = cm:get_faction(faction_key):factions_met()
         for i = 0, list:num_items() - 1 do
-            if list:item_at(i):name() == target then met = true end
+            if list:item_at(i):name() == target then met = true break end
         end
     end)
     if not met then return false, "unmet" end

@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<layout
+	version="142"
+	comment="The Iron Court - an empty row that gives the list its length"
+	precache_condition="">
+	<hierarchy>
+		<root this="IC550001-D000-4000-B000000000000001">
+			<derpy_ic_gm_sp this="IC550004-D000-4000-B000000000000004"/>
+		</root>
+	</hierarchy>
+	<components>
+		<root
+			this="IC550001-D000-4000-B000000000000001"
+			id="root"
+			tooltipslocalised="true"
+			uniqueguid="IC550001-D000-4000-B000000000000001"
+			currentstate="IC550002-D000-4000-B000000000000002"
+			defaultstate="IC550002-D000-4000-B000000000000002">
+			<states>
+				<standard
+					this="IC550002-D000-4000-B000000000000002"
+					name="standard"
+					width="392"
+					height="80"
+					uniqueguid="IC550002-D000-4000-B000000000000002">
+				</standard>
+			</states>
+		</root>
+		<derpy_ic_gm_sp
+			this="IC550004-D000-4000-B000000000000004"
+			id="derpy_ic_gm_sp"
+			tooltipslocalised="true"
+			uniqueguid="IC550004-D000-4000-B000000000000004"
+			currentstate="IC550005-D000-4000-B000000000000005"
+			defaultstate="IC550005-D000-4000-B000000000000005">
+			<states>
+				<standard
+					this="IC550005-D000-4000-B000000000000005"
+					name="standard"
+					width="392"
+					height="80"
+					uniqueguid="IC550005-D000-4000-B000000000000005">
+				</standard>
+			</states>
+		</derpy_ic_gm_sp>
+	</components>
+</layout>

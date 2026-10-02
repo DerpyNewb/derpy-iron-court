@@ -5,6 +5,49 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-02 - build 9A66C3C8
+
+Deployed 2026-10-02. MD5 `9A66C3C84E95594D2CEF5F888C1C5BE7`, 9,741,137 bytes, 1,797 files.
+The detail is in section 8 of `docs/history/HANDOFF_20261002_IRON_COURT_KNOWN_BUG_PASS.md`.
+
+- **The Governors column scrolls without redrawing.** Every entry's card is drawn once, under
+  one holder inside the list's clip window, and scrolling only moves the holder, every frame.
+  Before, seven cards were redrawn for each new scroll position, which on the Zharr Exchange
+  measured 25-200ms a redraw. Card lines already on screen are no longer rewritten on a refresh.
+- **Fixed:** backing out of a candidate list the same length as the Provinces list brought
+  the Provinces list back still scrolled.
+
+## 2026-10-02 - build DE2E446C
+
+Deployed 2026-10-02. MD5 `DE2E446C25A72A486CF08BFF0D99E183`, 9,738,989 bytes, 1,797 files. The detail is in
+`docs/history/HANDOFF_20261002_IRON_COURT_KNOWN_BUG_PASS.md`.
+
+- **Fixed: three silent sounds.** Appointing a governor, removing one and dismissing an officer
+  played nothing: their names were engine hook keys, not sound events. A new check holds every
+  sound name in the court's scripts to the game's list of sound events.
+- **A rising with no free rebel faction wakes a dead house.** With all four rebel factions
+  already in use, a party that secedes now rises under a dead or confederated Chaos Dwarf house,
+  flying that house's banner under the party's name. It joins a running rebellion only when
+  every house is alive.
+- **Rebels are disliked as well as disliking.** Each step of the souring that follows a
+  secession now moves both sides' regard. Before, it moved only the other side's, and so always
+  ran its full thirty steps.
+- **Fixed: governing a province re-enabled edicts the game had locked.** Only the edict buttons
+  the court disabled are re-enabled now.
+- Smaller fixes: an office card's confirmation pulse no longer touches a card the court has
+  closed; the Send Diplomats check stops searching once it finds the faction.
+
+## 2026-10-01 - build 3FBD2B1A
+
+Deployed 2026-10-01. The detail is in section 13 of
+`docs/history/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md`.
+
+- **The Governors column scrolls.** CA's own scrolling list, with the mouse wheel and a slider,
+  on all three pages; the pager is gone.
+- **Candidates sort** by Available, Rank or Influence.
+- **Text pass** against CA's own writing style: about seventy strings rewritten, "overseer"
+  became "governor" and "house" became "party" wherever they meant the court's role.
+
 ## 2026-10-01 - build 92AF83D6
 
 Deployed 2026-10-01. MD5 `92AF83D6CE748B6E9A2565F53DAAC8A1`, 9,740,671 bytes, 1,795 files.

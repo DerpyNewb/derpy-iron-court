@@ -89,6 +89,7 @@ _DOCS = [
     "HANDOFF_20260930_IRON_COURT_PARTY_MAP.md",
     "HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md",
     "HANDOFF_20261001_HUD_HUB_PLAN.md",
+    "HANDOFF_20261002_IRON_COURT_KNOWN_BUG_PASS.md",
     "CA_CHD_UI_FX_20260928.md",
     "IC_FEEDBACK_AUDIT_20260928.md",
 ]]
@@ -114,6 +115,8 @@ def manifest(root=ROOT):
         _UI + "derpy_ic_gm_name.twui.xml",
         _UI + "derpy_ic_gm_loyal.twui.xml",
         _UI + "derpy_ic_gm_badge.twui.xml",
+        _UI + "derpy_ic_gm_list.twui.xml",
+        _UI + "derpy_ic_gm_sp.twui.xml",
         _MOD + "derpy_hub_ic.lua",
         _UI + "derpy_hub_ic.twui.xml",
         _UI + "derpy_hub_plate_ic.twui.xml",

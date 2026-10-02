@@ -28,7 +28,7 @@
 				<standard
 					this="IC520002-D000-4000-B000000000000002"
 					name="standard"
-					width="412"
+					width="392"
 					height="76"
 					uniqueguid="IC520002-D000-4000-B000000000000002">
 				</standard>
@@ -56,7 +56,7 @@
 				<standard
 					this="IC520005-D000-4000-B000000000000005"
 					name="standard"
-					width="412"
+					width="392"
 					height="76"
 					interactive="true"
 					uniqueguid="IC520005-D000-4000-B000000000000005">
@@ -66,7 +66,7 @@
 							uniqueguid="IC520004-D002-4000-B000000000000004"
 							componentimage="IC520004-D001-4000-B000000000000004"
 							offset="0.00,0.00"
-							width="412"
+							width="392"
 							height="76"
 							margin="0.00,16.00,0.00,16.00"/>
 					</imagemetrics>
@@ -78,7 +78,7 @@
 				<hover
 					this="IC520006-D000-4000-B000000000000006"
 					name="hover"
-					width="412"
+					width="392"
 					height="76"
 					interactive="true"
 					uniqueguid="IC520006-D000-4000-B000000000000006">
@@ -88,7 +88,7 @@
 							uniqueguid="IC520004-D004-4000-B000000000000004"
 							componentimage="IC520004-D003-4000-B000000000000004"
 							offset="0.00,0.00"
-							width="412"
+							width="392"
 							height="76"
 							margin="0.00,16.00,0.00,16.00"/>
 					</imagemetrics>
@@ -264,7 +264,7 @@
 				<standard
 					this="IC520011-D000-4000-B000000000000011"
 					name="standard"
-					width="274"
+					width="254"
 					height="20"
 					uniqueguid="IC520011-D000-4000-B000000000000011">
 					<component_text
@@ -291,7 +291,7 @@
 				<standard
 					this="IC520014-D000-4000-B000000000000014"
 					name="standard"
-					width="274"
+					width="254"
 					height="16"
 					uniqueguid="IC520014-D000-4000-B000000000000014">
 					<component_text
@@ -352,7 +352,7 @@
 				<standard
 					this="IC52001A-D000-4000-B00000000000001A"
 					name="standard"
-					width="254"
+					width="234"
 					height="16"
 					uniqueguid="IC52001A-D000-4000-B00000000000001A">
 					<component_text

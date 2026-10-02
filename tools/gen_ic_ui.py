@@ -116,6 +116,10 @@ GUID_PREFIXES = {
     # IC52-IC53 - THE GOVERNORS VIEW'S COLUMN ROW and its compact copy.
     "derpy_ic_gm_row.twui.xml":         "IC52",
     "derpy_ic_gm_row_compact.twui.xml": "IC53",
+    # IC54-IC55 - THE COLUMN'S SCROLLING LIST and the empty row that gives it
+    # its length (author, 2026-10-01: "no scrollbar for selecting a governor").
+    "derpy_ic_gm_list.twui.xml":        "IC54",
+    "derpy_ic_gm_sp.twui.xml":          "IC55",
 }
 
 # Base file -> its compact copy. The opener and the influence plate are HUD
@@ -238,9 +242,6 @@ PANEL_LAYOUT = {
     "ic_gm_ok": (150, 939, 56, 56),
     "ic_gm_no": (238, 939, 56, 56),
     # THE COURT'S PAGER, same sizes, under the seventh row (330 + 6 * 80 + 76 = 886).
-    "ic_gm_prev": (16, 888, 136, 34),
-    "ic_gm_page": (156, 892, 132, 26),
-    "ic_gm_next": (292, 888, 136, 34),
     # THE SORT CONTROL, on the tab row's far right and ending where the close
     # button ends (1902). The row is free from 784 to 1596, but the control is
     # right-aligned instead: it belongs to the list below it rather than to the
@@ -747,7 +748,8 @@ ROW_LAYOUT = {
 # Hell-Forge unit block, which stretches between 16px caps. Must match
 # ICUI.GM_ROW_* and ICUI.GM_ROW_CHILD_XY in the panel Lua (import_iron_court).
 GM_ROW_FILE = "derpy_ic_gm_row.twui.xml"
-GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_H, GM_ROW_PITCH = 16, 330, 412, 76, 80
+# 392 WIDE, not the column's 412: the slider takes the last 20 (GM_SLIDER_*).
+GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_H, GM_ROW_PITCH = 16, 330, 392, 76, 80
 GM_ROWS = 7
 GM_ROW_LAYOUT = {
     "ic_gr_face": (10, 9, 104, 57),     # a porthole, PORT_BOX's own shape
@@ -755,11 +757,27 @@ GM_ROW_LAYOUT = {
     "ic_gr_badge": (90, 46, 24, 24),    # his party's crest on the face's corner
     # THE THREE LINES INSIDE THE FRAME'S RAILS (GM_ROW_RAIL), at the box
     # heights the office card's own lines ship at: 16px text in 20, 12px in 16.
-    "ic_gr_l1": (124, 12, 274, 20),
-    "ic_gr_l2": (124, 31, 274, 16),
+    "ic_gr_l1": (124, 12, 254, 20),
+    "ic_gr_l2": (124, 31, 254, 16),
     "ic_gr_icon": (124, 47, 16, 16),    # CA's loyalty icon
-    "ic_gr_l3": (144, 47, 254, 16),
+    "ic_gr_l3": (144, 47, 234, 16),
 }
+# THE COLUMN SCROLLS (author, 2026-10-01: "no scrollbar for selecting a
+# governor"; the wheel and a slider, the pager gone). CA's own list, the Great
+# Guilds' proven shape (docs/CUSTOM_UI.md, "Scrolling lists"): listview >
+# list_clip > list_box, and vslider > handle. The cards are made INTO
+# list_clip, over list_box: a card is a parent of six cells and a row inside a
+# list must have none, so list_box holds GM_ROWS-pitch EMPTY rows (GM_SP_FILE)
+# that give the list its length, and the engine scrolls those. DRAWN WHOLE
+# (2026-10-02, docs/CUSTOM_UI.md): every entry's card is made once under one
+# holder in list_clip - made from GM_SP_FILE too, the empty one-component shape -
+# and ICUI.gm_scroll_poll moves the holder to list_box; nothing is redrawn.
+GM_LIST_FILE = "derpy_ic_gm_list.twui.xml"
+GM_SP_FILE = "derpy_ic_gm_sp.twui.xml"
+GM_SLIDER_W, GM_SLIDER_GAP, GM_HANDLE_H = 16, 4, 40
+GM_LIST_SILENT = ("listview", "list_clip", "list_box", "vslider")
+GM_LIST_W = GM_ROW_W + GM_SLIDER_GAP + GM_SLIDER_W
+GM_LIST_H = GM_ROWS * GM_ROW_PITCH
 GM_HF = "ui/skins/default/dlc23_chd_hell_forge/"
 GM_ROW_ART = GM_HF + "button_square_extra_large_%s.png"
 # ITS RAILS, measured off CA's art (122x82, every state): the frame holds rows
@@ -3425,14 +3443,6 @@ def _panel():
         if name == "ic_gm_hint":
             panel.add(EU.C(name, w, h, **style(name, valign="Center")))
             continue
-        if name in ("ic_gm_prev", "ic_gm_next"):
-            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
-            continue
-        if name == "ic_gm_page":
-            panel.add(EU.C(name, w, h, **style(name, align="Center", valign="Center",
-                                                tx="0.00,0.00")))
-            continue
         if name.startswith("ic_gm_sort_"):
             # THE COURT'S ARROW AT THE END OF ITS LABEL; the label is lit from
             # Lua while its column sorts, as the court's headers are.
@@ -3657,6 +3667,50 @@ def _gm_row():
     return root
 
 
+def gm_list_xml():
+    """THE CALLBACKS ARE THE WHOLE THING: Listview on the container binds the
+    other three, List stacks the box, VSlider and VSliderHandle drag. The names
+    are reserved too. gen_guilds_ui.check_scroll_parts() is run over this file.
+
+    EMITTED BY THE GREAT GUILDS' EMITTER, which has shipped this exact list: this
+    module's has no clipchildren, layout engine, slider properties or moveable."""
+    import gen_guilds_ui as GG
+    GE = GG.EU
+    root = GE.C("root", GM_LIST_W, GM_LIST_H)
+    lst = root.add(GE.C("listview", GM_LIST_W, GM_LIST_H, interactive=True,
+                        callbacks=["Listview"]))
+    clip = lst.add(GE.C("list_clip", GM_ROW_W, GM_LIST_H, clipchildren=True,
+                        relativeresize=True, interactive=True))
+    clip.add(GE.C("list_box", GM_ROW_W, 1, interactive=True, callbacks=["List"],
+                  docking="Top Left",
+                  layoutengine={"type": "List", "sizetocontent": True,
+                                "margins": "0.00,0.00", "columns": [GM_ROW_W]}))
+    vs = lst.add(GE.C("vslider", GM_SLIDER_W, GM_LIST_H, interactive=True,
+                      callbacks=["VSlider"], allowhresize=False,
+                      props={"Value": 0, "minValue": 0, "maxValue": GM_LIST_H - GM_HANDLE_H},
+                      layers=[{"path": GG.SLIDER_TRACK, "offset": (0, 0), "dw": 0, "dh": 0,
+                               "margin": 0, "tile": True, "dock": None}]))
+    vs.add(GE.C("handle", GM_SLIDER_W, GM_HANDLE_H, interactive=True,
+                callbacks=["VSliderHandle"], allowhresize=False, moveable="Movable XP",
+                sound=OPENER_SOUND,
+                props={"max_height": GM_LIST_H - GM_HANDLE_H, "min_size": 10},
+                layers=[{"path": GG.SLIDER_HANDLE_UNDER, "offset": (0, 0), "dw": 0,
+                         "dh": 0, "margin": 0, "dock": None},
+                        {"path": GG.SLIDER_HANDLE, "offset": (0, 0), "dw": 0, "dh": 0,
+                         "margin": 0, "dock": None}]))
+    GE.assign(root, GUID_PREFIXES[GM_LIST_FILE])
+    return GE.layout(root, "The Iron Court - the Governors column's scrolling list")
+
+
+def _gm_sp():
+    """ONE EMPTY ROW: no image, no text, no children, and not interactive, so the
+    mouse goes through it to the card above (docs/CUSTOM_UI.md: a row in a list
+    must have no children)."""
+    root = EU.C("root", GM_ROW_W, GM_ROW_PITCH)
+    root.add(EU.C("derpy_ic_gm_sp", GM_ROW_W, GM_ROW_PITCH))
+    return root
+
+
 def _plot():
     root = EU.C("root", PLOT_W, PLOT_H)
     card = root.add(EU.C("derpy_ic_plot", PLOT_W, PLOT_H, layers=CARD_LAYERS))
@@ -3840,6 +3894,7 @@ FILES = [
     ("derpy_ic_edict_note.twui.xml", _edict_note,
      "The Iron Court - why a province's edicts are grey, beside CA's edict stack"),
     (GM_ROW_FILE, _gm_row, "The Iron Court - one row of the Governors view's column"),
+    (GM_SP_FILE, _gm_sp, "The Iron Court - an empty row that gives the list its length"),
 ]
 
 LAYOUT_TABLES = {
@@ -3861,6 +3916,14 @@ LAYOUT_TABLES = {
     "derpy_ic_burst.twui.xml": {"derpy_ic_burst": (0, 0, 0, 0)},
 }
 LAYOUT_TABLES[GM_ROW_FILE] = dict(GM_ROW_LAYOUT, derpy_ic_gm_row=(0, 0, GM_ROW_W, GM_ROW_H))
+# list_box and handle are NOT here: the List and VSlider callbacks own where
+# those sit, and gen_guilds_ui refuses either name in a placement table.
+LAYOUT_TABLES[GM_LIST_FILE] = {
+    "listview": (0, 0, GM_LIST_W, GM_LIST_H),
+    "list_clip": (0, 0, GM_ROW_W, GM_LIST_H),
+    "vslider": (GM_ROW_W + GM_SLIDER_GAP, 0, GM_SLIDER_W, GM_LIST_H),
+}
+LAYOUT_TABLES[GM_SP_FILE] = {"derpy_ic_gm_sp": (0, 0, GM_ROW_W, GM_ROW_PITCH)}
 
 
 # ---------------------------------------------------------------------------
@@ -3960,6 +4023,7 @@ SCALED_SCALARS = [
     "_PIW", "_PB", "_PPW", "_PPH", "_PTX", "_PTW", "_PLW", "_PRX", "_PRW", "_PSW",
     "ACT_GAP", "FIRE_LIFT",
     "GM_ROW_X", "GM_ROW_Y", "GM_ROW_W", "GM_ROW_H", "GM_ROW_PITCH",
+    "GM_SLIDER_W", "GM_SLIDER_GAP", "GM_HANDLE_H", "GM_LIST_W", "GM_LIST_H",
 ]
 SCALED_PAIRS = ["PORT_BOX", "CREST_BOX"]
 SCALED_BOXES = ["PIE_BOX", "RIM_BOX", "DIAL_BOX", "COURT_SECTION_XY"]
@@ -4253,7 +4317,8 @@ def ui_file_names():
     """Every .twui.xml this generator writes, base files and compact copies."""
     return ([f for f, _b, _c in FILES] + [FIRE_FILE, BURST_FILE,
                                               GM_PIN_FILE, GM_FACE_FILE,
-                                              GM_NAME_FILE, GM_LOYAL_FILE, GM_BADGE_FILE]
+                                              GM_NAME_FILE, GM_LOYAL_FILE, GM_BADGE_FILE,
+                                              GM_LIST_FILE]
             + sorted(COMPACT_FILES.values()))
 
 
@@ -4905,11 +4970,9 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
             out.append("%s %r reads over the bare map in the Governors view: no plate "
                        "of %s contains it" % (name, box, ", ".join(GM_PLATES)))
     col = lay["ic_gm_col"]
-    pool = (GM_ROW_X, GM_ROW_Y, GM_ROW_W, GM_ROW_PITCH * (GM_ROWS - 1) + GM_ROW_H)
+    pool = (GM_ROW_X, GM_ROW_Y, GM_LIST_W, GM_LIST_H)
     if not inside(pool, col):
-        out.append("the column's %d rows %r run outside the column %r" % (GM_ROWS, pool, col))
-    if GM_ROW_Y + GM_ROW_PITCH * (GM_ROWS - 1) + GM_ROW_H > lay["ic_gm_prev"][1]:
-        out.append("the column's last row runs under its pager")
+        out.append("the column's list %r runs outside the column %r" % (pool, col))
     # CA'S ART AT ITS OWN SIZE (author, 2026-10-01: "the left panel is still
     # cutting off on the top and bottom"). The column art is a whole screen's
     # side: ended at the footer's top, the map showed under it whenever the
@@ -4924,8 +4987,8 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
                    % (lay["ic_gm_head"][3], GM_HEAD_ART_H * s))
     # AND THE COLUMN'S STACK, top to bottom, with nothing over the next.
     stack = [("ic_gm_head", lay["ic_gm_head"]), ("ic_gm_tog_lbl_1", lay["ic_gm_tog_lbl_1"]),
-             ("ic_gm_hint", lay["ic_gm_hint"]), ("the rows", pool),
-             ("ic_gm_prev", lay["ic_gm_prev"]), ("ic_gm_btns", lay["ic_gm_btns"]),
+             ("ic_gm_hint", lay["ic_gm_hint"]), ("the list", pool),
+             ("ic_gm_btns", lay["ic_gm_btns"]),
              ("ic_gm_foot", lay["ic_gm_foot"])]
     for (a, ab), (b, bb) in zip(stack, stack[1:]):
         if ab[1] + ab[3] > bb[1]:
@@ -5241,6 +5304,7 @@ def build_xml():
     out[GM_NAME_FILE] = gm_name_xml()
     out[GM_LOYAL_FILE] = gm_loyal_xml()
     out[GM_BADGE_FILE] = gm_badge_xml()
+    out[GM_LIST_FILE] = gm_list_xml()
     # THE COMPACT COPIES are built by the copy of this module at a 1600 box,
     # whose fonts are already one size down and whose cells are already the
     # sizes a 1600x900 player gets. Only the base module writes them: a copy
@@ -5528,6 +5592,10 @@ def check():
             if not name:
                 continue
             head = block.split(">", 1)[0]
+            # THE LIST'S RESERVED PARTS are silent in CA's own listview template;
+            # a click on one is a drag or a wheel, not a choice.
+            if fname == GM_LIST_FILE and name.group(1) in GM_LIST_SILENT:
+                continue
             if 'interactive="true"' in block and "soundcategory=" not in head:
                 out.append("%s: %s is interactive with no soundcategory"
                            % (fname, name.group(1)))
@@ -5561,10 +5629,19 @@ def check():
     for fname, text in files.items():
         named = set(LAYOUT_TABLES[fname])
         roots = {"root", fname.replace(".twui.xml", "")}
+        if fname == GM_LIST_FILE:
+            roots |= {"list_box", "handle"}     # the List and VSlider callbacks place these
         for comp in xml_component_names(text):
             if comp not in named and comp not in roots:
                 out.append("%s: component %s is named by no layout table"
                            % (fname, comp))
+
+    # 7b. THE COLUMN'S LIST SCROLLS ONLY IF IT IS SPELLED THE WAY THE ENGINE READS:
+    #     the Great Guilds' check, which caught that list shipping inert, over ours.
+    if GM_LIST_FILE in files:
+        import gen_guilds_ui as GG
+        out += ["%s: %s" % (GM_LIST_FILE, p) for p in GG.check_scroll_parts(
+            {"derpy_gg_list.twui.xml": files[GM_LIST_FILE]})]
 
     # 8. Headers must sit over their columns: a header x equals the row column x
     #    plus the rows_holder inset, or they float a column-width away.
@@ -7657,8 +7734,10 @@ def selftest_compact():
     assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
     # +7: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
     # twin, and the Governors view's pin, face, two plates and badge, never
-    # scaled (2026-09-30 ruling 1).
-    assert len(files) == len(FILES) + len(COMPACT_FILES) + 7
+    # scaled (2026-09-30 ruling 1). +8: and the column's list, whose size the
+    # Lua sets (ICUI.gm_list).
+    assert len(files) == len(FILES) + len(COMPACT_FILES) + 8
+    assert GM_LIST_FILE not in COMPACT_FILES
     assert FIRE_FILE not in COMPACT_FILES and BURST_FILE not in COMPACT_FILES
     assert GM_PIN_FILE not in COMPACT_FILES and GM_FACE_FILE not in COMPACT_FILES
     assert GM_NAME_FILE not in COMPACT_FILES and GM_LOYAL_FILE not in COMPACT_FILES
@@ -7707,9 +7786,9 @@ def selftest():
     _moved = dict(PANEL_LAYOUT, ic_gm_hint=(700, 600, 412, 26))
     assert any("ic_gm_hint" in e for e in check_gm_plates(_moved)), \
         "a column line off every plate went unreported"
-    assert any("run outside the column" in e for e in check_gm_plates(
+    assert any("runs outside the column" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_col=(0, 124, 300, 890)))), \
-        "a row pool wider than its column went unreported"
+        "a list wider than its column went unreported"
     # THE FULL-HEIGHT RULE FIRES, on the column and the title as 5D2C688C shipped them.
     assert any("cut short" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_col=(0, 128, 503, 886)))), \
