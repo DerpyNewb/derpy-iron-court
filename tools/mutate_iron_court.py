@@ -278,7 +278,7 @@ MUTANTS = [
 
     # THE GARRISON TAKEN FOR AN ARMY: every garrison commander back at 0 a turn.
     ("a garrison commander paid a field general's trickle", M,
-     "    if IC.is_colonel(character) then return IC.TUNE.influence_trickle end",
+     "    if IC.is_colonel(character) then return IC.tune(faction_key, \"influence_trickle\") end",
      ""),
 
     # AN OLD SAVE'S INDEX READ STRAIGHT: the head list got shorter on
@@ -1450,9 +1450,12 @@ end"""),
      """        if region:owning_faction():name() ~= me then return nil end
         local province""",
      """        local province"""),
+    # RE-AIMED 2026-10-03: since the by-id rewrite the branch guard is redundant
+    # (a false memo throws inside the pcall), so the rule lives per button.
     ("buttons the engine greyed lit by the court", U,
-     """    elseif verdict == "live" and ICUI.edicts_greyed then""",
-     """    elseif verdict == "live" then"""),
+     """                if not mine[c:Id()] then return end
+                local to = ICUI.EDICT_LIVE[c:CurrentState()]""",
+     """                local to = ICUI.EDICT_LIVE[c:CurrentState()]"""),
     ("asking about edicts makes a court", U,
      """    local court = IC.state[me]
     if not court or not IC.court_rolled(me) then return nil end""",
@@ -2390,10 +2393,10 @@ end"""),
      """    IC.roll_court(faction_key)
     IC.stamp_court(faction_key)
     IC.reconcile_houses(faction_key)
-    IC.ensure_leaders(faction_key)""",
+    -- BEFORE ANYTHING READS A SHARE THIS TURN""",
      """    IC.stamp_court(faction_key)
     IC.reconcile_houses(faction_key)
-    IC.ensure_leaders(faction_key)"""),
+    -- BEFORE ANYTHING READS A SHARE THIS TURN"""),
 
     # LORDS DEALT EVENLY AGAIN, the rule that left most rivals leaderless.
     ("a lord dealt anywhere while a party has nobody to lead it", M,
@@ -2709,10 +2712,10 @@ end"""),
      "        if not house or (house.loyalty or 0) > T.party_intrigue_line then",
      "        if not house then"),
     ("a move taken above its loyalty line", P,
-     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key) then",
-     "            if purse >= IC.plot_cost(move.key) then"),
+     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key, faction_key) then",
+     "            if purse >= IC.plot_cost(move.key, faction_key) then"),
     ("a move the plotter cannot afford", P,
-     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key) then",
+     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key, faction_key) then",
      "            if house.loyalty <= move.line then"),
     ("a party move that costs nothing", P,
      "    IC.add_standing(faction_key, actor, -cost)",
@@ -2821,8 +2824,8 @@ end"""),
      "                                    - T.plot_discredit_weight)\n",
      "            house.weight = (house.weight or 0) - T.plot_discredit_weight\n"),
     ("a move refused at its own loyalty line", P,
-     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key) then",
-     "            if house.loyalty < move.line and purse >= IC.plot_cost(move.key) then"),
+     "            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key, faction_key) then",
+     "            if house.loyalty < move.line and purse >= IC.plot_cost(move.key, faction_key) then"),
     ("the intrigue line closed at its own number", P,
      "        if not house or (house.loyalty or 0) > T.party_intrigue_line then",
      "        if not house or (house.loyalty or 0) >= T.party_intrigue_line then"),
@@ -3451,8 +3454,8 @@ end"""),
      """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",""",
      """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split", "ai_courts","""),
     ("live: the log switch dropped from the live set", M,
-     """                "all_cards", "detailed_log"}""",
-     """                "all_cards"}"""),
+     """                "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws"}""",
+     """                "all_cards", "governments", "gov_drift", "deeds", "laws"}"""),
     ("live: multiplayer following each machine's MCT", M,
      """function IC.refresh_live_tune()
     if IC.is_mp() then return false end""",
@@ -3580,8 +3583,8 @@ end"""),
      "        party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,",
      "        party_intrigue_line = 65, rivals_min = 4, rivals_max = 4, term_turns = 10,"),
     ("mct: Default rolling a range again", M,
-     "    rivals_min          = 3,",
-     "    rivals_min          = 2,"),
+     "    rivals_min          = 2,",
+     "    rivals_min          = 1,"),
     ("mct: Ruthless pressing a fresh full court from turn 1", M,
      "secede_share = 15, secede_turns = 3, pressure_below = 15,",
      "secede_share = 15, secede_turns = 3, pressure_below = 20,"),
@@ -3627,8 +3630,8 @@ end"""),
      "            court.last[bits[1]] = {cqi = cqi, turn = ended}\n",
      "\n"),
     ("mct: Harsh holding a seat for five turns again", M,
-     "party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,",
-     "party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 5,"),
+     "party_intrigue_line = 60, rivals_min = 3, rivals_max = 3, term_turns = 10,",
+     "party_intrigue_line = 60, rivals_min = 3, rivals_max = 3, term_turns = 5,"),
     ("ui: the waiting man's row says nothing of the wait", U,
      "        elseif wait > 0 then\n"
      "            action = string.format(\"Wait %d\", wait)\n",
@@ -3881,9 +3884,9 @@ end"""),
      """{kind = "demand", slug = d.slug}""",
      """{kind = "demand"}"""),
     ("an ungoverned province pulses the button", U,
-     """    out.any = out.offices or out.court or out.petitions
+     """    out.any = out.offices or out.court or out.petitions or out.laws
 """,
-     """    out.any = out.offices or out.court or out.petitions or out.govs
+     """    out.any = out.offices or out.court or out.petitions or out.laws or out.govs
 """),
     ("the summary silent on waiting petitions", U,
      """    if s.petitions > 0 then""",
@@ -4353,7 +4356,7 @@ end"""),
 """,
      """"""),
     ("a party paying for its move before its odds are read", P,
-     """    local cost = IC.plot_cost(move)
+     """    local cost = IC.plot_cost(move, faction_key)
     local base = T["plot_chance_" .. move] or 0
     local edge = math.floor((IC.standing(faction_key, actor)
                              - IC.standing(faction_key, target)) / 10)
@@ -4366,7 +4369,7 @@ end"""),
     -- THE ODDS BEFORE THE PRICE, as IC.plot reads them (sweep 2026-09-29).
     IC.add_standing(faction_key, actor, -cost)
 """,
-     """    local cost = IC.plot_cost(move)
+     """    local cost = IC.plot_cost(move, faction_key)
     IC.add_standing(faction_key, actor, -cost)
     local base = T["plot_chance_" .. move] or 0
     local edge = math.floor((IC.standing(faction_key, actor)
@@ -4661,8 +4664,8 @@ end"""),
      """    if not them or them:is_null_interface() or them:is_dead() then""",
      """    if not them or them:is_null_interface() then"""),
     ("the rest not saved", M,
-     """                 join(stalled, ";"), join(news, ";"), join(sent, ";")}, "|")""",
-     """                 join(stalled, ";"), join(news, ";")}, "|")"""),
+     """                 join(stalled, ";"), join(news, ";"), join(sent, ";"), gov, join(renown""",
+     """                 join(stalled, ";"), join(news, ";"), gov, join(renown"""),
     ("an ended rest saved", M,
      """        if t + IC.TUNE.diplomats_rest > now then""",
      """        if true then"""),
@@ -5266,6 +5269,369 @@ end"""),
     ("the court button registered with the hub under another key", U,
      """    key = ICUI.HUB_KEY, button = ICUI.BTN, order = 1,""",
      """    key = "court", button = ICUI.BTN, order = 1,"""),
+    # ---- governments (2026-10-02) ----------------------------------------
+    ("gov: the government line does not say it is the government", U,
+     """[[img:%s]][[/img]]Government: %s\",""",
+     """[[img:%s]][[/img]]%s\","""),
+    ("gov: the government line wears the band's picture", U,
+     """Government: %s\", ICUI.gov_icon(court.gov),""",
+     """Government: %s\", ICUI.BAND_ICON,"""),
+    ("gov: the cards wear no picture", U,
+     """            law_pic(panel, \"ic_gc_icon_\" .. i, ICUI.gov_art(g.slug))\n""",
+     ""),
+    ("law: the pane bar is never drawn", U,
+     """    ICUI.draw_law_pbar(panel, p, all)\n""",
+     ""),
+    ("law: the pane bar's nay grows from the left", U,
+     """            seg:MoveTo(side == \"aye\" and bx or bx + bw - w, by)""",
+     """            seg:MoveTo(bx, by)"""),
+    ("law: an empty court's pane bar draws a side", U,
+     """        local w = all > 0 and math.floor(bw * p[side] / all) or 0""",
+     """        local w = all > 0 and math.floor(bw * p[side] / all) or 1"""),
+    ("gov: a card wears CA's 72px picture, not the upscale", U,
+     """    if ICUI.GOV_ART[tostring(slug)] then return string.format(ICUI.GOV_ART_FILE, slug) end""",
+     """    if ICUI.GOV_ART[tostring(slug)] then return ICUI.LAW_ART_DIR .. ICUI.GOV_ART[slug] .. \".png\" end"""),
+    ("gov: a card's loyalty line spills a long name", U,
+     """                        .. ICUI.cut_text(c, name, room))""",
+     """                        .. name)"""),
+    ("gov: a card's loyalty line leads with the name", U,
+     """                    local name, head = ICUI.house_name(h[1], faction), string.format(\"%+d  \", h[2])""",
+     """                    local name, head = ICUI.house_name(h[1], faction), \"\""""),
+    ("gov: a refused card's button still sends", U,
+     """            if ICUI.gc_may[i] and ICUI.gc_slugs[i] then""",
+     """            if ICUI.gc_slugs[i] then"""),
+    ("gov: the cards show off the doctrine pick", U,
+     """    for _, name in ipairs(ICUI.GC_KEYS) do show(comp(name, panel), gov_pick) end""",
+     """    for _, name in ipairs(ICUI.GC_KEYS) do show(comp(name, panel), true) end"""),
+    ("gov: the header strip draws over the cards", U,
+     """    if ICUI.pick and ICUI.pick.kind == \"doctrine\" then headers = nil end\n""",
+     ""),
+    ("gov: a card's loyalty ignores who is seated", U,
+     """                if court.houses[p] then hit[#hit + 1] = {p, IC.TUNE.gov_force_gain} end""",
+     """                hit[#hit + 1] = {p, IC.TUNE.gov_force_gain}"""),
+    ('gov: Help states the base numbers', U,
+     """        if type(v) == \"number\" then vars[k] = IC.tune(faction, k) end""",
+     """        if type(v) == \"number\" then vars[k] = v end"""),
+    ('gov: a choice nobody backs can still be paid for', M,
+     """    if IC.gov_pull(faction_key) ~= ask.gov then
+        court.gov_ask = nil""",
+     """    if false then
+        court.gov_ask = nil"""),
+    ('gov: drift off keeps a waiting choice', M,
+     """    if not IC.governments_on() or IC.TUNE.gov_drift == false then""",
+     """    if not IC.governments_on() then"""),
+    ("gov: the government's own party leading keeps the count", M,
+     """    if want == court.gov then
+        court.gov_toward, court.gov_pressure = nil, 0
+        return false
+    end""",
+     """    if want == court.gov then return false end"""),
+    ('gov: the tooltip counts points as turns', U,
+     """        local per = top and 1 or IC.TUNE.gov_balance_turns""",
+     """        local per = 1"""),
+    ('gov: the tooltip counts while nothing moves', U,
+     """       and want == court.gov_toward and IC.gov_drift_on(faction)""",
+     """       and true"""),
+    ('gov: the picker hides what a government gives', U,
+     """            local tip = g.may and g.fx or (ICUI.reason_text(g.why, g.n) .. \"\\n\" .. g.fx)""",
+     """            local tip = (not g.may) and ICUI.reason_text(g.why, g.n) or \"\" """),
+    ('gov: an override answering for every court', M,
+     """    local court = faction_key and IC.state[faction_key]
+    return court and IC.GOVS[court.gov or \"\"] or nil""",
+     """    for _, c in pairs(IC.state) do if IC.GOVS[c.gov or \"\"] then return IC.GOVS[c.gov] end end
+    return nil"""),
+    ('gov: a table knob scaled into IC.TUNE itself', M,
+     """        local out = {}
+        for k, v in pairs(base) do out[k] = math.floor(v * o.mul + 0.5) end
+        return out""",
+     """        for k, v in pairs(base) do base[k] = math.floor(v * o.mul + 0.5) end
+        return base"""),
+    ("gov: the Slave-Lords' price left on IC.TUNE", M,
+     """    return IC.tune(faction_key, plot.cost) or 0""",
+     """    return IC.TUNE[plot.cost] or 0"""),
+    ("gov: a house's own start ignored", M,
+     """    if IC.START_GOV[faction_key] then return IC.START_GOV[faction_key] end
+    local best, best_share = nil, -1""",
+     """    local best, best_share = nil, -1"""),
+    ('gov: the start turn drifts too', M,
+     """        court.gov = IC.start_gov(faction_key)
+    elseif IC.gov_turn then""",
+     """        court.gov = IC.start_gov(faction_key)
+    end
+    if IC.gov_turn then"""),
+    ('gov: a leader with no government builds pressure', M,
+     """    if not top or not IC.gov_for_party(top) then return nil, top, 0 end""",
+     """    if not top then return nil, top, 0 end"""),
+    ('gov: a leader with no government resets the pull', M,
+     """    local want, top, step = IC.gov_pull(faction_key)
+    if not want then return false end""",
+     """    local want, top, step = IC.gov_pull(faction_key)"""),
+    ('gov: the Conclave pulls every turn', M,
+     """(now % IC.TUNE.gov_balance_turns == 0) and 1 or 0""",
+     """1"""),
+    ('gov: a new leader keeps the old count', M,
+     """    if court.gov_toward ~= want then court.gov_toward, court.gov_pressure = want, 0 end""",
+     """    court.gov_toward = want"""),
+    ('gov: drift in the grace period', M,
+     """        and IC.is_human(faction_key) and IC.grace_left() == 0""",
+     """        and IC.is_human(faction_key)"""),
+    ('gov: an AI court drifts', M,
+     """        and IC.is_human(faction_key) and IC.grace_left() == 0""",
+     """        and IC.grace_left() == 0"""),
+    ('gov: pressure builds over a waiting choice', M,
+     """    if not IC.gov_drift_on(faction_key) or now < (court.gov_cool or 0)
+       or court.gov_ask then""",
+     """    if not IC.gov_drift_on(faction_key) or now < (court.gov_cool or 0) then"""),
+    ("gov: the purse spends a seat's bar", M,
+     """                local spare = IC.standing(faction_key, cqi) - (bar[cqi] or 0)""",
+     """                local spare = IC.standing(faction_key, cqi)"""),
+    ("gov: the old government's party loses nothing", M,
+     """    for _, p in ipairs(from and IC.GOVS[from] and IC.GOVS[from].parties or {}) do
+        IC.move_loyalty(faction_key, p, loss)
+    end""",
+     """"""),
+    ('gov: Hold costs the same every time', M,
+     """    return IC.TUNE.gov_hold_cost * (1 + (IC.court(faction_key).gov_holds or 0))""",
+     """    return IC.TUNE.gov_hold_cost"""),
+    ('gov: Hold with an empty purse', M,
+     """    if not ok then return false, \"gov_purse\", short end
+    court.gov_holds""",
+     """    court.gov_holds"""),
+    ('gov: an unanswered choice never settles', M,
+     """    if cm:model():turn_number() >= ask.ends then
+        IC.gov_accept(faction_key)""",
+     """    if false then
+        IC.gov_accept(faction_key)"""),
+    ("gov: a choice outlives the court's pull", M,
+     """    if ask.gov == court.gov or want ~= ask.gov then""",
+     """    if ask.gov == court.gov then"""),
+    ('gov: a forced doctrine with no cooldown', M,
+     """    IC.court(faction_key).gov_cool = cm:model():turn_number() + IC.TUNE.gov_force_cooldown""",
+     """"""),
+    ('gov: the setting off leaves the bundle on', M,
+     """    local want = IC.governments_on() and IC.court(faction_key).gov or nil""",
+     """    local want = IC.court(faction_key).gov"""),
+    ('gov: the setting off keeps a waiting choice', M,
+     """        IC.court(faction_key).gov_ask = nil
+    end
+    if not IC.governments_on() then IC.apply_gov_bundle(faction_key) end""",
+     """    end
+    if not IC.governments_on() then IC.apply_gov_bundle(faction_key) end"""),
+    ('gov: an older save reads a government out of nothing', M,
+     """    court.gov = IC.GOVS[g[1] or \"\"] and g[1] or nil""",
+     """    court.gov = g[1] or \"conclave\""""),
+    ('gov: the doctrine picker offers the current government', U,
+     """        if g ~= court.gov then""",
+     """            if true then"""),
+    ('gov: Hold on a petition accepts instead', U,
+     """        op, arg = (yes and \"gov_accept\" or \"gov_hold\"), \"\"""",
+     """        op, arg = \"gov_accept\", \"\""""),
+    ('gov: the government drawn with governments off', U,
+     """    local on = IC.governments_on() and court.gov ~= nil""",
+     """    local on = court.gov ~= nil"""),
+    ("gov: another tab leaves the government's row on screen", U,
+     """        show(comp(\"ic_gov\", panel), false)
+        show(comp(\"ic_gov_btn\", panel), false)""",
+     """"""),
+    ('gov: the embezzle card states the base price', U,
+     """    if plot.key ~= \"embezzle\" then return plot.effect end""",
+     """    do return plot.effect end"""),
+    # ---- deeds (2026-10-02) ---------------------------------------------------
+    ("deed: renown is not weight", M,
+     """        + IC.member_weight(faction_key, slug) + renown""",
+     """        + IC.member_weight(faction_key, slug)"""),
+    ("deed: renown never fades", M,
+     """        local left = n - math.max(1, math.floor(n * IC.TUNE.renown_fade_pct / 100))""",
+     """        local left = n"""),
+    ("deed: no limit to a turn's renown", M,
+     """    n = math.min(n or 0, math.max(0, IC.TUNE.renown_turn_cap - got))""",
+     """    n = n or 0"""),
+    ("deed: an absent party banks past the line", M,
+     """    if not court.houses[party] then
+        n = math.min(n, math.max(0, IC.TUNE.renown_join_line - have))""",
+     """    if false then
+        n = math.min(n, math.max(0, IC.TUNE.renown_join_line - have))"""),
+    ("deed: the Ledger never takes a convoy", M,
+     """    if d.alt and not court.houses[party] and court.houses[d.alt] then party = d.alt end""",
+     """"""),
+    ("deed: AI courts score", M,
+     """    return IC.TUNE.deeds ~= false and IC.is_human(faction_key)""",
+     """    return IC.TUNE.deeds ~= false"""),
+    ("deed: a battle scores per general", M,
+     """    if IC.battles_seen[key] then return false end""",
+     """"""),
+    ("deed: a confederation's rites score", M,
+     """        if code == \"rite\" and IC.court(faction:name()).confed_turn""",
+     """        if false and IC.court(faction:name()).confed_turn"""),
+    ("deed: recruiting captives counts as slaves", M,
+     """        local yes = context:get_outcome_key() == IC.ENSLAVE_OUTCOME""",
+     """        local yes = true or context:get_outcome_key() == IC.ENSLAVE_OUTCOME"""),
+    ("deed: a full court still draws a party", M,
+     """    if not IC.deeds_on(faction_key) or not IC.deed_room(faction_key) then return nil end""",
+     """    if not IC.deeds_on(faction_key) then return nil end"""),
+    ("deed: the smaller waiting party comes first", M,
+     """           and n >= IC.TUNE.renown_join_line and n > most then""",
+     """           and n >= IC.TUNE.renown_join_line and most == 0 then"""),
+    ("deed: a legend is drawn", M,
+     """    if not IC.can_lead(character) or IC.fixed_history(character) then return nil end""",
+     """    if IC.fixed_history(character) then return nil end"""),
+    ("deed: the introduction every turn", M,
+     """        court.gov_intro = true
+        IC.feed(faction_key, \"gov_intro\")""",
+     """        IC.feed(faction_key, \"gov_intro\")"""),
+    ("deed: the Record gets an entry per deed", M,
+     """        if e.kind == \"deed\" and e.slug == party and e.key == code then""",
+     """        if false then"""),
+    ("deed: a party that leaves keeps its renown", M,
+     """    if court.renown then court.renown[slug] = nil end""",
+     """"""),
+    ("deed: the Record sums only the last entry", M,
+     """        if e.turn ~= now then break end""",
+     """        if i < #log or e.turn ~= now then break end"""),
+    ("deed: a ritual builds a court for any faction", M,
+     """        if not IC.runs_court(faction) then return nil end
+        IC.loaded(faction:name())""",
+     """        IC.loaded(faction:name())"""),
+    ("deed: a waiting party reads as still to come", U,
+     """            elseif n >= IC.TUNE.renown_join_line then""",
+     """            elseif false then"""),
+    ("deed: a settled court shows a drift", U,
+     """    if ICUI.gov_moving(faction, court) then
+        text = text""",
+     """    if true then
+        text = text"""),
+    # ---- the laws and votes (plan 2026-10-02 laws, Task 10) ----------------
+    ("law: a tie passes", M,
+     """function IC.law_passes(t) return t.aye > t.nay end""",
+     """function IC.law_passes(t) return t.aye >= t.nay end"""),
+    ("law: a man with no influence votes", M,
+     """                if n > 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end""",
+     """                if n >= 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end"""),
+    ("law: a won man is multiplied too", M,
+     """        if won then
+            side, why = won, "won"
+        elseif side then""",
+     """        if won then
+            side, why = won, "won"
+        end
+        if side then"""),
+    ("law: a disloyal party votes with the Crown", M,
+     """        return vote.stance == "aye" and "nay" or "aye", "disloyal\"""",
+     """        return vote.stance, "disloyal\""""),
+    ("law: the loyal line is above, not at", M,
+     """    if loyalty >= IC.TUNE.law_loyal_line then return vote.stance, "loyal" end""",
+     """    if loyalty > IC.TUNE.law_loyal_line then return vote.stance, "loyal" end"""),
+    ("law: a raise pays the full price", M,
+     """    return cost[level] - (had and cost[had] or 0)""",
+     """    return cost[level]"""),
+    ("law: a level can be lowered", M,
+     """    if level <= (vote.push[IC.CROWN] or 0) then return false, "law_pushed" end""",
+     """    if level == (vote.push[IC.CROWN] or 0) then return false, "law_pushed" end"""),
+    ("law: an abstaining Crown pushes", M,
+     """    if vote.stance == "abstain" then return false, "law_abstain" end
+    if level""",
+     """    if level"""),
+    ("law: a man against you is not doubled", M,
+     """    if s and s ~= vote.stance then price = price * 2 end""",
+     """"""),
+    ("law: a Crown man can be won", M,
+     """    if man.party == IC.CROWN then return nil, "law_crown_man" end""",
+     """"""),
+    ("law: the overrule angers the winners", M,
+     """    local losing = pass and "nay" or "aye\"""",
+     """    local losing = pass and "aye" or "nay\""""),
+    ("law: a won man follows the Crown's new side", M,
+     """    vote.stance = stance
+    vote.answered = true""",
+     """    for cqi in pairs(vote.won) do if stance ~= "abstain" then vote.won[cqi] = stance end end
+    vote.stance = stance
+    vote.answered = true"""),
+    # ADDED 2026-10-03 with the settle loop walking the law's own lists.
+    ("law: a passed law pays the party against it", M,
+     """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end""",
+     """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end"""),
+    ("law: a passed law angers before it pays", M,
+     """        for _, slug in ipairs(o.pro or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+        end
+        for _, slug in ipairs(o.con or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+        end""",
+     """        for _, slug in ipairs(o.con or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+        end
+        for _, slug in ipairs(o.pro or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+        end"""),
+    ("law: a failed party proposal costs nothing", M,
+     """        if vote.proposer ~= IC.CROWN then
+            IC.move_loyalty(faction_key, vote.proposer, IC.TUNE.law_fail_loss)
+        end""",
+     """"""),
+    ("law: a party proposes during its rest", M,
+     """    if now - (court.law_rest or 0) < IC.TUNE.law_party_rest then return nil end""",
+     """"""),
+    ("law: a party proposes what it is against", M,
+     """                   and IC.law_stance(cat, opt, slug) == "aye" then""",
+     """                   and IC.law_stance(cat, opt, slug) ~= nil then"""),
+    ("law: a party pushes while well ahead", M,
+     """            if t[side] - t[other] <= margin and IC.spend_party(faction_key, slug, price) then""",
+     """            if IC.spend_party(faction_key, slug, price) then"""),
+    ("law: the purse spends a seat's bar", M,
+     """                local spare = IC.standing(faction_key, cqi) - (bar[cqi] or 0)
+                if spare > 0 then
+                    men[#men + 1] = {cqi = cqi, spare = spare}""",
+     """                local spare = IC.standing(faction_key, cqi)
+                if spare > 0 then
+                    men[#men + 1] = {cqi = cqi, spare = spare}"""),
+    ("law: switched off, the votes stay", M,
+     """    if IC.TUNE.laws == false then IC.court(faction_key).votes = {} end""",
+     """"""),
+    ("law: an AI court wears a law", M,
+     """function IC.laws_on(faction_key)
+    return IC.TUNE.laws ~= false and IC.is_human(faction_key)""",
+     """function IC.laws_on(faction_key)
+    return IC.TUNE.laws ~= false"""),
+    ("law: the answer is not remembered", M,
+     """    vote.stance = stance
+    vote.answered = true""",
+     """    vote.stance = stance"""),
+    ("law: the marker ignores the answer", U,
+     """        if v and v.proposer ~= IC.CROWN and not v.answered then s.laws = s.laws + 1 end""",
+     """        if v and v.proposer ~= IC.CROWN then s.laws = s.laws + 1 end"""),
+    ("law: the board frames the chosen card, not the law in force", U,
+     """                card:SetImagePath(force and ICUI.PARTY_SELECTED or ICUI.MASK_NONE, ICUI.LAW_SEL_INDEX)""",
+     """                card:SetImagePath(chosen and ICUI.PARTY_SELECTED or ICUI.MASK_NONE, ICUI.LAW_SEL_INDEX)"""),
+    ("law: a block shows a Win button on every man", U,
+     """            show(win, price ~= nil)""",
+     """            show(win, true)"""),
+    # ADDED IN TASK 10 for what Task 10 changed: the influence line, the
+    # abstain count and the button pulse for a waiting law.
+    ("law: a winnable man shows his influence over his Win button", U,
+     """            show(inf, price == nil)""",
+     """            show(inf, true)"""),
+    ("law: the abstain line names every party", U,
+     """    local who = #abst > 2 and string.format("%d parties, %d influence", #abst, held)""",
+     """    local who = false and string.format("%d parties, %d influence", #abst, held)"""),
+    # FINAL REVIEW FIXES, 2026-10-02.
+    ("law: the push margin counts the abstainers", M,
+     """            local margin = math.floor((t.aye + t.nay) * IC.TUNE.law_push_margin / 100)""",
+     """            local margin = math.floor((t.aye + t.nay + t.abstain) * IC.TUNE.law_push_margin / 100)"""),
+    ("law: the Laws tab ignores a waiting vote", U,
+     """                    if v and v.proposer ~= IC.CROWN and not v.answered then
+                        ICUI.law_cat = cat""",
+     """                    if false then
+                        ICUI.law_cat = cat"""),
+    ("law: the Laws tab opens an answered vote", U,
+     """                    if v and v.proposer ~= IC.CROWN and not v.answered then
+                        ICUI.law_cat = cat""",
+     """                    if v and v.proposer ~= IC.CROWN then
+                        ICUI.law_cat = cat"""),
+    ("law: the button ignores a waiting law", U,
+     """    out.any = out.offices or out.court or out.petitions or out.laws
+""",
+     """    out.any = out.offices or out.court or out.petitions
+"""),
 ]
 
 

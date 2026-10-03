@@ -452,6 +452,9 @@ def check_scaled(ui_text=None):
             "COURT_SECTION_XY": {"-": g.COURT_SECTION_XY},
             "ACT_PAGED_XY": g.ACT_PAGED,
             "GM_ROW_CHILD_XY": g.GM_ROW_LAYOUT,
+            "LAW_CHILD_XY": g.LAW_LAYOUT, "LB_CHILD_XY": g.LB_LAYOUT,
+            "LAW_XY": {str(i + 1): p for i, p in enumerate(g.LAW_GRID)},
+            "LB_XY": {str(i + 1): p for i, p in enumerate(g.LB_GRID)},
         }
         lua_tables = got["T"].get(bw, {})
         for table in sorted(set(lua_tables) | set(gen_tables)):
@@ -1297,7 +1300,9 @@ def verify():
                                         ("ROW_CHILD_XY", U3.ROW_LAYOUT),
                                         ("CARD_CHILD_XY", U3.CARD_LAYOUT),
                                         ("PARTY_CHILD_XY", U3.PARTY_LAYOUT),
-                                        ("GM_ROW_CHILD_XY", U3.GM_ROW_LAYOUT)):
+                                        ("GM_ROW_CHILD_XY", U3.GM_ROW_LAYOUT),
+                                        ("LAW_CHILD_XY", U3.LAW_LAYOUT),
+                                        ("LB_CHILD_XY", U3.LB_LAYOUT)):
                 found = lua_xy(lua_name)
                 if found is None:
                     problems.append("the panel Lua has no ICUI.%s table" % lua_name)

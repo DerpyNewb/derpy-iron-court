@@ -33,6 +33,32 @@ derpy_ic_control_mastery	The parties argue, and then they do as they are told.	M
 derpy_ic_control_command	The Crown is first among the parties, and no more than first.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_contested	No decree passes without a bargain struck.	A Contested Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_lost	The parties rule and the Crown is consulted, when there is time.	The Court Is Not Yours	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_doctrine_conclave	No one rules Zharr-Naggrund. Its Sorcerer-Prophets sit in council.	The Conclave	faction	1	dlc23_region_action_gift_zhar.png	true	false	true
+derpy_ic_doctrine_priest	The eldest voice is the strongest, and it speaks for Hashut.	Rule of the High Priest	faction	1	chd_toz_district_sorcery.png	true	false	true
+derpy_ic_doctrine_forge	The priest-artificers rule from the forges.	Rule of the Daemonsmiths	faction	1	chd_hellforge.png	true	false	true
+derpy_ic_doctrine_legion	Rank in the court is won in the field.	Command of the Legion	faction	1	chd_toz_district_military.png	true	false	true
+derpy_ic_doctrine_chain	Fear holds the court as the chain holds the slave.	Rule of the Slave-Lords	faction	1	chd_labour.png	true	false	true
+derpy_ic_doctrine_convoy	Everything in the Dark Lands has a price.	The Convoy Concern	faction	1	dlc23_region_action_sell_labour.png	true	false	true
+derpy_ic_law_labour_measure	The overseers work the stock as they always have.	The Measure	faction	1	chd_workload.png	true	false	true
+derpy_ic_law_labour_lash	More are taken and they are driven hard, and they break.	The Lash	faction	1	dlc23_region_action_set_example.png	true	false	true
+derpy_ic_law_labour_kept	The stock is fed and kept, and fewer are taken.	The Kept Stock	faction	1	slaves.png	true	false	true
+derpy_ic_law_labour_quota	Every forge has its quota, and the stock pays for it.	The Furnace Quota	faction	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
+derpy_ic_law_labour_ash	What cannot be held is burned, and its people with it.	The Ash Harvest	faction	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
+derpy_ic_law_tribute_tithe	The Crown takes its tithe, as it always has.	The Crown's Tithe	faction	1	edict_collect_tribute.png	true	false	true
+derpy_ic_law_tribute_roads	The roads are opened to more convoys, and the vassals pay less.	Open Roads	faction	1	convoy_icon.png	true	false	true
+derpy_ic_law_tribute_tariff	Every route pays the Ledger, and the cargo is worth less.	The Ledger's Tariff	faction	1	trade_agreement.png	true	false	true
+derpy_ic_law_tribute_mines	The mines come first, and the convoys carry less.	The Mines Before All	faction	1	chd_raw_materials.png	true	false	true
+derpy_ic_law_tribute_charter	The convoy overseers are chartered, and the other houses resent it.	The Overseers' Charter	faction	1	wh3_dlc23_edict_chd_architects.png	true	false	true
+derpy_ic_law_worship_rites	The rites are kept, as they always have been.	The Rites Kept	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_law_worship_fires	Hashut's fires are fed without stint, and building waits on them.	The Fires Fed	faction	1	wh3_dlc23_unit_passive_burning_bright.png	true	false	true
+derpy_ic_law_worship_seats	Seats in the Tower are sold, and the priests' favour cools.	Seats Bought in the Tower	faction	1	chd_toz_tier.png	true	false	true
+derpy_ic_law_worship_lore	The Lore of Hashut is taught more widely, and more carelessly.	The Lore Taught	faction	1	loremaster.png	true	false	true
+derpy_ic_law_worship_licence	The Daemonsmiths are licensed, and the priests resent it.	The Daemonsmiths' Licence	faction	1	hellforged.png	true	false	true
+derpy_ic_law_war_levy	The levy is raised as it always has been.	The Levy	faction	1	edict_levy_conscripts.png	true	false	true
+derpy_ic_law_war_hellforge	The Hell-Forge works without leave, and the infantry pays for it.	The Hell-Forge Unbound	faction	1	chd_armaments.png	true	false	true
+derpy_ic_law_war_legions	The legions stand ready, and the guns wait.	Standing Legions	faction	1	chd_toz_district_t3_military.png	true	false	true
+derpy_ic_law_war_grudge	The old grudge against the Dwarfs is fed, and the labour pays for it.	The Old Grudge	faction	1	wh3_dlc23_unit_passive_oath_of_contempt.png	true	false	true
+derpy_ic_law_war_gunnery	The guns come first, and every shooter costs more.	The Gunnery Doctrine	faction	1	artillery.png	true	false	true
 derpy_ic_gov_base	A governor of the court sits here, and the province knows it.	Governor of the Province	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_crown	Your own men hold it, and they are watched.	Governor: The Crown	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_temple	The temples take the province in hand and it grows for Hashut.	Governor: The Priesthood	faction	1	chd_conclave_influence.png	true	false	true

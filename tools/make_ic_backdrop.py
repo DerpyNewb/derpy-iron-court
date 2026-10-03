@@ -93,7 +93,9 @@ def text_cells(G):
     check() below asserts the result covers every heading gen_ic_ui styles, which
     is what stops the typed half going stale a third time.
     """
-    return TEXT_CELLS + tuple("ic_plotcat_%d" % (i + 1) for i in range(G.PLOT_COLS))
+    return (TEXT_CELLS + tuple("ic_plotcat_%d" % (i + 1) for i in range(G.PLOT_COLS))
+            + tuple("ic_law_head_%d" % (i + 1) for i in range(G.LAW_COLS)) + ("ic_off_title",)
+            + tuple(sorted(k for k in G.TEXT_STYLE if k.startswith("ic_gc_"))))
 
 
 # The row pool's own cover. ROW_LAYERS is a single 1x1_blank_white at #00000055 -

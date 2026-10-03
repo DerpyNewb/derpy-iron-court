@@ -83,8 +83,15 @@ OUT_PETITIONS = os.path.join(PG.CACHE, "ic_petitions.png")
 OUT_GM = os.path.join(PG.CACHE, "ic_gm_provinces.png")
 OUT_GM_PICK = os.path.join(PG.CACHE, "ic_gm_picker.png")
 GM_MAP_FILL = (46, 52, 38, 255)
+# THE LAWS TAB (plan 2026-10-02 laws): the board of twenty laws with the chosen
+# one read out on the right, and a vote's two sides of party blocks.
+OUT_LAW_BOARD = os.path.join(PG.CACHE, "ic_law_board.png")
+OUT_LAW_VOTE = os.path.join(PG.CACHE, "ic_law_vote.png")
+# THE GOVERNMENT CHOOSER (2026-10-03, design A): five cards, off the same dump.
+OUT_GOV_CARDS = os.path.join(PG.CACHE, "ic_gov_cards.png")
 VIEWS = ("court", "intrigue", "pick", "pick_ready", "offices", "petitions",
-         "gm_provinces", "gm_picker")
+         "gm_provinces", "gm_picker", "law_board", "law_vote", "gov_cards")
+LUA_EXE = os.path.join("C:" + os.sep, "Program Files (x86)", "Lua", "5.1", "lua.exe")
 
 _LUA = {}
 
@@ -360,6 +367,69 @@ DEMO_TREND = (1, -2, 0, -4, 3, -1)
 # buttons rather than the hint - the hint is one line of text, the bar is what
 # the change is for.
 DEMO_SEL = 1
+
+
+LawCell = collections.namedtuple("LawCell", "vis x y w h text images")
+
+
+def law_dump(_cache={}):
+    """{screen: {component path: LawCell}} for "law_board" and "law_vote".
+
+    DRAWN BY THE SHIPPED LUA, not restated here. The harness's IC_DUMP block
+    builds the demo court, runs ICUI.refresh on its fake tree for each screen
+    and writes every component's visibility, box, text and image slots; this
+    runs it and reads the file back. The vote screen's every figure is the
+    model's tally - a Python copy of IC.law_tally could only say what this file
+    believes the Lua does. The text is the 1920 draw's at every width: the Lua's
+    cuts measure with the harness's linear stub, not the engine's face, so the
+    picture shows the string and lets it overflow if it does.
+
+    The loc it reads is the generator's own rows plus the demo's names and
+    faces, handed over as a Lua file.
+    """
+    if _cache:
+        return _cache
+    import subprocess
+    import tempfile
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import gen_iron_court as GIC
+    loc = dict((r["key"], r["text"]) for r in GIC.build()["loc"])
+    # THE LONGEST FORENAMES FIRST: the man cell holds a first name and his
+    # influence, and the first block drawn is the heaviest.
+    fores = sorted(set(r[0].split()[0] for r in DEMO_PICK), key=len, reverse=True)
+    for i in range(1, 41):
+        loc["derpy_demo_fore_%d" % i] = fores[(i - 1) % len(fores)]
+        loc["derpy_demo_face_%d" % i] = DEMO_FACES[(i - 1) % len(DEMO_FACES)]
+    loc["derpy_demo_crown"] = DEMO_CROWN_NAME
+
+    def q(v):
+        return '"%s"' % v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    tmp = tempfile.mkdtemp(prefix="ic_law_dump_")
+    loc_path, out_path = os.path.join(tmp, "loc.lua"), os.path.join(tmp, "dump.tsv")
+    with io.open(loc_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("return {\n" + "".join("[%s] = %s,\n" % (q(k), q(v))
+                                       for k, v in sorted(loc.items())) + "}\n")
+    env = dict(os.environ, IC_ONLY="no check is named this", IC_DUMP=out_path, IC_DUMP_LOC=loc_path)
+    env.pop("IC_TEST_ALL", None)
+    r = subprocess.run([LUA_EXE, os.path.join("tools", "_iron_court_harness.lua")],
+                       cwd=ROOT, env=env, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.isfile(out_path):
+        raise SystemExit("the harness's law dump failed:\n" + r.stdout + r.stderr)
+
+    def unesc(t):
+        return re.sub(r"\\(.)", lambda m: {"t": "\t", "n": "\n"}.get(m.group(1), m.group(1)), t)
+    for line in io.open(out_path, encoding="utf-8").read().split("\n"):
+        if not line:
+            continue
+        screen, path, vis, x, y, w, h, text, imgs = line.split("\t")
+        images = {}
+        for pair in unesc(imgs).split("|"):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                images[int(k)] = v.replace("\\", "/")
+        _cache.setdefault(screen, {})[path] = LawCell(
+            vis == "1", float(x), float(y), float(w), float(h), unesc(text), images)
+    return _cache
 
 
 def demo_court(G):
@@ -882,14 +952,26 @@ def render(path=None, view="court", box_w=1920):
     # AND THE CROWN BLOCK'S LINE ICONS (2026-09-28), the band's and each
     # effect's, named only in the Lua for the same reason.
     band_icon = re.search(r'ICUI\.BAND_ICON\s*=\s*"([^"]+)"', ui).group(1)
+    # AND EACH GOVERNMENT'S PICTURE (2026-10-02), out of IC.GOVS the way the
+    # generator reads it for the bundles.
+    gov_icons = {k: "ui/campaign ui/effect_bundles/" + v
+                 for k, v in G.IC.model_gov_icons().items()}
+    longest_gov = max(G.IC.GOVERNMENTS, key=lambda g: len(g[1]))
     fx_icons = dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"',
                                _block(ui, "ICUI.FX_ICONS")))
+    # THE LAWS TAB'S PICTURES are whatever its draw set, read off the dump.
+    law = view.startswith("law_") or view == "gov_cards"
+    LD = law_dump()[view] if law else {}
+    law_art = sorted(set(p for c in LD.values() for p in c.images.values()
+                         if p and p.startswith("ui/")))
     # AND THE CHOSEN CARD'S FRAME, which is CA art named only in the Lua and
     # the generator's layer list - never an imagepath in a .twui.xml.
     n_art, missing = PG.extract_art(
         PREFIX,
         extra=DEMO_FACES + [TAB_SELECTED, cost_icon, trait_icon, G.PARTY_SELECTED,
                             band_icon] + sorted(fx_icons.values())
+        + sorted(gov_icons.values())
+        + law_art
         + icons
         + [G.GM_ROW_ART % s for s in ("active", "hover", "selected", "selected_hover", "inactive")]
         + [G.GM_ROUND % s for s in ("active", "hover", "selected", "selected_hover")]
@@ -912,11 +994,13 @@ def render(path=None, view="court", box_w=1920):
     gm_pin_doc, gm_face_doc = doc_of(G.GM_PIN_FILE), doc_of(G.GM_FACE_FILE)
     gm_name_doc, gm_loyal_doc = doc_of(G.GM_NAME_FILE), doc_of(G.GM_LOYAL_FILE)
     gm_badge_doc, gm_row_doc = doc_of(G.GM_BADGE_FILE), doc_of(G.GM_ROW_FILE)
+    law_doc, lb_doc = doc_of("derpy_ic_law.twui.xml"), doc_of("derpy_ic_lawblock.twui.xml")
     named = {}
     for d, tag in ((panel, "panel"), (party, "party"), (row_doc, "row"),
                    (card_doc, "card"), (office_doc, "office"),
                    (gm_pin_doc, "gmpin"), (gm_face_doc, "gmface"), (gm_name_doc, "gmname"),
-                   (gm_loyal_doc, "gmloyal"), (gm_badge_doc, "gmbadge"), (gm_row_doc, "gmrow")):
+                   (gm_loyal_doc, "gmloyal"), (gm_badge_doc, "gmbadge"), (gm_row_doc, "gmrow"),
+                   (law_doc, "law"), (lb_doc, "lawblock")):
         for c in d.components:
             named[(tag, c.get("id", c.tag))] = c
 
@@ -1164,6 +1248,9 @@ def render(path=None, view="court", box_w=1920):
     # The offices tab is what a seat's picker is opened from, so that is the tab
     # that stays lit under it.
     _lit_tab = "offices" if _base == "pick" else ("govs" if gm else view)
+    if law:
+        # The government cards open from the Court tab's Change Doctrine button.
+        _lit_tab = "court" if view == "gov_cards" else "laws"
     _band = [b for b in G.IC.CONTROL_BANDS if court[0][2] >= b[1]][0]
     _sufferance = int(re.search(r"sufferance_share\s*=\s*(\d+)", lua("model")).group(1))
     STRINGS = {
@@ -1175,6 +1262,7 @@ def render(path=None, view="court", box_w=1920):
         "ic_tab_intrigue": "Intrigue",
         "ic_tab_petitions": "Petitions",
         "ic_tab_log": "Record",
+        "ic_tab_laws": "Laws",
         # OFF ICUI.SECTION.court, not typed: a typed copy here read "Standing"
         # for as long as the panel had said "Influence".
         "ic_lbl_section": re.search(r'court\s*=\s*"([^"]*)"',
@@ -1185,6 +1273,12 @@ def render(path=None, view="court", box_w=1920):
         # band's effects one to a line - what draw_court writes.
         "ic_control": "[[img:%s]][[/img]]%d%% of the court" % (cost_icon, court[0][2]),
         "ic_control_band": "[[img:%s]][[/img]]%s" % (band_icon, _band[2]),
+        # THE GOVERNMENT'S ROW (spec 2026-10-02): the LONGEST name, as draw_gov
+        # writes it, since a picture of the easy case answers nothing.
+        "ic_gov": ("[[img:%s]][[/img]]Government: %s  ->  [[img:%s]][[/img]]%d/%d"
+                   % (gov_icons[longest_gov[0]], longest_gov[1],
+                      gov_icons["conclave"], 5, 6)),
+        "ic_gov_btn": "Change Doctrine",
         "ic_leader_lbl": "The Crown",
         "ic_leader_name": DEMO_LEADERS[0],
         "ic_leader_party": "[[img:%s]][[/img]]%s" % (G.sigil_path("crown"), court[0][1]),
@@ -1245,6 +1339,32 @@ def render(path=None, view="court", box_w=1920):
         raise SystemExit("ICUI.refresh no longer gates ic_zig_bg as this reads it")
     if view != "offices":
         hidden.add("ic_zig_bg")
+    # AND THE TITLE ON ITS SHRINE (author, 2026-10-03), its words the Lua's own.
+    if not re.search(r'show\(comp\("ic_off_title", panel\), view == "offices"\)', ui):
+        raise SystemExit("ICUI.refresh no longer gates ic_off_title as this reads it")
+    if view != "offices":
+        hidden.add("ic_off_title")
+    STRINGS["ic_off_title"] = re.search(r'ICUI\.OFFICES_TITLE = "([^"]+)"', ui).group(1)
+    # THE LAWS TAB'S CELLS: off ICUI.refresh's own gate on every other view, and
+    # on the two law screens whatever the draw left showing - the board's cells
+    # on the board, the vote's on the vote, the blocks it filled.
+    if not re.search(r'for _, name in ipairs\(ICUI\.LAW_BOARD_KEYS\) do show\(comp\(name, '
+                     r'panel\), laws_view and not on_vote\) end', ui) \
+            or not re.search(r'for _, name in ipairs\(ICUI\.LAW_VOTE_KEYS\) do show\(comp\('
+                             r'name, panel\), on_vote\) end', ui):
+        raise SystemExit("ICUI.refresh no longer gates the law cells as this reads it")
+    if not re.search(r'for _, name in ipairs\(ICUI\.GC_KEYS\) do show\(comp\(name, panel\), '
+                     r'gov_pick\) end', ui):
+        raise SystemExit("ICUI.refresh no longer gates the government cards as this reads it")
+    if not law:
+        hidden |= set(k for k in G.PANEL_LAYOUT if k.startswith(("ic_law_", "ic_lv_", "ic_gc_")))
+    else:
+        for k in G.PANEL_LAYOUT:
+            c = LD.get("derpy_ic_panel/" + k)
+            if c and not c.vis:
+                hidden.add(k)
+            elif c and k.startswith(("ic_law_", "ic_lv_", "ic_gc_")):
+                STRINGS[k] = c.text
     # THE COLUMN'S WORDS, off the map Lua, so a reworded label reaches the picture.
     _titles = dict(re.findall(r'(\w+) = "([^"]+)"', re.search(
         r'ICUI\.GM_PAGE_TITLE = \{([^}]*)\}', lua("ui_map")).group(1)))
@@ -1339,6 +1459,8 @@ def render(path=None, view="court", box_w=1920):
                 .replace("%d", _turns, 1))
         elif view == "petitions":
             STRINGS["ic_lbl_section"] = petitions_label()
+        elif law:
+            STRINGS["ic_lbl_section"] = LD["derpy_ic_panel/ic_lbl_section"].text
         elif view == "gm_provinces":
             STRINGS["ic_lbl_section"] = re.search(
                 r'govs\s*=\s*"([^"]*)"', _block(ui, "ICUI.SECTION")).group(1)
@@ -1368,7 +1490,15 @@ def render(path=None, view="court", box_w=1920):
             continue
         if name in ("ic_dial_box", "ic_dial_rim") or name in hidden:
             continue
+        # THE RIMS ARE DRAWN AFTER THE SEGMENTS, below, as the panel declares them.
+        if name.startswith(("ic_lv_seg_", "ic_lv_segc_", "ic_law_p_baraye", "ic_law_p_barnay",
+                            "ic_law_p_barrim", "ic_lv_barrim")):
+            continue
         x, y, w, h = G.PANEL_LAYOUT[name]
+        # MOVED AT RUNTIME: ICUI.draw_law_bar centres the abstaining label over
+        # its gap, so the layout's x is only where it starts.
+        if law and name == "ic_lv_abs" and LD.get("derpy_ic_panel/" + name):
+            x = G.sc(int(LD["derpy_ic_panel/" + name].x), box_w)
         # ONE COMPONENT, TWO HOMES. The court moves the section label into the
         # Crown's box and PANEL_LAYOUT holds the position of the other four
         # views, so reading it here draws the label where that tab never puts
@@ -1402,6 +1532,8 @@ def render(path=None, view="court", box_w=1920):
         lit = {0: TAB_SELECTED} if name == "ic_tab_" + _lit_tab else None
         if name == "ic_gm_tog_2" and view == "gm_provinces":
             lit = {0: G.GM_ROUND % "selected"}
+        if law and name.startswith(("ic_law_", "ic_lv_", "ic_gc_")):
+            lit = LD["derpy_ic_panel/" + name].images or None
         paste(panel, named[("panel", name)], x, y, w, h, repaint=lit)
         s = STRINGS.get(name)
         if s:
@@ -1621,6 +1753,58 @@ def render(path=None, view="court", box_w=1920):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         canvas.convert("RGB").save(out)
         return out, n_art, missing, len(rows)
+
+    # ---- the laws tab: the bar's pieces, then the two pools -------------
+    if law:
+        # THE SUPPORT BAR'S PIECES, where draw_law_bar MoveTo'd them on the
+        # 1920 tree, scaled the way every layout number is.
+        for name in sorted(G.PANEL_LAYOUT, key=G._panel_order):
+            c = LD.get("derpy_ic_panel/" + name)
+            if not name.startswith(("ic_lv_seg_", "ic_lv_segc_", "ic_law_p_baraye",
+                                    "ic_law_p_barnay")) or not c or not c.vis:
+                continue
+            x0, x1 = G.sc(int(c.x), box_w), G.sc(int(c.x + c.w), box_w)
+            y0, y1 = G.sc(int(c.y), box_w), G.sc(int(c.y + c.h), box_w)
+            paste(panel, named[("panel", name)], x0, y0, x1 - x0, y1 - y0, repaint=c.images)
+        for name in ("ic_law_p_barrim", "ic_lv_barrim"):
+            c = LD.get("derpy_ic_panel/" + name)
+            if c and c.vis:
+                x, y, w, h = G.PANEL_LAYOUT[name]
+                paste(panel, named[("panel", name)], x, y, w, h)
+        drawn = 0
+
+        def pool(doc, tag, root, grid, layout, cw, ch, n):
+            """Every instance the draw showed, at its slot, its cells in the
+            file's declaration order - the order the engine draws them in."""
+            count = 0
+            for i in range(1, n + 1):
+                path = "derpy_ic_panel/%s_%d" % (root, i)
+                c = LD.get(path)
+                if not c or not c.vis:
+                    continue
+                count += 1
+                x, y = grid[i - 1]
+                paste(doc, named[(tag, root)], x, y, cw, ch, repaint=c.images or None)
+                for key in [k.get("id") for k in doc.components if k.get("id") in layout]:
+                    k = LD.get(path + "/" + key)
+                    if not k or not k.vis:
+                        continue
+                    kx, ky, kw, kh = layout[key]
+                    comp = named[(tag, key)]
+                    paste(doc, comp, x + kx, y + ky, kw, kh, repaint=k.images or None)
+                    if k.text:
+                        text(doc, comp, k.text, x + kx, y + ky, kw, kh)
+            return count
+
+        drawn += pool(law_doc, "law", "derpy_ic_law", G.LAW_GRID, G.LAW_LAYOUT,
+                      G.LAW_W, G.LAW_H, len(G.LAW_GRID))
+        drawn += pool(lb_doc, "lawblock", "derpy_ic_lawblock", G.LB_GRID, G.LB_LAYOUT,
+                      G.LB_W, G.LB_H, len(G.LB_GRID))
+        out = path or sized({"law_vote": OUT_LAW_VOTE, "gov_cards": OUT_GOV_CARDS}.get(
+            view, OUT_LAW_BOARD), box_w)
+        os.makedirs(os.path.dirname(out), exist_ok=True)
+        canvas.convert("RGB").save(out)
+        return out, n_art, missing, drawn
 
     # ---- the petitions: a demand, then the offers ----------------------
     if view == "petitions":

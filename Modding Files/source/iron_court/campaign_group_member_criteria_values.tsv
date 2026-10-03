@@ -29,3 +29,10 @@ derpy_ic_event_realm_secede	2625
 derpy_ic_event_officer_died	2626
 derpy_ic_event_threat_over	2627
 derpy_ic_event_stall_end	2628
+derpy_ic_event_gov_changed	2629
+derpy_ic_event_gov_pressure	2630
+derpy_ic_event_gov_intro	2631
+derpy_ic_event_party_drawn	2632
+derpy_ic_event_law_proposed	2633
+derpy_ic_event_law_passed	2634
+derpy_ic_event_law_failed	2635

@@ -195,7 +195,7 @@ instead of five.
 
 | Source | Effect |
 |---|---|
-| Base | +2 public order, +8 growth |
+| Base | +2 public order, -5% workload (was +8 growth; author 2026-10-03) |
 | Per rank | +1 order and +1.5% provincial output per rank, via `create_new_custom_effect_bundle` so it scales at runtime |
 | His house | Artificers +Armaments; Khorakk +order through fear; Baal -corruption; Uzkulak +income |
 

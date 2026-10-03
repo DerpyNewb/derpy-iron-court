@@ -458,7 +458,7 @@ local function make_faction(name, subculture, characters, provinces)
         -- crest" assertion passes vacuously, because there IS no crest to fall
         -- back to. Backslashes on purpose: the engine returns a Windows path and
         -- house_icon must normalise it.
-        flag_path = function() return "ui\flags\\" .. name end,
+        flag_path = function() return "ui\\flags\\" .. name end,
         -- THE PURSE. Documented on FACTION_SCRIPT_INTERFACE and the only thing
         -- a favour spends: every other price in this system is a courtier's own
         -- standing, which lives in the court rather than on the faction.
@@ -1166,6 +1166,12 @@ assert(IC, "the file must define IC")
 -- period protects; the checks that are about it set it themselves.
 IC.TUNE.grace_turns = 0
 
+-- GOVERNMENTS OFF UNLESS A CHECK ASKS (plan 2026-10-02, ruling 4): F is
+-- Uzkulak, which starts on the Convoy Concern, and its overrides would move
+-- every favour price the checks before governments pin.
+IC_REAL_GOVERNMENTS_ON = IC.governments_on
+IC.governments_on = function() return IC_GOVS_ON == true end
+
 local PARTIES_FILE = (arg and arg[3])
     or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
 local parties_chunk, parties_err = loadfile(PARTIES_FILE)
@@ -1258,6 +1264,10 @@ local function is_red(text)
 end
 
 local function check(what, fn)
+    -- IC_ONLY runs the checks whose name holds that text and skips the rest:
+    -- the preview's dump (IC_DUMP, at the bottom) wants none of them.
+    local only = os.getenv("IC_ONLY")
+    if only and not string.find(what, only, 1, true) then return end
     local ok, e = pcall(fn)
     if not ok then
         io.stderr:write("FAIL " .. what .. ": " .. tostring(e) .. "\n")
@@ -4558,9 +4568,37 @@ check("every panel, row and card cell has a layout offset", function()
         "ic_tab_petitions",
         "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
         "ic_act_hint",
+        -- THE LAWS TAB (spec 2026-10-02 laws section 4): the board's pane and
+        -- the vote screen's fixed cells; the repeated ones are looped below.
+        "ic_tab_laws",
+        "ic_law_pane", "ic_law_p_icon", "ic_law_p_name", "ic_law_p_sub", "ic_law_p_fxh",
+        "ic_law_p_fx1", "ic_law_p_fx2", "ic_law_p_fx3", "ic_law_p_fx4", "ic_law_p_fx5",
+        "ic_law_p_fx6", "ic_law_p_forh", "ic_law_p_for",
+        "ic_law_p_conh", "ic_law_p_con", "ic_law_p_nowh", "ic_law_p_now",
+        "ic_law_p_bar", "ic_law_p_baraye", "ic_law_p_barnay", "ic_law_p_barrim",
+        "ic_law_p_line1", "ic_law_p_line2", "ic_law_p_line3", "ic_law_p_line4", "ic_law_p_line5",
+        "ic_law_p_price", "ic_law_p_btn",
+        "ic_lv_top", "ic_lv_icon", "ic_lv_name", "ic_lv_fx", "ic_lv_by", "ic_lv_turns", "ic_lv_back",
+        "ic_lv_aye", "ic_lv_abs", "ic_lv_nay", "ic_lv_bar", "ic_lv_barrim", "ic_lv_abstain", "ic_lv_hand",
+        "ic_lv_sideh", "ic_lv_supph", "ic_lv_overh", "ic_lv_over_1", "ic_lv_over_2",
     }
     local want = {}
     for _, name in ipairs(expected) do want[name] = true end
+    for i = 1, 4 do
+        want["ic_law_head_" .. i] = true
+    end
+    for i = 1, 12 do
+        want["ic_lv_seg_" .. i] = true
+        want["ic_lv_segc_" .. i] = true
+    end
+    for i = 1, 2 do
+        for _, p in ipairs({"ic_lv_side_", "ic_lv_sicon_", "ic_lv_shead_", "ic_lv_stag_",
+                            "ic_lv_screst_", "ic_lv_smore_"}) do want[p .. i] = true end
+    end
+    for i = 1, 3 do
+        want["ic_lv_st_" .. i] = true
+        want["ic_lv_lvl_" .. i] = true
+    end
     -- A CELL PER RECTANGLE THE PIE CAN NEED, and a crest per SEAT - there are
     -- more seats than there are interests, because a confederated faction
     -- takes one of its own, and every one of these is built when the panel is
@@ -4621,6 +4659,9 @@ check("every panel, row and card cell has a layout offset", function()
     end
     -- THE OFFICES TAB'S FILL BUTTON, in the pager's row.
     want["ic_fill"] = true
+    -- THE GOVERNMENT'S ROW IN THE CROWN'S BOX (spec 2026-10-02).
+    want["ic_gov"] = true
+    want["ic_gov_btn"] = true
     -- AND THE ZIGGURAT ITS CARDS STAND ON: with no offset it would sit at the
     -- box's corner, a stepped shape under nothing.
     want["ic_zig_bg"] = true
@@ -4641,9 +4682,13 @@ check("every panel, row and card cell has a layout offset", function()
     -- THE HELP PAGE: its card, rule and heading, and a topic button and a line
     -- per slot. Named from the slot count, not from ICUI.HELP_CELLS, so a cell
     -- the Lua forgets to list still fails here.
-    for _, name in ipairs({"ic_help_box", "ic_help_rule", "ic_help_head"}) do
+    for _, name in ipairs({"ic_help_box", "ic_help_rule", "ic_help_head", "ic_off_title"}) do
         want[name] = true
     end
+    -- THE GOVERNMENT CARDS, every one ICUI.GC_KEYS gathered.
+    for _, name in ipairs(ICUI.GC_KEYS) do want[name] = true end
+    assert(#ICUI.GC_KEYS == 2 + ICUI.GOV_CARDS * (9 + ICUI.GC_RULE_LINES + ICUI.GC_LOY_LINES),
+        #ICUI.GC_KEYS .. " government card cells")
     for i = 1, ICUI.HELP_SLOTS do
         want["ic_help_topic_" .. i] = true
         want["ic_help_line_" .. i] = true
@@ -5527,6 +5572,15 @@ local function build_fake_panel()
         local row = child(panel, ICUI.ROW .. "_" .. i)
         for name in pairs(ICUI.ROW_CHILD_XY) do child(row, name) end
     end
+    -- THE LAWS TAB'S TWO POOLS, every cell its file's width.
+    for i = 1, #ICUI.LAW_XY do
+        local card = child(panel, ICUI.LAW .. "_" .. i)
+        for name, xy in pairs(ICUI.LAW_CHILD_XY) do child(card, name).w = xy[3] end
+    end
+    for i = 1, #ICUI.LB_XY do
+        local block = child(panel, ICUI.LAWBLOCK .. "_" .. i)
+        for name, xy in pairs(ICUI.LB_CHILD_XY) do child(block, name).w = xy[3] end
+    end
     return reg, panel
 end
 
@@ -5894,7 +5948,7 @@ check("every tab selects a distinct view, and every view has its chrome", functi
     -- makes adding one a deliberate edit here, and still catches a tab that has
     -- no view, no section label or the wrong number of headers.
     local tabs = {"ic_tab_court", "ic_tab_offices", "ic_tab_govs",
-                  "ic_tab_intrigue", "ic_tab_petitions", "ic_tab_log"}
+                  "ic_tab_intrigue", "ic_tab_petitions", "ic_tab_log", "ic_tab_laws"}
     for _, tab in ipairs(tabs) do
         assert(ICUI.TAB_VIEW[tab], tab .. " selects no view")
         assert(ICUI.PANEL_XY[tab], tab .. " has no layout offset")
@@ -9605,7 +9659,8 @@ check("the compact files are used below 1920 and only there", function()
     at_design_size(function()
         ICUI.apply_scale(1600)
         for _, p in ipairs({ICUI.PATH_PANEL, ICUI.PATH_ROW, ICUI.PATH_CARD,
-                            ICUI.PATH_PARTY, ICUI.PATH_PLOT}) do
+                            ICUI.PATH_PARTY, ICUI.PATH_PLOT, ICUI.PATH_LAW,
+                            ICUI.PATH_LAWBLOCK}) do
             assert(ICUI.path(p) == p .. "_compact", p .. " has no compact path at 1600")
         end
         -- THE OPENER AND THE STANDING LINE ARE NOT IN THE BOX: one sits on the
@@ -9658,7 +9713,9 @@ check("a 1600x900 screen opens the compact panel and sizes every cell", function
                                        {ICUI.ROW .. "_1", ICUI.PATH_ROW},
                                        {ICUI.CARD .. "_1", ICUI.PATH_CARD},
                                        {ICUI.PARTY .. "_1", ICUI.PATH_PARTY},
-                                       {ICUI.PLOT .. "_1", ICUI.PATH_PLOT}}) do
+                                       {ICUI.PLOT .. "_1", ICUI.PATH_PLOT},
+                                       {ICUI.LAW .. "_1", ICUI.PATH_LAW},
+                                       {ICUI.LAWBLOCK .. "_1", ICUI.PATH_LAWBLOCK}}) do
                     assert(rest.paths[pair[1]] == pair[2] .. "_compact",
                         pair[1] .. " was built from " .. tostring(rest.paths[pair[1]]))
                 end
@@ -13300,7 +13357,7 @@ check("every rival is given a name, and it survives the save", function()
     end
     local n = 0
     for _ in pairs(names) do n = n + 1 end
-    assert(n == 3, "three rivals were rolled and " .. n .. " were named")
+    assert(n == 2, "two rivals were rolled and " .. n .. " were named")
 
     -- THROUGH THE SAVE. The name is two indices rather than a string precisely
     -- so that it cannot break the packed format; that is only true if it
@@ -21381,10 +21438,10 @@ check("with detailed_log off routine lines stop and failures are still written",
     end)
 end)
 
--- THE SIX A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
+-- THE NINE A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
 -- IC.LIVE_TUNE, so a key dropped from that list fails a check.
 local LIVE = {"parties_act", "secession", "pressure", "crown_split", "all_cards",
-              "detailed_log"}
+              "detailed_log", "governments", "gov_drift", "deeds", "laws"}
 
 check("mid-campaign the live switches follow MCT and the rest of the save stays frozen", function()
     -- A SAVE FROZEN ON THE DEFAULTS, loaded by a player who has since turned
@@ -21679,7 +21736,7 @@ check("in single player an action runs at once and its answer comes straight bac
         tostring(a[3]), tostring(a[4]), tostring(a[5]), tostring(a[6])}, ", ") or "nothing"))
 end)
 
-check("each of the twelve actions waits for its trigger, then reaches the model as the panel called it", function()
+check("each of the twenty actions waits for its trigger, then reaches the model as the panel called it", function()
     -- {op, wire argument, model function, argument count, what the panel passes,
     --  and what the model answers when that is not simply true}
     local cases = {
@@ -21696,10 +21753,19 @@ check("each of the twelve actions waits for its trigger, then reaches the model 
         {"decline", "legion", "decline_offer", 1, {"legion"}},
         -- HOW MANY IT SEATED, which the answer counts.
         {"fill", "", "fill_offices", 0, {}, 1},
+        -- THE GOVERNMENT'S CHOICE (spec 2026-10-02).
+        {"gov_accept", "", "gov_accept", 0, {}},
+        {"gov_hold", "", "gov_hold", 0, {}},
+        {"doctrine", "legion", "gov_force", 1, {"legion"}},
+        {"law_propose", "labour|ash", "law_propose", 2, {"labour", "ash"}},
+        {"law_stance", "labour|nay", "law_set_stance", 2, {"labour", "nay"}},
+        {"law_win", "labour|9002", "law_win", 2, {"labour", 9002}},
+        {"law_push", "labour|2", "law_push", 2, {"labour", 2}},
+        {"law_overrule", "labour|1", "law_overrule", 2, {"labour", true}},
     }
     local n_ops = 0
     for _ in pairs(IC.MP_OPS) do n_ops = n_ops + 1 end
-    assert(n_ops == 12, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twelve")
+    assert(n_ops == 20, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twenty")
     IC.state = {}
     local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     f._cqi = 41
@@ -22137,10 +22203,11 @@ end)
 
 check("each difficulty seats exactly its number of rival parties", function()
     -- THE COURT'S SIZE IS THE DIFFICULTY (author, 2026-09-25). Counted with the
-    -- Crown, as the grid's six cards are: Gentle 2, Default 4, Harsh 5 and
-    -- Ruthless 6, the grid full. A fixed number, not a roll between two - so
-    -- every attempt must land on it, through the real first tick.
-    local want = {gentle = 1, default = 3, harsh = 4, ruthless = 5}
+    -- Crown, as the grid's six cards are: Gentle 2, Default 3, Harsh 4 and
+    -- Political Chaos 6, the grid full (author, 2026-10-03). A fixed number,
+    -- not a roll between two - so every attempt must land on it, through the
+    -- real first tick.
+    local want = {gentle = 1, default = 2, harsh = 3, ruthless = 5}
     for name, n in pairs(want) do
         with_mct(stub_mct({preset = name}), function()
             for _attempt = 1, 4 do
@@ -22738,6 +22805,31 @@ check("the fill button's plan gives a claimed seat to its own party, and applies
     end
     assert(#IC.fill_plan(F) == 0, "a full court still plans a fill")
     cm.get_human_factions = function() return {} end
+end)
+
+check("the ziggurat wears a title on its shrine, on the offices tab alone", function()
+    -- AUTHOR, 2026-10-03: "a title on top of the ziggurat on the office panel".
+    local function draw(view)
+        local got
+        ICUI.view, ICUI.pick = view, nil
+        with_fake_panel(function(panel)
+            ICUI.refresh()
+            local t = panel.children.ic_off_title
+            local px = panel:Position()
+            got = t and {vis = t.visible, text = plain(t.text or ""), x = t.x - px, w = t.w}
+        end)
+        return got
+    end
+    local t = draw("offices")
+    assert(t and t.vis == true, "the offices tab draws no title on its ziggurat")
+    assert(t.text ~= "" and t.text == string.upper(t.text), "the title reads '" .. tostring(t.text) .. "'")
+    local xy = ICUI.PANEL_XY.ic_off_title
+    assert(t.w < xy[3], "the title's plate spans its whole cell")
+    assert(math.abs(t.x + t.w / 2 - (ICUI.OX + xy[1] + xy[3] / 2)) <= 1, "the title is off the ziggurat's middle")
+    for _, view in ipairs({"court", "govs", "intrigue", "log", "petitions", "help", "laws"}) do
+        assert(draw(view).vis == false, "the ziggurat's title shows on the " .. view .. " tab")
+    end
+    ICUI.view = "court"
 end)
 
 check("the offices tab stands its cards on the ziggurat, and no other view shows it", function()
@@ -24496,7 +24588,7 @@ check("every line of the Crown's block says what it is with an icon, and rules d
     IC_TEST_LOC = {
         ["derpy_ic_control_name_grip"] = "An Iron Grip on the Court",
         ["derpy_ic_effects_derpy_ic_control_grip"] =
-            "Control +6, Building income +12%, Upkeep -15%, Growth +2",
+            "Control +6, Building income +12%, Upkeep -15%, Conclave Influence +5%",
     }
     local rules = {"ic_crown_rule_l", "ic_crown_rule_r", "ic_crown_rule_v"}
     as_player(function()
@@ -24656,6 +24748,13 @@ function()
                 assert(not b.visible, "spare topic button " .. i .. " draws")
             end
         end
+        -- AND A SPARE THERE IS: the Laws topic filled the twelfth slot, so with
+        -- the shipped list the loop above had no spare to look at.
+        local last = table.remove(ICUI.HELP)
+        ICUI.draw_help(panel, F)
+        table.insert(ICUI.HELP, last)
+        assert(not c["ic_help_topic_" .. (#ICUI.HELP)].visible, "a spare topic button draws")
+        ICUI.draw_help(panel, F)
         -- THE SECOND TOPIC, chosen.
         click({string = "ic_help_topic_2"})
         assert(ICUI.help_page == 2, "the topic click left the page on " .. tostring(ICUI.help_page))
@@ -27246,6 +27345,14 @@ function()
     assert(why("no_such_faction") == "lost", "a faction that is not there")
 end)
 
+local function first_fields(packed, n)
+    local out = {}
+    for f in string.gmatch(packed .. "|", "([^|]*)|") do
+        if #out < n then out[#out + 1] = f end
+    end
+    return table.concat(out, "|")
+end
+
 check("who is resting survives a save, and an older save rests nobody", function()
     IC.state = {}
     turn = 10
@@ -27257,8 +27364,8 @@ check("who is resting survives a save, and an older save rests nobody", function
     assert(back.sent[THEM] == 8, "the rest was lost on save")
     -- PRUNED: a rest that ended turns ago is not carried forward.
     assert(back.sent["wh_old_faction"] == nil, "an ended rest was saved")
-    -- AN OLDER SAVE: twelve fields, no thirteenth.
-    local old = string.gsub(packed, "|[^|]*$", "")
+    -- AN OLDER SAVE: twelve fields, no thirteenth (and so no fourteenth).
+    local old = first_fields(packed, 12)
     assert(select(2, string.gsub(old, "|", "")) == 11, "the fixture is not a twelve-field save")
     local legacy = IC.unpack(F, old)
     assert(legacy.sent and next(legacy.sent) == nil, "an older save rests somebody")
@@ -29232,6 +29339,9 @@ check("the column's list: where the cards were, the cards inside its clip window
         assert(writes == 0, "a redraw rewrote an unchanged line " .. writes .. " times")
         -- A LIST MADE AGAIN IS NEW CARDS WITH NOTHING ON THEM, so the memo goes too.
         local said = l1.text
+        -- DRAWN AT ALL: a memo left from an earlier check suppresses even the
+        -- first write, and "" against "" below would prove nothing.
+        assert(said and said ~= "", "the first card's line was never written")
         ICUI.gm_rescroll()
         ICUI.refresh()
         assert(gm_list(panel) ~= list, "a rescroll kept the list")
@@ -29245,6 +29355,31 @@ check("the column's list: where the cards were, the cards inside its clip window
         -- AND THE VIEW CLOSED HIDES IT.
         map_click("ic_tab_court")
         assert(gm_list(panel).visible == false, "the list stayed up on another tab")
+    end)
+end)
+
+check("with no list the cards fall back onto the panel, and a shorter page hides the spares", function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a", "prov_b", "prov_c"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_govmap(function(hud, panel)
+        local make = panel.CreateComponent
+        function panel:CreateComponent(n, p)
+            if n == ICUI.GM_LIST then return end
+            return make(self, n, p)
+        end
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(gm_list(panel) == nil, "the list was made anyway")
+        local rows = ICUI.gm_province_rows(F)
+        assert(#rows == 3, #rows .. " province rows")
+        local none = function() return false end
+        ICUI.gm_draw_page(panel, rows, none)
+        local third = panel.children[ICUI.GM_ROW .. "_3"]
+        assert(third and third.visible ~= false, "the third card is not on the panel")
+        ICUI.gm_draw_page(panel, {rows[1]}, none)
+        assert(not third.visible, "a spare card stays drawn on a shorter page")
     end)
 end)
 
@@ -29375,6 +29510,2229 @@ function()
         assert(ICUI.gm_party == nil, "a reopen after the turn kept the last choice")
     end)
 end)
+
+-- ---------------------------------------------------------------------------
+-- GOVERNMENTS (spec 2026-10-02-iron-court-governments-design.md)
+-- ---------------------------------------------------------------------------
+check("governments: each override answers for its own court only", function()
+    IC.state = {}
+    IC_GOVS_ON = true
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).gov = "conclave"
+    local other = "cr_chd_house_of_azeros"
+    IC.state[other] = nil
+    assert(IC.tune(F, "renew_wait") == 1, "the Conclave's re-seat wait is " .. tostring(IC.tune(F, "renew_wait")))
+    assert(IC.tune(F, "term_turns") == math.floor(IC.TUNE.term_turns * 0.6 + 0.5),
+        "the Conclave's term is " .. tostring(IC.tune(F, "term_turns")))
+    assert(IC.tune(other, "renew_wait") == IC.TUNE.renew_wait, "a court with no government was overridden")
+    assert(IC.state[other] == nil, "asking a price created a court")
+    assert(IC.tune(F, "secede_share") == IC.TUNE.secede_share, "a key no government names was overridden")
+    -- A TABLE KNOB IS SCALED ENTRY BY ENTRY.
+    IC.court(F).gov = "legion"
+    local b = IC.tune(F, "battle_influence")
+    local k, v = next(IC.TUNE.battle_influence)
+    assert(b[k] == math.floor(v * 1.5 + 0.5), "the Legion's " .. k .. " is worth " .. tostring(b[k]))
+    assert(IC.TUNE.battle_influence[k] == v, "the override wrote into IC.TUNE itself")
+    IC_GOVS_ON = nil
+    assert(IC.tune(F, "battle_influence") == IC.TUNE.battle_influence, "governments off still overrode")
+end)
+
+check("governments: the table is whole and every party maps to at most one government", function()
+    assert(#IC.GOV_ORDER == 6, #IC.GOV_ORDER .. " governments")
+    local seen = {}
+    for _, g in ipairs(IC.GOV_ORDER) do
+        local row = IC.GOVS[g]
+        assert(row and #row.parties >= 1 and next(row.over), g .. " is not a whole row")
+        for _, p in ipairs(row.parties) do
+            assert(not seen[p], p .. " backs two governments")
+            assert(p ~= IC.CROWN and p ~= "hearth", g .. " is backed by " .. p .. ", which has no lore basis")
+            seen[p] = g
+        end
+        for key in pairs(row.over) do
+            assert(IC.TUNE[key] ~= nil, g .. " overrides " .. key .. ", which IC.TUNE does not have")
+        end
+    end
+    assert(IC.gov_for_party("forge") == "forge" and IC.gov_for_party("ledger") == "convoy"
+           and IC.gov_for_party(IC.CROWN) == nil and IC.gov_for_party("hearth") == nil,
+        "the party map is wrong")
+    for fk, g in pairs(IC.START_GOV) do
+        assert(IC.GOVS[g], fk .. " starts on " .. tostring(g) .. ", which is no government")
+        assert(IC.origin_for_faction(fk), fk .. " starts a government but is not a court faction")
+    end
+end)
+
+check("governments: no overridden knob is read straight off IC.TUNE", function()
+    -- THE ONE WAY AN OVERRIDE SILENTLY DOES NOTHING: a read left on IC.TUNE.
+    local keys = {}
+    for _, g in ipairs(IC.GOV_ORDER) do
+        for key in pairs(IC.GOVS[g].over) do keys[key] = true end
+    end
+    local dir = "Modding Files/pack/script/campaign/mod/"
+    for _, file in ipairs({"zzz_derpy_iron_court.lua", "zzz_derpy_iron_court_ui.lua",
+                           "zzz_derpy_iron_court_parties.lua", "zzz_derpy_iron_court_ui_map.lua"}) do
+        local fh = assert(io.open(dir .. file, "r"))
+        local text = fh:read("*a")
+        fh:close()
+        -- THE MOVE CATALOGUE IS BUILT ONCE AT LOAD and states the base number;
+        -- the panel rewords it per court (ICUI.plot_effect, checked below).
+        local a = string.find(text, "\nIC%.PLOTS = {")
+        if a then
+            local b = string.find(text, "\n}", a, true)
+            text = string.sub(text, 1, a) .. string.sub(text, b + 2)
+        end
+        for key in pairs(keys) do
+            assert(not string.find(text, "IC%.TUNE%." .. key .. "[^%w_]"),
+                file .. " still reads IC.TUNE." .. key)
+        end
+    end
+end)
+
+check("governments: the Slave-Lords' plots and the Convoy's favours are priced by the court", function()
+    IC.state = {}
+    IC_GOVS_ON = true
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).gov = "chain"
+    assert(IC.plot_cost("murder", F) == math.floor(IC.TUNE.plot_murder_cost * 0.65 + 0.5),
+        "murder costs " .. tostring(IC.plot_cost("murder", F)))
+    assert(IC.plot_cost("murder") == IC.TUNE.plot_murder_cost, "no court named still discounted")
+    IC.court(F).gov = "convoy"
+    assert(IC.favour_cost("gift", F) == math.floor(IC.TUNE.favour_gift_cost * 0.67 + 0.5),
+        "a gift costs " .. tostring(IC.favour_cost("gift", F)))
+    -- THE MOVE'S CARD SAYS THE COURT'S OWN PRICE IN LOYALTY.
+    local line = ICUI.plot_effect(IC.plot_by_key("embezzle"), F)
+    assert(string.find(line, "-12 loyalty", 1, true), "the Convoy's embezzle card reads: " .. line)
+    IC_GOVS_ON = nil
+    line = ICUI.plot_effect(IC.plot_by_key("embezzle"), F)
+    assert(string.find(line, "-" .. IC.TUNE.plot_embezzle_loyalty .. " loyalty", 1, true),
+        "with governments off the card reads: " .. line)
+end)
+
+check("governments: a house starts on its own, any other on its leading party's", function()
+    IC_GOVS_ON = true
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.gov_step(F)
+    assert(IC.court(F).gov == "convoy", "Uzkulak started on " .. tostring(IC.court(F).gov))
+    -- NO LORE BASIS: the leading rival's government.
+    local S = "cr_chd_skullstack"
+    make_faction(S, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(S, IC.CROWN)
+    IC.add_house(S, "forge")
+    IC.add_house(S, "legion")
+    IC.court(S).houses.forge.weight = 40
+    IC.court(S).houses.legion.weight = 10
+    IC.gov_step(S)
+    assert(IC.court(S).gov == "forge", "Skullstack started on " .. tostring(IC.court(S).gov))
+    -- NOBODY WITH A GOVERNMENT LEADS: the Conclave.
+    IC.state[S] = nil
+    IC.add_house(S, IC.CROWN)
+    IC.add_house(S, "hearth")
+    IC.court(S).houses.hearth.weight = 40
+    IC.gov_step(S)
+    assert(IC.court(S).gov == "conclave", "a Hearth-led court started on " .. tostring(IC.court(S).gov))
+    assert(applied[IC.gov_bundle("conclave")], "its bundle was not applied")
+    IC.state[S] = nil
+    IC_GOVS_ON = nil
+end)
+
+check("governments: the state survives a save, and an older save starts afresh", function()
+    IC_GOVS_ON = true
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    local court = IC.court(F)
+    court.gov, court.gov_pressure, court.gov_toward = "forge", 4, "legion"
+    court.gov_cool, court.gov_holds = 30, 2
+    court.gov_ask = {gov = "legion", ends = 12, party = "legion"}
+    IC.save(F)
+    IC.state = {}
+    local back = IC.load(F)
+    assert(back.gov == "forge" and back.gov_pressure == 4 and back.gov_toward == "legion"
+           and back.gov_cool == 30 and back.gov_holds == 2, "the government did not survive a save")
+    assert(back.gov_ask and back.gov_ask.gov == "legion" and back.gov_ask.ends == 12
+           and back.gov_ask.party == "legion", "the pending choice did not survive a save")
+    -- A SAVE FROM BEFORE: thirteen fields.
+    local packed = saved["derpy_ic_" .. F]
+    local old = first_fields(packed, 13)
+    IC.unpack(F, old)
+    court = IC.court(F)
+    assert(court.gov == nil and (court.gov_pressure or 0) == 0 and court.gov_ask == nil,
+        "an older save read a government out of nothing")
+    -- ITS FIRST TURN STARTS A GOVERNMENT AND BUILDS NO PRESSURE, even with a
+    -- rival leading the court (plan Review Focus 1).
+    IC.add_house(F, "legion")
+    court.houses.legion.weight = 200
+    local was = cm.get_human_factions
+    cm.get_human_factions = function() return {F} end
+    turn = IC.TUNE.grace_turns + 5
+    IC.gov_step(F)
+    cm.get_human_factions = was
+    assert(court.gov == "convoy" and (court.gov_pressure or 0) == 0 and court.gov_toward == nil,
+        "the start turn drifted: " .. tostring(court.gov_pressure) .. " toward " .. tostring(court.gov_toward))
+    IC_GOVS_ON = nil
+end)
+
+check("governments: the setting off takes the bundle away and drops a waiting choice", function()
+    IC.state = {}
+    IC_GOVS_ON = true
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.court(F).gov = "forge"
+    IC.court(F).gov_ask = {gov = "legion", ends = 99, party = "legion"}
+    IC.apply_gov_bundle(F)
+    assert(applied[IC.gov_bundle("forge")], "the fixture wore no bundle")
+    IC_GOVS_ON = false
+    IC.settle_switches(F)
+    assert(not applied[IC.gov_bundle("forge")], "the setting off left the bundle on")
+    assert(IC.court(F).gov_ask == nil, "the setting off left a choice waiting")
+    assert(IC.tune(F, "governor_income") == IC.TUNE.governor_income, "the setting off left the override on")
+    IC_GOVS_ON = nil
+end)
+
+check("governments: the real setting is IC.TUNE.governments", function()
+    local was = IC.governments_on
+    IC.governments_on = IC_REAL_GOVERNMENTS_ON
+    local saved_v = IC.TUNE.governments
+    IC.TUNE.governments = false
+    local off = IC.governments_on()
+    IC.TUNE.governments = true
+    local on = IC.governments_on()
+    IC.TUNE.governments = saved_v
+    IC.governments_on = was
+    assert(off == false, "the setting off reads on")
+    assert(on == true, "the setting on reads off")
+end)
+
+local GOV_HUMANS = cm.get_human_factions
+local function gov_done()
+    IC_GOVS_ON = nil
+    cm.get_human_factions = GOV_HUMANS
+end
+
+-- A PLAYER COURT PAST ITS GRACE PERIOD, wearing `gov`, with these weights.
+local function gov_court(weights, gov)
+    IC.state = {}
+    IC_GOVS_ON = true
+    turn = IC.TUNE.grace_turns + 5
+    cm.get_human_factions = function() return {F} end
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    for slug, w in pairs(weights) do
+        IC.add_house(F, slug)
+        IC.court(F).houses[slug].weight = w
+    end
+    IC.court(F).gov = gov or "convoy"
+    return IC.court(F)
+end
+
+-- A PLAYER COURT FOR THE DEEDS (spec 2026-10-02 deeds), past its grace period.
+local function deed_court(weights)
+    local court = gov_court(weights or {crown = 10, legion = 10})
+    court.renown, court.renown_got = {}, {}
+    return court
+end
+
+check("deeds: a deed adds its renown to its party, and renown is party weight", function()
+    local court = deed_court({crown = 10, legion = 10})
+    local before = IC.house_weight(F, "legion")
+    assert(IC.deed(F, "battle") == IC.TUNE.deed_battle, "a battle added nothing")
+    assert(IC.renown(F, "legion") == IC.TUNE.deed_battle, "renown " .. IC.renown(F, "legion"))
+    assert(IC.house_weight(F, "legion") == before + IC.TUNE.deed_battle,
+        "renown is not weight: " .. IC.house_weight(F, "legion") .. " from " .. before)
+    assert(IC.renown(F, "crown") == 0, "the Crown took renown")
+    gov_done()
+end)
+
+check("deeds: the Ledger takes a convoy only when there is no Road", function()
+    local court = deed_court({crown = 10, ledger = 10})
+    IC.deed(F, "convoy")
+    assert(IC.renown(F, "ledger") == IC.TUNE.deed_convoy and IC.renown(F, "road") == 0,
+        "no Road: the convoy went to " .. tostring(next(court.renown)))
+    court = deed_court({crown = 10, ledger = 10, road = 10})
+    IC.deed(F, "convoy")
+    assert(IC.renown(F, "road") == IC.TUNE.deed_convoy and IC.renown(F, "ledger") == 0,
+        "with a Road the Ledger took the convoy")
+    gov_done()
+end)
+
+check("deeds: a party gains at most renown_turn_cap in one turn, and the cap is saved", function()
+    local court = deed_court({crown = 10, legion = 10})
+    for _ = 1, 10 do IC.deed(F, "battle") end
+    assert(IC.renown(F, "legion") == IC.TUNE.renown_turn_cap,
+        "ten battles gave " .. IC.renown(F, "legion"))
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    assert(IC.deed(F, "battle") == 0, "a reload reset the turn's limit")
+    gov_done()
+end)
+
+check("deeds: renown fades by renown_fade_pct a turn, at least 1, and ends at nothing", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion, court.renown.forge = 50, 1
+    court.renown_got.legion = 8
+    IC.fade_renown(F)
+    assert(court.renown.legion == 50 - math.floor(50 * IC.TUNE.renown_fade_pct / 100),
+        "50 faded to " .. tostring(court.renown.legion))
+    assert(court.renown.forge == nil, "1 renown did not fade away")
+    assert(not court.renown_got.legion, "the turn's limit was not reset")
+    gov_done()
+end)
+
+check("deeds: an absent party's renown stops at the join line", function()
+    local court = deed_court({crown = 10})
+    for _ = 1, 20 do court.renown_got = {}; IC.deed(F, "battle") end
+    assert(IC.renown(F, "legion") == IC.TUNE.renown_join_line,
+        "an absent Legion banked " .. IC.renown(F, "legion"))
+    gov_done()
+end)
+
+check("deeds: AI courts score nothing", function()
+    local court = deed_court({crown = 10, legion = 10})
+    cm.get_human_factions = function() return {"someone_else"} end
+    assert(IC.deed(F, "battle") == 0 and IC.renown(F, "legion") == 0, "an AI court took renown")
+    gov_done()
+end)
+
+check("deeds: one Record entry per party, deed and turn, summed", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.log = {}
+    IC.deed(F, "battle")
+    IC.deed(F, "battle")
+    assert(#court.log == 1 and court.log[1].kind == "deed" and court.log[1].slug == "legion"
+           and court.log[1].key == "battle" and court.log[1].n == 2 * IC.TUNE.deed_battle,
+        "the Record holds " .. #court.log .. " entries")
+    gov_done()
+end)
+
+check("deeds: the save round-trips renown, the turn's gains, the intro and the confederation turn", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown = {legion = 12, forge = 20}
+    court.renown_got = {legion = 3}
+    court.gov_intro, court.confed_turn = true, 17
+    IC.save(F)
+    IC.state = {}
+    local back = IC.load(F)
+    assert(back.renown.legion == 12 and back.renown.forge == 20, "renown lost")
+    assert(back.renown_got.legion == 3, "the turn's gains lost")
+    assert(back.gov_intro == true and back.confed_turn == 17, "intro or confederation turn lost")
+    -- A SAVE FROM BEFORE DEEDS: fourteen fields.
+    local packed = IC.pack(F)
+    local cut = {}
+    for field in string.gmatch(packed .. "|", "([^|]*)|") do cut[#cut + 1] = field end
+    IC.unpack(F, table.concat(cut, "|", 1, 14))
+    assert(next(IC.court(F).renown) == nil and not IC.court(F).gov_intro
+           and IC.court(F).confed_turn == 0, "an old save did not load empty")
+    gov_done()
+end)
+
+-- A FAKE CHAOS DWARF FACTION OBJECT for the deed listeners' contexts.
+local function deed_faction()
+    return cm:get_faction(F)
+end
+
+check("deeds: a battle scores once however many of your generals won it", function()
+    deed_court({crown = 10, legion = 10})
+    local a = make_character(91, ANY_SEAT, "crown")
+    local b = make_character(92, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {a, b}, {})
+    a._won, b._won = true, true
+    IC.register()
+    local battle = fake_battle("heroic_victory", "crushing_defeat")
+    battle.has_attacker = function() return true end
+    battle.attacker = function() return a end
+    battle.has_defender = function() return true end
+    battle.defender = function() return make_character(500, ANY_SEAT, "crown") end
+    for _, man in ipairs({a, b}) do
+        core.listeners["ic_battle"]({character = function() return man end,
+                                     pending_battle = function() return battle end})
+    end
+    assert(IC.renown(F, "legion") == IC.TUNE.deed_battle,
+        "two winning generals scored " .. IC.renown(F, "legion"))
+    gov_done()
+end)
+
+check("deeds: the Hell-Forge, the Tower and the temples each score their party", function()
+    local court = deed_court({crown = 10, forge = 10, temple = 10})
+    IC.register()
+    -- EACH IN A TURN OF ITS OWN: this check is about which rituals count,
+    -- and two rites in one turn would meet renown_turn_cap.
+    local function ritual(cat)
+        court.renown_got = {}
+        core.listeners["ic_deed_ritual"]({
+            performing_faction = deed_faction,
+            ritual = function() return {ritual_category = function() return cat end} end})
+    end
+    ritual("HELLFORGE_CAPS_MELEE_INFANTRY")
+    assert(IC.renown(F, "forge") == IC.TUNE.deed_hellforge, "the Hell-Forge scored nothing")
+    ritual("DISTRICTS_SORCERY_T2")
+    assert(IC.renown(F, "temple") == IC.TUNE.deed_rite, "a Tower rite scored nothing")
+    ritual("TOZ_TIER_4")
+    assert(IC.renown(F, "temple") == 2 * IC.TUNE.deed_rite, "the fourth tier scored nothing")
+    ritual("STANDARD_RITUAL")
+    assert(IC.renown(F, "temple") == 2 * IC.TUNE.deed_rite and IC.renown(F, "forge") == IC.TUNE.deed_hellforge,
+        "an unrelated ritual scored")
+    court.renown, court.renown_got = {}, {}
+    core.listeners["ic_deed_building"]({building = function() return {
+        name = function() return "wh3_dlc23_chd_tower_temple_of_hashut_1" end,
+        faction = deed_faction} end})
+    assert(IC.renown(F, "temple") == IC.TUNE.deed_temple, "a temple of Hashut scored nothing")
+    core.listeners["ic_deed_building"]({building = function() return {
+        name = function() return "wh3_dlc23_chd_tower_temple_guardhouse_1" end,
+        faction = deed_faction} end})
+    assert(IC.renown(F, "temple") == IC.TUNE.deed_temple, "the guardhouse scored as a temple")
+    gov_done()
+end)
+
+check("deeds: Tower rites on a confederation turn score nothing", function()
+    local court = deed_court({crown = 10, temple = 10})
+    court.confed_turn = turn
+    IC.register()
+    core.listeners["ic_deed_ritual"]({performing_faction = deed_faction,
+        ritual = function() return {ritual_category = function() return "DISTRICTS_INDUSTRY_T1" end} end})
+    assert(IC.renown(F, "temple") == 0, "a confederation's re-performed rite scored")
+    gov_done()
+end)
+
+check("deeds: slaves taken and settlements razed score the Chain; recruiting captives does not", function()
+    deed_court({crown = 10, chain = 10})
+    local man = make_character(93, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.register()
+    local function captives(outcome, record)
+        core.listeners["ic_deed_captives"]({character = function() return man end,
+            get_outcome_key = function() return outcome end,
+            get_record_key = function() return record end})
+    end
+    captives("enslave_replenishment_only", "wh3_dlc23_captive_option_recruit_chaos_dwarfs")
+    assert(IC.renown(F, "chain") == 0, "recruiting captives scored")
+    captives("enslave_slaves_only", "wh3_dlc23_captive_option_enslave_chaos_dwarfs")
+    assert(IC.renown(F, "chain") == IC.TUNE.deed_slaves, "enslaving scored nothing")
+    core.listeners["ic_deed_raze"]({character = function() return man end})
+    assert(IC.renown(F, "chain") == IC.TUNE.deed_slaves + IC.TUNE.deed_raze, "razing scored nothing")
+    gov_done()
+end)
+
+check("deeds: a convoy and a technology score the Road and the Tower", function()
+    deed_court({crown = 10, road = 10, tower = 10})
+    IC.register()
+    core.listeners["ic_deed_convoy"]({faction = deed_faction})
+    core.listeners["ic_deed_research"]({faction = deed_faction})
+    assert(IC.renown(F, "road") == IC.TUNE.deed_convoy, "a convoy scored nothing")
+    assert(IC.renown(F, "tower") == IC.TUNE.deed_research, "research scored nothing")
+    gov_done()
+end)
+
+check("deeds: a battle in the enemy's turn still scores", function()
+    local court = deed_court({crown = 10, legion = 10})
+    local man = make_character(94, ANY_SEAT, "crown")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    man._won = true
+    IC.register()
+    core.listeners["ic_battle"]({character = function() return man end,
+        pending_battle = function() return fake_battle("crushing_defeat", "close_victory") end})
+    assert(IC.renown(F, "legion") == IC.TUNE.deed_battle, "a defence scored nothing")
+    gov_done()
+end)
+
+check("deeds: a confederation stamps the turn it happened", function()
+    local court = deed_court({crown = 10})
+    IC.register()
+    pcall(core.listeners["ic_confed"], {confederation = deed_faction,
+        faction = function() return make_faction("wh3_dlc23_chd_legion_of_azgorh",
+                                                  IC.CHD_SUBCULTURE, {}, {}) end})
+    assert(IC.court(F).confed_turn == turn, "confed_turn " .. tostring(IC.court(F).confed_turn))
+    gov_done()
+end)
+
+check("deeds: an absent party at the line takes the next ordinary lord", function()
+    local court = deed_court({crown = 10})
+    court.renown.legion = IC.TUNE.renown_join_line
+    local lord = make_character(95, ANY_SEAT, nil)
+    make_faction(F, IC.CHD_SUBCULTURE, {lord}, {})
+    local bg = IC.deed_join(lord, F)
+    assert(bg and IC.PARTY_OF_BG[bg] == "legion", "the lord was given " .. tostring(bg))
+    assert(court.houses.legion and court.houses.legion.head, "the Legion did not enter, named")
+    assert(IC.renown(F, "legion") == IC.TUNE.renown_join_line, "its renown did not come with it")
+    gov_done()
+end)
+
+check("deeds: a legend or a lord with a history is not drawn", function()
+    local court = deed_court({crown = 10})
+    court.renown.legion = IC.TUNE.renown_join_line
+    local saved_lead, saved_fixed = IC.can_lead, IC.fixed_history
+    IC.can_lead = function() return false end
+    assert(IC.deed_join(make_character(96, ANY_SEAT, nil), F) == nil and not court.houses.legion,
+        "a man who cannot lead was drawn")
+    IC.can_lead = function() return true end
+    IC.fixed_history = function() return {origin = "x"} end
+    assert(IC.deed_join(make_character(97, ANY_SEAT, nil), F) == nil and not court.houses.legion,
+        "a lord with a fixed history was drawn")
+    IC.can_lead, IC.fixed_history = saved_lead, saved_fixed
+    gov_done()
+end)
+
+check("deeds: a full court holds the absent party at the line", function()
+    local weights = {crown = 10}
+    local n = 0
+    for _, p in ipairs({"forge", "temple", "chain", "road", "ledger", "tower", "hearth"}) do
+        if n < IC.TUNE.rivals_max then weights[p] = 10; n = n + 1 end
+    end
+    local court = deed_court(weights)
+    court.renown.legion = IC.TUNE.renown_join_line
+    assert(IC.deed_waiting(F) == nil, "a full court still called the Legion in")
+    assert(IC.deed_room(F) == false, "a full court reads as having room")
+    gov_done()
+end)
+
+check("deeds: of two parties at the line the one with more renown comes first", function()
+    local court = deed_court({crown = 10})
+    -- THE EARLIER PARTY IN IC.PARTIES IS THE SMALLER, so "first found" and
+    -- "most renown" give different answers.
+    court.renown.forge = IC.TUNE.renown_join_line
+    court.renown.legion = IC.TUNE.renown_join_line + 5
+    assert(IC.deed_waiting(F) == "legion", "waiting: " .. tostring(IC.deed_waiting(F)))
+    gov_done()
+end)
+
+check("deeds: a party drawn in and then gone starts its renown again from nothing", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion = 40
+    IC.remove_house(F, "legion")
+    court.renown_got = {}
+    assert(IC.deed(F, "battle") == IC.TUNE.deed_battle and IC.renown(F, "legion") == IC.TUNE.deed_battle,
+        "a gone party's renown did not start again: " .. IC.renown(F, "legion"))
+    gov_done()
+end)
+
+check("deeds: a lord created while a party waits joins it through ic_born", function()
+    local court = deed_court({crown = 10})
+    court.renown.legion = IC.TUNE.renown_join_line
+    local lord = make_character(98, ANY_SEAT, nil)
+    make_faction(F, IC.CHD_SUBCULTURE, {lord}, {})
+    court.rolled = true
+    IC.register()
+    core.listeners["ic_born"]({character = function() return lord end})
+    assert(IC.house_of_character(lord, F) == "legion",
+        "the new lord sits with " .. tostring(IC.house_of_character(lord, F)))
+    gov_done()
+end)
+
+check("deeds: the introduction is raised once per player court, an old save included", function()
+    local court = deed_court({crown = 10})
+    local raised = 0
+    local saved_feed = IC.feed
+    IC.feed = function(_, slug) if slug == "gov_intro" then raised = raised + 1 end return true end
+    court.gov = nil
+    IC.gov_step(F)
+    IC.gov_step(F)
+    assert(raised == 1, "a new court raised the introduction " .. raised .. " times")
+    -- A SAVE THAT ALREADY HAD A GOVERNMENT, from before the flag.
+    court.gov, court.gov_intro = "conclave", nil
+    IC.gov_step(F)
+    assert(raised == 2 and court.gov_intro, "a court with a government never saw it")
+    -- AN AI COURT never does.
+    court.gov_intro = nil
+    cm.get_human_factions = function() return {"someone_else"} end
+    IC.gov_step(F)
+    assert(raised == 2, "an AI court raised the introduction")
+    IC.feed = saved_feed
+    gov_done()
+end)
+
+check("deeds: switched off, no renown is gained, none is drawn in, and what is held fades", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion, court.renown.forge = 30, IC.TUNE.renown_join_line
+    IC.TUNE.deeds = false
+    assert(IC.deed(F, "battle") == 0, "switched off, a battle still scored")
+    assert(IC.deed_waiting(F) == nil, "switched off, a party was still called in")
+    assert(IC.house_weight(F, "legion") >= 30, "switched off, held renown stopped counting")
+    IC.fade_renown(F)
+    assert(court.renown.legion < 30, "switched off, renown stopped fading")
+    IC.TUNE.deeds = true
+    gov_done()
+end)
+
+check("deeds: a party that leaves takes its renown with it, and is not drawn straight back", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion = 60
+    IC.remove_house(F, "legion")
+    assert(IC.renown(F, "legion") == 0, "a gone party kept " .. IC.renown(F, "legion") .. " renown")
+    assert(IC.deed_waiting(F) == nil, "a purged party is waiting to come straight back")
+    gov_done()
+end)
+
+check("deeds: renown under the most deeds settles near a party's own weight, and an absent party still reaches the line", function()
+    local court = deed_court({crown = 10, legion = 10})
+    for _ = 1, 60 do
+        IC.fade_renown(F)
+        for _ = 1, 5 do IC.deed(F, "battle") end
+    end
+    assert(IC.renown(F, "legion") <= 3 * IC.TUNE.weight_start,
+        "steady-state renown " .. IC.renown(F, "legion") .. " against a starting weight of "
+        .. IC.TUNE.weight_start)
+    local turns = 0
+    while IC.renown(F, "forge") < IC.TUNE.renown_join_line and turns < 10 do
+        IC.fade_renown(F)
+        for _ = 1, 5 do IC.deed(F, "hellforge") end
+        turns = turns + 1
+    end
+    assert(IC.renown(F, "forge") >= IC.TUNE.renown_join_line,
+        "an absent party at the most deeds never reaches the line: " .. IC.renown(F, "forge"))
+    gov_done()
+end)
+
+check("deeds: the Record sums a party's deeds over the turn even when other parties' come between", function()
+    local court = deed_court({crown = 10, legion = 10, chain = 10})
+    court.log = {}
+    IC.deed(F, "battle")
+    IC.deed(F, "slaves")
+    IC.deed(F, "battle")
+    assert(#court.log == 2, "three deeds in two parties wrote " .. #court.log .. " entries")
+    gov_done()
+end)
+
+check("deeds: a waiting party's tooltip says the next lord brings it", function()
+    local court = deed_court({crown = 10})
+    court.renown.legion = IC.TUNE.renown_join_line
+    local tip = ICUI.gov_tip(F, court)
+    assert(string.find(tip, "next lord", 1, true) and not string.find(tip, "would come at", 1, true),
+        "a waiting party reads: " .. tip)
+    gov_done()
+end)
+
+check("deeds: a ritual by a faction with no court builds no court", function()
+    deed_court({crown = 10})
+    IC.register()
+    local other = make_faction("wh_main_emp_empire", "wh_main_sc_emp_empire", {}, {})
+    core.listeners["ic_deed_ritual"]({performing_faction = function() return other end,
+        ritual = function() return {ritual_category = function() return "DISTRICTS_INDUSTRY_T1" end} end})
+    assert(IC.state["wh_main_emp_empire"] == nil, "a ritual built a court for the Empire")
+    gov_done()
+end)
+
+check("governments: a leading rival builds pressure toward its own, and a new leader restarts it", function()
+    local court = gov_court({crown = 10, forge = 60, legion = 10})
+    IC.gov_turn(F)
+    assert(court.gov_toward == "forge" and court.gov_pressure == 1, "pressure "
+        .. tostring(court.gov_pressure) .. " toward " .. tostring(court.gov_toward))
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 2, "the second turn built " .. court.gov_pressure)
+    court.houses.forge.weight, court.houses.legion.weight = 10, 60
+    IC.gov_turn(F)
+    assert(court.gov_toward == "legion" and court.gov_pressure == 1, "a new leader did not restart the count")
+    gov_done()
+end)
+
+check("governments: the Crown or the Hearth leading builds nothing and resets nothing", function()
+    local court = gov_court({crown = 60, forge = 15})
+    court.gov_toward, court.gov_pressure = "forge", 3
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 3 and court.gov_toward == "forge", "the Crown leading moved the pressure")
+    IC.add_house(F, "hearth")
+    court.houses.hearth.weight = 200
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 3 and court.gov_toward == "forge", "the Hearth leading moved the pressure")
+    -- AND UNDER THE DRIFT SHARE TOO: a leader with no government is not a
+    -- court nobody leads, so it does not pull toward the Conclave either.
+    for _, lead in ipairs({IC.CROWN, "hearth"}) do
+        court = gov_court({crown = 10, hearth = 10, forge = 22, legion = 22, chain = 22})
+        court.houses[lead].weight = 25
+        for _ = 1, 4 do
+            turn = turn + 1
+            IC.gov_turn(F)
+        end
+        assert((court.gov_pressure or 0) == 0, lead .. " leading under the drift share pulled toward "
+            .. tostring(court.gov_toward))
+    end
+    gov_done()
+end)
+
+check("governments: a court nobody leads drifts to the Conclave, slowly", function()
+    -- THE CROWN SMALLEST, so a rival leads, and no rival at the drift share.
+    local court = gov_court({crown = 10, forge = 22, legion = 22, chain = 23, temple = 23})
+    for _ = 1, 4 do
+        turn = turn + 1
+        IC.gov_turn(F)
+    end
+    assert(court.gov_toward == "conclave", "a balanced court pulled toward " .. tostring(court.gov_toward))
+    assert(court.gov_pressure == 2, "four balanced turns built " .. tostring(court.gov_pressure))
+    -- ALREADY THE CONCLAVE: nothing to pull toward.
+    court.gov, court.gov_toward, court.gov_pressure = "conclave", nil, 0
+    for _ = 1, 4 do
+        turn = turn + 1
+        IC.gov_turn(F)
+    end
+    assert(court.gov_pressure == 0, "the Conclave pulled toward itself")
+    gov_done()
+end)
+
+check("governments: no drift in the grace period, in a cooldown, for the AI, or with drift off", function()
+    local court = gov_court({crown = 10, forge = 60})
+    local grace = IC.TUNE.grace_turns
+    IC.TUNE.grace_turns = 10
+    turn = 3
+    IC.gov_turn(F)
+    IC.TUNE.grace_turns = grace
+    assert(court.gov_pressure == 0, "pressure in the grace period")
+    turn = IC.TUNE.grace_turns + 5
+    court.gov_cool = turn + 3
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 0, "pressure in a cooldown")
+    court.gov_cool = 0
+    cm.get_human_factions = function() return {} end
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 0, "an AI court drifted")
+    cm.get_human_factions = function() return {F} end
+    IC.TUNE.gov_drift = false
+    IC.gov_turn(F)
+    IC.TUNE.gov_drift = true
+    assert(court.gov_pressure == 0, "drift off still drifted")
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 1, "the fixture never drifts at all")
+    gov_done()
+end)
+
+check("governments: at the line the court asks, once", function()
+    local court = gov_court({crown = 10, forge = 60})
+    for _ = 1, IC.TUNE.gov_pressure_line do IC.gov_turn(F) end
+    assert(court.gov_ask and court.gov_ask.gov == "forge" and court.gov_ask.party == "forge",
+        "no choice at the line")
+    assert(court.gov_ask.ends == turn + IC.TUNE.gov_choice_turns, "the choice ends " .. court.gov_ask.ends)
+    local p = court.gov_pressure
+    IC.gov_turn(F)
+    assert(court.gov_pressure == p, "pressure kept building over a waiting choice")
+    gov_done()
+end)
+
+-- A PLAYER COURT WHOSE CROWN HAS TWO MEN: 901 holds no seat and 250 influence,
+-- 902 holds a tier-4 seat and 100 above its bar. The purse is 350.
+local function gov_purse_court()
+    local court = gov_court({crown = 10, forge = 60})
+    local rich = make_character(901, ANY_SEAT, IC.CROWN)
+    local seated = make_character(902, ANY_SEAT, IC.CROWN)
+    make_faction(F, IC.CHD_SUBCULTURE, {rich, seated}, {})
+    local office = nil
+    for _, o in ipairs(IC.OFFICES) do if o.tier == 4 then office = o break end end
+    court.offices[office.slug] = 902
+    local bar = IC.tier_influence(4)
+    court.standing[901], court.standing[902] = 250, bar + 100
+    -- THE FORGE LEADS, whatever the Crown's two men weigh: a Forge choice in
+    -- this court has to be one the court still backs.
+    court.houses.forge.weight = 1000
+    return court, bar
+end
+
+check("governments: the purse is the Crown's spare influence, never a seat's bar", function()
+    local court, bar = gov_purse_court()
+    local total, men = IC.crown_purse(F)
+    assert(total == 350, "the purse holds " .. total)
+    assert(#men == 2 and men[1].cqi == 901 and men[2].cqi == 902, "not richest first")
+    local ok, short = IC.spend_crown(F, total + 1)
+    assert(not ok and short == 1 and court.standing[902] == bar + 100, "an overdraft was paid, or touched a bar")
+    assert(IC.spend_crown(F, total), "the whole purse was refused")
+    assert(court.standing[902] == bar and court.standing[901] == 0, "a seat's bar was spent: "
+        .. court.standing[902])
+    gov_done()
+end)
+
+check("governments: Accept changes the government and moves both parties' loyalty", function()
+    local court = gov_court({crown = 10, forge = 60, road = 10})
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    local f0, r0 = court.houses.forge.loyalty, court.houses.road.loyalty
+    assert(IC.gov_accept(F), "Accept refused")
+    assert(court.gov == "forge" and court.gov_ask == nil and court.gov_pressure == 0, "not changed")
+    assert(court.houses.forge.loyalty == math.min(100, f0 + IC.TUNE.gov_accept_gain), "the new party gained nothing")
+    assert(court.houses.road.loyalty == math.max(0, r0 + IC.TUNE.gov_accept_loss), "the old party lost nothing")
+    assert(applied[IC.gov_bundle("forge")] and not applied[IC.gov_bundle("convoy")], "the bundle did not follow")
+    assert(not IC.gov_accept(F), "Accept with no choice waiting")
+    gov_done()
+end)
+
+check("governments: Hold costs more each time, halves the pressure and angers the pusher", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    court.gov_pressure = IC.TUNE.gov_pressure_line
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    local first = IC.gov_hold_price(F)
+    local f0 = court.houses.forge.loyalty
+    local purse = IC.crown_purse(F)
+    assert(IC.gov_hold(F), "Hold refused")
+    assert(court.gov == "convoy" and court.gov_ask == nil, "Hold changed the government")
+    assert(IC.crown_purse(F) == purse - first, "Hold was not paid")
+    assert(court.gov_pressure == math.floor(IC.TUNE.gov_pressure_line / 2), "pressure " .. court.gov_pressure)
+    assert(court.houses.forge.loyalty == f0 + IC.TUNE.gov_hold_loyalty, "the pusher lost nothing")
+    assert(IC.gov_hold_price(F) == 2 * first, "the second hold costs " .. IC.gov_hold_price(F))
+    court.standing[901] = 0
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    local ok, why = IC.gov_hold(F)
+    assert(not ok and why == "gov_purse" and court.gov_ask, "an empty purse held anyway")
+    gov_done()
+end)
+
+check("governments: an unanswered choice is Accept at its end, inside the turn", function()
+    local court = gov_court({crown = 10, forge = 60})
+    court.gov_ask = {gov = "forge", ends = turn + 1, party = "forge"}
+    -- SAVED: IC.turn reads the court back off the save first.
+    IC.save(F)
+    IC.turn(F)
+    court = IC.court(F)
+    assert(court.gov == "convoy" and court.gov_ask, "the court decided before the choice's end")
+    turn = turn + 1
+    IC.turn(F)
+    court = IC.court(F)
+    assert(court.gov == "forge" and court.gov_ask == nil, "the court did not decide at the choice's end")
+    gov_done()
+end)
+
+check("governments: a choice the court no longer pulls toward lapses", function()
+    local court = gov_court({crown = 10, forge = 60, legion = 10})
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    court.houses.forge = nil                     -- seceded: the Legion leads now
+    assert(IC.gov_expire(F) == "lapsed" and court.gov_ask == nil and court.gov == "convoy",
+        "a choice outlived the court's pull")
+    court = gov_court({crown = 70, forge = 20})
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    assert(IC.gov_expire(F) == "lapsed", "a choice outlived the Crown taking the lead")
+    -- EITHER PARTY BACKS A TWO-PARTY GOVERNMENT (spec section 3): Road leaving
+    -- while the Ledger still leads leaves the Convoy's choice standing.
+    court = gov_court({crown = 10, road = 40, ledger = 40}, "forge")
+    court.gov_ask = {gov = "convoy", ends = turn + 3, party = "road"}
+    court.houses.road = nil
+    assert(IC.gov_expire(F) == nil and court.gov_ask, "a Convoy choice lapsed with the Ledger still leading")
+    gov_done()
+end)
+
+check("governments: the choice's answers go through the multiplayer ops", function()
+    assert(IC.MP_OPS.gov_accept and IC.MP_OPS.gov_hold, "no op for the choice")
+    local court = gov_court({crown = 10, forge = 60})
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    assert(IC.mp_send(F, "gov_accept", ""), "the op was refused")
+    assert(court.gov == "forge", "the op did not accept")
+    gov_done()
+end)
+
+check("governments: a forced doctrine costs influence, moves loyalty both ways and cools down", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    IC.add_house(F, "road")
+    local r0, f0 = court.houses.road.loyalty, court.houses.forge.loyalty
+    local ok, why = IC.can_force_gov(F, "convoy")
+    assert(not ok and why == "gov_same", "the current government was offered: " .. tostring(why))
+    local purse = IC.crown_purse(F)
+    assert(IC.gov_force(F, "forge"), "a forced doctrine was refused")
+    assert(court.gov == "forge" and IC.crown_purse(F) == purse - IC.TUNE.gov_force_cost, "not changed, or not paid")
+    assert(court.houses.road.loyalty == math.max(0, r0 + IC.TUNE.gov_force_loss), "the dropped party lost nothing")
+    assert(court.houses.forge.loyalty == math.min(100, f0 + IC.TUNE.gov_force_gain), "the new party gained nothing")
+    local ok2, why2, left = IC.can_force_gov(F, "legion")
+    assert(not ok2 and why2 == "gov_cool" and left == IC.TUNE.gov_force_cooldown, "no cooldown: " .. tostring(why2))
+    court.gov_cool = 0
+    court.standing[901] = 0
+    local ok3, why3 = IC.can_force_gov(F, "legion")
+    assert(not ok3 and why3 == "gov_purse", "an empty purse forced a doctrine")
+    -- A GOVERNMENT WHOSE PARTY SITS IN NO COURT can still be forced (spec 7).
+    court.standing[901] = 5000
+    assert(IC.gov_force(F, "chain") and court.gov == "chain", "a government with no party here was refused")
+    IC_GOVS_ON = nil
+    assert(select(2, IC.can_force_gov(F, "legion")) == "gov_off", "governments off still forced")
+    gov_done()
+end)
+
+check("governments: the Crown's box names the government and its pull", function()
+    local court = gov_court({crown = 10, forge = 60})
+    court.gov_toward, court.gov_pressure = "forge", 2
+    with_fake_panel(function(panel)
+        ICUI.view = "offices"
+        ICUI.refresh()
+        assert(not panel.children.ic_gov.visible and not panel.children.ic_gov_btn.visible,
+            "another tab left the government on screen")
+        ICUI.view = "court"
+        ICUI.refresh()
+        local line = panel.children.ic_gov
+        assert(line.visible and string.find(line.text, ICUI.gov_name("convoy"), 1, true),
+            "the government line reads " .. tostring(line.text))
+        -- SAYS WHAT IT IS (author, 2026-10-02: "no indication in the court what
+        -- type of government is currently"): a bare "The Conclave" read as one
+        -- more party name beside "Servants of the Conclave".
+        assert(string.find(line.text, "Government: ", 1, true),
+            "the government line does not say it is the government: " .. tostring(line.text))
+        -- ITS OWN PICTURE (author, 2026-10-02: "add or generate icons for the
+        -- types of government"), not the band's tier icon every court shares.
+        assert(string.find(line.text, "[[img:" .. ICUI.gov_icon("convoy") .. "]]", 1, true),
+            "the government line does not wear its own picture: " .. tostring(line.text))
+        assert(string.find(line.tooltip, ICUI.gov_name("forge"), 1, true)
+               and string.find(line.tooltip, tostring(IC.TUNE.gov_pressure_line - 2), 1, true),
+            "the tooltip does not say where the court is heading: " .. tostring(line.tooltip))
+        assert(panel.children.ic_gov_btn.visible, "no Change Doctrine button")
+        -- GOVERNMENTS OFF: neither is drawn.
+        IC_GOVS_ON = false
+        ICUI.refresh()
+        assert(not panel.children.ic_gov.visible and not panel.children.ic_gov_btn.visible,
+            "governments off still draws the government")
+    end)
+    gov_done()
+end)
+
+check("governments: each wears a picture of its own, and no other part of the panel's", function()
+    local seen = {}
+    for _, g in ipairs(IC.GOV_ORDER) do
+        local pic = ICUI.gov_icon(g)
+        assert(type(IC.GOVS[g].icon) == "string" and pic == "ui/campaign ui/effect_bundles/" .. IC.GOVS[g].icon,
+            g .. " has no picture: " .. tostring(pic))
+        assert(not seen[pic], g .. " shares its picture with " .. tostring(seen[pic]))
+        seen[pic] = g
+        assert(pic ~= ICUI.BAND_ICON and pic ~= ICUI.TRAIT_ICON,
+            g .. " wears a picture the panel already uses for something else")
+    end
+end)
+
+check("deeds: the government line shows the drift only while the court moves", function()
+    local court = deed_court({crown = 10, forge = 60})
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        court.gov_toward, court.gov_pressure = nil, 0
+        ICUI.refresh()
+        local line = panel.children.ic_gov
+        assert(not string.find(line.text, ICUI.gov_icon("forge"), 1, true)
+               and not string.find(line.text, "->", 1, true),
+            "a settled court shows a drift: " .. line.text)
+        -- A TARGET BUT NOT MOVING: a choice already waits.
+        court.gov_toward, court.gov_pressure = "forge", 3
+        court.gov_ask = {gov = "forge", ends = turn + 2, party = "forge"}
+        ICUI.refresh()
+        assert(not string.find(line.text, "->", 1, true),
+            "a court with a choice waiting shows a drift: " .. line.text)
+        court.gov_ask = nil
+        court.gov_toward, court.gov_pressure = "forge", 3
+        ICUI.refresh()
+        assert(string.find(line.text, "[[img:" .. ICUI.gov_icon("forge") .. "]]", 1, true)
+               and string.find(line.text, string.format("%d/%d", 3, IC.TUNE.gov_pressure_line), 1, true),
+            "a moving court does not show where: " .. line.text)
+    end)
+    gov_done()
+end)
+
+check("deeds: the government tooltip says what moves the court, and who would come", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion, court.renown.forge = 12, 7
+    local tip = ICUI.gov_tip(F, court)
+    assert(string.find(tip, ICUI.DEED_TEXT.legion, 1, true) and string.find(tip, "renown 12", 1, true),
+        "the Legion's line is missing: " .. tip)
+    assert(string.find(tip, string.format("at %d", IC.TUNE.renown_join_line), 1, true),
+        "the absent Forge's line is missing: " .. tip)
+    local saved = IC.deed_room
+    IC.deed_room = function() return false end
+    tip = ICUI.gov_tip(F, court)
+    assert(string.find(tip, "your court is full", 1, true), "a full court is not said: " .. tip)
+    IC.deed_room = saved
+    IC.TUNE.deeds = false
+    assert(not string.find(ICUI.gov_tip(F, court), ICUI.DEED_TEXT.legion, 1, true),
+        "switched off, the tooltip still promises deeds")
+    IC.TUNE.deeds = true
+    gov_done()
+end)
+
+check("deeds: a party's renown is on its card and its crest", function()
+    local court = deed_court({crown = 10, legion = 10})
+    court.renown.legion = 9
+    assert(string.find(ICUI.renown_line(F, "legion"), "9", 1, true), "no renown line")
+    assert(ICUI.renown_line(F, "crown") == "", "a party with none shows a line")
+    gov_done()
+end)
+
+check("deeds: the Record says what a deed and a drawn party did", function()
+    local court = deed_court({crown = 10, legion = 10})
+    local a = ICUI.intrigue_text({kind = "deed", slug = "legion", key = "battle", n = 6})
+    local b = ICUI.intrigue_text({kind = "drawn", slug = "legion", n = 20})
+    assert(a and string.find(a, "+6", 1, true), "deed Record line: " .. tostring(a))
+    assert(b and b ~= "", "drawn Record line: " .. tostring(b))
+    gov_done()
+end)
+
+check("governments: Change Doctrine opens five government cards and a card's button sends the choice", function()
+    -- FIVE CARDS CENTRED ON THE SCREEN, not a list (author, 2026-10-03, design A).
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    with_fake_panel(function(panel)
+        local c = panel.children
+        ICUI.view = "court"
+        ICUI.refresh()
+        assert(c.ic_gc_card_1.visible == false, "a government card shows on the court tab")
+        map_click("ic_gov_btn")
+        assert(ICUI.pick and ICUI.pick.kind == "doctrine", "no doctrine picker")
+        ICUI.refresh()
+        assert(#ICUI.gc_slugs == 5, #ICUI.gc_slugs .. " cards")
+        -- COUNTED, not only looked at: the current government is last in the
+        -- order, so a sixth choice falls off the fifth card unseen.
+        local offered = ICUI.gov_choices(F)
+        assert(#offered == #IC.GOV_ORDER - 1, #offered .. " governments offered")
+        for _, g in ipairs(offered) do
+            assert(g.slug ~= IC.court(F).gov, "the current government is offered")
+            for _, h in ipairs(g.hit) do
+                assert(IC.court(F).houses[h[1]], g.slug .. "'s card pleases or angers " .. h[1] .. ", who is not at court")
+            end
+        end
+        local legion = nil
+        for i = 1, 5 do
+            local slug = ICUI.gc_slugs[i]
+            assert(slug ~= "convoy", "the current government is offered")
+            if slug == "legion" then legion = i end
+            assert(c["ic_gc_card_" .. i].visible, "card " .. i .. " is hidden")
+            local name = plain(c["ic_gc_name_" .. i].text) .. " " .. plain(c["ic_gc_name2_" .. i].text or "")
+            assert(string.gsub(name, "^%s*(.-)%s*$", "%1") == ICUI.gov_name(slug),
+                "card " .. i .. " is named '" .. name .. "'")
+            -- THE SHIPPED UPSCALE, not CA's 72px original (author, 2026-10-03, route A).
+            assert(c["ic_gc_icon_" .. i].images[0] == string.format(ICUI.GOV_ART_FILE, slug),
+                "card " .. i .. " draws " .. tostring(c["ic_gc_icon_" .. i].images[0]))
+        end
+        assert(legion, "the Legion is not on offer")
+        assert(string.find(c["ic_gc_btn_" .. legion].text, tostring(IC.TUNE.gov_force_cost), 1, true),
+            "the button does not name the price: " .. tostring(c["ic_gc_btn_" .. legion].text))
+        assert(string.find(plain(c.ic_gc_now.text), string.upper(ICUI.gov_name("convoy")), 1, true),
+            "the title does not name the government in force: " .. tostring(c.ic_gc_now.text))
+        -- NO LIST UNDER THE CARDS, and no header strip over them.
+        assert(not c[ICUI.ROW .. "_1"].visible, "a picker row shows under the cards")
+        assert(c.ic_hdr_a.visible == false, "the header strip shows over the cards")
+        map_click("ic_gc_btn_" .. legion)
+    end)
+    assert(IC.court(F).gov == "legion", "the card's button changed nothing: " .. tostring(IC.court(F).gov))
+    gov_done()
+end)
+
+check("governments: a card's loyalty line leads with its number and cuts a long name, never the number", function()
+    -- A CONFEDERATE PARTY WEARS A FACTION'S NAME, the game's loc and any length;
+    -- the longest rolled name already ran off the card (20k, 2026-10-03).
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    local real = ICUI.house_name
+    local long = "The Most Ancient and Unbroken Covenant of the Ninth Furnace of Zharr"
+    with_fake_panel(function(panel)
+        local c = panel.children
+        -- EACH LINE ITS FILE'S SIZE, as the twui declares it; the fake panel
+        -- sizes only the pools.
+        for name, xy in pairs(ICUI.PANEL_XY) do
+            if string.find(name, "^ic_gc_loy_") then c[name].w, c[name].h = xy[3], xy[4] end
+        end
+        ICUI.view = "court"
+        ICUI.refresh()
+        map_click("ic_gov_btn")
+        for _, short in ipairs({true, false}) do
+            if not short then ICUI.house_name = function() return long end end
+            ICUI.refresh()
+            local i = nil
+            for k, slug in ipairs(ICUI.gc_slugs) do if slug == "forge" then i = k end end
+            local hits = ICUI.gov_choices(F)
+            for _, g in ipairs(hits) do if g.slug == "forge" then hits = g.hit end end
+            assert(#hits > 0, "the Forge's card pleases and angers nobody in this court")
+            for k, h in ipairs(hits) do
+                local cell = c[string.format("ic_gc_loy_%d_%d", i, k)]
+                local want = string.format("%+d  [[img:%s]][[/img]]", h[2], ICUI.crest(h[1]))
+                assert(string.sub(cell.text, 1, #want) == want,
+                    "line " .. k .. " does not lead with its number and crest: " .. cell.text)
+                assert(cell.tooltip == ICUI.house_name(h[1], F),
+                    "line " .. k .. "'s tooltip is not the party's whole name: " .. tostring(cell.tooltip))
+                local name = string.sub(cell.text, #want + 1)
+                if short then
+                    assert(name == ICUI.house_name(h[1], F), "a name that fits was cut: " .. name)
+                else
+                    local w, lh = cell:Dimensions()
+                    assert(string.sub(name, -3) == "..." and #name < #long,
+                        "a long name was not cut: " .. name)
+                    assert(cell:TextDimensionsForText(string.format("%+d  ", h[2])) + lh
+                           + cell:TextDimensionsForText(name) <= w,
+                        "the cut line still overruns its cell: " .. cell.text)
+                end
+            end
+        end
+    end)
+    ICUI.house_name = real
+    ICUI.pick = nil
+    gov_done()
+end)
+
+check("governments: a card the court cannot afford says so in red, and its button does nothing", function()
+    gov_purse_court()
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        map_click("ic_gov_btn")
+        ICUI.refresh()
+        local i = nil
+        for k, slug in ipairs(ICUI.gc_slugs) do if slug == "legion" then i = k end end
+        assert(i, "the Legion is not on offer")
+        assert(is_red(panel.children["ic_gc_btn_" .. i].text),
+            "an unaffordable card's button is not red: " .. tostring(panel.children["ic_gc_btn_" .. i].text))
+        -- NOTHING SENT, not merely nothing changed: the model would refuse it
+        -- too, so only the send itself shows the button doing something.
+        local sent, saved_send = {}, ICUI.send
+        ICUI.send = function(_f, op, arg) sent[#sent + 1] = op .. ":" .. tostring(arg) end
+        map_click("ic_gc_btn_" .. i)
+        ICUI.send = saved_send
+        assert(#sent == 0, "a refused card's button sent " .. table.concat(sent, ", "))
+    end)
+    assert(IC.court(F).gov == "convoy", "an unaffordable card changed the government")
+    ICUI.pick = nil
+    gov_done()
+end)
+
+check("governments: a waiting choice is a petition, and Hold refuses it", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    court.gov_ask = {gov = "forge", ends = turn + 2, party = "forge"}
+    with_fake_panel(function(panel)
+        ICUI.view = "petitions"
+        ICUI.scroll.petitions = 0
+        ICUI.refresh()
+        assert(ICUI.petition_rows[1] and ICUI.petition_rows[1].kind == "gov",
+            "the choice is not the first petition")
+        local saved_idx = ICUI.clicked_index
+        ICUI.clicked_index = function() return 1 end
+        ICUI.on_petition_click({component = {}}, false)
+        ICUI.clicked_index = saved_idx
+    end)
+    court = IC.court(F)
+    assert(court.gov_ask == nil and court.gov == "convoy" and court.gov_holds == 1, "Hold did not hold")
+    gov_done()
+end)
+
+check("governments: Help states this court's numbers, not the base ones", function()
+    local court = gov_court({crown = 10, forge = 60}, "conclave")
+    local vars = ICUI.help_vars(F)
+    assert(vars.term_turns == IC.tune(F, "term_turns") and vars.term_turns ~= IC.TUNE.term_turns,
+        "Help says terms run " .. tostring(vars.term_turns))
+    assert(vars.renew_wait == 1, "Help says the re-seat wait is " .. tostring(vars.renew_wait))
+    gov_done()
+end)
+
+check("governments: a choice its party left this turn cannot be paid for or accepted", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    IC.add_house(F, "legion")
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    court.houses.forge = nil                     -- seceded later in the same turn
+    court.houses.legion.weight = 60
+    local purse = IC.crown_purse(F)
+    local ok, why = IC.gov_hold(F)
+    assert(not ok and why == "no choice", "Hold paid for a choice nobody backs: " .. tostring(why))
+    assert(IC.crown_purse(F) == purse and (court.gov_holds or 0) == 0, "the refused Hold still cost something")
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    ok, why = IC.gov_accept(F)
+    assert(not ok and court.gov == "convoy", "Accept installed a government nobody backs")
+    assert(court.gov_ask == nil, "the dead choice was left waiting")
+    gov_done()
+end)
+
+check("governments: drift switched off drops a waiting choice, and the switch settles at once", function()
+    local court = gov_court({crown = 10, forge = 60})
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    IC.TUNE.gov_drift = false
+    IC.settle_switches(F)
+    IC.TUNE.gov_drift = true
+    assert(court.gov_ask == nil, "drift off left a choice to settle on its own")
+    local fh = assert(io.open("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua", "r"))
+    local src = fh:read("*a")
+    fh:close()
+    local body = string.match(src, "function IC%.refresh_live_tune%(%).-\nend\n")
+    assert(body and string.find(body, "off.governments", 1, true) and string.find(body, "off.gov_drift", 1, true),
+        "a live flip of either government switch waits for the next turn to settle")
+    gov_done()
+end)
+
+check("governments: the current government's own party leading restarts the count", function()
+    local court = gov_court({crown = 10, forge = 10, legion = 60}, "forge")
+    for _ = 1, 3 do IC.gov_turn(F) end
+    assert(court.gov_pressure == 3, "the fixture built " .. tostring(court.gov_pressure))
+    court.houses.forge.weight, court.houses.legion.weight = 60, 10
+    IC.gov_turn(F)
+    assert(court.gov_pressure == 0 and court.gov_toward == nil,
+        "pressure toward the Legion survived the Forge leading: " .. tostring(court.gov_pressure))
+    gov_done()
+end)
+
+check("governments: the tooltip counts turns, and only while the court is moving", function()
+    -- THE CONCLAVE'S PULL comes every gov_balance_turns, so 4 points short is 8 turns.
+    local court = gov_court({crown = 10, forge = 22, legion = 22, chain = 23, temple = 23})
+    court.gov_toward, court.gov_pressure = "conclave", IC.TUNE.gov_pressure_line - 4
+    local tip = ICUI.gov_tip(F, court)
+    assert(string.find(tip, (4 * IC.TUNE.gov_balance_turns) .. " turns", 1, true),
+        "the Conclave's wait reads: " .. tip)
+    -- THE CROWN LEADING: nothing is moving, so no count.
+    court = gov_court({crown = 60, forge = 20})
+    court.gov_toward, court.gov_pressure = "forge", 2
+    tip = ICUI.gov_tip(F, court)
+    assert(not string.find(tip, "turns", 1, true), "a court standing still promises a count: " .. tip)
+    gov_done()
+end)
+
+check("governments: a choice with no party asking says so", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    court.gov_ask = {gov = "conclave", ends = turn + 2}
+    with_fake_panel(function(panel)
+        ICUI.view = "petitions"
+        ICUI.scroll.petitions = 0
+        ICUI.refresh()
+    end)
+    local text = ICUI.intrigue_text({turn = 1, kind = "doctrine_ask", key = "conclave", n = 6})
+    assert(not string.find(text, "A party", 1, true), "the Record names a party nobody is: " .. text)
+    local tips = ICUI.gov_ask_tips(F, court.gov_ask)
+    assert(not string.find(tips, "party asking", 1, true), "Hold promises to anger nobody: " .. tips)
+    gov_done()
+end)
+
+check("governments: the tooltip and the picker show what a government gives", function()
+    local court = gov_purse_court()
+    local seeded = IC_TEST_LOC
+    IC_TEST_LOC = {}
+    for _, g in ipairs(IC.GOV_ORDER) do
+        IC_TEST_LOC["derpy_ic_effects_" .. IC.gov_bundle(g)] = "Effect of " .. g
+    end
+    local fx = "Effect of convoy"
+    local tip = ICUI.gov_tip(F, court)
+    assert(fx ~= "" and string.find(tip, fx, 1, true), "the tooltip hides the effect: " .. tip)
+    -- AFFORDABLE, so the cards carry no refusal to hide behind.
+    court.standing[901] = 5000
+    ICUI.pick = {kind = "doctrine"}
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        for i, slug in ipairs(ICUI.gc_slugs) do
+            assert(plain(panel.children["ic_gc_fx_" .. i].text) == "Effect of " .. slug,
+                "card " .. i .. " says nothing of its effect: " .. tostring(panel.children["ic_gc_fx_" .. i].text))
+            assert(not is_red(panel.children["ic_gc_btn_" .. i].text),
+                "card " .. i .. " is refused in an affordable court")
+            assert(string.find(panel.children["ic_gc_btn_" .. i].tooltip or "", "Effect of " .. slug, 1, true),
+                "card " .. i .. "'s button tooltip hides the effect: " .. tostring(panel.children["ic_gc_btn_" .. i].tooltip))
+        end
+    end)
+    ICUI.pick = nil
+    IC_TEST_LOC = seeded
+    gov_done()
+end)
+
+-- A PLAYER COURT FOR THE LAWS (spec 2026-10-02 laws), past its grace period.
+-- `men` is {{party, influence}, ...}; man i is cqi 9000 + i.
+local function law_court(men, weights)
+    local court = gov_court(weights or {crown = 10, legion = 10, ledger = 10, forge = 10})
+    court.laws, court.votes, court.law_rest = {}, {}, nil
+    local chars = {}
+    for i, m in ipairs(men or {}) do
+        chars[#chars + 1] = make_character(9000 + i, ANY_SEAT, m[1], nil, m[3])
+        court.standing[9000 + i] = m[2]
+    end
+    make_faction(F, IC.CHD_SUBCULTURE, chars, {})
+    return court, chars
+end
+
+-- AN OPEN LABOUR VOTE on `option` (default the Ash Harvest: the Legion is for
+-- it, the Ledger against).
+local function law_vote(court, option, stance, proposer)
+    court.votes.labour = {option = option or "ash", proposer = proposer or "legion",
+                          ends = turn + IC.TUNE.law_vote_turns, stance = stance or "aye",
+                          won = {}, push = {}}
+    return court.votes.labour
+end
+
+check("laws: every category has five options, its start first, and every option a bundle name", function()
+    assert(#IC.LAW_ORDER == 4, #IC.LAW_ORDER .. " categories")
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        local c = IC.LAWS[cat]
+        assert(c and #c.order == 5, cat .. " has " .. (c and #c.order or 0) .. " options")
+        local start = c.opts[c.order[1]]
+        assert(not start.pro and not start.con, cat .. "'s start option has a party behind it")
+        for _, opt in ipairs(c.order) do
+            assert(c.opts[opt] and c.opts[opt].icon, cat .. "." .. opt .. " has no row or icon")
+            assert(IC.law_bundle(cat, opt) == "derpy_ic_law_" .. cat .. "_" .. opt, "bundle name")
+        end
+    end
+end)
+
+check("laws: every rival party is for one option and against one, and the Crown only against Open Roads", function()
+    local pro, con = {}, {}
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        for _, opt in ipairs(IC.LAWS[cat].order) do
+            local o = IC.LAWS[cat].opts[opt]
+            for _, p in ipairs(o.pro or {}) do pro[p] = (pro[p] or 0) + 1 end
+            for _, p in ipairs(o.con or {}) do con[p] = (con[p] or 0) + 1 end
+        end
+    end
+    for _, p in ipairs(IC.PARTIES) do
+        if p ~= IC.CROWN then
+            assert(pro[p] and con[p], p .. " is for " .. tostring(pro[p]) .. " and against " .. tostring(con[p]))
+        end
+    end
+    assert(not pro.crown and con.crown == 1 and IC.law_stance("tribute", "roads", "crown") == "nay",
+        "the Crown's stances are wrong")
+end)
+
+check("laws: the start option is in force until a law passes, and an unknown saved law reads as the start", function()
+    local court = law_court({})
+    assert(IC.law_in_force(F, "labour") == "measure", "start " .. IC.law_in_force(F, "labour"))
+    court.laws.labour = "ash"
+    assert(IC.law_in_force(F, "labour") == "ash", "a passed law is not in force")
+    court.laws.labour = "gone"
+    assert(IC.law_in_force(F, "labour") == "measure", "an unknown law is in force")
+    gov_done()
+end)
+
+check("laws: a player court wears exactly one law bundle per category, an AI court none", function()
+    local court = law_court({})
+    court.laws.war = "gunnery"
+    applied = {}
+    IC.apply_law_bundles(F)
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        local n = 0
+        for _, opt in ipairs(IC.LAWS[cat].order) do
+            if applied[IC.law_bundle(cat, opt)] then n = n + 1 end
+        end
+        assert(n == 1, cat .. " wears " .. n .. " bundles")
+    end
+    assert(applied[IC.law_bundle("war", "gunnery")] and not applied[IC.law_bundle("war", "levy")],
+        "the passed law's bundle is not the one worn")
+    cm.get_human_factions = function() return {} end
+    applied = {}
+    IC.apply_law_bundles(F)
+    assert(next(applied) == nil, "an AI court wears " .. tostring(next(applied)))
+    gov_done()
+end)
+
+check("laws: laws and open votes survive a save, and an old save loads the starts with no votes", function()
+    local court = law_court({})
+    court.laws.war, court.law_rest = "gunnery", turn - 2
+    local v = law_vote(court, "ash", "nay", "legion")
+    v.won[9001], v.won[77] = "nay", "aye"
+    v.push.crown, v.push.legion = 2, 1
+    v.answered = true
+    IC.save(F)
+    local packed = cm:get_saved_value("derpy_ic_" .. F)
+    IC.state = {}
+    IC.load(F)
+    local back = IC.court(F)
+    assert(back.laws.war == "gunnery" and back.law_rest == turn - 2, "the laws did not round-trip")
+    local w = back.votes.labour
+    assert(w and w.option == "ash" and w.proposer == "legion" and w.stance == "nay"
+        and w.ends == turn + IC.TUNE.law_vote_turns, "the vote did not round-trip")
+    assert(w.won[9001] == "nay" and w.won[77] == "aye" and w.push.crown == 2 and w.push.legion == 1,
+        "won or push did not round-trip")
+    assert(w.answered == true, "answered did not round-trip")
+    cm:set_saved_value("derpy_ic_" .. F, first_fields(packed, 16))
+    IC.state = {}
+    IC.load(F)
+    assert(next(IC.court(F).laws) == nil and next(IC.court(F).votes) == nil, "an old save holds laws")
+    assert(IC.law_in_force(F, "war") == "levy", "an old save is not on the start")
+    gov_done()
+end)
+
+check("laws: a vote with nobody won and nobody pushing survives a save", function()
+    local court = law_court({})
+    law_vote(court, "lash", "abstain", "chain")
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    local w = IC.court(F).votes.labour
+    assert(w and w.stance == "abstain" and next(w.won) == nil and next(w.push) == nil
+        and not w.answered, "an empty won or push list, or an unanswered vote, did not load as saved")
+    gov_done()
+end)
+
+check("laws: switched off, the votes drop and the bundles come off; on, the law in force returns", function()
+    local court = law_court({})
+    court.laws.labour = "ash"
+    law_vote(court, "lash")
+    local saved = IC.TUNE.laws
+    IC.TUNE.laws = false
+    applied = {[IC.law_bundle("labour", "ash")] = 1}
+    IC.settle_switches(F)
+    assert(next(court.votes) == nil, "a vote survived the switch")
+    assert(not applied[IC.law_bundle("labour", "ash")], "a law bundle stayed on")
+    assert(court.laws.labour == "ash", "the switch forgot the law in force")
+    IC.TUNE.laws = true
+    IC.settle_switches(F)
+    assert(applied[IC.law_bundle("labour", "ash")], "switched on, the law in force did not return")
+    IC.TUNE.laws = saved
+    gov_done()
+end)
+
+check("laws: each man votes his party's line, and a party with no stance votes by its loyalty", function()
+    local court = law_court({{"crown", 100}, {"legion", 80}, {"ledger", 60}, {"forge", 40}})
+    local v = law_vote(court, "ash", "aye")
+    court.houses.forge.loyalty = IC.TUNE.law_loyal_line
+    local t = IC.law_tally(F, "labour")
+    assert(t.aye == 220 and t.nay == 60 and t.abstain == 0,
+        "loyal: aye " .. t.aye .. " nay " .. t.nay .. " abstain " .. t.abstain)
+    court.houses.forge.loyalty = IC.TUNE.law_disloyal_line - 1
+    t = IC.law_tally(F, "labour")
+    assert(t.aye == 180 and t.nay == 100, "disloyal: aye " .. t.aye .. " nay " .. t.nay)
+    court.houses.forge.loyalty = IC.TUNE.law_disloyal_line
+    t = IC.law_tally(F, "labour")
+    assert(t.aye == 180 and t.nay == 60 and t.abstain == 40, "torn: abstain " .. t.abstain)
+    v.stance = "nay"
+    court.houses.forge.loyalty = IC.TUNE.law_disloyal_line - 1
+    t = IC.law_tally(F, "labour")
+    assert(t.aye == 120 and t.nay == 160, "a disloyal party did not vote against a Crown voting nay")
+    gov_done()
+end)
+
+check("laws: an abstaining Crown casts nothing, and a party with no stance abstains with it", function()
+    local court = law_court({{"crown", 100}, {"legion", 80}, {"forge", 40}})
+    law_vote(court, "ash", "abstain")
+    court.houses.forge.loyalty = 90
+    local t = IC.law_tally(F, "labour")
+    assert(t.aye == 80 and t.nay == 0 and t.abstain == 140, "aye " .. t.aye .. " abstain " .. t.abstain)
+    court.houses.forge.loyalty = 10
+    t = IC.law_tally(F, "labour")
+    assert(t.nay == 0, "a disloyal party voted against an abstaining Crown")
+    gov_done()
+end)
+
+check("laws: a man's weight is his influence; no influence casts no vote; a legend votes with the Crown", function()
+    local court = law_court({{"legion", 0}, {"legion", 33}, {"legion", 50, true}})
+    law_vote(court, "ash", "nay")
+    local t = IC.law_tally(F, "labour")
+    local seen = {}
+    for _, m in ipairs(t.men) do seen[m.cqi] = m end
+    assert(not seen[9001], "a man with no influence voted")
+    assert(seen[9002] and seen[9002].w == 33 and seen[9002].side == "aye", "the Legion man's vote")
+    assert(seen[9003] and seen[9003].party == IC.CROWN and seen[9003].side == "nay",
+        "the legend did not vote with the Crown")
+    assert(t.aye == 33 and t.nay == 50, "aye " .. t.aye .. " nay " .. t.nay)
+    gov_done()
+end)
+
+check("laws: a tie fails, and the voters list is richest first", function()
+    local court = law_court({{"legion", 60}, {"ledger", 60}, {"legion", 90}})
+    law_vote(court, "ash", "abstain")
+    local t = IC.law_tally(F, "labour")
+    assert(t.aye == 150 and t.nay == 60 and IC.law_passes(t), "a win failed")
+    court.standing[9003] = 0
+    t = IC.law_tally(F, "labour")
+    assert(t.aye == t.nay and not IC.law_passes(t), "a tie passed")
+    local v = IC.law_voters(F)
+    assert(v[1].n >= v[#v].n and v[1].cqi == 9001, "the voters are not richest first, ties by cqi")
+    gov_done()
+end)
+
+check("laws: a man who dies mid-vote stops counting, and a won man keeps his side if his party leaves", function()
+    local court, chars = law_court({{"legion", 70}, {"ledger", 40}, {"ledger", 25}})
+    local v = law_vote(court, "ash", "aye")
+    v.won[9003] = "aye"
+    chars[1]._dead = true
+    local t = IC.law_tally(F, "labour")
+    assert(t.aye == 25 and t.nay == 40, "the dead man or the won man: aye " .. t.aye .. " nay " .. t.nay)
+    IC.remove_house(F, "ledger")
+    t = IC.law_tally(F, "labour")
+    local m3 = nil
+    for _, m in ipairs(t.men) do if m.cqi == 9003 then m3 = m end end
+    assert(m3 and m3.side == "aye" and m3.why == "won", "a won man lost his side with his party")
+    gov_done()
+end)
+
+check("laws: a party's support level multiplies its line-voting men and not men won away", function()
+    local court = law_court({{"legion", 100}, {"legion", 40}, {"ledger", 50}})
+    local v = law_vote(court, "ash", "nay")
+    v.push.legion = 2
+    v.won[9002] = "nay"
+    local t = IC.law_tally(F, "labour")
+    assert(t.aye == math.floor(100 * IC.TUNE.law_push_mult[2] / 100), "aye " .. t.aye)
+    assert(t.nay == 50 + 40, "the won man was multiplied, or lost: nay " .. t.nay)
+    gov_done()
+end)
+
+check("laws: the projection is the tally with the Crown for it and nobody bought", function()
+    local court = law_court({{"crown", 100}, {"legion", 80}, {"ledger", 60}})
+    law_vote(court, "lash", "nay").won[9002] = "nay"
+    local p = IC.law_project(F, "labour", "ash")
+    assert(p.aye == 180 and p.nay == 60, "projection aye " .. p.aye .. " nay " .. p.nay)
+    assert(court.votes.labour.option == "lash", "the projection touched the open vote")
+    gov_done()
+end)
+
+check("laws: a party's purse is its men's influence above their seat bars, and spending never unseats", function()
+    local court = law_court({{"legion", 300}, {"legion", 0}})
+    local office = nil
+    for _, o in ipairs(IC.OFFICES) do if o.tier == 4 then office = o break end end
+    court.offices[office.slug] = 9002
+    local bar = IC.tier_influence(4)
+    court.standing[9002] = bar + 50
+    local total, men = IC.party_purse(F, "legion")
+    assert(total == 350 and men[1].cqi == 9001, "the Legion's purse holds " .. total)
+    local ok, short = IC.spend_party(F, "legion", 351)
+    assert(not ok and short == 1, "an overdraft was paid")
+    assert(IC.spend_party(F, "legion", 350) and court.standing[9002] == bar and court.standing[9001] == 0,
+        "a seat's bar was spent")
+    assert(IC.crown_purse(F) == IC.party_purse(F, IC.CROWN), "the Crown's purse is not the party purse")
+    gov_done()
+end)
+
+check("laws: a man's price is half his influence, by ambition, doubled when his party is against you", function()
+    local court = law_court({{"crown", 2000}, {"ledger", 200}, {"forge", 200}, {"legion", 100}})
+    law_vote(court, "ash", "aye")
+    court.houses.forge.loyalty = 50
+    court.ambition[9002] = "cautious"
+    local cautious = math.floor(200 * IC.TUNE.law_win_rate * IC.TUNE.law_win_ambition.cautious / 10000)
+    assert(IC.law_win_price(F, "labour", 9002) == 2 * cautious,
+        "a cautious Ledger man costs " .. tostring(IC.law_win_price(F, "labour", 9002)))
+    court.ambition[9003] = "ambitious"
+    assert(IC.law_win_price(F, "labour", 9003)
+        == math.floor(200 * IC.TUNE.law_win_rate * IC.TUNE.law_win_ambition.ambitious / 10000),
+        "a torn Forge man was doubled, or misprized")
+    local p, why = IC.law_win_price(F, "labour", 9001)
+    assert(p == nil and why == "law_crown_man", "a Crown man can be won")
+    p, why = IC.law_win_price(F, "labour", 9004)
+    assert(p == nil and why == "law_with_you", "a man already voting your way can be won")
+    gov_done()
+end)
+
+check("laws: winning a man moves his vote, costs the Crown's own weight, and works once", function()
+    local court = law_court({{"crown", 1000}, {"ledger", 200}})
+    law_vote(court, "ash", "aye")
+    local price = IC.law_win_price(F, "labour", 9002)
+    local before = IC.law_tally(F, "labour")
+    assert(IC.law_win(F, "labour", 9002), "the win was refused")
+    local after = IC.law_tally(F, "labour")
+    assert(after.aye == before.aye - price + 200 and after.nay == before.nay - 200,
+        "aye " .. before.aye .. " -> " .. after.aye .. ", nay " .. before.nay .. " -> " .. after.nay)
+    local ok, why = IC.law_win(F, "labour", 9002)
+    assert(not ok and why == "law_won", "a man was won twice")
+    court.standing[9001] = 0
+    court.votes.labour.won = {}
+    ok, why = IC.law_win(F, "labour", 9002)
+    assert(not ok and why == "law_purse", "an empty purse won a man: " .. tostring(why))
+    gov_done()
+end)
+
+check("laws: support levels cost the difference, never lower, and the Crown cannot push while abstaining", function()
+    local court = law_court({{"crown", 5000}})
+    local v = law_vote(court, "ash", "aye")
+    local c = IC.TUNE.law_push_cost
+    assert(IC.law_push_price(v, IC.CROWN, 2) == c[2], "level 2 from nothing")
+    local purse = IC.crown_purse(F)
+    assert(IC.law_push(F, "labour", 1) and v.push.crown == 1 and IC.crown_purse(F) == purse - c[1],
+        "level 1 was not bought at its price")
+    assert(IC.law_push_price(v, IC.CROWN, 3) == c[3] - c[1], "the raise is not the difference")
+    assert(IC.law_push(F, "labour", 3) and IC.crown_purse(F) == purse - c[3], "the raise to 3 cost wrong")
+    local ok, why = IC.law_push(F, "labour", 2)
+    assert(not ok and why == "law_pushed", "a level was lowered")
+    v.stance = "abstain"
+    v.push.crown = nil
+    ok, why = IC.law_push(F, "labour", 1)
+    assert(not ok and why == "law_abstain", "an abstaining Crown pushed")
+    gov_done()
+end)
+
+check("laws: a Crown that pushed and then changes its stance keeps its level on the new side", function()
+    local court = law_court({{"crown", 1000}, {"ledger", 50}})
+    local v = law_vote(court, "ash", "aye")
+    assert(IC.law_push(F, "labour", 2), "the push was refused")
+    local spare = court.standing[9001]
+    assert(IC.law_set_stance(F, "labour", "nay") and v.stance == "nay" and v.answered,
+        "the stance did not change, or the vote was not marked answered")
+    local t = IC.law_tally(F, "labour")
+    assert(t.nay == 50 + math.floor(spare * IC.TUNE.law_push_mult[2] / 100), "the level did not follow: nay " .. t.nay)
+    assert(IC.law_set_stance(F, "labour", "abstain"), "abstain refused")
+    t = IC.law_tally(F, "labour")
+    assert(t.abstain == spare and t.aye == 0, "an abstaining Crown was multiplied or counted")
+    assert(not IC.law_set_stance(F, "labour", "maybe"), "a made-up stance was taken")
+    gov_done()
+end)
+
+check("laws: a party not at court wears its grey crest, on the card and in the pane", function()
+    law_court({{"crown", 100}}, {crown = 10, legion = 10, ledger = 10})
+    local grey = function(slug) return string.format(ICUI.ABSENT_SIGIL, slug) end
+    -- The Lash: the Chain for it, the Hearth against, neither seated.
+    local lash = ICUI.law_foot(F, "labour", "lash", nil)
+    assert(string.find(lash, grey("chain"), 1, true) and string.find(lash, grey("hearth"), 1, true),
+        "an absent party drew its colours: " .. lash)
+    -- The Ash Harvest: the Legion for it, the Ledger against, both seated.
+    local ash = ICUI.law_foot(F, "labour", "ash", nil)
+    assert(not string.find(ash, "_absent", 1, true), "a seated party drew grey: " .. ash)
+    local pane = ICUI.law_parties(F, {"chain", "legion"})
+    assert(string.find(pane, grey("chain"), 1, true) and not string.find(pane, grey("legion"), 1, true),
+        "the pane greys the wrong party: " .. pane)
+    gov_done()
+end)
+
+check("laws: a won man keeps the side he was won to when the Crown changes its own", function()
+    local court = law_court({{"crown", 1000}, {"ledger", 200}})
+    law_vote(court, "ash", "aye")
+    assert(IC.law_win(F, "labour", 9002), "the win was refused")
+    assert(IC.law_set_stance(F, "labour", "nay"), "the stance change was refused")
+    local side
+    for _, m in ipairs(IC.law_tally(F, "labour").men) do
+        if m.cqi == 9002 then side = m.side end
+    end
+    assert(side == "aye", "the won man now votes " .. tostring(side))
+    gov_done()
+end)
+
+check("laws: a passed law pays its party, then angers the one against, in that order", function()
+    local real = IC.move_loyalty
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        for _, opt in ipairs(IC.LAWS[cat].order) do
+            local o = IC.LAWS[cat].opts[opt]
+            if o.pro then
+                local weights = {crown = 10}
+                for _, s in ipairs(o.pro) do weights[s] = 10 end
+                for _, s in ipairs(o.con) do weights[s] = 10 end
+                for _, s in ipairs({"temple", "forge", "chain", "legion", "ledger", "tower", "road", "hearth"}) do
+                    weights[s] = weights[s] or 10
+                end
+                local court = law_court({{"crown", 100}}, weights)
+                court.votes[cat] = {option = opt, proposer = IC.CROWN, ends = turn,
+                                    stance = "aye", won = {}, push = {}}
+                local seen = {}
+                IC.move_loyalty = function(_f, slug, n) seen[#seen + 1] = slug .. ":" .. n end
+                local ok, err = pcall(IC.law_settle, F, cat, true)
+                IC.move_loyalty = real
+                assert(ok, err)
+                local want = {}
+                for _, s in ipairs(o.pro) do want[#want + 1] = s .. ":" .. IC.TUNE.law_pass_gain end
+                for _, s in ipairs(o.con) do want[#want + 1] = s .. ":" .. IC.TUNE.law_pass_loss end
+                assert(table.concat(seen, " ") == table.concat(want, " "),
+                    cat .. "." .. opt .. ": " .. table.concat(seen, " "))
+            end
+        end
+    end
+    gov_done()
+end)
+
+check("laws: overrule decides now either way, and the losing parties lose loyalty", function()
+    local court = law_court({{"crown", 2000}, {"legion", 100}, {"ledger", 100}})
+    law_vote(court, "ash", "aye")
+    local l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+    assert(IC.law_overrule(F, "labour", false), "overrule refused")
+    assert(court.votes.labour == nil and IC.law_in_force(F, "labour") == "measure", "a failed overrule passed it")
+    -- The Legion lost the overrule and proposed the law that failed: both hits.
+    assert(court.houses.legion.loyalty
+        == math.max(0, l0 + IC.TUNE.law_overrule_loyalty + IC.TUNE.law_fail_loss)
+        and court.houses.ledger.loyalty == d0, "the wrong party paid for the overrule")
+    law_vote(court, "ash", "aye")
+    d0 = court.houses.ledger.loyalty
+    assert(IC.law_overrule(F, "labour", true) and IC.law_in_force(F, "labour") == "ash", "a passing overrule failed")
+    assert(court.houses.ledger.loyalty
+        == math.max(0, d0 + IC.TUNE.law_overrule_loyalty + IC.TUNE.law_pass_loss),
+        "the Ledger did not pay for losing an overruled vote")
+    court.standing[9001] = 0
+    law_vote(court, "lash", "aye")
+    local ok, why = IC.law_overrule(F, "labour", true)
+    assert(not ok and why == "law_purse" and court.votes.labour, "an empty purse overruled")
+    gov_done()
+end)
+
+check("laws: the player proposes for a fee, the Crown votes aye, and the card waits two turns", function()
+    local court = law_court({{"crown", 1000}})
+    local purse = IC.crown_purse(F)
+    assert(IC.law_propose(F, "labour", "ash"), "the proposal was refused")
+    local v = court.votes.labour
+    assert(v and v.stance == "aye" and v.proposer == IC.CROWN and v.ends == turn + IC.TUNE.law_vote_turns,
+        "the vote opened wrong")
+    assert(IC.crown_purse(F) == purse - IC.TUNE.law_propose_cost, "the fee was not paid")
+    local ok, why = IC.law_propose(F, "labour", "lash")
+    assert(not ok and why == "law_open", "two votes in one category")
+    ok, why = IC.law_propose(F, "tribute", "tithe")
+    assert(not ok and why == "law_same", "the law in force was proposed")
+    court.standing[9001] = 0
+    ok, why = IC.law_propose(F, "war", "gunnery")
+    assert(not ok and why == "law_purse", "an empty purse proposed")
+    gov_done()
+end)
+
+check("laws: at its end a vote passes or fails in the turn, moves loyalty and swaps the bundle", function()
+    local court = law_court({{"crown", 100}, {"legion", 300}, {"ledger", 50}})
+    law_vote(court, "ash", "abstain", "legion")
+    local l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+    turn = turn + IC.TUNE.law_vote_turns
+    IC.law_turn(F)
+    assert(court.votes.labour == nil and IC.law_in_force(F, "labour") == "ash", "the vote did not pass")
+    assert(court.houses.legion.loyalty == math.min(100, l0 + IC.TUNE.law_pass_gain)
+        and court.houses.ledger.loyalty == math.max(0, d0 + IC.TUNE.law_pass_loss), "pass loyalty")
+    assert(applied[IC.law_bundle("labour", "ash")] and not applied[IC.law_bundle("labour", "measure")],
+        "the bundle did not swap")
+    law_vote(court, "lash", "nay", "legion")
+    court.votes.labour.ends = turn
+    l0 = court.houses.legion.loyalty
+    IC.law_turn(F)
+    assert(IC.law_in_force(F, "labour") == "ash", "a failed vote changed the law")
+    assert(court.houses.legion.loyalty == math.max(0, l0 + IC.TUNE.law_fail_loss), "the proposer lost nothing")
+    gov_done()
+end)
+
+check("laws: a vote whose proposer has left still resolves", function()
+    local court = law_court({{"crown", 100}, {"ledger", 300}})
+    court.houses.chain = {weight = 1, loyalty = 50}
+    law_vote(court, "lash", "abstain", "chain")
+    IC.remove_house(F, "chain")
+    court.votes.labour.ends = turn
+    IC.law_turn(F)
+    local last = court.log[#court.log]
+    assert(court.votes.labour == nil and last.kind == "law_fail" and last.slug == "chain",
+        "a departed proposer's vote did not resolve")
+    gov_done()
+end)
+
+check("laws: a party proposes only what it is for, with share, in a free category, after its rest", function()
+    local court = law_court({{"legion", 100}}, {crown = 10, legion = 90})
+    turn = IC.TUNE.law_party_rest + 10
+    local pick = IC.law_party_pick(F, "legion")
+    assert(pick and IC.law_stance(pick.category, pick.option, "legion") == "aye", "a pick it is not for")
+    -- EVERY ONE IT COULD PICK, not the one the stub's die lands on: a list that
+    -- let in what it is against is drawn from only sometimes.
+    local die, most = cm.random_number, 0
+    cm.random_number = function(_self, max) most = max; return 1 end
+    IC.law_party_pick(F, "legion")
+    for k = 1, most do
+        cm.random_number = function() return k end
+        local p = IC.law_party_pick(F, "legion")
+        assert(IC.law_stance(p.category, p.option, "legion") == "aye",
+            "it could propose " .. p.category .. "." .. p.option .. ", which it is not for")
+    end
+    cm.random_number = die
+    court.law_rest = turn - 1
+    assert(IC.law_party_pick(F, "legion") == nil, "it proposed during its rest")
+    court.law_rest = turn - IC.TUNE.law_party_rest
+    court.houses.legion.weight = 0
+    court.houses.crown.weight = 1000
+    assert(IC.law_party_pick(F, "legion") == nil, "a party under the share line proposed")
+    court.houses.legion.weight = 900
+    for _, cat in ipairs(IC.LAW_ORDER) do law_vote(court, "ash"); court.votes[cat] = court.votes.labour end
+    assert(IC.law_party_pick(F, "legion") == nil, "it proposed into a category with a vote open")
+    cm.get_human_factions = function() return {} end
+    court.votes = {}
+    assert(IC.law_party_pick(F, "legion") == nil, "an AI court's party proposed")
+    gov_done()
+end)
+
+check("laws: a party's proposal opens abstaining and starts the court's rest", function()
+    local court = law_court({{"legion", 100}}, {crown = 10, legion = 90})
+    local act = nil
+    -- ALL_ACTS: the harness keeps only build 1's acts in IC.PARTY_ACTS.
+    for _, a in ipairs(ALL_ACTS) do if a.key == "law" then act = a end end
+    assert(act, "no law act")
+    act.act(F, "legion", {category = "war", option = "legions"})
+    local v = court.votes.war
+    assert(v and v.stance == "abstain" and v.proposer == "legion" and court.law_rest == turn,
+        "the party's vote opened wrong")
+    gov_done()
+end)
+
+check("laws: a party with a stake pushes one step a turn when losing or close, if it can pay", function()
+    local court = law_court({{"crown", 1000}, {"legion", 400}, {"ledger", 300}})
+    local v = law_vote(court, "ash", "nay", "legion")
+    IC.law_party_push(F, "labour")
+    assert(v.push.legion == 1 and not v.push.ledger, "the losing Legion did not push, or the Ledger did")
+    assert(court.standing[9002] == 400 - IC.TUNE.law_push_cost[1], "the Legion did not pay")
+    IC.law_party_push(F, "labour")
+    assert(v.push.legion == 2, "the Legion did not push again next turn")
+    court.standing[9002] = 10
+    IC.law_party_push(F, "labour")
+    assert(v.push.legion == 2, "a party pushed with an empty purse")
+    gov_done()
+end)
+
+check("laws: a party with no stance never pushes, and a party well ahead does not", function()
+    local court = law_court({{"crown", 10}, {"legion", 900}, {"forge", 500}})
+    local v = law_vote(court, "ash", "aye", "legion")
+    court.houses.forge.loyalty = 10
+    IC.law_party_push(F, "labour")
+    assert(not v.push.forge, "a party voting by loyalty pushed")
+    assert(not v.push.legion, "a party far ahead pushed")
+    -- "CLOSE" IS A SHARE OF THE VOTES CAST (spec 3.3/3.4): an abstaining
+    -- Crown's thousand must not widen the margin and spend the leader's purse.
+    -- The Ledger pushes first (slug order) and pays 100 of its 250: nay is
+    -- then 150 x1.5 = 225 against 300, 75 apart - outside 10% of the 525 cast,
+    -- inside 10% of the 1525 with the abstainers.
+    court = law_court({{"crown", 1000}, {"legion", 300}, {"ledger", 250}})
+    v = law_vote(court, "ash", "abstain", "legion")
+    IC.law_party_push(F, "labour")
+    assert(not v.push.legion, "the Legion pushed while 75 ahead of 525 cast, the abstainers counted as close")
+    assert(v.push.ledger == 1, "the losing Ledger did not push")
+    gov_done()
+end)
+
+check("laws: twenty law cards and eight party blocks, each with every cell", function()
+    assert(#ICUI.LAW_XY == 20, #ICUI.LAW_XY .. " law cards")
+    assert(#ICUI.LB_XY == 2 * ICUI.LB_PER_SIDE, #ICUI.LB_XY .. " blocks")
+    local n = 0
+    for _ in pairs(ICUI.LAW_CHILD_XY) do n = n + 1 end
+    assert(n == 8, n .. " law card cells")
+    n = 0
+    for _ in pairs(ICUI.LB_CHILD_XY) do n = n + 1 end
+    assert(n == 8 + 4 * ICUI.LB_MEN, n .. " block cells")
+    local cat, opt = ICUI.law_at(7)
+    assert(cat == "tribute" and opt == "roads", "card 7 is " .. tostring(cat) .. "." .. tostring(opt))
+    assert(ICUI.law_at(21) == nil, "a card past the twentieth names a law")
+    assert(ICUI.MARKS.laws == "ic_mark_laws" and ICUI.TAB_VIEW.ic_tab_laws == "laws", "tab or marker")
+    -- THE GRID IS COLUMN-MAJOR: card 6 heads the second column, beside card 1.
+    assert(ICUI.LAW_XY[6][2] == ICUI.LAW_XY[1][2] and ICUI.LAW_XY[6][1] > ICUI.LAW_XY[1][1],
+        "the law grid is not column-major")
+end)
+
+check("laws: the board shows each law's card, the law in force framed and the chosen one lit", function()
+    local court = law_court({{"crown", 1000}, {"legion", 80}})
+    court.laws.war = "gunnery"
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat, ICUI.law_sel = "laws", nil, {"labour", "lash"}
+        ICUI.refresh()
+        local gun = panel.children[ICUI.LAW .. "_20"]
+        local levy = panel.children[ICUI.LAW .. "_16"]
+        local lash = panel.children[ICUI.LAW .. "_2"]
+        assert(gun.images[ICUI.LAW_SEL_INDEX] == ICUI.PARTY_SELECTED, "the law in force is not framed")
+        assert(levy.images[ICUI.LAW_SEL_INDEX] == ICUI.MASK_NONE, "the old law is still framed")
+        assert(lash.images[ICUI.LAW_GLOW_INDEX] == ICUI.LAW_GLOW, "the chosen card is not lit")
+        assert(gun.children.ic_law_foot.text == "In force", "foot " .. tostring(gun.children.ic_law_foot.text))
+        assert(levy.children.ic_law_foot.text == "The old way", "the start option's foot")
+        assert(string.find(lash.children.ic_law_foot.text, ICUI.law_crest(F, "chain"), 1, true),
+            "the Lash's foot shows no Chain crest")
+        assert(panel.children.ic_law_p_name.text == ICUI.law_name("labour", "lash"), "the pane names the wrong law")
+        assert(panel.children.ic_law_p_btn.text == "Propose", "the pane's button: " .. tostring(panel.children.ic_law_p_btn.text))
+        assert(panel.children.ic_lv_top.visible == false and panel.children[ICUI.LAW .. "_1"].visible,
+            "the board did not show, or the vote did")
+    end)
+    gov_done()
+end)
+
+check("laws: the pane draws its projection as a bar - aye from the left, nay from the right, abstaining between", function()
+    -- A GUIDE UNDER THE PERCENTAGES (author, 2026-10-03), the vote bar's idiom.
+    local function sized(panel)
+        for _, name in ipairs({"ic_law_p_bar", "ic_law_p_baraye", "ic_law_p_barnay"}) do
+            local xy = ICUI.PANEL_XY[name]
+            assert(xy, name .. " is not in the layout")
+            local c = panel.children[name]
+            c.x, c.y, c.w, c.h = xy[1], xy[2], xy[3], xy[4]
+        end
+    end
+    law_court({{"crown", 300}, {"legion", 100}, {"ledger", 100}})
+    with_fake_panel(function(panel)
+        local c = panel.children
+        sized(panel)
+        ICUI.view, ICUI.law_cat, ICUI.law_sel = "laws", nil, {"labour", "ash"}
+        ICUI.refresh()
+        local p = IC.law_project(F, "labour", "ash")
+        local all = p.aye + p.nay + p.abstain
+        assert(p.aye > 0 and p.nay > 0, "this court must have both sides: aye " .. p.aye .. ", nay " .. p.nay)
+        local bar, aye, nay = c.ic_law_p_bar, c.ic_law_p_baraye, c.ic_law_p_barnay
+        local bx, bw = ICUI.PANEL_XY.ic_law_p_bar[1], ICUI.PANEL_XY.ic_law_p_bar[3]
+        assert(bar.visible and aye.visible and nay.visible, "the bar or a side is hidden")
+        assert(aye.x == bx and aye.w == math.floor(bw * p.aye / all),
+            "aye is " .. tostring(aye.w) .. " at " .. tostring(aye.x))
+        assert(nay.x + nay.w == bx + bw and nay.w == math.floor(bw * p.nay / all),
+            "nay is " .. tostring(nay.w) .. " at " .. tostring(nay.x))
+        assert(aye.y == bar.y and nay.h == bar.h, "a side is off the bar's line")
+        local rim = c.ic_law_p_barrim
+        assert(rim.visible and table.concat(ICUI.PANEL_XY.ic_law_p_barrim, ",") == table.concat(ICUI.PANEL_XY.ic_law_p_bar, ","),
+            "the border is hidden or off the bar")
+    end)
+    -- NOBODY WITH INFLUENCE: no side drawn, the ground alone.
+    law_court({{"crown", 0}})
+    with_fake_panel(function(panel)
+        sized(panel)
+        ICUI.view, ICUI.law_cat, ICUI.law_sel = "laws", nil, {"labour", "ash"}
+        ICUI.refresh()
+        assert(panel.children.ic_law_p_now.text == "Nobody at court has influence to vote.",
+            "this court must have nobody voting: " .. tostring(panel.children.ic_law_p_now.text))
+        assert(not panel.children.ic_law_p_baraye.visible and not panel.children.ic_law_p_barnay.visible,
+            "an empty court draws a side")
+    end)
+    gov_done()
+end)
+
+check("laws: the pane's projection is the model's, and its party lines name each party's vote", function()
+    local court = law_court({{"crown", 300}, {"legion", 100}, {"ledger", 100}})
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat, ICUI.law_sel = "laws", nil, {"labour", "ash"}
+        ICUI.refresh()
+        local p = IC.law_project(F, "labour", "ash")
+        local all = p.aye + p.nay + p.abstain
+        local want = string.format("Aye %d%%", ICUI.pct(p.aye, all))
+        assert(string.find(panel.children.ic_law_p_now.text, want, 1, true), panel.children.ic_law_p_now.text)
+        local seen = false
+        for k = 1, ICUI.LAW_LINES do
+            local t = panel.children["ic_law_p_line" .. k].text or ""
+            if string.find(t, ICUI.house_name("ledger", F) .. ": against it", 1, true) then seen = true end
+        end
+        assert(seen, "no pane line says the Ledger is against it")
+    end)
+    gov_done()
+end)
+
+check("laws: clicking a card chooses it, and Propose sends the law and opens its vote", function()
+    local court = law_court({{"crown", 1000}})
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat, ICUI.law_sel = "laws", nil, nil
+        ICUI.refresh()
+        click({string = ICUI.LAW .. "_9", component = panel.children[ICUI.LAW .. "_9"]})
+        assert(ICUI.law_sel[1] == "tribute" and ICUI.law_sel[2] == "mines", "card 9 chose "
+            .. tostring(ICUI.law_sel[1]) .. "." .. tostring(ICUI.law_sel[2]))
+        click({string = "ic_law_p_btn", component = panel.children.ic_law_p_btn})
+        assert(court.votes.tribute and court.votes.tribute.option == "mines", "Propose did not open the vote")
+        assert(ICUI.law_cat == "tribute", "the vote screen did not open")
+    end)
+    gov_done()
+end)
+
+check("laws: the marker lights while a party's proposal waits for your answer, and only then", function()
+    local court = law_court({{"crown", 1000}})
+    local a = ICUI.attention(F)
+    assert(not a.laws, "the marker lit with no vote")
+    law_vote(court, "ash", "abstain", "legion")
+    a = ICUI.attention(F)
+    assert(a.laws and a.any, "a waiting party proposal did not light the marker")
+    -- AND IT ALONE PULSES THE BUTTON: a court with no man to seat has no other
+    -- business, so `any` is the law's or nobody's.
+    local quiet = law_court({})
+    assert(not ICUI.attention(F).any, "a court with no business pulses the button")
+    law_vote(quiet, "ash", "abstain", "legion")
+    assert(ICUI.attention(F).any, "a waiting law alone does not pulse the button")
+    court = quiet
+    IC.law_set_stance(F, "labour", "abstain")
+    assert(not ICUI.attention(F).laws, "an answered proposal still lights the marker")
+    court.votes.labour = nil
+    IC.law_propose(F, "labour", "ash")
+    assert(not ICUI.attention(F).laws, "the player's own proposal lights the marker")
+    gov_done()
+end)
+
+check("laws: the Laws tab opens on a party's vote that waits for your answer, else the board", function()
+    -- SPEC 4.2: the vote screen opens "from the marker". The tab is what the
+    -- marker marks, so clicking it must land on the vote the marker means.
+    local court = law_court({{"crown", 1000}})
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    law_vote(court, "ash", "abstain", "legion")
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "court", nil
+        click({string = "ic_tab_laws", component = panel.children.ic_tab_laws})
+        assert(ICUI.view == "laws" and ICUI.law_cat == "labour" and ICUI.law_screen(F) == "vote",
+            "the tab opened " .. tostring(ICUI.law_cat) .. ", not the waiting vote")
+        IC.law_set_stance(F, "labour", "nay")
+        click({string = "ic_tab_laws", component = panel.children.ic_tab_laws})
+        assert(ICUI.law_cat == nil, "an answered vote still takes the tab over")
+    end)
+    gov_done()
+end)
+
+check("laws: the Record says what each law move did", function()
+    local cases = {
+        {kind = "law_propose", slug = "legion", key = "labour.ash", want = "put"},
+        {kind = "law_propose", slug = "crown", key = "labour.ash", want = "You put"},
+        {kind = "law_pass", slug = "legion", key = "labour.ash", want = "passed"},
+        {kind = "law_fail", slug = "legion", key = "labour.ash", want = "voted down"},
+        {kind = "law_win", slug = "ledger", key = "labour.ash", n = 60, want = "60 influence"},
+        {kind = "law_push", slug = "crown", key = "labour.ash", n = 2, want = "strongly"},
+        {kind = "law_push", slug = "legion", key = "labour.ash", n = 3, want = "fully"},
+        {kind = "law_overrule", slug = "crown", key = "labour.ash", n = 1, want = "overruled"},
+    }
+    for _, c in ipairs(cases) do
+        local s = ICUI.intrigue_text({kind = c.kind, slug = c.slug, key = c.key, n = c.n or 0, turn = 1})
+        assert(s and string.find(s, c.want, 1, true), c.kind .. ": " .. tostring(s))
+        assert(string.find(s, ICUI.law_title(c.key), 1, true), c.kind .. " does not name the law: " .. s)
+    end
+end)
+
+check("laws: the vote screen splits the court into sides of party blocks, heaviest first", function()
+    local court = law_court({{"crown", 300}, {"legion", 500}, {"legion", 100}, {"ledger", 200}, {"forge", 90}})
+    law_vote(court, "ash", "aye", "legion")
+    court.houses.forge.loyalty = 50
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        local b1 = panel.children[ICUI.LAWBLOCK .. "_1"]
+        local b5 = panel.children[ICUI.LAWBLOCK .. "_" .. (ICUI.LB_PER_SIDE + 1)]
+        assert(b1.visible and b1.children.ic_lb_name.text == ICUI.house_name("legion", F),
+            "the heaviest aye block is not the Legion")
+        assert(b1.children.ic_lb_total.text == "600", "the Legion's total " .. tostring(b1.children.ic_lb_total.text))
+        assert(b5.visible and b5.children.ic_lb_name.text == ICUI.house_name("ledger", F), "the nay side")
+        assert(not panel.children[ICUI.LAWBLOCK .. "_3"].visible, "an empty block shows")
+        assert(string.find(panel.children.ic_lv_abstain.text, ICUI.house_name("forge", F), 1, true),
+            "the abstaining Forge is not named")
+        assert(panel.children[ICUI.LAW .. "_1"].visible == false, "the board shows under the vote")
+    end)
+    gov_done()
+end)
+
+check("laws: the vote bar's abstaining label sits over its gap and clear of the aye and nay labels", function()
+    -- AUTHOR, 2026-10-03: "abstaining text and Nay are not aligned to the bar".
+    local function placed(panel)
+        local c = panel.children
+        for name in pairs(ICUI.PANEL_XY) do
+            if string.sub(name, 1, 6) == "ic_lv_" then
+                local xy = ICUI.PANEL_XY[name]
+                c[name].x, c[name].y, c[name].w, c[name].h = xy[1], xy[2], xy[3], xy[4]
+            end
+        end
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        local bar = c.ic_lv_bar
+        local lx, rx = bar.x, bar.x + bar.w
+        for i = 1, ICUI.LAW_SEGS do
+            local seg = c["ic_lv_seg_" .. i]
+            if seg.visible then
+                if seg.x == lx then lx = seg.x + seg.w else rx = math.min(rx, seg.x) end
+            end
+        end
+        local abs = c.ic_lv_abs
+        local tw = abs:TextDimensionsForText(abs.text)
+        local mid = abs.x + math.floor(abs.w / 2)
+        local aye_end = bar.x + c.ic_lv_aye:TextDimensionsForText(c.ic_lv_aye.text)
+        local nay_start = bar.x + bar.w - c.ic_lv_nay:TextDimensionsForText(c.ic_lv_nay.text)
+        assert(mid - tw / 2 > aye_end and mid + tw / 2 < nay_start,
+            "abstaining (" .. (mid - tw / 2) .. " to " .. (mid + tw / 2) .. ") runs into aye (ends "
+            .. aye_end .. ") or nay (starts " .. nay_start .. ")")
+        return mid, lx, rx
+    end
+    -- BOTH SIDES VOTE, the gap right of the panel's middle: a label left where
+    -- the layout put it (centred on x 960) is off its gap.
+    local court = law_court({{"crown", 600}, {"legion", 200}, {"ledger", 100}, {"forge", 300}})
+    law_vote(court, "ash", "aye", "legion")
+    court.houses.forge.loyalty = 50
+    with_fake_panel(function(panel)
+        local mid, lx, rx = placed(panel)
+        assert(rx - lx > 200 and lx > 960, "this court must leave a wide gap right of 960: " .. lx .. " to " .. rx)
+        assert(mid >= lx and mid <= rx, "abstaining at " .. mid .. " is off its gap " .. lx .. " to " .. rx)
+    end)
+    gov_done()
+    -- NOBODY AGAINST (the author's screenshot): the gap is at the bar's right
+    -- end, where the nay label is, and the label still keeps clear of it.
+    court = law_court({{"crown", 450}, {"legion", 210}, {"forge", 110}})
+    law_vote(court, "ash", "aye", "legion")
+    court.houses.forge.loyalty = 50
+    with_fake_panel(function(panel) placed(panel) end)
+    gov_done()
+end)
+
+check("laws: a block shows LB_MEN men at most, prices winnable men, and sums the rest", function()
+    local men = {{"crown", 2000}}
+    for i = 1, 6 do men[#men + 1] = {"ledger", 100 + i} end
+    local court = law_court(men)
+    law_vote(court, "ash", "aye", "crown")
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        local b = panel.children[ICUI.LAWBLOCK .. "_" .. (ICUI.LB_PER_SIDE + 1)]
+        assert(b.children.ic_lb_win_1.visible and string.find(b.children.ic_lb_win_1.text, "Win", 1, true),
+            "the richest Ledger man has no Win button")
+        assert(ICUI.lb_men[ICUI.LB_PER_SIDE + 1][1] == 9007, "the block's first man is not the richest")
+        local past = string.format("+%d more", 6 - ICUI.LB_MEN)
+        assert(b.children.ic_lb_more.text == past, "the men past the block are not summed: "
+            .. tostring(b.children.ic_lb_more.text))
+        -- HIS INFLUENCE OR HIS PRICE, never both on the one line.
+        assert(not b.children.ic_lb_inf_1.visible, "a winnable man shows his influence over his Win button")
+        local crown_b = panel.children[ICUI.LAWBLOCK .. "_1"]
+        assert(crown_b.children.ic_lb_inf_1.visible and crown_b.children.ic_lb_inf_1.text == "2000 influence",
+            "a Crown man's influence line reads " .. tostring(crown_b.children.ic_lb_inf_1.text))
+        local crown = panel.children[ICUI.LAWBLOCK .. "_1"]
+        assert(not crown.children.ic_lb_win_1.visible, "a Crown man has a Win button")
+    end)
+    gov_done()
+end)
+
+check("laws: past two abstaining parties the abstain line counts them instead of naming them", function()
+    -- THE CROWN ABSTAINING takes every party with no stake with it, and a line
+    -- naming seven rolled names runs off a 1884px cell (20k measures two).
+    local court = law_court({{"crown", 300}, {"temple", 100}, {"chain", 110}, {"forge", 120}, {"tower", 130}},
+                            {crown = 10, temple = 10, chain = 10, forge = 10, tower = 10, legion = 10})
+    law_vote(court, "ash", "abstain", "legion")
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        local t = panel.children.ic_lv_abstain.text
+        assert(string.find(t, "5 parties", 1, true), "the line does not count five parties: " .. t)
+        assert(not string.find(t, ICUI.house_name("forge", F), 1, true), "the line still names them: " .. t)
+    end)
+    law_vote(court, "ash", "aye", "legion")
+    for _, slug in ipairs({"temple", "chain", "tower"}) do court.houses[slug].loyalty = 80 end
+    court.houses.forge.loyalty = 50
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        local t = panel.children.ic_lv_abstain.text
+        assert(string.find(t, ICUI.house_name("forge", F), 1, true), "one torn party is not named: " .. t)
+    end)
+    gov_done()
+end)
+
+check("laws: the hand lights your stance and paid levels, and its buttons send the five ops", function()
+    local court = law_court({{"crown", 3000}, {"ledger", 200}})
+    local v = law_vote(court, "ash", "aye", "legion")
+    local saved_idx = ICUI.clicked_index
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", "labour"
+        ICUI.refresh()
+        assert(panel.children.ic_lv_st_1.images[0] == ICUI.TAB_PLATE[0].on
+            and panel.children.ic_lv_st_2.images[0] == ICUI.TAB_PLATE[0].off,
+            "Support is not lit, or Oppose is")
+        click({string = "ic_lv_lvl_2", component = panel.children.ic_lv_lvl_2})
+        assert(v.push.crown == 2, "Strongly favour did not push")
+        assert(string.find(panel.children.ic_lv_lvl_1.text, "paid", 1, true), "level 1 is not marked paid")
+        click({string = "ic_lv_st_2", component = panel.children.ic_lv_st_2})
+        assert(v.stance == "nay", "Oppose did not change the stance")
+        ICUI.clicked_index = function() return ICUI.LB_PER_SIDE + 1, ICUI.LAWBLOCK .. "_" .. (ICUI.LB_PER_SIDE + 1) end
+        click({string = "ic_lv_st_1", component = panel.children.ic_lv_st_1})
+        click({string = "ic_lb_win_1", component = {}})
+        assert(v.won[9002] == "aye", "Win him did not win the Ledger man")
+        click({string = "ic_lv_over_2", component = panel.children.ic_lv_over_2})
+        assert(court.votes.labour == nil and IC.law_in_force(F, "labour") == "measure", "Fail now did not fail it")
+        assert(ICUI.law_cat == nil, "the screen did not go back to the board")
+    end)
+    ICUI.clicked_index = saved_idx
+    gov_done()
+end)
+
+check("laws: the board draws CA's 72px paintings, one per law, not the 24px bundle icons", function()
+    law_court({{"crown", 300}})
+    with_fake_panel(function(panel)
+        ICUI.view, ICUI.law_cat = "laws", nil
+        ICUI.refresh()
+        local seen, n = {}, 0
+        for i = 1, 20 do
+            local card = panel.children[ICUI.LAW .. "_" .. i]
+            local img = card and card.children.ic_law_icon and card.children.ic_law_icon.images[0]
+            if img then
+                assert(string.find(img, ICUI.LAW_ART_DIR, 1, true) == 1, "card " .. i .. " draws " .. img)
+                assert(not seen[img], "two cards draw " .. img)
+                seen[img], n = true, n + 1
+            end
+        end
+        assert(n == 20, "only " .. n .. " cards drew a picture")
+        -- THE CATEGORY HEADS ARE TITLES (author, 2026-10-03): upper-case on the
+        -- heading plate, the plate hugging its words and centred on its column.
+        local px, py = panel:Position()
+        for i = 1, #IC.LAW_ORDER do
+            local key = "ic_law_head_" .. i
+            local h, xy = panel.children[key], ICUI.PANEL_XY[key]
+            assert(plain(h.text) == string.upper(ICUI.law_cat_name(IC.LAW_ORDER[i])),
+                "category head " .. i .. " reads " .. tostring(h.text))
+            assert(h.w < xy[3], "category head " .. i .. " spans its whole column")
+            local mid, want = h.x + h.w / 2, px + ICUI.OX + xy[1] + xy[3] / 2
+            assert(math.abs(mid - want) <= 1, "category head " .. i .. " is centred at "
+                .. mid .. ", not over its column at " .. want)
+            assert(not panel.children["ic_law_hicon_" .. i], "category head " .. i .. " still has its icon cell")
+        end
+    end)
+    gov_done()
+end)
+
+-- THE PREVIEW'S DEMO (plan 2026-10-02 laws, Task 10): with IC_DUMP set, draw
+-- the laws tab's two screens through the REAL panel code on the fake tree and
+-- write what every component ended up with, for preview_iron_court.py to draw.
+-- The vote screen's figures are the model's tally, which a Python copy could
+-- only restate. Not a check: it adds nothing to the count and runs nowhere else.
+--
+-- THE HARD CASE, deliberately: every party the model has, each wearing the
+-- longest name its tail list allows; six parties on the aye side, so the
+-- "and N more" line draws; a party of six men, so "+2 more" draws; a man won
+-- across; a push on each side; and one party torn, so the abstain line reads.
+-- IC_DUMP_LOC is a Lua file returning the loc table: the generator's rows, the
+-- demo forenames as derpy_demo_fore_<i>, a portrait per man as
+-- derpy_demo_face_<i>, and the Crown's name as derpy_demo_crown.
+if os.getenv("IC_DUMP") then
+    local function longest_roll(slug)
+        local best, bh, bt = "", 1, 1
+        for h, head in ipairs(IC.NAME_HEADS) do
+            for t, tail in ipairs(IC.NAME_TAILS[slug] or {}) do
+                local s = head .. " of " .. tail
+                if #s > #best then best, bh, bt = s, h, t end
+            end
+        end
+        return bh, bt
+    end
+    -- {party, loyalty, {influence of each man}}
+    local DEMO = {
+        {"crown",  nil, {420, 260}},
+        {"legion", 50,  {412, 260, 186, 150, 120, 90}},
+        {"chain",  80,  {300, 140}},
+        {"forge",  70,  {380}},
+        {"temple", 65,  {210, 95}},
+        {"tower",  61,  {160}},
+        {"ledger", 50,  {425, 230, 64}},
+        {"road",   30,  {240, 110}},
+        {"hearth", 50,  {380}},
+    }
+    local weights = {}
+    for _, d in ipairs(DEMO) do weights[d[1]] = 10 end
+    local court = gov_court(weights)
+    IC_TEST_LOC = dofile(os.getenv("IC_DUMP_LOC"))
+    IC_TEST_PORTRAITS = {}
+    court.laws, court.votes, court.law_rest = {labour = "quota", worship = "seats"}, {}, nil
+    local chars, n, cqi_of = {}, 0, {}
+    for _, d in ipairs(DEMO) do
+        local house = court.houses[d[1]]
+        if d[1] ~= IC.CROWN then
+            house.head, house.tail = longest_roll(d[1])
+            house.loyalty = d[2]
+        end
+        for _, inf in ipairs(d[3]) do
+            n = n + 1
+            local c = make_character(9500 + n, ANY_SEAT, d[1], nil)
+            c._forename = "derpy_demo_fore_" .. n
+            IC_TEST_PORTRAITS[tostring(9500 + n)] = IC_TEST_LOC["derpy_demo_face_" .. n]
+            chars[#chars + 1] = c
+            court.standing[9500 + n] = inf
+            cqi_of[d[1]] = cqi_of[d[1]] or {}
+            table.insert(cqi_of[d[1]], 9500 + n)
+        end
+    end
+    make_faction(F, IC.CHD_SUBCULTURE, chars, {})
+    IC_TEST_LOC["factions_screen_name_" .. F] = IC_TEST_LOC.derpy_demo_crown or F
+    local vote = law_vote(court, "ash", "aye", "legion")
+    vote.push = {crown = 1, legion = 2, ledger = 1}
+    vote.won = {[cqi_of.ledger[3]] = "aye"}
+
+    local out = assert(io.open(os.getenv("IC_DUMP"), "w"))
+    local function esc(s)
+        return (string.gsub(tostring(s or ""), "[\t\n\\]",
+            {["\t"] = "\\t", ["\n"] = "\\n", ["\\"] = "\\\\"}))
+    end
+    local function walk(screen, c, path)
+        local imgs = {}
+        for i, p in pairs(c.images or {}) do imgs[#imgs + 1] = i .. "=" .. tostring(p) end
+        table.sort(imgs)
+        out:write(table.concat({screen, path, c.visible and "1" or "0", c.x, c.y, c.w, c.h,
+                                esc(c.text), esc(table.concat(imgs, "|"))}, "\t"), "\n")
+        for _, k in ipairs(c.order) do walk(screen, k, path .. "/" .. k.name) end
+    end
+    for _, screen in ipairs({"law_board", "law_vote"}) do
+        with_fake_panel(function(panel)
+            ICUI.view = "laws"
+            ICUI.law_cat = screen == "law_vote" and "labour" or nil
+            ICUI.law_sel = {"labour", "lash"}
+            -- EVERY CELL AT ITS 1920 BOX, where the engine has it: the fake
+            -- tree leaves them 10px square, and the support bar is cut from
+            -- its own width.
+            for name, xy in pairs(ICUI.PANEL_XY) do
+                local c = panel.children[name]
+                if c then c.x, c.y, c.w, c.h = xy[1], xy[2], xy[3], xy[4] end
+            end
+            ICUI.refresh()
+            assert(ICUI.law_screen(F) == (screen == "law_vote" and "vote" or "board"),
+                screen .. " drew the other screen")
+            walk(screen, panel, panel.name)
+        end)
+    end
+    -- AND THE GOVERNMENT CHOOSER'S FIVE CARDS (2026-10-03, design A), opened the
+    -- way the button's handler opens it (no listeners run in a dump).
+    with_fake_panel(function(panel)
+        for name, xy in pairs(ICUI.PANEL_XY) do
+            local c = panel.children[name]
+            if c then c.x, c.y, c.w, c.h = xy[1], xy[2], xy[3], xy[4] end
+        end
+        ICUI.view, ICUI.law_cat = "court", nil
+        ICUI.pick = {kind = "doctrine"}
+        ICUI.refresh()
+        assert(ICUI.gc_slugs[5], "the dump drew no government cards")
+        walk("gov_cards", panel, panel.name)
+    end)
+    ICUI.pick = nil
+    out:close()
+    gov_done()
+end
 
 check("no parties' turn failed anywhere in the run", function()
     -- LAST BUT ONE. IC.turn now catches a failing parties' turn and only says

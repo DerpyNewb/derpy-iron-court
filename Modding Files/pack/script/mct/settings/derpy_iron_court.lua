@@ -62,12 +62,12 @@ o_preset:add_dropdown_value("gentle", "Gentle",
     "One rival party. Parties start more loyal, cool more slowly and give longer "
     .. "warning before they leave. Gifts cost less, and influence comes faster.", false)
 o_preset:add_dropdown_value("default", "Default",
-    "Three rival parties. The Iron Court as designed.", true)
+    "Two rival parties. The Iron Court as designed.", true)
 o_preset:add_dropdown_value("harsh", "Harsh",
-    "Four rival parties. Parties start less loyal and leave sooner, a weak Crown "
+    "Three rival parties. Parties start less loyal and leave sooner, a weak Crown "
     .. "loses its rivals sooner, influence comes more slowly and favours cost more.",
     false)
-o_preset:add_dropdown_value("ruthless", "Ruthless",
+o_preset:add_dropdown_value("ruthless", "Political Chaos",
     "Five rival parties, a full court. Every party is a threat. Loyalty falls "
     .. "fast, a party gives three turns of warning before it leaves, and every "
     .. "favour is dear.", false)
@@ -77,7 +77,7 @@ o_preset:set_default_value("default")
 
 -- ------------------------------------------------------------------- systems --
 -- key, label, section, tooltip, live. Every switch defaults to on. A LIVE one
--- can be flipped in a running campaign; the six are IC.LIVE_TUNE's.
+-- can be flipped in a running campaign; the eight are IC.LIVE_TUNE's.
 local SWITCHES = {
     {"parties_act", "Rival parties act on their own", "systems",
      "Parties scheme, feud, make demands and offer deals without being asked. "
@@ -100,6 +100,23 @@ local SWITCHES = {
      .. "ending, a party passed over for its own office) goes only to the court's "
      .. "Record tab. Warnings, demands, offers and the results of your own moves "
      .. "always show an event message.", true},
+    {"governments", "Governments", "systems",
+     "Each court has a government that changes one of its rules. Off, no court has "
+     .. "one, and no government's effects apply.", true},
+    {"gov_drift", "Governments change with the court", "systems",
+     "A party that leads the court for long enough asks for its own government. "
+     .. "Off, your government changes only when you change it.", true},
+    {"deeds", "Your deeds move the court", "systems",
+     "Victories, the Hell-Forge, the Tower's rites, slaves, convoys and research "
+     .. "give the matching party renown, which counts toward its share and fades "
+     .. "each turn. A party not in your court that earns enough sends the next lord "
+     .. "you recruit. Off, nothing new is earned and nobody is drawn in; renown "
+     .. "already earned fades away.", true},
+    {"laws", "Laws", "systems",
+     "Your court passes laws by a vote of its men: four kinds, five laws each. "
+     .. "You and the parties propose them, and you can push, win men or overrule. "
+     .. "Off, no law applies and open votes end; the laws in force come back when "
+     .. "you turn it on.", true},
     {"detailed_log", "Detailed log", "debug",
      "Writes the court's routine events to script_log.txt. Failures are always "
      .. "written.", true},
@@ -142,13 +159,14 @@ local NUMBERS = {
     {"party_intrigue_line", "Loyalty at which parties start scheming", 55, 20, 80, 1,
      "A party at or below this loyalty spreads rumours about your men and "
      .. "discredits them."},
-    {"rivals_min", "Fewest rival parties", 3, 1, 5, 1,
+    {"rivals_min", "Fewest rival parties", 2, 1, 5, 1,
      "The fewest rival parties a new court starts with. Set both to the same "
      .. "number for a court of exactly that size."},
-    {"rivals_max", "Most rival parties", 3, 1, 5, 1,
+    {"rivals_max", "Most rival parties", 2, 1, 5, 1,
      "The most rival parties a new court starts with. Five at most, which fills "
      .. "the court. Only four parties can rise under a banner of their own; one "
-     .. "that leaves after that joins a rising already under way."},
+     .. "that leaves after that rises under a fallen house, or joins a rising "
+     .. "already under way if every house still stands."},
     {"term_turns", "Office term, in turns", 10, 2, 20, 1,
      "How many turns an appointment runs. Dismissing a man before his term is up "
      .. "angers his party. When a term ends, the same man cannot take that office "
@@ -156,6 +174,14 @@ local NUMBERS = {
     {"gov_levels_per_weight", "Settlement levels per point of governor weight", 2, 1, 5, 1,
      "A governor's party gains one point of weight per this many settlement "
      .. "levels in his province, rounded up. Every governor is worth at least one."},
+    {"gov_pressure_line", "Turns before a leading party asks for its government", 6, 2, 12, 1,
+     "How many turns a rival party must lead the court before it asks for its own "
+     .. "government."},
+    {"gov_hold_cost", "Influence to keep your government", 300, 100, 1000, 50,
+     "What refusing a party's government costs the first time. Each refusal after "
+     .. "that costs this much more."},
+    {"gov_force_cost", "Influence to change your government", 400, 100, 1500, 50,
+     "What changing your government by your own choice costs."},
 }
 
 for i = 1, #NUMBERS do
@@ -182,14 +208,16 @@ local PRESET_VALUES = {
         favour_gift_cost = 400, favour_secure_cost = 1800,
         party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 8, gov_hold_cost = 200, gov_force_cost = 300,
     },
     harsh = {
         loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
         secede_share = 20, secede_turns = 4, pressure_below = 15,
         influence_trickle = 4, settlement_influence = 20,
         favour_gift_cost = 800, favour_secure_cost = 3200,
-        party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+        party_intrigue_line = 60, rivals_min = 3, rivals_max = 3, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 5, gov_hold_cost = 400, gov_force_cost = 500,
     },
     ruthless = {
         loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
@@ -198,6 +226,7 @@ local PRESET_VALUES = {
         favour_gift_cost = 1000, favour_secure_cost = 4000,
         party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 4, gov_hold_cost = 500, gov_force_cost = 600,
     },
 }
 

@@ -19,7 +19,7 @@ entry to raise, a banner for a rebellion.
 | `zzz_derpy_iron_court.lua` | `IC` | The model: parties, backgrounds, influence, offices, overseers, loyalty, the five control bands, intrigue, favours, secession, splintering, the record, save state. |
 | `zzz_derpy_iron_court_parties.lua` | `IC` (extends it) | The rival parties' own acts: intrigue against the Crown, feuds, demands, offers, and overseer experience. Loads after the model (`.` sorts before `_`) and changes nothing in the campaign at load. |
 | `zzz_derpy_iron_court_ui_map.lua` | `ICUI` (extends it) | The Governors tab: clears the court's backdrop so the live map shows through, pins five components per held province to its capital settlement through CA's own world-space callbacks (`ContextWorldSpaceComponent` on `CcoCampaignSettlement.Position`, copied from the Gardens of Morr), and draws the left column's Parties, Provinces and Candidates pages. What each party would take is asked once a redraw (`ICUI.map_memo`). Loads after `_ui.lua` (`.` sorts before `_`), so `ICUI` exists. |
-| `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its six tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. Every action it takes goes through `IC.mp_send`; it never calls a model mutator or writes court state directly. |
+| `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its seven tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. Every action it takes goes through `IC.mp_send`; it never calls a model mutator or writes court state directly. |
 | `script/mct/settings/derpy_iron_court.lua` | none (MCT's own environment) | The MCT page: a difficulty dropdown, seven switches and fifteen Custom numbers. Runs only when MCT is installed and calls nothing in the mod. |
 
 Every tunable is in `IC.TUNE` (the model) or at the top of the parties file, which appends
@@ -106,13 +106,35 @@ and 3; loyalty 0 goes at once. Pressure: below 10% Crown share, 8% a point below
 parties file: intrigue at 55, unseat and recall at 25, murder at 10, demands from 26 to 74,
 offers from 75.
 
+### Governments, deeds and laws (2026-10-02 and 10-03)
+
+**Governments** live in `IC.GOVS`. Each one is a set of `IC.TUNE` overrides (a number, or
+`{mul = x}` for a knob a preset already sets), read through `IC.tune(faction, key)`, plus a
+`derpy_ic_doctrine_<slug>` bundle. `IC.START_GOV` gives each house its lore start. A leading
+rival party pulls the court toward its own government (`IC.gov_pull`); in the player's court
+that becomes a Petitions choice, accepted or held at a rising price. `IC.gov_change` is the one
+writer: the old government's seated parties lose loyalty, the new one's gain. The panel's
+chooser is five cards, `ICUI.gov_choices` and `ICUI.draw_gov_cards`, sending the same
+`doctrine` message the old list did.
+
+**Deeds** give the matching party renown (battles, Hell-Forge, Tower rites and temples,
+slaves and razing, convoys, research), which fades by `renown_fade_pct` a turn, is capped per
+turn and counts as weight. A party not at court reaching `renown_join_line` takes the next
+recruited lord.
+
+**Laws** are `IC.LAWS`: four categories of five options, each option with its effects, its
+`pro` and `con` parties. A vote (`IC.law_tally`) weighs every man's influence on his party's
+line, with the Crown's pushes, men won over and abstentions; `IC.law_project` is the same tally
+with nothing pushed, which the board's percentages and bar draw. `IC.law_settle` walks the
+law's own `pro` and `con` lists, so the loyalty it pays lands in the data's order.
+
 ## 3. Save state
 
 All keys are `cm:set_saved_value` strings.
 
 | Key | Holds |
 |---|---|
-| `derpy_ic_<faction>` | the court, one per Chaos Dwarf faction: thirteen sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition, the rolled marker, each seat's last holder, stalled offices, news from other courts, and the factions resting after Send Diplomats as `key,turn`). A missing section reads as empty, so an older save still loads |
+| `derpy_ic_<faction>` | the court, one per Chaos Dwarf faction: eighteen sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition, the rolled marker, each seat's last holder, stalled offices, news from other courts, the factions resting after Send Diplomats as `key,turn`, then the government, renown, the deeds markers, the laws in force and the open votes). A missing section reads as empty, so an older save still loads |
 | `derpy_ic_tuned` | the settings the campaign plays on, in `IC.TUNE_ORDER` order |
 | `derpy_ic_ui_prefs` | the panel's last tab and sorts (single player only) |
 | `derpy_ic_agenda_<faction>` | the human court's agenda: a warned move, feuds, feud rest, the live demand, open offers |
@@ -191,10 +213,10 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the four scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all four shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (862 checks)` (2026-10-02). |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 996 mutants (2026-10-02), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all four shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (973 checks)` (2026-10-03). |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,093 mutants (2026-10-03; not re-run for build 05C8F762, whose changes no mutant targets), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
-| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 15 files, 556 components`. |
+| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 28 files, 1048 components`. |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |

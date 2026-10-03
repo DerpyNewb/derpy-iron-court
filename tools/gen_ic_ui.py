@@ -120,6 +120,12 @@ GUID_PREFIXES = {
     # its length (author, 2026-10-01: "no scrollbar for selecting a governor").
     "derpy_ic_gm_list.twui.xml":        "IC54",
     "derpy_ic_gm_sp.twui.xml":          "IC55",
+    # IC56-IC59 - THE LAWS TAB (spec 2026-10-02 laws): the law card, the party
+    # block on a vote, and their compact copies.
+    "derpy_ic_law.twui.xml":                "IC56",
+    "derpy_ic_lawblock.twui.xml":           "IC57",
+    "derpy_ic_law_compact.twui.xml":        "IC58",
+    "derpy_ic_lawblock_compact.twui.xml":   "IC59",
 }
 
 # Base file -> its compact copy. The opener and the influence plate are HUD
@@ -128,7 +134,8 @@ COMPACT_FILES = dict(
     (f, f.replace(".twui.xml", "_compact.twui.xml"))
     for f in ("derpy_ic_panel.twui.xml", "derpy_ic_card.twui.xml",
               "derpy_ic_row.twui.xml", "derpy_ic_party.twui.xml",
-              "derpy_ic_plot.twui.xml", "derpy_ic_gm_row.twui.xml"))
+              "derpy_ic_plot.twui.xml", "derpy_ic_gm_row.twui.xml",
+              "derpy_ic_law.twui.xml", "derpy_ic_lawblock.twui.xml"))
 
 # The Zharr Exchange's footprint, which is proven to fit at every supported
 # resolution. The mockup is drawn to it.
@@ -262,6 +269,7 @@ PANEL_LAYOUT = {
     # secession clocks, and a page of history pushed the one thing a player
     # can still act on off the screen.
     "ic_tab_log": (1238, 62, 240, 32),
+    "ic_tab_laws": (1482, 62, 240, 32),
     # THE ATTENTION MARKERS (spec 2026-09-28 section 4.4): a heat glow over
     # each tab's right-hand skull, the cap's centre 20px in from the end
     # (TAB_CAP 40), shown by ICUI.draw_marks while that tab has business.
@@ -269,6 +277,7 @@ PANEL_LAYOUT = {
     "ic_mark_offices": (262 + 240 - 34, 64, 28, 28),
     "ic_mark_govs": (506 + 240 - 34, 64, 28, 28),
     "ic_mark_petitions": (994 + 240 - 34, 64, 28, 28),
+    "ic_mark_laws": (1482 + 240 - 34, 64, 28, 28),
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
@@ -392,6 +401,226 @@ def help_layout():
 
 
 PANEL_LAYOUT.update(help_layout())
+
+# THE LAWS TAB (spec 2026-10-02 laws section 4; the approved pictures are
+# .skilltree_cache/ui_preview/ic_law_board.png and ic_law_vote.png). The board:
+# four column heads over LAW_GRID's twenty cards, and the chosen law's pane.
+LAW_W, LAW_H = 306, 150
+LAWS_X, LAWS_Y = 18, 186
+LAW_GAP_X, LAW_GAP_Y = 12, 8
+LAW_COLS, LAW_ROWS = 4, 5
+LAW_LINES = 5
+LAW_PBAR_H = 14
+# THE PANE BAR'S SIDES: green for, red against, through plate_pixels' own
+# gradient, which darkens each to about two thirds at the top.
+LAW_PBAR_COLOUR = {"aye": "#5FB04AFF", "nay": "#D2412FFF"}
+
+
+def law_pbar_path(side):
+    return "%s/law_bar_%s.png" % (PLATE_DIR, side)
+# THE PANE BAR'S BORDER (author, 2026-10-03: "add borders to the bar"): the
+# portrait frame's bronze thinned to two pixels between two dark lines, drawn
+# over both sides. LAW_PBAR_RIM_OUT of it lies outside the bar, so only the
+# inner dark line covers the bar's own 14px.
+LAW_PBAR_RIM_BAND = [(26, 14, 6, 255), (190, 128, 66, 255), (130, 78, 36, 255),
+                     (20, 10, 4, 255)]
+LAW_PBAR_RIM_OUT = 3
+LAW_PBAR_RIM_PX = 16
+# SIZED BY 20k, not by eye (Task 10). The first cut put the effect lines beside
+# the picture at 204px, and the engine's face needs 274 for the longest: the
+# picture now sits beside the NAME, which ICUI.fit_two splits over two lines,
+# and the effects run the card's width. The vote marker moved to the foot row,
+# where it no longer narrows the name.
+LAW_LAYOUT = {
+    "ic_law_icon": (12, 10, 44, 44),
+    "ic_law_name": (60, 8, 240, 22),
+    "ic_law_name2": (60, 30, 240, 22),
+    "ic_law_fx1": (10, 56, 290, 18),
+    "ic_law_fx2": (10, 74, 290, 18),
+    "ic_law_fx3": (10, 92, 290, 18),
+    # CLEAR OF THE IN-FORCE FRAME, whose bottom band covers the card's last
+    # ~12px (seen on the preview, 2026-10-02).
+    "ic_law_foot": (12, 114, 240, 20),
+    "ic_law_mark": (266, 110, 28, 28),
+}
+
+
+def law_grid():
+    """Column-major, so card i is category ceil(i/5): ICUI.law_at reads it so."""
+    return [(LAWS_X + c * (LAW_W + LAW_GAP_X), LAWS_Y + r * (LAW_H + LAW_GAP_Y))
+            for c in range(LAW_COLS) for r in range(LAW_ROWS)]
+
+
+LAW_GRID = law_grid()
+
+
+def law_board_cells():
+    """The column heads and the pane, right of the four columns."""
+    out = {}
+    for i in range(LAW_COLS):
+        x = LAWS_X + i * (LAW_W + LAW_GAP_X)
+        # A TITLE ON THE HEADING PLATE (author, 2026-10-03), as the Intrigue
+        # tab's move groups are: the cell is the most room, fit_plate centres it.
+        out["ic_law_head_%d" % (i + 1)] = (x, 133, LAW_W, HEADING_H)
+    px = LAWS_X + LAW_COLS * (LAW_W + LAW_GAP_X) + 6
+    pw = 1902 - px
+    out.update({
+        "ic_law_pane": (px, 132, pw, 836),
+        "ic_law_p_icon": (px + 24, 156, 72, 72),     # the art's own 72px
+        "ic_law_p_name": (px + 128, 160, pw - 150, 30),
+        "ic_law_p_sub": (px + 128, 198, pw - 150, 26),
+        "ic_law_p_fxh": (px + 24, 244, pw - 48, 26),
+        "ic_law_p_forh": (px + 24, 440, pw - 48, 26),
+        "ic_law_p_for": (px + 24, 466, pw - 48, 26),
+        "ic_law_p_conh": (px + 24, 500, pw - 48, 26),
+        "ic_law_p_con": (px + 24, 526, pw - 48, 26),
+        "ic_law_p_nowh": (px + 24, 562, pw - 48, 26),
+        "ic_law_p_now": (px + 24, 588, pw - 48, 26),
+        # THE PROJECTION AS A BAR (author, 2026-10-03): the vote bar's idiom,
+        # aye from the left and nay from the right over a grey ground. The two
+        # sides are MoveTo'd and resized by ICUI.draw_law_pbar.
+        "ic_law_p_bar": (px + 24, 618, pw - 48, LAW_PBAR_H),
+        "ic_law_p_baraye": (px + 24, 618, pw - 48, LAW_PBAR_H),
+        "ic_law_p_barnay": (px + 24, 618, pw - 48, LAW_PBAR_H),
+        "ic_law_p_barrim": (px + 24, 618, pw - 48, LAW_PBAR_H),   # sorts last: drawn over
+        "ic_law_p_price": (px + 24, 852, pw - 48, 26),
+        "ic_law_p_btn": (px + (pw - 240) // 2, 896, 240, 34),
+    })
+    # TWO ROWS AN EFFECT: CA's own line runs to 850px against a 552 pane, so
+    # ICUI.fit_lines spills each over fx(2k-1) and fx(2k).
+    for i in range(6):
+        out["ic_law_p_fx%d" % (i + 1)] = (px + 24, 272 + 26 * i, pw - 48, 26)
+    for i in range(LAW_LINES):
+        out["ic_law_p_line%d" % (i + 1)] = (px + 24, 642 + 30 * i, pw - 48, 26)
+    return out
+
+
+# THE VOTE: the top plate, the support bar (twelve segments and their crests,
+# placed at draw time), two sides of LB_GRID's party blocks, and the hand.
+LAW_SEGS = 12
+LB_W, LB_H = 880, 104
+LB_X, LB_Y, LB_SIDE_DX, LB_GAP = 38, 396, 950, 4
+# THREE MEN A BLOCK, not four (Task 10, 20k): "Mulagunnar - 9999" is 201px
+# against a 116px cell. A man is his forename over his influence, or over the
+# Win button that would buy him - the two share a line.
+LB_PER_SIDE, LB_MEN = 4, 3
+
+
+def lb_layout():
+    slot = 266          # one man's face, name and Win line
+    out = {"ic_lb_crest": (0, 0, 52, 52), "ic_lb_name": (64, 2, 480, 22),
+           "ic_lb_level": (64, 28, 640, 20), "ic_lb_more": (720, 28, 160, 20),
+           "ic_lb_total": (800, 4, 80, 22)}
+    for i in range(3):
+        out["ic_lb_pip_%d" % (i + 1)] = (700 + 30 * i, 8, 24, 14)
+    for i in range(LB_MEN):
+        out["ic_lb_face_%d" % (i + 1)] = (64 + slot * i, 54, 70, 38)
+        out["ic_lb_man_%d" % (i + 1)] = (138 + slot * i, 54, 186, 18)
+        out["ic_lb_inf_%d" % (i + 1)] = (138 + slot * i, 76, 186, 24)
+        out["ic_lb_win_%d" % (i + 1)] = (138 + slot * i, 76, 186, 24)
+    return out
+
+
+LB_LAYOUT = lb_layout()
+
+
+def lb_grid():
+    """Aye side first, then nay; ICUI.LB_XY reads it so."""
+    return [(LB_X + s * LB_SIDE_DX, LB_Y + k * (LB_H + LB_GAP))
+            for s in range(2) for k in range(LB_PER_SIDE)]
+
+
+LB_GRID = lb_grid()
+
+
+def law_vote_cells():
+    out = {
+        "ic_lv_top": (18, 132, 1884, 94),
+        "ic_lv_icon": (36, 141, 76, 76),
+        "ic_lv_name": (128, 144, 900, 30),
+        "ic_lv_fx": (128, 182, 1000, 26),
+        "ic_lv_by": (1140, 148, 530, 26),
+        "ic_lv_turns": (1140, 182, 530, 26),
+        "ic_lv_back": (1682, 162, 210, 34),
+        "ic_lv_aye": (18, 236, 600, 26),
+        "ic_lv_abs": (760, 236, 400, 26),
+        "ic_lv_nay": (1296, 236, 600, 26),        # right-aligned: ends where the bar does
+        "ic_lv_bar": (18, 266, 1884, 34),
+        "ic_lv_barrim": (18, 266, 1884, 34),     # _panel_order: over the segments
+        "ic_lv_abstain": (18, 870, 1884, 26),
+        "ic_lv_hand": (18, 906, 1884, 96),
+        # TWO ROWS, EACH HEADING ON ITS LEFT (author, 2026-10-03: "texts are going
+        # out of the UI buttons"). The tab art's skull caps take 46px a side, so
+        # the eight buttons with their prices need about 2040px and one row has
+        # 1848: the side and the overrule on the first row, the support below.
+        "ic_lv_sideh": (36, 918, 164, 26),
+        "ic_lv_supph": (36, 962, 164, 26),
+        "ic_lv_overh": (1266, 918, 164, 26),
+        "ic_lv_over_1": (1436, 914, 220, 34),
+        "ic_lv_over_2": (1664, 914, 220, 34),
+    }
+    for i in range(LAW_SEGS):
+        out["ic_lv_seg_%d" % (i + 1)] = (18, 266, 34, 34)
+        out["ic_lv_segc_%d" % (i + 1)] = (18, 268, 30, 30)
+    for i in range(2):
+        sx = 18 + 950 * i
+        out["ic_lv_side_%d" % (i + 1)] = (sx, 312, 934, 548)
+        out["ic_lv_sicon_%d" % (i + 1)] = (sx + 20, 326, 52, 52)
+        out["ic_lv_shead_%d" % (i + 1)] = (sx + 86, 332, 590, 30)
+        out["ic_lv_stag_%d" % (i + 1)] = (sx + 662, 336, 200, 20)
+        out["ic_lv_screst_%d" % (i + 1)] = (sx + 870, 324, 44, 44)
+        out["ic_lv_smore_%d" % (i + 1)] = (sx + 20, 830, 880, 24)
+    for i in range(3):
+        # SIZED FOR 1600, where the box shrinks and the 46px caps do not.
+        out["ic_lv_st_%d" % (i + 1)] = (210 + 210 * i, 914, 204, 34)
+        out["ic_lv_lvl_%d" % (i + 1)] = (210 + 380 * i, 958, 372, 34)
+    return out
+
+
+PANEL_LAYOUT.update(law_board_cells())
+PANEL_LAYOUT.update(law_vote_cells())
+
+# THE GOVERNMENT CHOOSER (author, 2026-10-03, design A of three previews): five
+# cards in one centred row instead of the picker's list, each a picture, its
+# name over two lines, its rule over GC_RULE_LINES, its effect, who it pleases
+# or angers in this court (at most three lines: the Convoy Concern has two
+# parties) and a Choose button. Over them, the government in force on a heading
+# plate and its rule. ICUI.draw_gov_cards fills them.
+GOV_CARDS, GC_RULE_LINES, GC_LOY_LINES = 5, 4, 3
+
+
+def gov_card_cells():
+    w, gap, h, y = 340, 22, 600, 250
+    x0 = (PANEL_W - (GOV_CARDS * w + (GOV_CARDS - 1) * gap)) // 2
+    out = {"ic_gc_now": (360, 134, PANEL_W - 720, HEADING_H),
+           "ic_gc_nowrule": (160, 184, PANEL_W - 320, 26)}
+    for i in range(GOV_CARDS):
+        x, n = x0 + i * (w + gap), i + 1
+        out["ic_gc_card_%d" % n] = (x, y, w, h)
+        out["ic_gc_icon_%d" % n] = (x + (w - 112) // 2, y + 26, 112, 112)
+        out["ic_gc_name_%d" % n] = (x + 16, y + 154, w - 32, 30)
+        out["ic_gc_name2_%d" % n] = (x + 16, y + 184, w - 32, 30)
+        out["ic_gc_ruleh_%d" % n] = (x + 20, y + 224, w - 40, 26)
+        for k in range(GC_RULE_LINES):
+            out["ic_gc_rule_%d_%d" % (n, k + 1)] = (x + 20, y + 250 + 26 * k, w - 40, 26)
+        out["ic_gc_fxh_%d" % n] = (x + 20, y + 360, w - 40, 26)
+        out["ic_gc_fx_%d" % n] = (x + 20, y + 386, w - 40, 26)
+        out["ic_gc_loyh_%d" % n] = (x + 20, y + 420, w - 40, 26)
+        for k in range(GC_LOY_LINES):
+            out["ic_gc_loy_%d_%d" % (n, k + 1)] = (x + 20, y + 446 + 26 * k, w - 40, 26)
+        out["ic_gc_btn_%d" % n] = (x + 50, y + h - 56, w - 100, 38)
+    return out
+
+
+PANEL_LAYOUT.update(gov_card_cells())
+# THE PLATES, declared first so what they hold draws over them (_panel_order).
+LAW_PLATES = tuple("ic_gc_card_%d" % (_i + 1) for _i in range(GOV_CARDS)) + ("ic_law_pane", "ic_lv_top", "ic_lv_side_1", "ic_lv_side_2", "ic_lv_hand")
+# LIT LIKE A TAB (ICUI.TAB_PLATE, both slots): the Crown's stance and support.
+LAW_TAB_BUTTONS = ("ic_lv_st_1", "ic_lv_st_2", "ic_lv_st_3",
+                   "ic_lv_lvl_1", "ic_lv_lvl_2", "ic_lv_lvl_3")
+# ON THE PAGER'S PLATE, as ic_gov_btn is: never lit.
+LAW_PAGE_BUTTONS = ("ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2") + tuple(
+    "ic_gc_btn_%d" % (_i + 1) for _i in range(GOV_CARDS))
 # CENTRED IN THE GUTTER rather than at the panel's midpoint: the two columns
 # are the same width but the left one starts at 18, so the true middle of the
 # panel is not the middle of the gap between them.
@@ -671,6 +900,19 @@ PANEL_LAYOUT["ic_crown_rule_v"] = (_CROWN_X + _CROWN_LEFT_W
                                    CROWN_RULE_W,
                                    max(_LEFT_BOTTOM, _LEADER_BOTTOM) - _CROWN_Y0)
 
+# THE GOVERNMENT (spec 2026-10-02 section 8): one row under both halves -
+# "Government: <name>" from the box's left edge to a gap short of Change
+# Doctrine, which sits at the right half's right end. The label is the
+# author's (2026-10-02): a bare "The Conclave" read as one more party name.
+_GOV_Y = max(_LEFT_BOTTOM, _LEADER_BOTTOM) + 8
+GOV_BTN_W = 220
+PANEL_LAYOUT["ic_gov"] = (_CROWN_X, _GOV_Y + 4,
+                          _CROWN_RIGHT_X + _CROWN_RIGHT_W - GOV_BTN_W - _CROWN_GAP
+                          - _CROWN_X, _CTL_H)
+PANEL_LAYOUT["ic_gov_btn"] = (_CROWN_RIGHT_X + _CROWN_RIGHT_W - GOV_BTN_W, _GOV_Y,
+                              GOV_BTN_W, 34)
+_GOV_BOTTOM = _GOV_Y + 34
+
 # EVERY CELL IN THE BOX, by name, for the three checks that hold it together:
 # 16b (its column), 18 (inside the frame band) and 20b2 (no two cross). One list,
 # so a cell added to the box cannot be left out of one of them.
@@ -678,11 +920,12 @@ CROWN_CELLS = (("ic_control", "ic_control_band") + FX_KEYS
                + ("ic_leader_lbl", "ic_leader_name", "ic_leader_party",
                   "ic_leader_port", "ic_leader_trait", "ic_leader_t1",
                   "ic_leader_t2", "ic_crown_rule_l", "ic_crown_rule_r",
-                  "ic_crown_rule_v"))
+                  "ic_crown_rule_v", "ic_gov", "ic_gov_btn"))
 
-# AND THE BOX IS AS TALL AS WHAT IS IN IT: the deeper of the two halves, then
-# the frame band. An empty framed box reads as a draw that failed.
-CROWN_H = max(_LEFT_BOTTOM, _LEADER_BOTTOM) + CROWN_BAND - CROWN_Y
+# AND THE BOX IS AS TALL AS WHAT IS IN IT: the deeper of the two halves and the
+# government's row, then the frame band. An empty framed box reads as a draw
+# that failed.
+CROWN_H = max(_LEFT_BOTTOM, _LEADER_BOTTOM, _GOV_BOTTOM) + CROWN_BAND - CROWN_Y
 PANEL_LAYOUT["ic_crown_box"] = (COL_L_X, CROWN_Y, COL_W, CROWN_H)
 
 # 1542 not 1560: the last 18px of the list area is the scrollbar column.
@@ -998,6 +1241,11 @@ PLOT_LAYOUT["ic_plot_go"] = (PLOT_W - PLOT_PAD - 90,
 CELL_OVERLAP_OK = frozenset([
     # The portrait is a picture and the porthole frame that sits over it is a
     # second picture; the frame is supposed to be on top of the face.
+] + [
+    # A PARTY BLOCK MAN'S SECOND LINE is his influence or the Win button that
+    # would buy him, never both: ICUI.fill_law_block shows exactly one, and the
+    # harness's "LB_MEN men at most" check holds it to that.
+    frozenset(("ic_lb_inf_%d" % (i + 1), "ic_lb_win_%d" % (i + 1))) for i in range(LB_MEN)
 ])
 
 
@@ -1505,6 +1753,60 @@ def wedge_path(i, slug):
 
 def sigil_path(slug):
     return "%s/party_sigil_%s.png" % (PLATE_DIR, slug)
+
+
+# A PARTY NOT AT COURT (author, 2026-10-03): its sigil in grey, dimmed, for the
+# laws tab's For/Against crests. An inline [[img:]] cannot be tinted at runtime,
+# so the grey is a picture. ICUI.ABSENT_SIGIL names the same pattern.
+ABSENT_DIM = 0.6
+
+
+def absent_sigil_path(slug):
+    return "%s/party_sigil_%s_absent.png" % (PLATE_DIR, slug)
+
+
+# THE GOVERNMENT CARDS' PICTURES, UPSCALED (author, 2026-10-03, route A). CA ships
+# its Chaos Dwarf tech icons at 72px only, and the card draws them at 112 (149 at
+# 2560), where the engine's own scaling is soft. Each is written at GOV_ART_PX in
+# two Lanczos steps with an unsharp pass between. The source names are the panel
+# Lua's ICUI.GOV_ART, so the two cannot disagree on which picture a card wears.
+GOV_ART_PX = 224
+
+
+def gov_art_path(slug):
+    return "%s/gov_%s.png" % (PLATE_DIR, slug)
+
+
+def gov_art_sources(lua=None):
+    """{our path: CA's path} for every ICUI.GOV_ART entry."""
+    if lua is None:
+        lua = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                                "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+    d = re.search(r'ICUI\.LAW_ART_DIR = "([^"]+)"', lua).group(1)
+    g = re.search(r"ICUI\.GOV_ART = \{([^}]*)\}", lua)
+    return dict((gov_art_path(k), d + v + ".png")
+                for k, v in re.findall(r'(\w+) = "(\w+)"', g.group(1) if g else ""))
+
+
+def upscale_art(img, px):
+    """Twice the size by Lanczos, an unsharp pass, then down to px: the edges stay
+    hard where one straight resize from 72 leaves them soft."""
+    from PIL import Image, ImageFilter
+    mid = img.resize((img.width * 2, img.height * 2), Image.LANCZOS)
+    mid = mid.filter(ImageFilter.UnsharpMask(radius=1.2, percent=90, threshold=2))
+    return mid.resize((px, px), Image.LANCZOS)
+
+
+def grey_rows(rows):
+    """RGBA rows to luminance times ABSENT_DIM, alpha kept."""
+    out = []
+    for row in rows:
+        buf = bytearray(row)
+        for i in range(0, len(buf), 4):
+            lum = int((buf[i] * 299 + buf[i + 1] * 587 + buf[i + 2] * 114) / 1000 * ABSENT_DIM)
+            buf[i] = buf[i + 1] = buf[i + 2] = lum
+        out.append(bytes(buf))
+    return out
 
 
 def div_path(i):
@@ -2035,6 +2337,17 @@ def ziggurat_boxes():
     return out
 
 
+# THE ZIGGURAT'S TITLE (author, 2026-10-03: "a title on top of the ziggurat on
+# the office panel"), on the shrine: the cell is the shrine's lower step, the
+# heading plate hugs its words inside it (FIT_PLATES), lifted 4px off the top.
+def off_title_box():
+    zb = ziggurat_boxes()
+    return (zb[-2][0], zb[-1][1] + 4, zb[-2][2] - zb[-2][0], HEADING_H)
+
+
+PANEL_LAYOUT["ic_off_title"] = off_title_box()
+
+
 def ziggurat_pixels():
     """RGBA rows for the box: the tower filled dark, its outline in bronze.
 
@@ -2232,14 +2545,15 @@ def seat_rim_pixels(margin=RIM_MARGIN, px=RIM_PX, rgb=RIM_RGB):
     return rows
 
 
-def frame_pixels():
+def frame_pixels(px=None, band=None):
     """Square corners: a pixel takes the band of its NEAREST edge."""
+    px, band = px or FRAME_PX, band or FRAME_BAND
     rows = []
-    for y in range(FRAME_PX):
+    for y in range(px):
         row = bytearray()
-        for x in range(FRAME_PX):
-            d = min(x, y, FRAME_PX - 1 - x, FRAME_PX - 1 - y)
-            row += bytearray(FRAME_BAND[d] if d < len(FRAME_BAND) else (0, 0, 0, 0))
+        for x in range(px):
+            d = min(x, y, px - 1 - x, px - 1 - y)
+            row += bytearray(band[d] if d < len(band) else (0, 0, 0, 0))
         rows.append(bytes(row))
     return rows
 
@@ -2717,6 +3031,7 @@ def art_paths():
     out.add(PANEL_BG)
     # CA's Chaos Dwarf art, trimmed: cut from the game, not rasterised. See CHD_CUTS.
     out.update(CHD_CUTS)
+    out.update(gov_art_sources())
     # The commission's ember sprite, copied: see FIRE_FILE.
     out.add(EMBER_SPRITE)
     for slug in wedge_colours():
@@ -2774,6 +3089,20 @@ def cut_chd_art(quiet=False):
             os.makedirs(os.path.dirname(disk), exist_ok=True)
             open(disk, "wb").write(buf.getvalue())
             written.append(disk)
+    ui = os.path.join(GAME_DATA, "ui.pack")
+    for ours, theirs in sorted(gov_art_sources().items()):
+        data = None
+        for path, comp, blob in RPI.read(ui, theirs):
+            if path == theirs:
+                data = _decompress(blob) if comp else blob
+        assert data and data[:4] == b"\x89PNG", "%s is not in ui.pack" % theirs
+        img = upscale_art(Image.open(_io.BytesIO(data)).convert("RGBA"), GOV_ART_PX)
+        disk = os.path.join(ROOT, "Modding Files", "pack", *ours.split("/"))
+        buf = _io.BytesIO()
+        img.save(buf, "PNG")
+        if not os.path.isfile(disk) or open(disk, "rb").read() != buf.getvalue():
+            open(disk, "wb").write(buf.getvalue())
+            written.append(disk)
     return written
 
 
@@ -2794,12 +3123,17 @@ def build_plates():
     for p in IC.PARTIES:
         out[plate_path(p[0])] = plate_pixels(HOUSE_COLOUR[p[0]])
         out[sigil_path(p[0])] = sigil_pixels(p[0])
+        if p[0] != IC.CROWN:
+            out[absent_sigil_path(p[0])] = grey_rows(out[sigil_path(p[0])])
     # A PLATE PER ABSORBED FACTION AND NO SIGIL: its crest is that faction's
     # own flag, which ships with the faction and is resolved at runtime. The
     # plate cannot be - it is the colour behind its men's portraits and under
     # its segment on the bar, and both are picture paths.
     for slug in CONFED_SEATS:
         out[plate_path(slug)] = plate_pixels(CONFED_COLOUR[slug])
+    for side, colour in LAW_PBAR_COLOUR.items():
+        out[law_pbar_path(side)] = plate_pixels(colour)
+    out[law_pbar_path("rim")] = frame_pixels(LAW_PBAR_RIM_PX, LAW_PBAR_RIM_BAND)
     # THE WEDGES ARE NOT HERE. There are 1560 of them at 320KB apiece and this
     # function returns a dict; wedge_art() yields them one at a time instead,
     # and art_paths() is what anything needing only the NAMES should ask.
@@ -3100,6 +3434,10 @@ FIT_PLATES = {"ic_title": (TITLE_CAP, True), "ic_col_left": (HEADING_CAP, False)
               "ic_help_head": (HEADING_CAP, True)}
 for _i in range(PLOT_COLS):
     FIT_PLATES["ic_plotcat_%d" % (_i + 1)] = (HEADING_CAP, False)
+for _i in range(LAW_COLS):
+    FIT_PLATES["ic_law_head_%d" % (_i + 1)] = (HEADING_CAP, False)
+FIT_PLATES["ic_off_title"] = (HEADING_CAP, False)
+FIT_PLATES["ic_gc_now"] = (HEADING_CAP, False)
 
 
 def fit_plate(name, x, w, text_w):
@@ -3129,19 +3467,29 @@ BTN_PLATE_MARGIN = max([ly["margin"] for ly in BTN_LAYERS] or [0])
 # WHICH ROW BUTTON EACH PETITION LABEL GOES ON (check 20k): the answer a row
 # asks for on the main button, the other on the second.
 PETITION_BTN_CELL = {"accept": "ic_row_e", "back": "ic_row_e",
-                     "refuse": "ic_row_f", "peace": "ic_row_f"}
+                     "refuse": "ic_row_f", "peace": "ic_row_f",
+                     "hold": "ic_row_f"}
 
 BTN_CELLS = {"ic_card_button", "ic_row_e", "ic_row_f", "ic_plot_go",
              "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
-             "ic_fill"}
+             "ic_fill", "ic_gov_btn",
+             "ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2",
+             } | set("ic_lb_win_%d" % (i + 1) for i in range(LB_MEN))
 
 
 def usable_w(box_w, name):
     """How much of a cell a string may actually occupy."""
     if name in BTN_CELLS:
         return box_w - 2 * BTN_PLATE_MARGIN
+    if name in LAW_TAB_BUTTONS:
+        # THE SKULL CAPS (author, 2026-10-03): LABEL_TX let "Strongly favour 250"
+        # pass in a 270px tab whose bar between the caps is 178.
+        return box_w - 2 * TAB_TEXT_INSET
     if name == "ic_influence":
         return box_w - 2 * SEATS_PAD
+    if name.startswith("ic_law_head_"):
+        # THE PLATE'S ARROW ENDS AND GAP, both sides (FIT_PLATES).
+        return box_w - 2 * (HEADING_CAP + PLATE_GAP)
     return box_w - int(float(LABEL_TX.split(",")[0]))
 
 # FONT CATEGORY IS THE UNIT, NOT PIXELS. EU.fontcat() rounds a requested size
@@ -3255,6 +3603,12 @@ TEXT_STYLE = {
     "ic_plotcat_2": TITLE,
     "ic_plotcat_3": TITLE,
     "ic_plotcat_4": TITLE,
+    "ic_law_head_1": TITLE,
+    "ic_law_head_2": TITLE,
+    "ic_law_head_3": TITLE,
+    "ic_law_head_4": TITLE,
+    "ic_off_title": TITLE,
+    "ic_gc_now": TITLE,
     "ic_card_name": TITLE,
     "ic_party_name": TITLE,
     "ic_party_name2": TITLE,
@@ -3308,6 +3662,10 @@ TEXT_STYLE = {
     # so a cell added later is content unless somebody says otherwise - which is
     # the right default and was not the old one.
 }
+# THE GOVERNMENT CARDS' NAME AND HEADINGS take the panel's title size.
+for _i in range(GOV_CARDS):
+    for _k in ("name", "name2", "ruleh", "fxh", "loyh"):
+        TEXT_STYLE["ic_gc_%s_%d" % (_k, _i + 1)] = TITLE
 
 
 def style(name, **extra):
@@ -3384,8 +3742,8 @@ def _panel_order(name):
     if name in ("ic_gm_top", "ic_gm_foot", "ic_gm_col"):
         # UNDER EVERYTHING THEY HOLD, and not tier -1: see ic_gm_pins.
         return (-2, name)
-    if name in ("ic_dial_box", "ic_crown_box"):
-        # THE TWO PLATES, under everything they hold. A plate is opaque, so a
+    if name in ("ic_dial_box", "ic_crown_box") or name in LAW_PLATES:
+        # THE TWO PLATES, under everything they hold. And the laws tab's. A plate is opaque, so a
         # plate declared after its contents is a plate drawn over them - which
         # is the same fault as a crest declared before the pie, in reverse.
         tier = -1
@@ -3393,8 +3751,8 @@ def _panel_order(name):
         tier = 3
     elif name == "ic_dial_rim":
         tier = 2                # over the walls, so their tips tuck under it
-    elif name.startswith("ic_div_"):
-        tier = 1                # over every wedge, under the frame
+    elif name.startswith("ic_div_") or name == "ic_lv_barrim":
+        tier = 1                # over every wedge, under the frame; and over the vote bar's segments
     elif name.startswith("ic_mark_"):
         tier = 4                # over the tab whose skull it lights
     else:
@@ -3463,6 +3821,50 @@ def _panel():
                            layers=[_gm_full(GM_ROUND % "active"), _gm_inset(icon, 12)],
                            hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(icon, 12)]))
             continue
+        if name in LAW_PLATES:
+            # THE LAWS TAB'S PLATES, the Crown's box's layers. Not interactive.
+            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
+            continue
+        if name in ("ic_law_p_icon", "ic_lv_icon") or name.startswith(
+                ("ic_lv_sicon_", "ic_lv_seg_", "ic_lv_segc_", "ic_gc_icon_")):
+            # ONE PICTURE, set from Lua: a law's icon, a party's plate or crest.
+            panel.add(EU.C(name, w, h, layers=PORT_LAYERS))
+            continue
+        if name.startswith("ic_lv_screst_"):
+            panel.add(EU.C(name, w, h, layers=FACE_LAYERS, colour_from=FACE_COLOUR_FROM))
+            continue
+        if name.startswith("ic_law_p_bar") or name == "ic_lv_barrim":
+            # THE PANE BAR: the grey ground (abstaining), and each side its plate.
+            side = name[len("ic_law_p_bar"):]
+            if side == "rim" or name == "ic_lv_barrim":
+                o = LAW_PBAR_RIM_OUT
+                panel.add(EU.C(name, w, h, layers=[
+                    {"path": law_pbar_path("rim"), "offset": (-o, -o), "dw": 2 * o, "dh": 2 * o,
+                     "margin": len(LAW_PBAR_RIM_BAND), "colour": None, "dock": None}]))
+                continue
+            panel.add(EU.C(name, w, h, layers=[
+                {"path": law_pbar_path(side) if side else plate_path(None), "offset": (0, 0),
+                 "dw": 0, "dh": 0, "margin": 0, "colour": None, "dock": None}]))
+            continue
+        if name == "ic_lv_bar":
+            # THE BAR'S GROUND, the grey plate: the abstaining share between sides.
+            panel.add(EU.C(name, w, h, layers=[
+                {"path": plate_path(None), "offset": (0, 0), "dw": 0, "dh": 0,
+                 "margin": 0, "colour": None, "dock": None}]))
+            continue
+        if name in LAW_TAB_BUTTONS:
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=TAB_LAYERS, hover=TAB_HOVER, **TAB_TEXT))
+            continue
+        if name in LAW_PAGE_BUTTONS:
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
+            continue
+        if name.startswith("ic_gc_") and name != "ic_gc_now":
+            # THE GOVERNMENT CARDS' WORDS, centred on their card (design A).
+            panel.add(EU.C(name, w, h, align="Center", valign="Center",
+                           tx="0.00,0.00", ty=LABEL_TY, **style(name)))
+            continue
         if name.startswith("ic_mark_"):
             panel.add(EU.C(name, w, h, layers=MARK_LAYERS))
         elif name.startswith("ic_barc_"):
@@ -3481,7 +3883,7 @@ def _panel():
             panel.add(EU.C(name, w, h, layers=HEADER_LAYERS,
                            **dict(TAB_TEXT, size=COL_HDR_FONT[0],
                                   fontcat=COL_HDR_FONT[1], ty=HEADING_TY)))
-        elif name.startswith("ic_plotcat_"):
+        elif name.startswith(("ic_plotcat_", "ic_law_head_", "ic_off_title", "ic_gc_now"))                 and name != "ic_gc_nowrule":
             # THE MOVE GROUPS, on the same plate and centred on it like the
             # column titles: a left-aligned word would sit on the arrow.
             panel.add(EU.C(name, w, h, layers=HEADER_LAYERS, align="Center",
@@ -3587,12 +3989,18 @@ def _panel():
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=HELP_LAYERS, hover=HELP_HOVER,
                            tooltip="How the court works"))
-        elif name in ("ic_page_prev", "ic_page_next", "ic_fill") \
+        elif name in ("ic_page_prev", "ic_page_next", "ic_fill", "ic_gov_btn") \
                 or name.startswith("ic_act_") and name != "ic_act_hint":
             # THE ACTION BAR WEARS THE PAGER'S PLATE: same row, same height,
             # and a button beside a button of another shape reads as two bars.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
+        elif name in ("ic_lv_abs", "ic_lv_nay"):
+            # OVER ITS OWN PART OF THE BAR (author, 2026-10-03): nay ends where the
+            # bar ends; abstaining is centred, and ICUI.draw_law_bar moves it over
+            # the abstaining gap.
+            panel.add(EU.C(name, w, h, align="Right" if name == "ic_lv_nay" else "Center",
+                           valign="Center", tx="0.00,0.00", ty=LABEL_TY, **style(name)))
         elif name == "ic_act_hint":
             # CENTRED, like the buttons it stands in for: across the grid, or
             # across what the pager leaves when draw_actions moves it there.
@@ -3817,6 +4225,61 @@ def _party():
     return root
 
 
+# THE LAW CARD (spec 2026-10-02 laws section 4.1): the card plate, then two
+# swapped slots - LAW_GLOW_INDEX the chosen card's red row art, LAW_SEL_INDEX
+# the gold frame on the law in force - each MASK_NONE until the Lua paints it,
+# the trick PARTY_LAYERS plays with PARTY_SELECTED.
+LAW_GLOW = GM_ROW_ART % "selected"
+LAW_GLOW_INDEX = len(CARD_LAYERS)
+LAW_SEL_INDEX = LAW_GLOW_INDEX + 1
+LAW_LAYERS = CARD_LAYERS + [
+    {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0, "margin": (0, 16), "dock": None},
+    {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
+     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]
+LAW_TIP = ("Choose this law||Click to read it on the right, and to propose it "
+           "or go to its vote.")
+
+
+def _law():
+    root = EU.C("root", LAW_W, LAW_H)
+    card = root.add(EU.C("derpy_ic_law", LAW_W, LAW_H, layers=LAW_LAYERS,
+                         interactive=True, sound=OPENER_SOUND, tooltip=LAW_TIP))
+    for name in sorted(LAW_LAYOUT):
+        _x, _y, w, h = LAW_LAYOUT[name]
+        if name == "ic_law_icon":
+            card.add(EU.C(name, w, h, layers=PORT_LAYERS))
+        elif name == "ic_law_mark":
+            card.add(EU.C(name, w, h, layers=MARK_LAYERS))
+        else:
+            card.add(EU.C(name, w, h, align="Left", valign="Center",
+                          tx=LABEL_TX, ty=LABEL_TY, **style(name)))
+    return root
+
+
+# THE PARTY BLOCK (spec section 4.2): no plate of its own, it sits on its side.
+def _lawblock():
+    root = EU.C("root", LB_W, LB_H)
+    block = root.add(EU.C("derpy_ic_lawblock", LB_W, LB_H))
+    for name in sorted(LB_LAYOUT):
+        _x, _y, w, h = LB_LAYOUT[name]
+        if name == "ic_lb_crest" or name.startswith("ic_lb_face_"):
+            block.add(EU.C(name, w, h, layers=FACE_LAYERS, colour_from=FACE_COLOUR_FROM))
+        elif name.startswith("ic_lb_pip_"):
+            block.add(EU.C(name, w, h, layers=PORT_LAYERS))
+        elif name.startswith("ic_lb_win_"):
+            block.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
+                           layers=plate(h, "active"), hover=plate(h, "hover"),
+                           align="Center", valign="Center", tx="0.00,0.00",
+                           ty="0.00,0.00", leading=0, **style(name)))
+        elif name in ("ic_lb_total",):
+            block.add(EU.C(name, w, h, align="Right", valign="Center",
+                           tx="0.00,0.00", ty=LABEL_TY, **style(name)))
+        else:
+            block.add(EU.C(name, w, h, align="Left", valign="Center",
+                           tx=LABEL_TX, ty=LABEL_TY, **style(name)))
+    return root
+
+
 def _opener():
     root = EU.C("root", OPENER_W, OPENER_H)
     # STATIC TOOLTIP, not a runtime SetTooltipText. place_opener is re-entered
@@ -3895,6 +4358,8 @@ FILES = [
      "The Iron Court - why a province's edicts are grey, beside CA's edict stack"),
     (GM_ROW_FILE, _gm_row, "The Iron Court - one row of the Governors view's column"),
     (GM_SP_FILE, _gm_sp, "The Iron Court - an empty row that gives the list its length"),
+    ("derpy_ic_law.twui.xml", _law, "The Iron Court - one law card"),
+    ("derpy_ic_lawblock.twui.xml", _lawblock, "The Iron Court - one party on a vote"),
 ]
 
 LAYOUT_TABLES = {
@@ -3903,6 +4368,8 @@ LAYOUT_TABLES = {
     "derpy_ic_row.twui.xml": ROW_LAYOUT,
     "derpy_ic_party.twui.xml": PARTY_LAYOUT,
     "derpy_ic_plot.twui.xml": PLOT_LAYOUT,
+    "derpy_ic_law.twui.xml": LAW_LAYOUT,
+    "derpy_ic_lawblock.twui.xml": LB_LAYOUT,
     "derpy_ic_opener.twui.xml": {"derpy_ic_opener": (0, 0, OPENER_W, OPENER_H)},
     "derpy_ic_standing.twui.xml": {
         "derpy_ic_standing": (0, 0, STANDING_W, STANDING_H)},
@@ -4015,7 +4482,7 @@ SCALED_SCALARS = [
     "_CONTROL_W", "_CROWN_Y0", "_CROWN_GAP", "_CROWN_LEFT_W", "_CROWN_RIGHT_X",
     "_CROWN_RIGHT_W", "_LEADER_Y", "_PORT_W", "_PORT_H", "_LEADER_ROW_Y",
     "_LEADER_TX", "_LEADER_TW", "_LEADER_BOTTOM", "_FX_Y", "_CTL_H", "CROWN_H",
-    "_CTL_Y", "_LEFT_BOTTOM",
+    "_CTL_Y", "_LEFT_BOTTOM", "_GOV_Y", "GOV_BTN_W", "_GOV_BOTTOM",
     "ROW_W", "ROW_H", "CARDS_X", "CARDS_Y", "CARD_GAP_X", "CARD_GAP_Y", "CARD_W",
     "CARD_H", "PLOTS_X", "PLOTS_HDR_Y", "PLOTS_HDR_H", "PLOTS_Y", "PLOT_W", "PLOT_H",
     "PLOT_PAD", "PLOT_INNER_W", "PLOT_ICON_PX", "PLOT_FOOT_PAD", "PARTY_GAP_X",
@@ -4024,14 +4491,17 @@ SCALED_SCALARS = [
     "ACT_GAP", "FIRE_LIFT",
     "GM_ROW_X", "GM_ROW_Y", "GM_ROW_W", "GM_ROW_H", "GM_ROW_PITCH",
     "GM_SLIDER_W", "GM_SLIDER_GAP", "GM_HANDLE_H", "GM_LIST_W", "GM_LIST_H",
+    "LAW_W", "LAW_H", "LAWS_X", "LAWS_Y", "LAW_GAP_X", "LAW_GAP_Y", "LAW_PBAR_H",
+    "LB_W", "LB_H", "LB_X", "LB_Y", "LB_SIDE_DX", "LB_GAP",
 ]
 SCALED_PAIRS = ["PORT_BOX", "CREST_BOX"]
 SCALED_BOXES = ["PIE_BOX", "RIM_BOX", "DIAL_BOX", "COURT_SECTION_XY"]
 SCALED_BOX_TABLES = ["PANEL_LAYOUT", "ROW_LAYOUT", "PLOT_LAYOUT", "CARD_LAYOUT",
-                     "PARTY_LAYOUT", "ACT_PAGED", "GM_ROW_LAYOUT"]
+                     "PARTY_LAYOUT", "ACT_PAGED", "GM_ROW_LAYOUT", "LAW_LAYOUT",
+                     "LB_LAYOUT"]
 # PER POINT, not rebuilt from the scaled card size: a card size rounded down
 # once and multiplied by five ran a tier 2-4px past its column at some widths.
-SCALED_GRIDS = ["CARD_GRID", "PARTY_GRID"]
+SCALED_GRIDS = ["CARD_GRID", "PARTY_GRID", "LAW_GRID", "LB_GRID"]
 FONT_GLOBALS = ["TITLE", "BODY", "PANEL_TITLE", "COL_HDR_FONT", "TEXT_STYLE",
                 "TAB_TEXT"]
 # NOT GEOMETRY: counts, source-art sizes, the art generators' own numbers, the
@@ -4085,6 +4555,11 @@ NOT_GEOMETRY = [
     # The ziggurat's art: ziggurat_pixels builds it at 1920, and its box scales.
     "ZIG_PAD_X", "ZIG_PAD_Y", "ZIG_FILL", "ZIG_RIM", "ZIG_RIM_PX", "ZIG_SHRINE",
     "_i",       # the move-category heading loop's counter, left behind by it
+    # THE LAWS TAB: counts, and the card's swapped slots.
+    "LAW_COLS", "LAW_ROWS", "LAW_LINES", "LAW_SEGS", "LB_PER_SIDE", "LB_MEN",
+    "GOV_CARDS", "GC_RULE_LINES", "GC_LOY_LINES", "GOV_ART_PX", "LAW_PBAR_COLOUR",
+    "LAW_PBAR_RIM_BAND", "LAW_PBAR_RIM_OUT", "LAW_PBAR_RIM_PX",
+    "LAW_LAYERS", "LAW_GLOW_INDEX", "LAW_SEL_INDEX",
     "FRAME_INK",
 ]
 
@@ -5900,15 +6375,21 @@ def check():
             # They sit where the row strip sits because that is where a heading
             # belongs, and the court is not one of the views they draw on.
             continue
-        if name == "ic_zig_bg":
-            # THE OFFICES TAB'S, behind its cards. The harness holds it hidden
-            # on every other view ("...no other view shows it").
+        if name in ("ic_zig_bg", "ic_off_title"):
+            # THE OFFICES TAB'S, behind its cards, and the title on its shrine.
+            # The harness holds both hidden on every other view ("...no other
+            # view shows it", "...on the offices tab alone").
             continue
         if name.startswith("ic_help_") and name != "ic_help":
             # THE HELP PAGE, which is a view of its own and draws no pie. The
             # harness holds every one of these hidden on the Court tab
             # ("...a second press or a tab leaves it"), which is the fact this
             # exemption rests on.
+            continue
+        if name.startswith(("ic_law_", "ic_lv_", "ic_gc_")):
+            # THE LAWS TAB (spec 2026-10-02 laws), a view of its own that draws
+            # no pie. The harness holds every one hidden off the laws view. And
+            # the government cards, the doctrine picker's, which hides the pie.
             continue
         if x < px0 + pw and x + w > px0 and y < py0 + ph and y + h > py0:
             out.append("%s at %d,%d %dx%d is under the pie at %d,%d %dx%d"
@@ -6108,7 +6589,14 @@ def check():
                 _icons["%s[%d]" % (_t, _k)] = _p
         _via = ["ICUI." + _n for _n in _icons if "[" not in _n] + [
             "ICUI." + _t for _t in re.findall(r'ICUI\.(\w+_ICONS)\s*=', _uisrc)] + [
-            "ICUI.crest(", "ICUI.help_icon("]
+            "ICUI.crest(", "ICUI.help_icon(",
+            # A government's picture is IC.GOVS[slug].icon, which its faction
+            # bundle also wears: gen_iron_court's check 4b holds that path to a
+            # pack and check_governments holds the two to one picture.
+            "ICUI.gov_icon(",
+            # A law's party crest: ICUI.crest, or the grey sigil whose pattern
+            # check_law_art holds to absent_sigil_path and build_plates writes.
+            "ICUI.law_crest("]
         _inline = set()
         for _ln in _code:
             for _p in re.findall(r"\[\[img:([^\]]+)\]\]", _ln):
@@ -6557,6 +7045,8 @@ def check():
     #      could refuse nothing. This is the call, and it covers the office and
     #      party cards too, neither of which ever had one.
     out.extend(check_card_cells(CARD_LAYOUT, CARD_W, CARD_H, "office card"))
+    out.extend(check_card_cells(LAW_LAYOUT, LAW_W, LAW_H, "law card"))
+    out.extend(check_card_cells(LB_LAYOUT, LB_W, LB_H, "party block"))
     out.extend(check_card_cells(PARTY_LAYOUT, PARTY_W, PARTY_H, "party card"))
     out.extend(check_plot_cells())
 
@@ -6891,6 +7381,7 @@ def check():
             _bar = dict((_k, [_v]) for _k, _v in _act.items())
             _bar["ic_act_hint"] = _hints
             _bar["ic_tab_petitions"] = ["Petitions"]
+            _bar["ic_tab_laws"] = ["Laws"]
             _bar["ic_fill"] = [_fill.group(1)] if _fill else []
             if not _fill:
                 out.append("the panel Lua declares no ICUI.FILL_LABEL, so the "
@@ -7465,9 +7956,18 @@ def check():
         out.append("cannot read the panel Lua to check its image cells: %r"
                    % (exc,))
     else:
-        _painted = set(re.findall(
-            r'ICUI\.set_(?:face|crest|plate)\(\s*[\w.]+\s*,\s*"([^"]+)"',
-            _uisrc2))
+        # A LOOPED NAME - "ic_lb_face_" .. k, or string.format("ic_x_%d", i) -
+        # is a FAMILY: every declared cell with that prefix and a number after
+        # it is painted, and a prefix that declares none is the fault itself.
+        _painted = set()
+        _families = set()
+        for _pm in re.finditer(
+                r'ICUI\.set_(?:face|crest|plate)\(\s*[\w.]+\s*,\s*'
+                r'(?:string\.format\(\s*)?"([^"]+)"(\s*\.\.)?', _uisrc2):
+            if _pm.group(2) or "%" in _pm.group(1):
+                _families.add(_pm.group(1).split("%")[0])
+            else:
+                _painted.add(_pm.group(1))
         if not _painted:
             out.append("check 24 found no painted cells at all, so it is "
                        "checking nothing")
@@ -7484,6 +7984,13 @@ def check():
                 if _cname:
                     _has_images[_cname.group(1)] = ("<componentimages"
                                                     in _chunk)
+        for _fam in sorted(_families):
+            _kin = [_n for _n in _has_images
+                    if _n.startswith(_fam) and _n[len(_fam):].isdigit()]
+            if not _kin:
+                out.append("the panel paints %s<n> and no built file declares "
+                           "one" % _fam)
+            _painted.update(_kin)
         for _name in sorted(_painted):
             if _name not in _has_images:
                 out.append("the panel paints %s and no built file declares it"
@@ -7615,6 +8122,216 @@ def check():
                 out.append("the model Lua has a background with no trait "
                            "behind it: %s" % _s)
 
+    out += check_law_text()
+    return out
+
+
+_MEASURE_FONTS = {}
+
+
+def measure_text(text, px):
+    """20c's measure, for checks outside check(): Segoe UI Black at px, markup
+    charged as it draws (an inline picture a line box square, a colour tag
+    nothing), scaled by GAME_FONT_WIDER to the engine."""
+    from PIL import Image, ImageDraw, ImageFont
+    if px not in _MEASURE_FONTS:
+        path = None
+        for cand in ("seguibl.ttf", "segoeui.ttf", "arial.ttf"):
+            p = os.path.join(os.environ.get("WINDIR", ""), "Fonts", cand)
+            if os.path.isfile(p):
+                path = p
+                break
+        _MEASURE_FONTS[px] = ImageFont.truetype(path, px) if path else None
+    font = _MEASURE_FONTS[px]
+    if font is None:
+        return 0
+    shown = re.sub(r"\[\[/?(img|col)[^\]]*\]\]", "", text)
+    pics = len(re.findall(r"\[\[img:", text))
+    width = ImageDraw.Draw(Image.new("RGB", (8, 8))).textlength(shown, font=font)
+    asc, desc = font.getmetrics()
+    return (width + pics * (asc + desc)) * GAME_FONT_WIDER
+
+
+# 20k. EVERY STRING THE LAWS TAB CAN DRAW FITS ITS CELL (plan 2026-10-02 laws,
+#      Task 10). The preview drew the card's effect lines leaving the card and a
+#      man's name running into the next face, and nothing here had measured
+#      either. The words come out of the generator's own loc and the model's
+#      own tables; the panel's format strings are copied, so each copy is first
+#      asserted to be IN the panel Lua - a reworded one fails here rather than
+#      being measured stale. The one string with no source is a man's forename,
+#      which is the game's loc: _LONG_FORE is the longest in the demo roster.
+_LONG_FORE = "Mulagunnar"
+
+
+def check_law_text():
+    out = []
+    mod = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod")
+    ui = io.open(os.path.join(mod, "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+    model = io.open(os.path.join(mod, "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+
+    def need(*fmts):
+        for f in fmts:
+            if f not in ui:
+                out.append("20k measures %r and the panel Lua no longer writes it" % f)
+
+    # NO FONT, NO MEASURE: measure_text answers 0 and every string would "fit".
+    if measure_text("M", 18) == 0:
+        out.append("20k cannot measure: no Segoe UI Black, Segoe UI or Arial in the Windows fonts")
+    loc = dict((r["key"], r["text"]) for r in IC.build()["loc"])
+    pic = "[[img:x]][[/img]]"
+    names, cats = {}, {}
+    for cat, _n, _i, options in IC.LAWS:
+        cats[cat] = loc["derpy_ic_law_cat_" + cat]
+        for o in options:
+            names[(cat, o[0])] = loc["derpy_ic_law_name_%s_%s" % (cat, o[0])]
+    shorts = dict((k, [p.strip() for p in loc.get("derpy_ic_effects_derpy_ic_law_%s_%s" % k,
+                                                       "").split(",") if p.strip()])
+                  for k in names)
+    fx = [loc.get("derpy_ic_law_fx%d_%s_%s" % (i, c, o), "") for (c, o) in names
+          for i in (1, 2, 3)]
+    heads = re.findall(r'"([^"]+)"', re.search(r"IC\.NAME_HEADS\s*=\s*\{(.*?)\}",
+                                                model, re.S).group(1))
+    tails = re.findall(r'"([^"]+)"', re.search(r"IC\.NAME_TAILS\s*=\s*\{(.*?)\n\}",
+                                                model, re.S).group(1))
+    party = max(("%s of %s" % (h, t) for h in heads for t in tails), key=len)
+    verdicts = re.findall(r'\] = "([^"]+)"', re.search(r"ICUI\.LAW_VERDICT = \{(.*?)\n\}",
+                                                       ui, re.S).group(1))
+    levels = re.findall(r'"([^"]+)"', re.search(r"ICUI\.LAW_LEVEL = \{([^}]*)\}",
+                                                 ui).group(1))
+    tune = dict((k, int(v)) for k, v in re.findall(
+        r"(law_\w+_cost|law_vote_turns)\s*=\s*(\d+)", model))
+    push = [int(n) for n in re.findall(r"\d+", re.search(
+        r"law_push_cost\s*=\s*\{([^}]*)\}", model).group(1))]
+    big = max(push + [tune["law_overrule_cost"], tune["law_propose_cost"]])
+
+    need("Vote open: %d turn%s", "The old way", "For [[img:%s]][[/img]]   Against [[img:%s]][[/img]]",
+         "In force: %s.", "None. This is the old way.", " (absent)",
+         "[[img:%s]][[/img]]%s: %s", "and %d more parties",
+         "Aye %d%%  -  Nay %d%%  -  %d%% would abstain", "Nobody at court has influence to vote.",
+         "Vote open: %s.",
+         "Proposing costs [[img:%s]][[/img]]%d of your men's influence.",
+         "Go to the vote", "Proposed by ", "%d turn%s left", "Back to the laws",
+         "Aye %d%%  (%d)", "Abstaining %d%%", "Nay %d%%  (%d)", "The Crown's side",
+         "and %d more parties, %d influence", "Won over by you", "Votes for ",
+         "enacting it", "keeping the law in force", "%d influence", "Win: [[img:%s]][[/img]]%d",
+         "+%d more", " (paid)", "%s [[img:%s]][[/img]]%d", "Pass now", "Fail now",
+         "%d parties, %d influence", ". A party with no stake votes with you only from ")
+    every = list(names.values())
+    # SPLIT OVER TWO CELLS by ICUI.fit_two / fit_lines: as much as the first
+    # holds, the rest on the second, which must hold it.
+    two = {"ic_law_name": every,
+           "ic_law_p_fx1": fx + ["None. This is the old way."]}
+    strings = {
+        "ic_law_fx1": [s for v in shorts.values() for s in v] + ["No effects"],
+        "ic_law_foot": ["In force", "The old way", "Vote open: 99 turns",
+                        "For %s   Against %s" % (pic, pic)],
+        "ic_law_head_1": [c.upper() for c in cats.values()],
+        "ic_law_p_name": every,
+        "ic_law_p_sub": ["In force: %s." % n for n in every],
+        "ic_law_p_for": [pic + party + " (absent)"],
+        "ic_law_p_now": ["Aye 100%  -  Nay 100%  -  100% would abstain",
+                         "Nobody at court has influence to vote."],
+        "ic_law_p_line1": ["%s%s: %s" % (pic, party, v) for v in verdicts]
+                          + ["and 99 more parties"],
+        "ic_law_p_price": ["Vote open: %s." % n for n in every]
+                          + ["Proposing costs %s%d of your men's influence."
+                             % (pic, tune["law_propose_cost"])],
+        "ic_law_p_btn": ["Propose", "Go to the vote", "Short %d" % big, "Take a side",
+                         "Laws are off", "Vote open", "In force", "Not now"],
+        "ic_lv_name": every,
+        "ic_lv_fx": [", ".join(v) for v in shorts.values()],
+        "ic_lv_by": ["Proposed by " + party, "Proposed by you"],
+        "ic_lv_turns": ["99 turns left"],
+        "ic_lv_back": ["Back to the laws"],
+        "ic_lv_aye": ["Aye 100%  (99999)"], "ic_lv_abs": ["Abstaining 100%"],
+        "ic_lv_nay": ["Nay 100%  (99999)"],
+        "ic_lv_shead_1": ["Enact " + n for n in every], "ic_lv_shead_2": ["Keep " + n for n in every],
+        "ic_lv_stag_1": ["The Crown's side"],
+        "ic_lv_smore_1": ["and 9 more parties, 99999 influence"],
+        "ic_lv_abstain": ["Abstaining: %s. A party with no stake votes with you only from %d loyalty."
+                          % (w, 100) for w in ("%s (99999), %s (99999)" % (party, party),
+                                               "9 parties, 99999 influence")],
+        "ic_lv_st_1": ["Support", "Oppose", "Abstain"],
+        "ic_lv_sideh": ["Your side"], "ic_lv_supph": ["Your support"],
+        "ic_lv_overh": ["Decide it now"],
+        "ic_lv_lvl_1": ["%s (paid)" % b for b in ("Slightly favour", "Strongly favour", "Fully push")]
+                       + ["%s %s%d" % (b, pic, big) for b in ("Slightly favour", "Strongly favour",
+                                                              "Fully push")],
+        "ic_lv_over_1": ["%s %s%d" % (w, pic, tune["law_overrule_cost"]) for w in ("Pass now", "Fail now")],
+        "ic_lb_name": [party],
+        "ic_lb_level": ["Won over by you", "Votes for enacting it",
+                        "Votes for keeping the law in force"]
+                       + ["%s %s  x9.9" % (l[0].upper() + l[1:], what) for l in levels
+                          for what in ("enacting it", "keeping the law in force")],
+        "ic_lb_man_1": [_LONG_FORE],
+        "ic_lb_inf_1": ["9999 influence"],
+        "ic_lb_win_1": ["Win: %s%d" % (pic, 9999)],
+        "ic_lb_more": ["+99 more"], "ic_lb_total": ["99999"],
+    }
+    # THE GOVERNMENT CARDS (2026-10-03, design A): every government's words in
+    # its card's cells, and the refusals the button can wear.
+    govs = re.findall(r'"(\w+)"', re.search(r"IC\.GOV_ORDER = \{([^}]*)\}", model).group(1))
+    gname = [loc["derpy_ic_doctrine_name_" + g] for g in govs]
+    grule = [loc["derpy_ic_doctrine_rule_" + g] for g in govs]
+    gfx = [loc["derpy_ic_effects_derpy_ic_doctrine_" + g] for g in govs]
+    gtune = dict((k, int(v)) for k, v in re.findall(r"(gov_force_\w+)\s*=\s*(-?\d+)", model))
+    need("Choose  [[img:%s]][[/img]]%d", 'string.format("%+d  ", h[2])', "Nobody at court",
+         "ICUI.cut_text(c, name, room)",
+         '"NOW: "', '"Its rule"', '"Effect"', '"Loyalty"')
+    strings.update({
+        # THE OFFICES TAB'S TITLE ON THE ZIGGURAT, the panel's own words.
+        "ic_off_title": [re.search(r'ICUI\.OFFICES_TITLE = "([^"]+)"', ui).group(1)],
+        "ic_gc_now": ["NOW: " + n.upper() for n in gname],
+        "ic_gc_nowrule": ["%s  %s" % (r, f) for r, f in zip(grule, gfx)],
+        "ic_gc_ruleh_1": ["Its rule"], "ic_gc_fxh_1": ["Effect"], "ic_gc_loyh_1": ["Loyalty"],
+        "ic_gc_fx_1": gfx + ["None"],
+        # THE NAME IS CUT (ICUI.cut_text), never the number: what must fit is
+        # the number, the crest and the first word with its three dots.
+        "ic_gc_loy_1_1": ["%+d  %s%s..." % (gtune[k], pic, party.split()[0])
+                          for k in ("gov_force_gain", "gov_force_loss")] + ["Nobody at court"],
+        "ic_gc_btn_1": ["Choose  %s%d" % (pic, gtune["gov_force_cost"]), "Running 99", "Rest 99",
+                        "Rebel", "Player", "Wait 99", "Short", "No"],
+    })
+    two["ic_gc_name_1"] = gname
+    # SPLIT OVER GC_RULE_LINES CELLS by ICUI.fit_lines: greedy, as the Lua does.
+    name = "ic_gc_rule_1_1"
+    w, px = usable_w(PANEL_LAYOUT[name][2], name), TEXT_STYLE.get(name, BODY)[0]
+    for t in grule:
+        words, lines = t.split(), 0
+        while words:
+            i = len(words)
+            while i > 1 and measure_text(" ".join(words[:i]), px) > w:
+                i -= 1
+            words, lines = words[i:], lines + 1
+        if lines > GC_RULE_LINES:
+            out.append("%s would clip: %r needs %d lines at %dpx in %dpx, it has %d"
+                       % (name, t, lines, px, w, GC_RULE_LINES))
+    for name, texts in sorted(strings.items()):
+        box = PANEL_LAYOUT.get(name) or LAW_LAYOUT.get(name) or LB_LAYOUT.get(name)
+        if not box:
+            out.append("20k measures %s and no layout holds it" % name)
+            continue
+        w = usable_w(box[2], name)
+        px = TEXT_STYLE.get(name, BODY)[0]
+        for t in texts:
+            got = measure_text(t, px)
+            if got > w:
+                out.append("%s would clip: %r measures %.0fpx at %dpx in a %dpx cell"
+                           % (name, t, got, px, w))
+    for name, texts in sorted(two.items()):
+        box = PANEL_LAYOUT.get(name) or LAW_LAYOUT.get(name)
+        w = usable_w(box[2], name)
+        px = TEXT_STYLE.get(name, BODY)[0]
+        for t in texts:
+            words = t.split()
+            fits = not words
+            for i in range(len(words), 0, -1):
+                if measure_text(" ".join(words[:i]), px) <= w:
+                    fits = measure_text(" ".join(words[i:]), px) <= w
+                    break
+            if not fits:
+                out.append("%s would clip over its two lines: %r at %dpx in %dpx"
+                           % (name, t, px, w))
     return out
 
 
@@ -7755,6 +8472,30 @@ def selftest_compact():
 def selftest():
     selftest_scale()
     selftest_compact()
+    # THE LAW CHECKS SAY SO WHEN THEY MEASURED NOTHING, and the bar check fires.
+    _fonts = dict(_MEASURE_FONTS)
+    _MEASURE_FONTS.update((px, None) for px in range(8, 40))
+    _got = check_law_text()
+    _MEASURE_FONTS.clear()
+    _MEASURE_FONTS.update(_fonts)
+    assert any("cannot measure" in e for e in _got), "20k passed with no font"
+    global GAME_DATA, LAW_SEGS
+    _data, GAME_DATA = GAME_DATA, os.path.join("Z:" + os.sep, "nowhere")
+    _got = check_law_art()
+    GAME_DATA = _data
+    assert any("no ui pack" in e for e in _got), "the law art check passed with no ui pack"
+    _ui = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                            "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+    _got = check_law_art(_ui.replace('legion = "military_24", ', ''))
+    assert any("government legion" in e for e in _got), "a government with no card picture went unreported"
+    _got = check_law_art(_ui.replace('ICUI.GOV_ART_FILE = "ui/derpy_ic/gov_%s.png"',
+                                     'ICUI.GOV_ART_FILE = "ui/derpy_ic/gov_%s_x.png"'))
+    assert any("GOV_ART_FILE" in e for e in _got), "a card picture path the generator never writes went unreported"
+    _segs, LAW_SEGS = LAW_SEGS, 10
+    _got = check_law_bar()
+    LAW_SEGS = _segs
+    assert _got, "a support bar too short for the largest court went unreported"
+    assert not check_law_bar(), check_law_bar()
     # THE EMBER RULE FIRES. A particle named anything but template_particle is a
     # null the emitter dereferences on panel open, so the check has to be seen
     # catching one, and seen passing the shipped file.
@@ -8346,6 +9087,82 @@ def selftest():
              len(guids)))
 
 
+def check_law_art(lua=None):
+    """ICUI.LAW_ART names one picture for every law category and option, no
+    stale key, and every picture is in CA's installed ui packs - a path that
+    resolves to nothing draws a blank card with no log line."""
+    import read_pack_index as RPI
+    if lua is None:
+        lua = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                                "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+    out = []
+    d = re.search(r'ICUI\.LAW_ART_DIR = "([^"]+)"', lua)
+    t = re.search(r"ICUI\.LAW_ART = \{(.*?)\n\}", lua, re.S)
+    if not d or not t:
+        return ["no ICUI.LAW_ART_DIR / ICUI.LAW_ART in the panel Lua"]
+    _gaf = re.search(r'ICUI\.GOV_ART_FILE = "([^"]+)"', lua)
+    if not _gaf or _gaf.group(1) != gov_art_path("%s"):
+        out.append("ICUI.GOV_ART_FILE is %r, not the %r the upscaled pictures are written to"
+                   % (_gaf and _gaf.group(1), gov_art_path("%s")))
+    _abs = re.search(r'ICUI\.ABSENT_SIGIL = "([^"]+)"', lua)
+    if not _abs or _abs.group(1) != absent_sigil_path("%s"):
+        out.append("ICUI.ABSENT_SIGIL is %r, not the %r the grey sigils are written to"
+                   % (_abs and _abs.group(1), absent_sigil_path("%s")))
+    art = dict(re.findall(r'\[?"?([\w.]+)"?\]? = "(\w+)"', t.group(1)))
+    want = set()
+    for cat, _name, _icon, options in IC.LAWS:
+        want.update("%s.%s" % (cat, o[0]) for o in options)
+    out += ["no panel picture for law %s" % k for k in sorted(want - set(art))]
+    out += ["ICUI.LAW_ART names %s, which is no law" % k for k in sorted(set(art) - want)]
+    # THE GOVERNMENT CARDS' PICTURES, out of the same folder (2026-10-03).
+    model = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                              "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+    govs = set(re.findall(r'"(\w+)"', re.search(r"IC\.GOV_ORDER = \{([^}]*)\}", model).group(1)))
+    g = re.search(r"ICUI\.GOV_ART = \{([^}]*)\}", lua)
+    gart = dict(re.findall(r'(\w+) = "(\w+)"', g.group(1))) if g else {}
+    out += ["no card picture for government %s" % k for k in sorted(govs - set(gart))]
+    out += ["ICUI.GOV_ART names %s, which is no government" % k for k in sorted(set(gart) - govs)]
+    art.update(("gov." + k, v) for k, v in gart.items())
+    have, found = set(), False
+    for name in ("ui.pack", "ui2.pack", "ui3.pack", "ui_3.pack"):
+        p = os.path.join(GAME_DATA, name)
+        if os.path.isfile(p):
+            found = True
+            have.update(RPI.paths(p))
+    if not found:
+        return out + ["cannot check the law pictures: no ui pack in %s" % GAME_DATA]
+    out += ["law picture %s is in no ui pack" % (d.group(1) + v + ".png")
+            for k, v in sorted(art.items()) if d.group(1) + v + ".png" not in have]
+    return out
+
+
+def check_law_bar():
+    """The support bar has a slot for every group the largest court can field:
+    the Crown's men on one side, and each rival party's line plus the men won
+    away from it. A group past the last slot is not drawn and the bar comes up
+    short with no log line."""
+    model = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                              "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+    mct = open(os.path.join(ROOT, "Modding Files", "pack", "script", "mct", "settings",
+                            "derpy_iron_court.lua"), encoding="utf-8").read()
+    most = [int(v) for v in re.findall(r"rivals_max\s*=\s*(\d+)", model)]
+    slider = re.search(r'\{"rivals_max", "[^"]*", \d+, \d+, (\d+),', mct)
+    if not most or not slider:
+        return ["cannot read the largest rivals_max out of the model and the MCT slider"]
+    rivals = max(most + [int(slider.group(1))])
+    order = sorted(PANEL_LAYOUT, key=_panel_order)
+    if order.index("ic_law_p_barrim") < max(order.index("ic_law_p_baraye"),
+                                             order.index("ic_law_p_barnay")):
+        return ["the support bar's border is declared before a side, which draws over it"]
+    segs = [n for n in order if n.startswith(("ic_lv_seg_", "ic_lv_segc_"))]
+    if order.index("ic_lv_barrim") < max(order.index(n) for n in segs):
+        return ["the vote bar's border is declared before a segment, which draws over it"]
+    if LAW_SEGS < 1 + 2 * rivals:
+        return ["the support bar has %d slots and a court of %d rivals can field %d groups"
+                % (LAW_SEGS, rivals, 1 + 2 * rivals)]
+    return []
+
+
 def main(argv):
     if "--selftest" in argv:
         selftest()
@@ -8371,6 +9188,8 @@ def main(argv):
     problems += ["at 1600x900: " + p for p in at_box(1600).check()]
     problems += ["at 2560x1440: " + p for p in at_box(2560).check()]
     problems += check_scale_sweep()
+    problems += check_law_art()
+    problems += check_law_bar()
     for problem in problems:
         sys.stderr.write("FAIL %s\n" % problem)
     if problems:

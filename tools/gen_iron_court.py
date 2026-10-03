@@ -52,8 +52,13 @@ E_GDP = ("wh_main_effect_economy_gdp_mod_all",
 # 2026-09-27 section 7). Vanilla's province payloads scope it province_to_*.
 E_GDP_PROVINCE = ("wh_main_effect_economy_gdp_mod_all",
                   "province_to_region_own", True)
-E_GROWTH = ("wh_main_effect_province_growth_events",
-            "faction_to_province_own", True)
+# NO GROWTH (author, 2026-10-03: "growth is useless for chaos dwarf"). Its five
+# uses became Conclave Influence (the High Priest, the two end bands), CA's
+# slave-driven Control (a Priesthood governor) and Workload (every governor).
+# THE SLAVES' CONTROL: CA's own effect, on its Dark Elf slave bundles at
+# faction_to_province_own, is_positive_value_good True.
+E_SLAVE_ORDER = ("wh3_dlc23_effect_public_order_slaves",
+                 "faction_to_province_own", True)
 E_UPKEEP = ("wh_main_effect_force_all_campaign_upkeep",
             "faction_to_force_own", False)
 E_REPLEN = ("wh_main_effect_force_all_campaign_replenishment_rate",
@@ -98,6 +103,54 @@ E_ENVOY_RAW = ("wh3_dlc23_pooled_resource_chd_raw_material_efficiency",
                "province_to_province_own_unseen", True)
 E_ENVOY_LAB = ("wh3_dlc23_pooled_resource_chd_increased_labour_loss",
                "province_to_province_own_unseen", False)
+# THE LAWS (spec 2026-10-02 laws section 2). Every pair below ships in CA's
+# junction tables and every flag matches CA's, read 2026-10-02.
+E_LAW_CAPTIVES = ("wh_main_effect_force_all_campaign_captives", "faction_to_force_own_unseen", True)
+E_LAW_RUSH = ("wh3_dlc23_effect_rush_construction_cost", "faction_to_province_own", False)
+E_LAW_LAB_LD = ("wh3_dlc23_effect_force_stat_leadership_chd_labourers", "faction_to_force_own", True)
+E_LAW_LAB_UPKEEP = ("wh3_dlc23_effect_upkeep_chd_labourers", "faction_to_force_own", False)
+E_LAW_LAB_RANK = ("wh3_dlc23_effect_recruitment_rank_chd_labourers", "faction_to_force_own", True)
+E_LAW_RAW_USED = ("wh3_dlc23_pooled_resources_chd_raw_materials_consumed_mod", "faction_to_province_own", False)
+E_LAW_RAZE = ("wh_main_effect_force_all_campaign_razing_income", "faction_to_faction_own_unseen", True)
+E_LAW_SACK = ("wh_main_effect_force_all_campaign_sacking_income", "faction_to_faction_own_unseen", True)
+E_LAW_CONVOYS = ("wh3_dlc23_effect_technology_chd_convoy_mod_active_convoys", "faction_to_faction_own_unseen", True)
+E_LAW_AMBUSH = ("wh3_main_effect_caravan_scouts", "faction_to_character_own_unseen", False)
+E_LAW_VASSAL = ("wh_main_effect_modify_vassal_income", "faction_to_faction_own_unseen", True)
+E_LAW_TARIFF = ("wh3_dlc23_effect_chd_convoy_trade_tariff_scripted", "faction_to_faction_own_unseen", True)
+E_LAW_REFINERY = ("wh3_dlc23_effect_economy_gpd_manufacture", "faction_to_region_own_unseen", True)
+E_LAW_CARGO_VALUE = ("wh3_main_effect_caravan_cargo_value", "faction_to_character_own_unseen", True)
+E_LAW_MINES = ("wh_main_effect_technology_economy_gdp_mod_mining_dwarfs", "faction_to_region_own_unseen", True)
+E_LAW_GOODS = ("wh_main_effect_economy_trade_good_commodity_mod", "faction_to_faction_own_unseen", True)
+E_LAW_CARGO_CAP = ("wh3_main_effect_caravan_cargo_capacity", "faction_to_character_own_unseen", True)
+E_LAW_OVR_RANK = ("wh3_dlc23_faction_xp_increase_generals_chd_convoy_overseers", "faction_to_faction_own", True)
+E_LAW_OVR_XP = ("wh3_dlc23_effect_force_army_campaign_experience_chd_convoy_overseer_per_turn", "faction_to_character_own_unseen", True)
+E_LAW_CHD_DIPLO = ("wh3_dlc23_faction_political_diplomacy_mod_chaos_dwarfs", "faction_to_faction_own_unseen", True)
+E_LAW_INFLUENCE = ("wh3_dlc23_effect_pooled_resource_conclave_influence_mod_all_sources", "faction_to_faction_own_unseen", True)
+E_LAW_CORRUPT = ("wh3_main_effect_corruption_chaos_adjacent_provinces", "faction_to_province_own", True)
+E_LAW_TOZ_SEAT = ("wh3_dlc23_effect_toz_chd_conclave_influence_spent_slot_claimed_mod", "faction_to_faction_own_unseen", False)
+E_LAW_WOM = ("wh3_dlc23_effect_ability_wom_cost_pct_lore_of_hashut_spells", "faction_to_force_own", False)
+E_LAW_COOLDOWN = ("wh3_dlc23_effect_ability_cooldown_lore_of_hashut", "faction_to_force_own", False)
+E_LAW_MISCAST = ("wh_main_effect_character_stat_miscast", "faction_to_character_own", False)
+E_LAW_KDAAI = ("wh3_dlc23_effect_physical_resist_chd_kdaai", "faction_to_force_own_unseen", True)
+E_LAW_TEMPLE_TIME = ("wh3_dlc23_effect_building_construction_time_mod_chd_temple_of_hashut", "faction_to_region_own_unseen", False)
+E_LAW_HF_COST = ("wh3_dlc23_chd_ritual_unit_cap_cost_mod_all_toz", "faction_to_faction_own_unseen", False)
+E_LAW_HF_CAP = ("wh3_dlc23_effect_chd_hellforge_cap_mod_all", "faction_to_faction_own_unseen", True)
+E_LAW_INF_COST = ("wh3_dlc23_effect_force_recruit_cost_chd_chaos_dwarf_infantry", "faction_to_force_own_unseen", False)
+E_LAW_INF_RANK = ("wh3_dlc23_effect_force_recruit_rank_chd_chaos_dwarf_infantry", "faction_to_force_own_unseen", True)
+E_LAW_ART_UPKEEP = ("wh3_dlc23_effect_upkeep_chd_artillery_warmachines", "faction_to_force_own", False)
+E_LAW_DWARF_XP = ("wh3_dlc23_effect_xp_gain_increase_dwarfs", "faction_to_force_own", True)
+E_LAW_HOB_UPKEEP = ("wh3_dlc23_effect_upkeep_cost_reduction_chd_labourer_hobgoblin_infantry", "faction_to_force_own_unseen", False)
+E_LAW_ART_EXPL = ("wh3_dlc23_effect_force_stat_explosive_damage_chd_artillery", "faction_to_force_own_unseen", True)
+E_LAW_ART_RANGE = ("wh3_dlc23_effect_force_stat_range_chd_artillery", "faction_to_force_own_unseen", True)
+E_LAW_RANGED_COST = ("wh3_dlc23_effect_recruitment_cost_chd_ranged", "faction_to_province_own", False)
+LAW_EFFECTS = [E_LAW_CAPTIVES, E_LAW_RUSH, E_LAW_LAB_LD, E_LAW_LAB_UPKEEP, E_LAW_LAB_RANK,
+               E_LAW_RAW_USED, E_LAW_RAZE, E_LAW_SACK, E_LAW_CONVOYS, E_LAW_AMBUSH, E_LAW_VASSAL,
+               E_LAW_TARIFF, E_LAW_REFINERY, E_LAW_CARGO_VALUE, E_LAW_MINES, E_LAW_GOODS,
+               E_LAW_CARGO_CAP, E_LAW_OVR_RANK, E_LAW_OVR_XP, E_LAW_CHD_DIPLO, E_LAW_INFLUENCE,
+               E_LAW_CORRUPT, E_LAW_TOZ_SEAT, E_LAW_WOM, E_LAW_COOLDOWN, E_LAW_MISCAST, E_LAW_KDAAI,
+               E_LAW_TEMPLE_TIME, E_LAW_HF_COST, E_LAW_HF_CAP, E_LAW_INF_COST, E_LAW_INF_RANK,
+               E_LAW_ART_UPKEEP, E_LAW_DWARF_XP, E_LAW_HOB_UPKEEP, E_LAW_ART_EXPL, E_LAW_ART_RANGE,
+               E_LAW_RANGED_COST]
 ENVOY_EFFECT = {"ctl": E_ENVOY_CTL, "arm": E_ENVOY_ARM,
                 "raw": E_ENVOY_RAW, "lab": E_ENVOY_LAB}
 ENVOY_BLURB = {
@@ -115,11 +168,11 @@ BORROWED_SCOPES = {
         "spec 2026-09-29 section 6: the edict scope, borrowed for one province",
 }
 
-ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_GROWTH,
+ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
                E_UPKEEP, E_REPLEN, E_PB_LABOUR,
                E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID,
                E_HOBGOBLIN,
-               E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB]
+               E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB] + LAW_EFFECTS
 
 # ---------------------------------------------------------------------------
 # THE ZIGGURAT.
@@ -248,7 +301,7 @@ NOT_AN_ORIGIN = {
 PARTIES = [
     # slug,      display (generic - a rolled name replaces it),  gov effect,  mag
     ("crown",    "The Crown",                                    E_ORDER,     4),
-    ("temple",   "The Priesthood",                               E_GROWTH,    8),
+    ("temple",   "The Priesthood",                               E_SLAVE_ORDER, 3),
     ("forge",    "The Forge",                                    E_ARMAMENTS, 6),
     ("chain",    "The Chain",                                    E_PB_LABOUR, 10),
     ("legion",   "The Legion",                                   E_UPKEEP,    6),
@@ -374,7 +427,7 @@ EFFECT_TEXT = {
     E_UPKEEP[0]:    "Upkeep: %+n%",
     E_REPLEN[0]:    "Casualty replenishment rate: %+n%",
     E_PB_LABOUR[0]: "Labour gained post-battle: %+n%",
-    E_GROWTH[0]:    "Growth: %+n",
+    E_SLAVE_ORDER[0]: "Control: %+n",
     E_RAWMAT[0]:    "Raw Materials output: %+n%",
     # CA writes this one as {{tr:effect_technology_research_points_description}}.
     # Resolved here for the same reason E_ORDER is - an unresolved nested token
@@ -386,6 +439,44 @@ EFFECT_TEXT = {
     E_AGENT[0]:     "Hero action success chance: %+n%",
     E_RAID[0]:      "Income from raiding: %+n%",
     E_HOBGOBLIN[0]: "Upkeep: %+n% for Hobgoblin units",
+    E_LAW_CAPTIVES[0]: "Casualties captured post-battle: %+n%",
+    E_LAW_RUSH[0]: "Rush Construction Labour cost: %+n%",
+    E_LAW_LAB_LD[0]: "Leadership: %+n for Labourer units",
+    E_LAW_LAB_UPKEEP[0]: "Upkeep: %+n% for Labourers units",
+    E_LAW_LAB_RANK[0]: "Recruit rank: %+n for Labourer units",
+    E_LAW_RAW_USED[0]: "Raw Materials consumed per turn by buildings: %+n%",
+    E_LAW_RAZE[0]: "Income from razing settlements: %+n%",
+    E_LAW_SACK[0]: "Income from sacking settlements: %+n%",
+    E_LAW_CONVOYS[0]: "Maximum number of active Convoys: %+n",
+    E_LAW_AMBUSH[0]: "Chance of Caravan intercept battle being an ambush: %+n%",
+    E_LAW_VASSAL[0]: "Tribute from [[img:icon_vassal]][[/img]]vassals: %+n%",
+    E_LAW_TARIFF[0]: "Income from trade tariffs: %+n% for every completed Convoy route",
+    E_LAW_REFINERY[0]: "Income from Refinery buildings: %+n%",
+    E_LAW_CARGO_VALUE[0]: "Sale value of cargo: %+n%",
+    E_LAW_MINES[0]: "Income from Iron Mines, Gold Mines and Stone Quarries: %+n%",
+    E_LAW_GOODS[0]: "Tradable resources produced: %+n%",
+    E_LAW_CARGO_CAP[0]: "Maximum Caravan cargo capacity: %+n%",
+    E_LAW_OVR_RANK[0]: "Lord recruit rank: %+n for Convoy Overseer",
+    E_LAW_OVR_XP[0]: "Experience per turn: %+n for Convoy Overseers",
+    E_LAW_CHD_DIPLO[0]: "Diplomatic relations: %+n with Chaos Dwarfs",
+    E_LAW_INFLUENCE[0]: "Conclave Influence gained from all sources: %+n% ",
+    E_LAW_CORRUPT[0]: "Chaos Undivided corruption in adjacent provinces: %+n",
+    E_LAW_TOZ_SEAT[0]: "Conclave Influence cost for Tower of Zharr Seats: %+n%",
+    E_LAW_WOM[0]: "Winds of Magic cost: %+n% for Lore of Hashut spells",
+    E_LAW_COOLDOWN[0]: "Cooldown: %+n% to Lore of Hashut spells",
+    E_LAW_MISCAST[0]: "Miscast base chance: %+n%",
+    E_LAW_KDAAI[0]: "Physical resistance: %n% for all K'daai units",
+    E_LAW_TEMPLE_TIME[0]: "Construction time: %+n for Temple of Hashut buildings",
+    E_LAW_HF_COST[0]: "Armaments cost: %+n% for all unit capacity upgrades in the Hell-Forge",
+    E_LAW_HF_CAP[0]: "Maximum active Hell-Forge Forgecraft Options: %+n",
+    E_LAW_INF_COST[0]: "Recruitment cost: %+n% for Chaos Dwarf Infantry units",
+    E_LAW_INF_RANK[0]: "Recruit rank: %+n for Chaos Dwarf Infantry",
+    E_LAW_ART_UPKEEP[0]: "Upkeep: %+n% for Artillery and War Machine units",
+    E_LAW_DWARF_XP[0]: "Double experience gain for units when fighting against Dwarfs",
+    E_LAW_HOB_UPKEEP[0]: "Upkeep: %+n% for Labourers and Hobgoblin Infantry units",
+    E_LAW_ART_EXPL[0]: "Explosive missile damage: %+n% for Iron Daemon and Artillery units",
+    E_LAW_ART_RANGE[0]: "Range: %+n% for Iron Daemon and Artillery units",
+    E_LAW_RANGED_COST[0]: "Recruitment cost: %+n% for all Missile Infantry, Artillery and War Machine units",
 }
 # THE CARD'S OWN WORDING, and the only place in this mod that does not use CA's.
 #
@@ -406,7 +497,7 @@ EFFECT_SHORT = {
     E_UPKEEP[0]:    "Upkeep",
     E_REPLEN[0]:    "Replenishment",
     E_PB_LABOUR[0]: "Post-battle Labour",
-    E_GROWTH[0]:    "Growth",
+    E_SLAVE_ORDER[0]: "Control",
     E_RAWMAT[0]:    "Raw Materials",
     E_RESEARCH[0]:  "Research",
     E_MOVEMENT[0]:  "Movement range",
@@ -415,6 +506,44 @@ EFFECT_SHORT = {
     E_AGENT[0]:     "Hero success",
     E_RAID[0]:      "Raiding income",
     E_HOBGOBLIN[0]: "Hobgoblin upkeep",
+    E_LAW_CAPTIVES[0]: "Captives",
+    E_LAW_RUSH[0]: "Rush cost",
+    E_LAW_LAB_LD[0]: "Labourer leadership",
+    E_LAW_LAB_UPKEEP[0]: "Labourer upkeep",
+    E_LAW_LAB_RANK[0]: "Labourer rank",
+    E_LAW_RAW_USED[0]: "Raw Materials used",
+    E_LAW_RAZE[0]: "Razing income",
+    E_LAW_SACK[0]: "Sacking income",
+    E_LAW_CONVOYS[0]: "Active Convoys",
+    E_LAW_AMBUSH[0]: "Convoy ambush",
+    E_LAW_VASSAL[0]: "Vassal tribute",
+    E_LAW_TARIFF[0]: "Convoy tariffs",
+    E_LAW_REFINERY[0]: "Refinery income",
+    E_LAW_CARGO_VALUE[0]: "Cargo value",
+    E_LAW_MINES[0]: "Mine income",
+    E_LAW_GOODS[0]: "Trade goods",
+    E_LAW_CARGO_CAP[0]: "Cargo capacity",
+    E_LAW_OVR_RANK[0]: "Overseer rank",
+    E_LAW_OVR_XP[0]: "Overseer XP a turn",
+    E_LAW_CHD_DIPLO[0]: "Chaos Dwarf ties",
+    E_LAW_INFLUENCE[0]: "Conclave Influence",
+    E_LAW_CORRUPT[0]: "Nearby corruption",
+    E_LAW_TOZ_SEAT[0]: "Tower seat cost",
+    E_LAW_WOM[0]: "Hashut spell cost",
+    E_LAW_COOLDOWN[0]: "Hashut cooldown",
+    E_LAW_MISCAST[0]: "Miscast",
+    E_LAW_KDAAI[0]: "K'daai resistance",
+    E_LAW_TEMPLE_TIME[0]: "Temple build time",
+    E_LAW_HF_COST[0]: "Forge upgrade cost",
+    E_LAW_HF_CAP[0]: "Forgecraft options",
+    E_LAW_INF_COST[0]: "Infantry cost",
+    E_LAW_INF_RANK[0]: "Infantry rank",
+    E_LAW_ART_UPKEEP[0]: "Artillery upkeep",
+    E_LAW_DWARF_XP[0]: "XP vs Dwarfs",
+    E_LAW_HOB_UPKEEP[0]: "Labour upkeep",
+    E_LAW_ART_EXPL[0]: "Artillery explosive",
+    E_LAW_ART_RANGE[0]: "Artillery range",
+    E_LAW_RANGED_COST[0]: "Ranged cost",
 }
 
 # Which of them are percentages, so the short line does not put a % on Control
@@ -422,8 +551,12 @@ EFFECT_SHORT = {
 EFFECT_PERCENT = {
     E_ENVOY_CTL[0]: False,
     E_ORDER[0]: False,
-    E_GROWTH[0]: False,
+    E_SLAVE_ORDER[0]: False,
     E_RESEARCH[0]: False,
+    E_LAW_LAB_LD[0]: False, E_LAW_LAB_RANK[0]: False, E_LAW_CONVOYS[0]: False,
+    E_LAW_OVR_RANK[0]: False, E_LAW_OVR_XP[0]: False, E_LAW_CHD_DIPLO[0]: False,
+    E_LAW_CORRUPT[0]: False, E_LAW_TEMPLE_TIME[0]: False, E_LAW_HF_CAP[0]: False,
+    E_LAW_INF_RANK[0]: False,
 }
 
 
@@ -440,15 +573,20 @@ def effect_short(effect, magnitude, intent):
 EFFECT_TEXT_TR = {
     E_ENVOY_CTL[0]: ("public_order_effect", "Control"),
     E_ORDER[0]: ("public_order_effect", "Control"),
+    E_SLAVE_ORDER[0]: ("public_order_effect", "Control"),
     E_RESEARCH[0]: ("effect_technology_research_points_description",
                     "Research rate"),
+    E_LAW_AMBUSH[0]: ("wh3_campaign_notification_caravan", "Caravan"),
+    E_LAW_CARGO_CAP[0]: ("wh3_campaign_notification_caravan", "Caravan"),
 }
 
 
 def effect_line(effect, magnitude, intent):
-    """One tooltip line: CA's wording with this row's signed value in it."""
+    """One tooltip line: CA's wording with this row's signed value in it. CA
+    writes %+n for a signed value and, on a few effects, %n for a bare one."""
     text = EFFECT_TEXT[effect[0]]
-    return text.replace("%+n", "%+d" % signed_value(effect, magnitude, intent))
+    v = signed_value(effect, magnitude, intent)
+    return text.replace("%+n", "%+d" % v).replace("%n", "%d" % v)
 
 
 # ---------------------------------------------------------------------------
@@ -751,7 +889,7 @@ def office_trait_key(slug):
 # base and scales the values by the Overseer's rank at runtime, which is why there
 # is one bundle here rather than five rank bundles. A custom effect bundle still
 # resolves against a real effect_bundles record, so this row must exist.
-GOVERNOR_BASE = [(E_ORDER, 2, BOON), (E_GROWTH, 8, BOON)]
+GOVERNOR_BASE = [(E_ORDER, 2, BOON), (E_WORKLOAD, 5, BOON)]
 
 BUNDLE_ICON = "chd_conclave_influence.png"
 
@@ -1058,7 +1196,59 @@ EVENTS = [
      "from now on.",
      # NAMES THE SEAT AT THE CALL SITE.
      None),
+    # THE GOVERNMENT (spec 2026-10-02).
+    ("gov_changed", True, "chd/faction", "Positive",
+     "A New Government",
+     "The court has a new government. Its rule bends the court's own, and its "
+     "party expects much of it.",
+     "The Court Changes"),
+    ("gov_pressure", True, "chd/faction", "Neutral",
+     "The Court Pulls Another Way",
+     "A party leads the court and asks for its own government. Accept it, or "
+     "pay to keep the one you have, on the Petitions tab.",
+     "A Choice Waits"),
+    # DEEDS (spec 2026-10-02 deeds). gov_intro is raised once per player court;
+    # party_drawn names its deed in a per-party secondary line (PARTY_DRAWN).
+    ("gov_intro", True, "chd/faction", "Neutral",
+     "Your Deeds Move the Court",
+     "Your court has a government, shown in the Crown's box. What you do moves "
+     "it. Victories raise the Legion, the Hell-Forge raises the Forge, the "
+     "Tower's rites and temples raise the Priesthood, slaves and razing raise "
+     "the Chain, convoys raise the Road, and research raises the Tower. A "
+     "party that grows strong enough asks for its own government.",
+     "The Court Watches You"),
+    ("party_drawn", True, "chd/faction", "Positive",
+     "A Party Comes to Court",
+     "Your deeds have drawn a new party into your court, and the next lord you "
+     "raised has joined it. It holds weight now, and it will expect seats.",
+     "The Court Grows"),
+    # THE LAWS (spec 2026-10-02 laws).
+    ("law_proposed", True, "chd/faction", "Neutral",
+     "A Law Before the Court",
+     "A law has been put to the court. Its men will vote by their parties' lines, "
+     "and you can push, win men or overrule on the Laws tab.",
+     "The Court Will Vote"),
+    ("law_passed", True, "chd/faction", "Positive",
+     "A Law Passes",
+     "The court has voted, and a new law is in force. Its parties are pleased, and "
+     "those against it are not.",
+     "The Law Is Changed"),
+    ("law_failed", True, "chd/faction", "Negative",
+     "A Law Fails",
+     "The court has voted the law down. The law in force stands.",
+     "The Law Stands"),
 ]
+
+# THE SECONDARY LINE party_drawn PASSES, one per party a deed can draw in.
+PARTY_DRAWN = {
+    "legion": "Your victories drew the Legion to court.",
+    "forge": "The Hell-Forge's work drew the Forge to court.",
+    "temple": "The Tower's rites drew the Priesthood to court.",
+    "chain": "Your slave-taking drew the Chain to court.",
+    "road": "Your convoys drew the Road to court.",
+    "ledger": "Your convoys drew the Ledger to court.",
+    "tower": "Your research drew the Tower to court.",
+}
 
 # RAISED WITH cm:show_message_event_located. The record type must agree with the
 # call - a plain record raised through the located call draws nothing (measured
@@ -1124,7 +1314,7 @@ CONTROL_BANDS = [
     ("grip", 75, "An Iron Grip on the Court",
      "Nothing moves in Zharr-Naggrund that the Crown did not set moving.",
      [(E_ORDER, 6, BOON), (E_GDP, 12, BOON), (E_UPKEEP, 15, BOON),
-      (E_GROWTH, 2, BOON)]),
+      (E_LAW_INFLUENCE, 5, BOON)]),
     ("mastery", 60, "Master of the Court",
      "The parties argue, and then they do as they are told.",
      [(E_ORDER, 4, BOON), (E_GDP, 8, BOON), (E_UPKEEP, 10, BOON)]),
@@ -1137,8 +1327,102 @@ CONTROL_BANDS = [
     ("lost", 0, "The Court Is Not Yours",
      "The parties rule and the Crown is consulted, when there is time.",
      [(E_ORDER, 8, MALUS), (E_UPKEEP, 20, MALUS), (E_GDP, 15, MALUS),
-      (E_GROWTH, 2, MALUS)]),
+      (E_LAW_INFLUENCE, 5, MALUS)]),
 ]
+
+
+# THE GOVERNMENTS (spec 2026-10-02 section 3), in IC.GOV_ORDER's order:
+# slug, name, the rule as the player reads it, the bundle's line, its effects.
+# check_governments() holds the order to the model's.
+GOVERNMENTS = [
+    ("conclave", "The Conclave",
+     "Office terms are shorter. A man may take a seat again after 1 turn.",
+     "No one rules Zharr-Naggrund. Its Sorcerer-Prophets sit in council.",
+     [(E_RESEARCH, 5, BOON)]),
+    ("priest", "Rule of the High Priest",
+     "Each rank a man gains is worth double influence. Battles are worth less.",
+     "The eldest voice is the strongest, and it speaks for Hashut.",
+     [(E_LAW_INFLUENCE, 10, BOON)]),
+    ("forge", "Rule of the Daemonsmiths",
+     "Governors earn more income. Men at court earn less influence each turn.",
+     "The priest-artificers rule from the forges.",
+     [(E_ARMAMENTS, 10, BOON)]),
+    ("legion", "Command of the Legion",
+     "Battles are worth more influence and loyalty. Men at court earn no "
+     "influence each turn.",
+     "Rank in the court is won in the field.",
+     [(E_UPKEEP, 5, BOON)]),
+    ("chain", "Rule of the Slave-Lords",
+     "Murder, Purge and Provoke cost less. A failed move costs double loyalty.",
+     "Fear holds the court as the chain holds the slave.",
+     [(E_PB_LABOUR, 10, BOON)]),
+    ("convoy", "The Convoy Concern",
+     "Gifts and oaths cost less gold. Embezzling angers the parties twice as much.",
+     "Everything in the Dark Lands has a price.",
+     [(E_GDP, 5, BOON)]),
+]
+
+# THE LAWS (spec 2026-10-02 laws section 2), in IC.LAW_ORDER's order and each
+# category's IC.LAWS order. check_laws() holds the two together.
+LAWS = [
+    ("labour", "Labour", "chd_labour.png", [
+        ("measure", "The Measure", "The overseers work the stock as they always have.", []),
+        ("lash", "The Lash", "More are taken and they are driven hard, and they break.",
+         [(E_LAW_CAPTIVES, 15, BOON), (E_LAW_RUSH, 30, BOON), (E_LAW_LAB_LD, 4, MALUS)]),
+        ("kept", "The Kept Stock", "The stock is fed and kept, and fewer are taken.",
+         [(E_LAW_LAB_UPKEEP, 50, BOON), (E_LAW_LAB_RANK, 2, BOON), (E_LAW_CAPTIVES, 10, MALUS)]),
+        ("quota", "The Furnace Quota", "Every forge has its quota, and the stock pays for it.",
+         [(E_WORKLOAD, 15, BOON), (E_LAW_RAW_USED, 15, BOON), (E_LAW_LAB_UPKEEP, 25, MALUS)]),
+        ("ash", "The Ash Harvest", "What cannot be held is burned, and its people with it.",
+         [(E_LAW_RAZE, 25, BOON), (E_LAW_SACK, 15, BOON), (E_LAW_CAPTIVES, 10, MALUS)]),
+    ]),
+    ("tribute", "Tribute", "edict_collect_tribute.png", [
+        ("tithe", "The Crown's Tithe", "The Crown takes its tithe, as it always has.", []),
+        ("roads", "Open Roads", "The roads are opened to more convoys, and the vassals pay less.",
+         [(E_LAW_CONVOYS, 1, BOON), (E_LAW_AMBUSH, 25, BOON), (E_LAW_VASSAL, 20, MALUS)]),
+        ("tariff", "The Ledger's Tariff", "Every route pays the Ledger, and the cargo is worth less.",
+         [(E_LAW_TARIFF, 5, BOON), (E_LAW_REFINERY, 10, BOON), (E_LAW_CARGO_VALUE, 10, MALUS)]),
+        ("mines", "The Mines Before All", "The mines come first, and the convoys carry less.",
+         [(E_LAW_MINES, 15, BOON), (E_LAW_GOODS, 10, BOON), (E_LAW_CARGO_CAP, 15, MALUS)]),
+        ("charter", "The Overseers' Charter", "The convoy overseers are chartered, and the other houses resent it.",
+         [(E_LAW_OVR_RANK, 3, BOON), (E_LAW_OVR_XP, 100, BOON), (E_LAW_CHD_DIPLO, 10, MALUS)]),
+    ]),
+    ("worship", "Worship", "chd_conclave_influence.png", [
+        ("rites", "The Rites Kept", "The rites are kept, as they always have been.", []),
+        ("fires", "The Fires Fed", "Hashut's fires are fed without stint, and building waits on them.",
+         [(E_LAW_INFLUENCE, 10, BOON), (E_LAW_CORRUPT, 1, BOON), (E_LAW_RUSH, 15, MALUS)]),
+        ("seats", "Seats Bought in the Tower", "Seats in the Tower are sold, and the priests' favour cools.",
+         [(E_LAW_TOZ_SEAT, 25, BOON), (E_LAW_INFLUENCE, 10, MALUS)]),
+        ("lore", "The Lore Taught", "The Lore of Hashut is taught more widely, and more carelessly.",
+         [(E_LAW_WOM, 10, BOON), (E_LAW_COOLDOWN, 10, BOON), (E_LAW_MISCAST, 15, MALUS)]),
+        ("licence", "The Daemonsmiths' Licence", "The Daemonsmiths are licensed, and the priests resent it.",
+         [(E_LAW_KDAAI, 10, BOON), (E_LAW_TEMPLE_TIME, 1, BOON), (E_LAW_INFLUENCE, 10, MALUS)]),
+    ]),
+    ("war", "War", "edict_levy_conscripts.png", [
+        ("levy", "The Levy", "The levy is raised as it always has been.", []),
+        ("hellforge", "The Hell-Forge Unbound", "The Hell-Forge works without leave, and the infantry pays for it.",
+         [(E_LAW_HF_COST, 10, BOON), (E_LAW_HF_CAP, 1, BOON), (E_LAW_INF_COST, 10, MALUS)]),
+        ("legions", "Standing Legions", "The legions stand ready, and the guns wait.",
+         [(E_LAW_INF_RANK, 1, BOON), (E_LAW_INF_COST, 10, BOON), (E_LAW_ART_UPKEEP, 10, MALUS)]),
+        ("grudge", "The Old Grudge", "The old grudge against the Dwarfs is fed, and the labour pays for it.",
+         [(E_LAW_DWARF_XP, 100, BOON), (E_LAW_HOB_UPKEEP, 10, MALUS)]),
+        ("gunnery", "The Gunnery Doctrine", "The guns come first, and every shooter costs more.",
+         [(E_LAW_ART_EXPL, 10, BOON), (E_LAW_ART_RANGE, 5, BOON), (E_LAW_RANGED_COST, 15, MALUS)]),
+    ]),
+]
+
+
+def model_law_icons():
+    """{(category, option): bare effect_bundles picture} from IC.LAWS."""
+    block = re.search(r"IC\.LAWS = \{(.*?)\n\}", _model_lua(), re.S)
+    out = {}
+    if not block:
+        return out
+    for cm in re.finditer(r"\n    (\w+) = \{icon = \"[^\"]+\",\s*\n\s*order = \{[^}]*\},\s*\n\s*opts = \{(.*?)\n    \}\}",
+                          block.group(1), re.S):
+        for om in re.finditer(r"(\w+)\s*=\s*\{icon = \"([^\"]+)\"", cm.group(2)):
+            out[(cm.group(1), om.group(1))] = om.group(2)
+    return out
 
 
 def control_slugs():
@@ -1206,6 +1490,14 @@ def model_tune(name):
     if not m:
         raise RuntimeError("the model Lua declares no IC.TUNE.%s" % name)
     return int(m.group(1))
+
+
+def model_gov_icons():
+    """{government slug: bare effect_bundles picture} from IC.GOVS."""
+    block = re.search(r"IC\.GOVS = \{(.*?)\n\}", _model_lua(), re.S)
+    if not block:
+        raise RuntimeError("the model Lua declares no IC.GOVS")
+    return dict(re.findall(r'(\w+)\s*=\s*\{icon = "([^"]+)"', block.group(1)))
 
 
 def model_envoy_tasks():
@@ -1307,10 +1599,13 @@ def build():
                     "text": title, "tooltip": "false"})
         loc.append({"key": "effect_bundles_localised_description_" + key,
                     "text": description, "tooltip": "false"})
-        loc.append({"key": "derpy_ic_effects_" + key,
-                    "text": ", ".join(effect_short(e, m, i)
-                                      for e, m, i in effects),
-                    "tooltip": "false"})
+        # NO LINE FOR A BUNDLE WITH NO EFFECTS (a law's start option): a blank
+        # value draws nothing, and the panel says "No effects" itself.
+        if effects:
+            loc.append({"key": "derpy_ic_effects_" + key,
+                        "text": ", ".join(effect_short(e, m, i)
+                                          for e, m, i in effects),
+                        "tooltip": "false"})
 
     def scaled(office, which):
         """Tier-4 magnitudes raised to the tier that holds the office."""
@@ -1332,6 +1627,34 @@ def build():
         # court every turn and a loc call from a turn handler is a turn-1 CTD.
         loc.append({"key": "derpy_ic_control_name_" + slug,
                     "text": name, "tooltip": "false"})
+
+    # ONE PER GOVERNMENT, and the model puts exactly one of them on the faction.
+    # "doctrine", not "gov": the governors' bundles already use derpy_ic_gov_.
+    gov_icons = model_gov_icons()
+    for slug, name, rule, blurb, effects in GOVERNMENTS:
+        emit(bundle_key("doctrine", slug), name, blurb, "faction", effects,
+             icon=gov_icons.get(slug))
+        # Name and rule for the panel, read at draw time and never from a turn
+        # handler (a loc call there is a turn-1 CTD).
+        loc.append({"key": "derpy_ic_doctrine_name_" + slug,
+                    "text": name, "tooltip": "false"})
+        loc.append({"key": "derpy_ic_doctrine_rule_" + slug,
+                    "text": rule, "tooltip": "false"})
+
+    # ONE PER LAW (spec 2026-10-02 laws), and the model puts one per category on
+    # a player faction. The start options have no effects: a bundle so the
+    # Faction Effects panel still names the law in force.
+    law_icons = model_law_icons()
+    for cat, cat_name, _icon, options in LAWS:
+        loc.append({"key": "derpy_ic_law_cat_" + cat, "text": cat_name, "tooltip": "false"})
+        for opt, name, blurb, effects in options:
+            key = "derpy_ic_law_%s_%s" % (cat, opt)
+            emit(key, name, blurb, "faction", effects, icon=law_icons.get((cat, opt)))
+            loc.append({"key": "derpy_ic_law_name_%s_%s" % (cat, opt), "text": name,
+                        "tooltip": "false"})
+            for i, (e, m, intent) in enumerate(effects, start=1):
+                loc.append({"key": "derpy_ic_law_fx%d_%s_%s" % (i, cat, opt),
+                            "text": effect_line(e, m, intent), "tooltip": "false"})
 
     emit("derpy_ic_gov_base", "Governor of the Province",
          "A governor of the court sits here, and the province knows it.",
@@ -1524,6 +1847,9 @@ def build():
             loc.append({"key": "event_feed_strings_text_" + key
                                + "_secondary",
                         "text": secondary, "tooltip": "false"})
+    for party, text in sorted(PARTY_DRAWN.items()):
+        loc.append({"key": "event_feed_strings_text_derpy_ic_event_party_drawn_" + party,
+                    "text": text, "tooltip": "false"})
 
     # AND THE PER-MOVE LINES THE PLOT CARDS PREFER. The generic SUCCESS
     # and FAILURE rows above stay as the fallback: IC.feed takes the
@@ -2136,6 +2462,98 @@ def unknown_sounds(lua_text, names):
     return sorted(s for s in found if s.lower() not in names)
 
 
+def check_governments():
+    """The model's governments and this file's are one list, in one order, and
+    the bundle the model applies is one this file builds (spec 2026-10-02)."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "Modding Files", "pack", "script", "campaign", "mod",
+                        "zzz_derpy_iron_court.lua")
+    lua = io.open(path, encoding="utf-8").read()
+    out = []
+    m = re.search(r"IC\.GOV_ORDER\s*=\s*\{([^}]*)\}", lua)
+    model_govs = re.findall(r'"(\w+)"', m.group(1)) if m else []
+    mine = [g[0] for g in GOVERNMENTS]
+    if model_govs != mine:
+        out.append("IC.GOV_ORDER is %s and GOVERNMENTS is %s" % (model_govs, mine))
+    m = re.search(r'function IC\.gov_bundle\(slug\) return "(\w+)" \.\. slug end', lua)
+    stem = m.group(1) if m else None
+    built = {r["key"]: r for r in build()["effect_bundles"]}
+    icons = model_gov_icons()
+    for slug in mine:
+        row = built.get((stem or "?") + slug)
+        if not row:
+            out.append("the model applies %s%s and no such bundle is built" % (stem, slug))
+        elif not icons.get(slug) or row["ui_icon"] != icons[slug]:
+            out.append("%s wears %s, not the model's picture %s"
+                       % (row["key"], row["ui_icon"], icons.get(slug)))
+    return out
+
+
+# THE AUTHOR'S PLAIN-WORDS RULE for player text: none of these as a word.
+JARGON = ("cap", "caps", "accrue", "accrues", "rep", "AI", "HUD", "standing")
+
+
+def check_laws():
+    """The model's laws and this file's are one catalogue, in one order, each
+    option's bundle built and wearing the model's picture (spec 2026-10-02 laws)."""
+    lua = _model_lua()
+    out = []
+    for r in build()["loc"]:
+        if r["key"].startswith(("derpy_ic_law_", "derpy_ic_effects_derpy_ic_law_")):
+            for w in JARGON:
+                if re.search(r"\b%s\b" % w, r["text"]):
+                    out.append("%s says %r, which the plain-words rule bans" % (r["key"], w))
+    m = re.search(r"IC\.LAW_ORDER\s*=\s*\{([^}]*)\}", lua)
+    model_cats = re.findall(r'"(\w+)"', m.group(1)) if m else []
+    mine = [c[0] for c in LAWS]
+    if model_cats != mine:
+        out.append("IC.LAW_ORDER is %s and LAWS is %s" % (model_cats, mine))
+    built = {r["key"]: r for r in build()["effect_bundles"]}
+    loc = {r["key"]: r["text"] for r in build()["loc"]}
+    block = re.search(r"IC\.LAWS = \{(.*?)\n\}", lua, re.S)
+    body = block.group(1) if block else ""
+    for cat, _name, _icon, options in LAWS:
+        cm = re.search(r"\n    %s = \{.*?order = \{([^}]*)\}" % cat, body, re.S)
+        order = re.findall(r'"(\w+)"', cm.group(1)) if cm else []
+        if order != [o[0] for o in options]:
+            out.append("%s: the model's order is %s, here %s" % (cat, order, [o[0] for o in options]))
+        for opt, name, _blurb, effects in options:
+            key = "derpy_ic_law_%s_%s" % (cat, opt)
+            im = re.search(r"\n\s+%s\s*=\s*\{icon = \"([^\"]+)\"" % opt, body)
+            row = built.get(key)
+            if not row:
+                out.append("no bundle %s" % key)
+            elif not im or row["ui_icon"] != im.group(1):
+                out.append("%s wears %s, not the model's %s"
+                           % (key, row["ui_icon"], im.group(1) if im else None))
+            if loc.get("derpy_ic_law_name_%s_%s" % (cat, opt)) != name:
+                out.append("no name loc for %s" % key)
+            if len(effects) > 3:
+                out.append("%s has %d effects; a card holds three" % (key, len(effects)))
+            if opt == options[0][0] and effects:
+                out.append("%s is its category's start and has effects" % key)
+    return out
+
+
+def check_party_drawn():
+    """Every party IC.DEEDS can name has a party_drawn line (spec 2026-10-02 deeds)."""
+    block = re.search(r"IC\.DEEDS = \{(.*?)\n\}", _model_lua(), re.S)
+    named = set(re.findall(r'(?:party|alt) = "(\w+)"', block.group(1))) if block else set()
+    missing = sorted(named - set(PARTY_DRAWN))
+    out = ["party_drawn has no line for %s" % p for p in missing] + (
+        [] if named else ["the model Lua declares no IC.DEEDS"])
+    # EACH LINE NAMES ITS PARTY AS THE PANEL DOES (review 2026-10-02): the
+    # generic display, not the government's name - "the Daemonsmiths" is a
+    # government, "the Forge" is the party the card says arrived.
+    display = {slug: name for slug, name, _e, _m in PARTIES}
+    for party, text in PARTY_DRAWN.items():
+        name = display.get(party, "")
+        bare = name[4:] if name.startswith("The ") else name
+        if bare and ("the %s to court" % bare) not in text:
+            out.append("party_drawn line for %s does not name %s: %s" % (party, name, text))
+    return out
+
+
 def check_sound_names():
     names = sound_registry()
     if not names:
@@ -2196,6 +2614,9 @@ def check():
     out.extend(check_recruit_rank())
     out.extend(check_gov_rank_constants())
     out.extend(check_sound_names())
+    out.extend(check_governments())
+    out.extend(check_laws())
+    out.extend(check_party_drawn())
 
     # 1. Effect keys must exist in vanilla, and the declared is_positive_value_good
     #    must match. A wrong sign flag silently inverts a reward into a penalty.
@@ -2879,12 +3300,15 @@ def selftest():
     n_parties = len(PARTIES)
     # AND ONE PER ENVOY TASK (spec 2026-09-29 section 6).
     n_envoy = len(model_envoy_tasks())
-    assert len(keys) == n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy, \
+    # AND ONE PER LAW (spec 2026-10-02 laws), start options included.
+    n_laws = sum(len(options) for _cat, _name, _icon, options in LAWS)
+    want = (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy
+            + len(GOVERNMENTS) + n_laws)
+    assert len(keys) == want, \
         ("one office and one vacancy bundle per office, one governor base, and "
          "one governor flavour per PARTY - it was per house, and there were "
-         "sixteen of those, plus one per control band and one per envoy task: "
-         "expected %d, got %d"
-         % (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy, len(keys)))
+         "sixteen of those, plus one per control band, one per envoy task, "
+         "one per government and one per law: expected %d, got %d" % (want, len(keys)))
 
     # Every office's boon and its vacancy penalty must land on opposite sides of
     # zero. A vacancy that helps you is the sign bug wearing a different hat.

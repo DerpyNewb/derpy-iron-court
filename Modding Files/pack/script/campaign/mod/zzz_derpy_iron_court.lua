@@ -579,10 +579,10 @@ IC.TUNE = {
     sufferance_share    = 20,   -- the player's own party below this
 
     -- THE COURT'S SIZE IS THE DIFFICULTY (author, 2026-09-25): one fixed
-    -- number per preset, three rivals here, so the Crown and its rivals are
-    -- four of the grid's six cards. Only Custom rolls between two.
-    rivals_min          = 3,
-    rivals_max          = 3,
+    -- number per preset, two rivals here (author, 2026-10-03: Gentle 1,
+    -- Default 2, Harsh 3, Political Chaos 5). Only Custom rolls between two.
+    rivals_min          = 2,
+    rivals_max          = 2,
 
     prov_loyalty_start  = 60,
     prov_gain_governed  = 3,    -- per turn, a contented party's man governing it
@@ -612,6 +612,61 @@ IC.TUNE = {
     -- Rumour and discredit at or below this loyalty. Defined here, not in the
     -- parties file, since 2026-09-25, so the settings below can freeze it.
     party_intrigue_line = 55,
+
+    -- GOVERNMENTS (spec 2026-10-02 sections 5-7).
+    gov_drift_share     = 30,   -- a rival this big pulls the government its way
+    gov_balance_turns   = 2,    -- a court nobody leads drifts to the Conclave this slowly
+    gov_pressure_line   = 6,    -- pressure that asks the player to choose
+    gov_choice_turns    = 3,    -- an unanswered choice is Accept after this
+    gov_accept_gain     = 10,
+    gov_accept_loss     = -10,
+    gov_hold_cost       = 300,  -- times one more than the holds so far
+    gov_hold_loyalty    = -8,
+    gov_force_cost      = 400,
+    gov_force_loss      = -15,
+    gov_force_gain      = 5,
+    gov_force_cooldown  = 15,
+    governments         = true,
+    gov_drift           = true,
+
+    -- DEEDS (spec 2026-10-02 deeds). Renown a deed gives its party, how fast it
+    -- fades, the most one party gains in a turn, and where an absent party is
+    -- drawn in. Not on the MCT page; gov_drift_share is the precedent.
+    deeds               = true,
+    deed_battle         = 3,
+    deed_hellforge      = 4,
+    deed_rite           = 4,
+    deed_temple         = 2,
+    deed_slaves         = 3,
+    deed_raze           = 3,
+    deed_convoy         = 5,
+    deed_research       = 2,
+    -- 25% a turn and 6 a turn settle the most deeds at 24-27 renown, near a
+    -- party's own weight; 10% and 8 settled at 80-89 and took the Crown's
+    -- control with them. The line is below that so an absent party can reach it.
+    renown_fade_pct     = 25,
+    renown_turn_cap     = 6,
+    renown_join_line    = 15,
+
+    -- THE LAWS (spec 2026-10-02 laws). Constants: only `laws` is a switch, and
+    -- only it is in IC.TUNE_ORDER. Multipliers are percent, never floats.
+    laws                = true,
+    law_propose_cost    = 150,
+    law_party_share     = 15,   -- % of the court a party needs to propose
+    law_party_rest      = 6,    -- turns between two party proposals
+    law_vote_turns      = 2,
+    law_loyal_line      = 60,   -- a party with no stance votes with you from here
+    law_disloyal_line   = 40,   -- ...and against you below here
+    law_push_cost       = {100, 250, 500},   -- reaching each support level
+    law_push_mult       = {150, 200, 300},   -- its weight, percent
+    law_push_margin     = 10,   -- % of all voting influence that is "close"
+    law_win_rate        = 50,   -- % of a man's influence his vote costs
+    law_win_ambition    = {cautious = 150, steady = 100, ambitious = 75},
+    law_overrule_cost   = 500,
+    law_overrule_loyalty = -10,
+    law_pass_gain       = 5,
+    law_pass_loss       = -5,
+    law_fail_loss       = -5,
 
     -- THE SEVEN SWITCHES (the MCT page's Systems and Debug). All on: a campaign
     -- without MCT plays exactly as it did before they existed.
@@ -646,6 +701,9 @@ IC.TUNE_ORDER = {
     "parties_act", "ai_courts", "secession", "pressure", "crown_split",
     "detailed_log", "all_cards",
     "gov_levels_per_weight",
+    "governments", "gov_drift", "gov_pressure_line", "gov_hold_cost", "gov_force_cost",
+    "deeds",
+    "laws",
 }
 
 -- Today's values, taken off IC.TUNE before anything can change it.
@@ -666,14 +724,16 @@ IC.PRESETS = {
         favour_gift_cost = 400, favour_secure_cost = 1800,
         party_intrigue_line = 45, rivals_min = 1, rivals_max = 1, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 8, gov_hold_cost = 200, gov_force_cost = 300,
     },
     harsh = {
         loyalty_start = 50, loyalty_drift_none = -2, secede_loyalty = 25,
         secede_share = 20, secede_turns = 4, pressure_below = 15,
         influence_trickle = 4, settlement_influence = 20,
         favour_gift_cost = 800, favour_secure_cost = 3200,
-        party_intrigue_line = 60, rivals_min = 4, rivals_max = 4, term_turns = 10,
+        party_intrigue_line = 60, rivals_min = 3, rivals_max = 3, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 5, gov_hold_cost = 400, gov_force_cost = 500,
     },
     ruthless = {
         loyalty_start = 45, loyalty_drift_none = -3, secede_loyalty = 30,
@@ -687,8 +747,186 @@ IC.PRESETS = {
         -- own (IC.REBEL_POOL); a fifth wakes a dead house, or joins a rising.
         party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,
         gov_levels_per_weight = 2,
+        gov_pressure_line = 4, gov_hold_cost = 500, gov_force_cost = 600,
     },
 }
+
+-- THE GOVERNMENTS (spec 2026-10-02-iron-court-governments-design.md section 3).
+-- Lore: no king; the Sorcerer-Prophets sit in council, and the strongest voice
+-- is the eldest. Each government bends ONE court rule: `over` names IC.TUNE
+-- keys, a number replacing the value and {mul = x} scaling it (a table knob
+-- entry by entry), rounded. Read through IC.tune, never IC.TUNE, wherever a key
+-- here is read. No Crown and no Hearth government: no lore basis.
+IC.GOV_ORDER = {"conclave", "priest", "forge", "legion", "chain", "convoy"}
+-- `icon` is a bare name under ui/campaign ui/effect_bundles/: the faction
+-- bundle wears it (gen_iron_court reads it from here) and so does the panel.
+IC.GOVS = {
+    conclave = {icon = "dlc23_region_action_gift_zhar.png",
+                parties = {"tower"},
+                over = {term_turns = {mul = 0.6}, renew_wait = 1}},
+    priest   = {icon = "chd_toz_district_sorcery.png",
+                parties = {"temple"},
+                over = {rank_influence = 6, battle_influence = {mul = 0.75}}},
+    forge    = {icon = "chd_hellforge.png",
+                parties = {"forge"},
+                over = {governor_income = 8, gov_rank_income_per = 1,
+                        influence_trickle = {mul = 0.6}}},
+    legion   = {icon = "chd_toz_district_military.png",
+                parties = {"legion"},
+                over = {battle_influence = {mul = 1.5}, loyalty_battle_won = 5,
+                        influence_trickle = 0}},
+    chain    = {icon = "chd_labour.png",
+                parties = {"chain"},
+                over = {plot_murder_cost = {mul = 0.65}, plot_purge_cost = {mul = 0.65},
+                        plot_provoke_cost = {mul = 0.65}, plot_fail_loyalty = 20}},
+    convoy   = {icon = "dlc23_region_action_sell_labour.png",
+                parties = {"road", "ledger"},
+                over = {favour_gift_cost = {mul = 0.67}, favour_secure_cost = {mul = 0.67},
+                        plot_embezzle_loyalty = 12}},
+}
+
+-- WHERE A HOUSE STARTS (spec section 4). A faction not here takes its court's
+-- own at its first turn (IC.start_gov). Uzkulak and the Kraken are inference.
+IC.START_GOV = {
+    wh3_dlc23_chd_astragoth = "priest",
+    wh3_dlc23_chd_conclave = "conclave",
+    wh3_dlc23_chd_legion_of_azgorh = "legion",
+    wh3_dlc23_chd_zhatan = "legion",
+    cr_chd_house_of_khorakk = "chain",
+    cr_chd_house_of_azeros = "forge",
+    cr_chd_house_of_bzaark = "forge",
+    cr_chd_snakebeards_artificers = "forge",
+    cr_chd_fists_of_hashut = "legion",
+    cr_chd_slaves_of_the_black_dwarf = "legion",
+    cr_chd_house_of_baal = "priest",
+    cr_chd_horns_of_hashut = "priest",
+    cr_chd_warfleet_of_uzkulak = "convoy",
+    cr_chd_black_kraken_armada = "convoy",
+}
+
+function IC.governments_on() return IC.TUNE.governments ~= false end
+
+-- "doctrine", not "gov": derpy_ic_gov_ is the governors' bundles.
+function IC.gov_bundle(slug) return "derpy_ic_doctrine_" .. slug end
+
+-- THE LAWS (spec 2026-10-02 laws section 2). One option per category is in
+-- force; the first of each `order` is its start and has no effects. `icon` is
+-- a bare name under ui/campaign ui/effect_bundles/: the bundle wears it
+-- (gen_iron_court reads it from here) and so does the panel. `pro` and `con`
+-- are the parties for and against.
+IC.LAW_ORDER = {"labour", "tribute", "worship", "war"}
+IC.LAWS = {
+    labour = {icon = "chd_labour.png",
+              order = {"measure", "lash", "kept", "quota", "ash"},
+              opts = {
+        measure = {icon = "chd_workload.png"},
+        lash    = {icon = "dlc23_region_action_set_example.png", pro = {"chain"}, con = {"hearth"}},
+        kept    = {icon = "slaves.png", pro = {"hearth"}, con = {"chain"}},
+        quota   = {icon = "wh3_dlc23_edict_chd_higher_quotas.png", pro = {"forge"}, con = {"hearth"}},
+        ash     = {icon = "wh3_dlc23_edict_chd_smoke_stacks.png", pro = {"legion"}, con = {"ledger"}},
+    }},
+    tribute = {icon = "edict_collect_tribute.png",
+               order = {"tithe", "roads", "tariff", "mines", "charter"},
+               opts = {
+        tithe   = {icon = "edict_collect_tribute.png"},
+        roads   = {icon = "convoy_icon.png", pro = {"road"}, con = {"crown"}},
+        tariff  = {icon = "trade_agreement.png", pro = {"ledger"}, con = {"road"}},
+        mines   = {icon = "chd_raw_materials.png", pro = {"forge"}, con = {"road"}},
+        charter = {icon = "wh3_dlc23_edict_chd_architects.png", pro = {"road"}, con = {"legion"}},
+    }},
+    worship = {icon = "chd_conclave_influence.png",
+               order = {"rites", "fires", "seats", "lore", "licence"},
+               opts = {
+        rites   = {icon = "chd_conclave_influence.png"},
+        fires   = {icon = "wh3_dlc23_unit_passive_burning_bright.png", pro = {"temple"}, con = {"tower"}},
+        seats   = {icon = "chd_toz_tier.png", pro = {"tower"}, con = {"temple"}},
+        lore    = {icon = "loremaster.png", pro = {"tower"}, con = {"hearth"}},
+        licence = {icon = "hellforged.png", pro = {"forge"}, con = {"temple"}},
+    }},
+    war = {icon = "edict_levy_conscripts.png",
+           order = {"levy", "hellforge", "legions", "grudge", "gunnery"},
+           opts = {
+        levy      = {icon = "edict_levy_conscripts.png"},
+        hellforge = {icon = "chd_armaments.png", pro = {"forge"}, con = {"legion"}},
+        legions   = {icon = "chd_toz_district_t3_military.png", pro = {"legion"}, con = {"forge"}},
+        grudge    = {icon = "wh3_dlc23_unit_passive_oath_of_contempt.png", pro = {"legion"}, con = {"ledger"}},
+        gunnery   = {icon = "artillery.png", pro = {"forge"}, con = {"hearth"}},
+    }},
+}
+IC.LAW_SIDES = {aye = true, nay = true, abstain = true}
+
+function IC.laws_on(faction_key)
+    return IC.TUNE.laws ~= false and IC.is_human(faction_key)
+end
+
+function IC.law_bundle(category, option)
+    return "derpy_ic_law_" .. category .. "_" .. option
+end
+
+function IC.law_opt(category, option)
+    local c = IC.LAWS[category or ""]
+    return c and c.opts[option or ""] or nil
+end
+
+-- IC.state, not IC.court: asking what is in force must never create a court.
+function IC.law_in_force(faction_key, category)
+    local court = faction_key and IC.state[faction_key]
+    local held = court and court.laws and court.laws[category]
+    if IC.law_opt(category, held) then return held end
+    return IC.LAWS[category].order[1]
+end
+
+function IC.law_stance(category, option, party)
+    local o = IC.law_opt(category, option)
+    for _, p in ipairs(o and o.pro or {}) do if p == party then return "aye" end end
+    for _, p in ipairs(o and o.con or {}) do if p == party then return "nay" end end
+    return nil
+end
+
+-- ONE BUNDLE PER CATEGORY on a player court with laws on, none otherwise. All
+-- off first, as the government's bundle does, so a swap never wears two.
+function IC.apply_law_bundles(faction_key)
+    local on = IC.laws_on(faction_key)
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        for _, opt in ipairs(IC.LAWS[cat].order) do
+            cm:remove_effect_bundle(IC.law_bundle(cat, opt), faction_key)
+        end
+        if on then
+            cm:apply_effect_bundle(IC.law_bundle(cat, IC.law_in_force(faction_key, cat)),
+                                   faction_key, -1)
+        end
+    end
+end
+
+function IC.gov_for_party(slug)
+    for _, g in ipairs(IC.GOV_ORDER) do
+        for _, p in ipairs(IC.GOVS[g].parties) do
+            if p == slug then return g end
+        end
+    end
+    return nil
+end
+
+-- IC.state, not IC.court: asking a price must never create a court.
+function IC.gov_row(faction_key)
+    if not IC.governments_on() then return nil end
+    local court = faction_key and IC.state[faction_key]
+    return court and IC.GOVS[court.gov or ""] or nil
+end
+
+function IC.tune(faction_key, key)
+    local base = IC.TUNE[key]
+    local row = IC.gov_row(faction_key)
+    local o = row and row.over[key]
+    if o == nil then return base end
+    if type(o) == "number" then return o end
+    if type(base) == "table" then
+        local out = {}
+        for k, v in pairs(base) do out[k] = math.floor(v * o.mul + 0.5) end
+        return out
+    end
+    return math.floor(base * o.mul + 0.5)
+end
 
 -- AN ENGINE CALL THAT ERRORS READS AS SINGLE PLAYER: locking a single-player
 -- campaign out of its own settings over a failed call is the worse failure.
@@ -813,9 +1051,14 @@ end
 -- the secession and split countdowns and the pressure mark are cleared - so a
 -- flip strands nothing, and one turned back on starts again with its warning.
 -- NOT ai_courts: off, it leaves the other courts' office bundles on their men.
--- The difficulty and every number stay frozen. The MCT page names the same six.
+-- The difficulty and every number stay frozen. The MCT page names the same
+-- ten. Governments off takes the bundle away and drops a waiting choice
+-- (IC.settle_switches); drift off only stops the drift; deeds off stops new
+-- renown and drawing parties in, and what is held fades on its own. Laws off
+-- drops open votes and takes every law bundle off; the laws in force stay in
+-- the save.
 IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",
-                "all_cards", "detailed_log"}
+                "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws"}
 
 -- READ AT EVERY LOAD AND ON MCT'S Finalize, never in multiplayer, where each
 -- machine's MCT is its own. A change goes into the frozen copy too, so the save
@@ -844,7 +1087,8 @@ function IC.refresh_live_tune()
     -- A COUNTDOWN SWITCHED OFF ENDS NOW, not at the next turn: the panel reads
     -- every one. With its switch off, each call below only clears.
     -- The courts still on disk are settled by IC.load.
-    if off.secession or off.pressure or off.crown_split then
+    if off.secession or off.pressure or off.crown_split or off.governments
+       or off.gov_drift or off.laws ~= nil then
         for faction_key in pairs(IC.state) do
             IC.settle_switches(faction_key)
             IC.save(faction_key)
@@ -859,6 +1103,16 @@ function IC.settle_switches(faction_key)
     if not IC.TUNE.secession then IC.tick_secession(faction_key) end
     if not IC.TUNE.pressure then IC.tick_pressure(faction_key) end
     if not IC.TUNE.crown_split then IC.splinter(faction_key) end
+    -- DRIFT OFF DROPS THE WAITING CHOICE too: "your government changes only
+    -- when you change it", and a waiting choice settles on its own.
+    if not IC.governments_on() or IC.TUNE.gov_drift == false then
+        IC.court(faction_key).gov_ask = nil
+    end
+    if not IC.governments_on() then IC.apply_gov_bundle(faction_key) end
+    -- LAWS OFF DROPS THE OPEN VOTES; on or off, the bundles follow the switch.
+    -- The laws in force stay in the save (spec 2026-10-02 laws section 5).
+    if IC.TUNE.laws == false then IC.court(faction_key).votes = {} end
+    IC.apply_law_bundles(faction_key)
 end
 
 IC.AMBITION_ORDER = {"cautious", "steady", "ambitious"}
@@ -900,6 +1154,21 @@ local function new_court()
         stalled  = {},   -- [office slug] = {ends, of, by, cause} (spec 2026-09-27)
         news     = {},   -- {turn, kind, faction, a, b}, newest last
         sent     = {},   -- [faction key] = turn diplomats went (spec 2026-09-29)
+        -- THE GOVERNMENT (spec 2026-10-02): gov, gov_toward and gov_ask stay nil
+        -- until there is one.
+        gov_pressure = 0,
+        gov_cool = 0,    -- turn a forced change's cooldown ends
+        gov_holds = 0,
+        -- DEEDS (spec 2026-10-02 deeds): [party] = renown, [party] = renown
+        -- gained since this court's turn began.
+        renown = {},
+        renown_got = {},
+        confed_turn = 0,  -- the turn this court last took in a confederation
+        -- THE LAWS (spec 2026-10-02 laws): [category] = option where it is not
+        -- the start, and [category] = the open vote. law_rest stays nil until a
+        -- party proposes.
+        laws = {},
+        votes = {},
     }
 end
 
@@ -918,6 +1187,15 @@ IC.LOG_KINDS = {
     plot_failed = true,
     provoke = true, purge = true, oath = true, oath_broken = true,
     embezzle = true, feast = true,
+    -- THE GOVERNMENT (spec 2026-10-02). "doctrine", not "gov": gov_on and
+    -- gov_off above are the governors.
+    doctrine = true, doctrine_ask = true, doctrine_hold = true,
+    doctrine_force = true, doctrine_lapse = true,
+    -- DEEDS (spec 2026-10-02 deeds): renown a party took, and a party drawn in.
+    deed = true, drawn = true,
+    -- THE LAWS (spec 2026-10-02 laws). key is "category.option".
+    law_propose = true, law_pass = true, law_fail = true,
+    law_win = true, law_push = true, law_overrule = true,
     unseat = true, recall = true, patron = true, kinsman = true,
     pledge = true, audience = true, circuit = true,
     envoy = true, diplomats = true,
@@ -1000,6 +1278,17 @@ IC.EVENTS = {
     officer_died       = {2626, true, false},
     threat_over        = {2627, true, true},
     stall_end          = {2628, true, false},
+    -- THE GOVERNMENT (spec 2026-10-02): a change, and a court asking for one.
+    gov_changed        = {2629, true, true},
+    gov_pressure       = {2630, true, true},
+    -- DEEDS (spec 2026-10-02 deeds): the introduction, and a party your deeds
+    -- drew in (the secondary line names the deed, per party).
+    gov_intro          = {2631, true, true},
+    party_drawn        = {2632, true, true},
+    -- THE LAWS (spec 2026-10-02 laws).
+    law_proposed       = {2633, true, true},
+    law_passed         = {2634, true, true},
+    law_failed         = {2635, true, true},
 }
 
 -- RAISED WITH cm:show_message_event_located; the record type must agree with
@@ -1110,8 +1399,89 @@ end
 function IC.house_weight(faction_key, slug)
     local house = IC.court(faction_key).houses[slug or ""]
     if not house then return 0 end
+    -- RENOWN IS WEIGHT (spec 2026-10-02 deeds section 2), kept out of
+    -- house.weight because that number is office bookkeeping.
+    local renown = (IC.court(faction_key).renown or {})[slug or ""] or 0
     return house.weight + (house.gov_weight or 0)
-        + IC.member_weight(faction_key, slug)
+        + IC.member_weight(faction_key, slug) + renown
+end
+
+-- WHAT EACH DEED MOVES (spec 2026-10-02 deeds section 2). `alt` takes the deed
+-- when `party` is not in the court and `alt` is.
+IC.DEEDS = {
+    battle    = {party = "legion", tune = "deed_battle"},
+    hellforge = {party = "forge",  tune = "deed_hellforge"},
+    rite      = {party = "temple", tune = "deed_rite"},
+    temple    = {party = "temple", tune = "deed_temple"},
+    slaves    = {party = "chain",  tune = "deed_slaves"},
+    raze      = {party = "chain",  tune = "deed_raze"},
+    convoy    = {party = "road",   tune = "deed_convoy", alt = "ledger"},
+    research  = {party = "tower",  tune = "deed_research"},
+}
+
+function IC.deeds_on(faction_key)
+    return IC.TUNE.deeds ~= false and IC.is_human(faction_key)
+end
+
+function IC.renown(faction_key, party)
+    return (IC.court(faction_key).renown or {})[party or ""] or 0
+end
+
+-- ONE ENTRY PER PARTY, DEED AND TURN: a busy turn adds to the last entry rather
+-- than burying the Record.
+function IC.log_deed(faction_key, party, code, n)
+    local log = IC.court(faction_key).log or {}
+    local now = cm:model():turn_number()
+    -- BACK THROUGH THIS TURN ONLY: another party's deed between two of this
+    -- one's still sums them (review 2026-10-02).
+    for i = #log, 1, -1 do
+        local e = log[i]
+        if e.turn ~= now then break end
+        if e.kind == "deed" and e.slug == party and e.key == code then
+            e.n = (e.n or 0) + n
+            return true
+        end
+    end
+    return IC.log(faction_key, "deed", party, code, n)
+end
+
+-- AT MOST renown_turn_cap A TURN, and an absent party stops at the join line:
+-- there it waits for a lord (IC.deed_join).
+function IC.add_renown(faction_key, party, n, code)
+    local court = IC.court(faction_key)
+    court.renown = court.renown or {}
+    court.renown_got = court.renown_got or {}
+    local got = court.renown_got[party] or 0
+    n = math.min(n or 0, math.max(0, IC.TUNE.renown_turn_cap - got))
+    local have = court.renown[party] or 0
+    if not court.houses[party] then
+        n = math.min(n, math.max(0, IC.TUNE.renown_join_line - have))
+    end
+    if n <= 0 then return 0 end
+    court.renown[party] = have + n
+    court.renown_got[party] = got + n
+    IC.log_deed(faction_key, party, code, n)
+    return n
+end
+
+function IC.deed(faction_key, code)
+    local d = IC.DEEDS[code or ""]
+    if not d or not IC.deeds_on(faction_key) then return 0 end
+    local court = IC.court(faction_key)
+    local party = d.party
+    if d.alt and not court.houses[party] and court.houses[d.alt] then party = d.alt end
+    return IC.add_renown(faction_key, party, IC.TUNE[d.tune], code)
+end
+
+-- AT THIS COURT'S TURN START, every court: renown_fade_pct, at least 1, and
+-- the turn's limit begins again.
+function IC.fade_renown(faction_key)
+    local court = IC.court(faction_key)
+    for party, n in pairs(court.renown or {}) do
+        local left = n - math.max(1, math.floor(n * IC.TUNE.renown_fade_pct / 100))
+        court.renown[party] = left > 0 and left or nil
+    end
+    court.renown_got = {}
 end
 
 function IC.total_weight(faction_key)
@@ -1264,11 +1634,48 @@ function IC.pack(faction_key)
         end
     end
     table.sort(sent)
+    -- THE GOVERNMENT (spec 2026-10-02 section 8): "-" for nothing, as above.
+    local ask = court.gov_ask
+    local gov = string.format("%s,%d,%s,%d,%d,%s,%d,%s", court.gov or "-",
+        court.gov_pressure or 0, court.gov_toward or "-", court.gov_cool or 0,
+        court.gov_holds or 0, ask and ask.gov or "-", ask and ask.ends or 0,
+        ask and ask.party or "-")
+    -- DEEDS (spec 2026-10-02 deeds): field 15 is "party,renown,got" per party,
+    -- field 16 is "intro,confed_turn".
+    local renown = {}
+    for party, n in pairs(court.renown or {}) do
+        renown[#renown + 1] = string.format("%s,%d,%d", party, n,
+                                            (court.renown_got or {})[party] or 0)
+    end
+    table.sort(renown)
+    local deeds = string.format("%d,%d", court.gov_intro and 1 or 0, court.confed_turn or 0)
+    -- THE LAWS (spec 2026-10-02 laws): field 17 is "category,option" per law
+    -- away from its start, and "rest,turn"; field 18 is the open votes, as
+    -- "category,option,proposer,ends,stance,won,push" with won as cqi:side and
+    -- push as party:level, "/" between pairs and "-" for none, then answered as
+    -- 1 or 0.
+    local laws = {}
+    for cat, opt in pairs(court.laws or {}) do laws[#laws + 1] = cat .. "," .. opt end
+    table.sort(laws)
+    if (court.law_rest or 0) > 0 then laws[#laws + 1] = "rest," .. tostring(court.law_rest) end
+    local votes = {}
+    for cat, v in pairs(court.votes or {}) do
+        local won, push = {}, {}
+        for cqi, side in pairs(v.won or {}) do won[#won + 1] = tostring(cqi) .. ":" .. side end
+        for party, level in pairs(v.push or {}) do push[#push + 1] = party .. ":" .. tostring(level) end
+        table.sort(won)
+        table.sort(push)
+        votes[#votes + 1] = string.format("%s,%s,%s,%d,%s,%s,%s,%d", cat, v.option,
+            v.proposer or IC.CROWN, v.ends or 0, v.stance or "abstain",
+            #won > 0 and table.concat(won, "/") or "-",
+            #push > 0 and table.concat(push, "/") or "-", v.answered and 1 or 0)
+    end
+    table.sort(votes)
     return join({join(houses, ";"), join(offices, ";"), join(govs, ";"),
                  join(terms, ";"), join(standing, ";"),
                  join(logged, ";"), join(prov, ";"), join(ambition, ";"),
                  court.rolled and "1" or "", join(last, ";"),
-                 join(stalled, ";"), join(news, ";"), join(sent, ";")}, "|")
+                 join(stalled, ";"), join(news, ";"), join(sent, ";"), gov, join(renown, ";"), deeds, join(laws, ";"), join(votes, ";")}, "|")
 end
 
 local function split(text, sep)
@@ -1415,6 +1822,67 @@ function IC.unpack(faction_key, packed)
         local t = tonumber(b[2])
         if b[1] and t then court.sent[b[1]] = t end
     end
+    -- Field 14 is optional: a save from before governments has none, and the
+    -- court takes its start at its next turn (spec 2026-10-02 section 8).
+    local g = split(fields[14] or "", ",")
+    court.gov = IC.GOVS[g[1] or ""] and g[1] or nil
+    court.gov_pressure = tonumber(g[2]) or 0
+    court.gov_toward = IC.GOVS[g[3] or ""] and g[3] or nil
+    court.gov_cool = tonumber(g[4]) or 0
+    court.gov_holds = tonumber(g[5]) or 0
+    if IC.GOVS[g[6] or ""] then
+        court.gov_ask = {gov = g[6], ends = tonumber(g[7]) or 0,
+                         party = (g[8] and g[8] ~= "-") and g[8] or nil}
+    end
+    -- Fields 15 and 16 are optional: a save from before deeds has no renown,
+    -- has not shown the introduction, and took no confederation.
+    for _, entry in ipairs(split(fields[15] or "", ";")) do
+        local b = split(entry, ",")
+        local n = tonumber(b[2])
+        if b[1] and n and n > 0 then
+            court.renown[b[1]] = n
+            local got = tonumber(b[3]) or 0
+            if got > 0 then court.renown_got[b[1]] = got end
+        end
+    end
+    local d = split(fields[16] or "", ",")
+    court.gov_intro = (tonumber(d[1]) == 1) or nil
+    court.confed_turn = tonumber(d[2]) or 0
+    -- Fields 17 and 18 are optional: a save from before laws holds the start
+    -- options and no votes. A law this build no longer has is dropped.
+    for _, entry in ipairs(split(fields[17] or "", ";")) do
+        local b = split(entry, ",")
+        if b[1] == "rest" then
+            court.law_rest = tonumber(b[2])
+        elseif IC.law_opt(b[1], b[2]) and b[2] ~= IC.LAWS[b[1]].order[1] then
+            court.laws[b[1]] = b[2]
+        end
+    end
+    for _, entry in ipairs(split(fields[18] or "", ";")) do
+        local b = split(entry, ",")
+        if #b >= 7 and IC.law_opt(b[1], b[2]) then
+            local v = {option = b[2], proposer = b[3], ends = tonumber(b[4]) or 0,
+                       stance = IC.LAW_SIDES[b[5]] and b[5] or "abstain", won = {}, push = {},
+                       answered = (b[8] == "1") or nil}
+            if b[6] ~= "-" then
+                for _, pair in ipairs(split(b[6], "/")) do
+                    local p = split(pair, ":")
+                    local cqi = tonumber(p[1])
+                    if cqi and (p[2] == "aye" or p[2] == "nay") then v.won[cqi] = p[2] end
+                end
+            end
+            if b[7] ~= "-" then
+                for _, pair in ipairs(split(b[7], "/")) do
+                    local p = split(pair, ":")
+                    local level = tonumber(p[2])
+                    if p[1] and level and level >= 1 and level <= #IC.TUNE.law_push_cost then
+                        v.push[p[1]] = level
+                    end
+                end
+            end
+            court.votes[b[1]] = v
+        end
+    end
     IC.state[faction_key] = court
     return court
 end
@@ -1450,6 +1918,328 @@ local function real_faction(faction_key)
     if not faction then return nil end
     if faction:is_null_interface() then return nil end
     return faction
+end
+
+-- THE VOTERS (spec section 3.3): every living man of the court with influence
+-- and a party, richest first.
+function IC.law_voters(faction_key)
+    local out = {}
+    local faction = real_faction(faction_key)
+    local ok, list = pcall(function() return faction:character_list() end)
+    if not ok or not list then return out end
+    for i = 0, list:num_items() - 1 do
+        pcall(function()
+            local man = list:item_at(i)
+            if man and not man:is_null_interface() and man:is_alive() then
+                local cqi = man:command_queue_index()
+                local n = IC.standing(faction_key, cqi)
+                local party = IC.house_of_character(man, faction_key)
+                if n > 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end
+            end
+        end)
+    end
+    table.sort(out, function(a, b)
+        if a.n ~= b.n then return a.n > b.n end
+        return a.cqi < b.cqi
+    end)
+    return out
+end
+
+-- HIS PARTY'S LINE: the side its men vote, or nil, and why.
+function IC.law_line(faction_key, vote, category, party)
+    if party == IC.CROWN then
+        if vote.stance == "abstain" then return nil, "crown" end
+        return vote.stance, "crown"
+    end
+    local s = IC.law_stance(category, vote.option, party)
+    if s then return s, s == "aye" and "for" or "against" end
+    if vote.stance == "abstain" then return nil, "no_stance" end
+    local house = IC.court(faction_key).houses[party]
+    local loyalty = house and house.loyalty or IC.TUNE.loyalty_start
+    if loyalty >= IC.TUNE.law_loyal_line then return vote.stance, "loyal" end
+    if loyalty < IC.TUNE.law_disloyal_line then
+        return vote.stance == "aye" and "nay" or "aye", "disloyal"
+    end
+    return nil, "torn"
+end
+
+function IC.law_mult(level)
+    if not level or level <= 0 then return 100 end
+    return IC.TUNE.law_push_mult[level] or 100
+end
+
+-- THE TALLY (spec sections 3.3 and 3.4). A man won votes his won side at his
+-- own influence; a man voting his party's line is multiplied by its level.
+function IC.law_tally(faction_key, category, vote)
+    vote = vote or (IC.court(faction_key).votes or {})[category]
+    local t = {aye = 0, nay = 0, abstain = 0, men = {}}
+    if not vote then return t end
+    local lines = {}
+    for _, m in ipairs(IC.law_voters(faction_key)) do
+        if not lines[m.party] then
+            lines[m.party] = {IC.law_line(faction_key, vote, category, m.party)}
+        end
+        local side, why = lines[m.party][1], lines[m.party][2]
+        local w = m.n
+        local won = vote.won and vote.won[m.cqi]
+        if won then
+            side, why = won, "won"
+        elseif side then
+            w = math.floor(m.n * IC.law_mult((vote.push or {})[m.party]) / 100)
+        end
+        t.men[#t.men + 1] = {cqi = m.cqi, party = m.party, n = m.n, side = side, why = why, w = w}
+        if side then t[side] = t[side] + w else t.abstain = t.abstain + m.n end
+    end
+    return t
+end
+
+function IC.law_passes(t) return t.aye > t.nay end
+
+-- WHAT THE COURT WOULD SAY TODAY (spec section 4.1): the Crown for it, nobody
+-- won, nobody pushing.
+function IC.law_project(faction_key, category, option)
+    return IC.law_tally(faction_key, category,
+                        {option = option, stance = "aye", won = {}, push = {}})
+end
+
+function IC.law_vote_of(faction_key, category)
+    if not IC.laws_on(faction_key) then return nil end
+    return (IC.court(faction_key).votes or {})[category]
+end
+
+local function law_key(category, vote) return category .. "." .. vote.option end
+
+-- A MAN'S PRICE (spec section 3.4), or nil and why he cannot be won.
+function IC.law_win_price(faction_key, category, cqi)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not vote then return nil, "law_none" end
+    if vote.stance == "abstain" then return nil, "law_abstain" end
+    local man = nil
+    for _, m in ipairs(IC.law_tally(faction_key, category, vote).men) do
+        if m.cqi == cqi then man = m end
+    end
+    if not man then return nil, "law_no_man" end
+    if man.party == IC.CROWN then return nil, "law_crown_man" end
+    if vote.won[cqi] then return nil, "law_won" end
+    if man.side == vote.stance then return nil, "law_with_you" end
+    local amb = IC.TUNE.law_win_ambition[IC.ambition_slug(faction_key, cqi) or "steady"] or 100
+    local price = math.floor(man.n * IC.TUNE.law_win_rate * amb / 10000)
+    local s = IC.law_stance(category, vote.option, man.party)
+    if s and s ~= vote.stance then price = price * 2 end
+    return math.max(1, price)
+end
+
+function IC.law_win(faction_key, category, cqi)
+    local price, why = IC.law_win_price(faction_key, category, cqi)
+    if not price then return false, why end
+    local ok, short = IC.spend_crown(faction_key, price)
+    if not ok then return false, "law_purse", short end
+    local vote = IC.law_vote_of(faction_key, category)
+    vote.won[cqi] = vote.stance
+    local party = nil
+    for _, m in ipairs(IC.law_tally(faction_key, category, vote).men) do
+        if m.cqi == cqi then party = m.party end
+    end
+    IC.log(faction_key, "law_win", party, law_key(category, vote), price)
+    IC.save(faction_key)
+    return true
+end
+
+function IC.law_push_price(vote, party, level)
+    local cost = IC.TUNE.law_push_cost
+    local had = (vote.push or {})[party]
+    return cost[level] - (had and cost[had] or 0)
+end
+
+function IC.law_can_push(faction_key, category, level)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not vote then return false, "law_none" end
+    if not IC.TUNE.law_push_cost[level or 0] then return false, "no such level" end
+    if vote.stance == "abstain" then return false, "law_abstain" end
+    if level <= (vote.push[IC.CROWN] or 0) then return false, "law_pushed" end
+    local price = IC.law_push_price(vote, IC.CROWN, level)
+    local total = IC.crown_purse(faction_key)
+    if total < price then return false, "law_purse", price - total end
+    return true
+end
+
+function IC.law_push(faction_key, category, level)
+    local ok, why, n = IC.law_can_push(faction_key, category, level)
+    if not ok then return false, why, n end
+    local vote = IC.law_vote_of(faction_key, category)
+    local price = IC.law_push_price(vote, IC.CROWN, level)
+    IC.spend_crown(faction_key, price)
+    vote.push[IC.CROWN] = level
+    IC.log(faction_key, "law_push", IC.CROWN, law_key(category, vote), level)
+    IC.save(faction_key)
+    return true
+end
+
+function IC.law_set_stance(faction_key, category, stance)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not vote then return false, "law_none" end
+    if not IC.LAW_SIDES[stance or ""] then return false, "no such stance" end
+    vote.stance = stance
+    vote.answered = true
+    IC.save(faction_key)
+    return true
+end
+
+-- THE END OF A VOTE (spec section 3.5), by tally or by overrule.
+function IC.law_settle(faction_key, category, passed)
+    local court = IC.court(faction_key)
+    local vote = court.votes[category]
+    if not vote then return nil end
+    court.votes[category] = nil
+    local key = law_key(category, vote)
+    if passed then
+        if vote.option == IC.LAWS[category].order[1] then
+            court.laws[category] = nil
+        else
+            court.laws[category] = vote.option
+        end
+        -- THE LAW'S OWN LISTS, not pairs(court.houses): the order is the data's.
+        local o = IC.law_opt(category, vote.option) or {}
+        for _, slug in ipairs(o.pro or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+        end
+        for _, slug in ipairs(o.con or {}) do
+            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+        end
+        IC.apply_law_bundles(faction_key)
+        IC.log(faction_key, "law_pass", vote.proposer, key, 0)
+        IC.feed(faction_key, "law_passed")
+    else
+        if vote.proposer ~= IC.CROWN then
+            IC.move_loyalty(faction_key, vote.proposer, IC.TUNE.law_fail_loss)
+        end
+        IC.log(faction_key, "law_fail", vote.proposer, key, 0)
+        IC.feed(faction_key, "law_failed")
+    end
+    return passed
+end
+
+function IC.law_overrule(faction_key, category, pass)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not vote then return false, "law_none" end
+    local ok, short = IC.spend_crown(faction_key, IC.TUNE.law_overrule_cost)
+    if not ok then return false, "law_purse", short end
+    local losing = pass and "nay" or "aye"
+    local court = IC.court(faction_key)
+    local slugs = {}
+    for slug in pairs(court.houses) do slugs[#slugs + 1] = slug end
+    table.sort(slugs)
+    for _, slug in ipairs(slugs) do
+        if slug ~= IC.CROWN and IC.law_line(faction_key, vote, category, slug) == losing then
+            IC.move_loyalty(faction_key, slug, IC.TUNE.law_overrule_loyalty)
+        end
+    end
+    IC.log(faction_key, "law_overrule", IC.CROWN, law_key(category, vote), pass and 1 or 0)
+    IC.law_settle(faction_key, category, pass)
+    IC.save(faction_key)
+    return true
+end
+
+function IC.law_can_propose(faction_key, category, option)
+    if not IC.laws_on(faction_key) then return false, "laws_off" end
+    if not IC.law_opt(category, option) then return false, "no such law" end
+    if (IC.court(faction_key).votes or {})[category] then return false, "law_open" end
+    if IC.law_in_force(faction_key, category) == option then return false, "law_same" end
+    local total = IC.crown_purse(faction_key)
+    if total < IC.TUNE.law_propose_cost then
+        return false, "law_purse", IC.TUNE.law_propose_cost - total
+    end
+    return true
+end
+
+function IC.law_open(faction_key, category, option, proposer, stance)
+    IC.court(faction_key).votes[category] = {option = option, proposer = proposer,
+        ends = cm:model():turn_number() + IC.TUNE.law_vote_turns,
+        stance = stance, won = {}, push = {}}
+    IC.log(faction_key, "law_propose", proposer, category .. "." .. option, 0)
+    IC.feed(faction_key, "law_proposed")
+end
+
+function IC.law_propose(faction_key, category, option)
+    local ok, why, n = IC.law_can_propose(faction_key, category, option)
+    if not ok then return false, why, n end
+    IC.spend_crown(faction_key, IC.TUNE.law_propose_cost)
+    IC.law_open(faction_key, category, option, IC.CROWN, "aye")
+    IC.save(faction_key)
+    return true
+end
+
+-- WHAT A PARTY WOULD PUT TO THE COURT (spec section 3.2), picked with
+-- cm:random_number so every machine picks the same.
+function IC.law_party_pick(faction_key, slug)
+    if not IC.laws_on(faction_key) then return nil end
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    if now - (court.law_rest or 0) < IC.TUNE.law_party_rest then return nil end
+    if IC.share(faction_key, slug) < IC.TUNE.law_party_share then return nil end
+    local list = {}
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        if not court.votes[cat] then
+            for _, opt in ipairs(IC.LAWS[cat].order) do
+                if opt ~= IC.law_in_force(faction_key, cat)
+                   and IC.law_stance(cat, opt, slug) == "aye" then
+                    list[#list + 1] = {category = cat, option = opt}
+                end
+            end
+        end
+    end
+    if #list == 0 then return nil end
+    return list[cm:random_number(#list, 1)]
+end
+
+-- THE PARTIES WITH A STAKE PUSH (spec section 3.4): one step each, in slug
+-- order, when their side is losing or within the margin and they can pay.
+function IC.law_party_push(faction_key, category)
+    local court = IC.court(faction_key)
+    local vote = court.votes[category]
+    if not vote then return 0 end
+    local slugs = {}
+    for slug in pairs(court.houses) do
+        if slug ~= IC.CROWN and IC.law_stance(category, vote.option, slug) then
+            slugs[#slugs + 1] = slug
+        end
+    end
+    table.sort(slugs)
+    local steps = 0
+    for _, slug in ipairs(slugs) do
+        local side = IC.law_stance(category, vote.option, slug)
+        local other = side == "aye" and "nay" or "aye"
+        local level = (vote.push[slug] or 0) + 1
+        if IC.TUNE.law_push_cost[level] then
+            local t = IC.law_tally(faction_key, category, vote)
+            -- OF THE VOTES CAST (spec 3.3): abstainers are not "close".
+            local margin = math.floor((t.aye + t.nay) * IC.TUNE.law_push_margin / 100)
+            local price = IC.law_push_price(vote, slug, level)
+            if t[side] - t[other] <= margin and IC.spend_party(faction_key, slug, price) then
+                vote.push[slug] = level
+                IC.log(faction_key, "law_push", slug, category .. "." .. vote.option, level)
+                steps = steps + 1
+            end
+        end
+    end
+    return steps
+end
+
+-- ONCE A TURN, player courts (spec section 3.5): votes at their end resolve,
+-- the rest are pushed, and the bundles are worn.
+function IC.law_turn(faction_key)
+    if not IC.laws_on(faction_key) then return nil end
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    for _, cat in ipairs(IC.LAW_ORDER) do
+        local vote = court.votes[cat]
+        if vote and now >= vote.ends then
+            IC.law_settle(faction_key, cat, IC.law_passes(IC.law_tally(faction_key, cat, vote)))
+        elseif vote then
+            IC.law_party_push(faction_key, cat)
+        end
+    end
+    IC.apply_law_bundles(faction_key)
 end
 
 function IC.member_weight(faction_key, slug)
@@ -1547,6 +2337,9 @@ end
 function IC.remove_house(faction_key, slug)
     local court = IC.court(faction_key)
     if not court.houses[slug] then return false end
+    -- ITS RENOWN GOES WITH IT (review 2026-10-02): kept, a purged or seceded
+    -- party stood at the join line and the next lord brought it straight back.
+    if court.renown then court.renown[slug] = nil end
     -- ASKED BEFORE THE DELETE (audit 2026-09-29). house_of_cqi answers the
     -- Crown for a man whose party is gone, so asked after it no post ever
     -- matched: a leaver kept his seat and his province as a Crown man.
@@ -1749,6 +2542,51 @@ function IC.background_for(character, faction_key, tally)
         if IC.can_lead(character) then tally.led[party] = true end
     end
     return bg
+end
+
+-- ROOM FOR ONE MORE: fewer rival parties than rivals_max (spec 2026-10-02
+-- deeds section 3).
+function IC.deed_room(faction_key)
+    local court, rivals = IC.court(faction_key), 0
+    for i = 1, #IC.PARTIES do
+        local p = IC.PARTIES[i]
+        if p ~= IC.CROWN and court.houses[p] then rivals = rivals + 1 end
+    end
+    return rivals < IC.TUNE.rivals_max
+end
+
+-- THE ABSENT PARTY AT THE JOIN LINE with the most renown; IC.PARTIES order
+-- breaks a tie.
+function IC.deed_waiting(faction_key)
+    if not IC.deeds_on(faction_key) or not IC.deed_room(faction_key) then return nil end
+    local court = IC.court(faction_key)
+    local best, most = nil, 0
+    for i = 1, #IC.PARTIES do
+        local p = IC.PARTIES[i]
+        local n = IC.renown(faction_key, p)
+        if p ~= IC.CROWN and not court.houses[p] and IC.BACKGROUNDS[p]
+           and n >= IC.TUNE.renown_join_line and n > most then
+            best, most = p, n
+        end
+    end
+    return best
+end
+
+-- A NEW LORD WHO CAN SPEAK FOR A PARTY, with no history of his own, joins the
+-- waiting party; it enters in the same call, so it never stands empty.
+function IC.deed_join(character, faction_key)
+    if not IC.can_lead(character) or IC.fixed_history(character) then return nil end
+    if IC.bg_of_character(character) then return nil end
+    local party = IC.deed_waiting(faction_key)
+    if not party or not IC.add_house(faction_key, party) then return nil end
+    IC.name_party(faction_key, party)
+    IC.roll_party_traits(faction_key, party)
+    IC.log(faction_key, "drawn", party, nil, IC.renown(faction_key, party))
+    IC.feed(faction_key, "party_drawn",
+            "event_feed_strings_text_derpy_ic_event_party_drawn_" .. party)
+    IC.save(faction_key)
+    local list = IC.BACKGROUNDS[party]
+    return list[cm:random_number(#list, 1)]
 end
 
 -- WHO CAN SPEAK FOR A PARTY: a lord, or a garrison commander (IC.party_colonel)
@@ -2660,7 +3498,7 @@ end
 function IC.renew_wait(faction_key, office_slug, cqi)
     if not IC.is_renewal(faction_key, office_slug, cqi) then return 0 end
     local last = IC.court(faction_key).last[office_slug]
-    return math.max(0, last.turn + IC.TUNE.renew_wait - cm:model():turn_number())
+    return math.max(0, last.turn + IC.tune(faction_key, "renew_wait") - cm:model():turn_number())
 end
 
 function IC.appoint(faction_key, office_slug, cqi)
@@ -2676,7 +3514,7 @@ function IC.appoint(faction_key, office_slug, cqi)
 
     court.last[office_slug] = nil
     court.offices[office_slug] = cqi
-    court.terms[office_slug] = cm:model():turn_number() + IC.TUNE.term_turns
+    court.terms[office_slug] = cm:model():turn_number() + IC.tune(faction_key, "term_turns")
     cm:force_add_trait(cm:char_lookup_str(character), IC.office_trait(office_slug), true)
 
     local slug = IC.house_of_character(character, faction_key)
@@ -2762,16 +3600,18 @@ IC.GOV_ORDER_EFFECT = "wh_main_effect_public_order_faction"
 IC.GOV_INCOME_EFFECT = "wh_main_effect_economy_gdp_mod_all"
 IC.GOV_INCOME_SCOPE = "province_to_region_own"
 
-function IC.gov_rank_bonus(rank)
+function IC.gov_rank_bonus(rank, faction_key)
     rank = math.max(0, tonumber(rank) or 0)
     return math.floor(rank / IC.TUNE.gov_rank_order_per),
-           math.floor(rank / IC.TUNE.gov_rank_income_per)
+           math.floor(rank / IC.tune(faction_key, "gov_rank_income_per"))
 end
 
 function IC.apply_gov_base(character, region)
     local rank = 0
+    local fk = nil
     pcall(function() rank = character:rank() end)
-    local order, income = IC.gov_rank_bonus(rank)
+    pcall(function() fk = character:faction():name() end)
+    local order, income = IC.gov_rank_bonus(rank, fk)
     local ok = pcall(function()
         local b = cm:create_new_custom_effect_bundle(IC.gov_bundle_base())
         -- NOT is_null_interface: CA's own corruption_swing.lua says that call
@@ -3151,15 +3991,15 @@ function IC.apply_governor_bundles(faction_key)
     end
 end
 
-function IC.trickle_for(character)
+function IC.trickle_for(character, faction_key)
     if not character or character:is_null_interface() then
         return IC.TUNE.influence_trickle_general
     end
     -- A garrison commander's garrison is a force, but he never leaves home.
-    if IC.is_colonel(character) then return IC.TUNE.influence_trickle end
+    if IC.is_colonel(character) then return IC.tune(faction_key, "influence_trickle") end
     local ok, has = pcall(function() return character:has_military_force() end)
     if not ok or has then return IC.TUNE.influence_trickle_general end
-    return IC.TUNE.influence_trickle
+    return IC.tune(faction_key, "influence_trickle")
 end
 
 function IC.income(faction_key)
@@ -3185,7 +4025,7 @@ function IC.income(faction_key)
 
     local paid = 0
     for cqi, man in pairs(alive) do
-        local trickle = IC.trickle_for(man)
+        local trickle = IC.trickle_for(man, faction_key)
         add_standing_raw(faction_key, cqi, trickle)
         paid = paid + trickle
     end
@@ -3199,8 +4039,8 @@ function IC.income(faction_key)
     end
     for _province, cqi in pairs(court.govs) do
         if alive[cqi] then
-            add_standing_raw(faction_key, cqi, IC.TUNE.governor_income)
-            paid = paid + IC.TUNE.governor_income
+            add_standing_raw(faction_key, cqi, IC.tune(faction_key, "governor_income"))
+            paid = paid + IC.tune(faction_key, "governor_income")
         end
     end
     return paid
@@ -4581,10 +5421,10 @@ function IC.favour_by_key(key)
     return nil
 end
 
-function IC.favour_cost(key)
+function IC.favour_cost(key, faction_key)
     local favour = IC.favour_by_key(key)
     if not favour then return 0 end
-    return IC.TUNE[favour.cost] or 0
+    return IC.tune(faction_key, favour.cost) or 0
 end
 
 -- Guard the treasury read so an engine error cannot leave the button inert.
@@ -4611,7 +5451,7 @@ function IC.can_favour(faction_key, key, slug)
     local house = court.houses[slug or ""]
     if not house then return false, "no such house" end
     if slug == IC.CROWN then return false, "your own house" end
-    local cost = IC.favour_cost(key)
+    local cost = IC.favour_cost(key, faction_key)
     local gold = IC.treasury(faction_key)
     if gold < cost then return false, "gold", cost - gold end
     if key == "gift" and (house.loyalty or 0) >= 100 then
@@ -4637,7 +5477,7 @@ function IC.favour(faction_key, key, slug)
     if not ok then return false, why, short end
     local court = IC.court(faction_key)
     local house = court.houses[slug]
-    local cost = IC.favour_cost(key)
+    local cost = IC.favour_cost(key, faction_key)
     cm:treasury_mod(faction_key, -cost)
 
     -- WHAT IT GAVE, in the slot a refusal's shortfall uses: loyalty stops at
@@ -4763,11 +5603,11 @@ function IC.may_send_diplomats(faction_key, target)
     return true
 end
 
-function IC.plot_cost(key)
+function IC.plot_cost(key, faction_key)
     local plot = IC.plot_by_key(key)
     -- A PARTY-ONLY MOVE has no IC.PLOTS row; its price is on the tune.
-    if not plot then return IC.TUNE["plot_" .. tostring(key) .. "_cost"] or 0 end
-    return IC.TUNE[plot.cost] or 0
+    if not plot then return IC.tune(faction_key, "plot_" .. tostring(key) .. "_cost") or 0 end
+    return IC.tune(faction_key, plot.cost) or 0
 end
 
 IC.LEGEND_SUBTYPES = {
@@ -4898,7 +5738,7 @@ function IC.can_plot(faction_key, plot_key, actor_cqi, target)
         return false, "commands"
     end
     if not IC.plot_is_aimed(plot_key) then
-        local cost0 = IC.plot_cost(plot_key)
+        local cost0 = IC.plot_cost(plot_key, faction_key)
         local has0 = IC.standing(faction_key, actor_cqi)
         if has0 < cost0 then return false, "standing", cost0 - has0 end
         return true
@@ -4910,7 +5750,7 @@ function IC.can_plot(faction_key, plot_key, actor_cqi, target)
         return false, "his own house"
     end
 
-    local cost = IC.plot_cost(plot_key)
+    local cost = IC.plot_cost(plot_key, faction_key)
     local has = IC.standing(faction_key, actor_cqi)
     if has < cost then return false, "standing", cost - has end
     return true
@@ -4978,7 +5818,7 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
     if not ok then return false, why, short end
     local court = IC.court(faction_key)
     local plot = IC.plot_by_key(plot_key)
-    local cost = IC.plot_cost(plot_key)
+    local cost = IC.plot_cost(plot_key, faction_key)
     local slug = IC.house_of_cqi(faction_key, actor_cqi)
     local cqi = tonumber(target)
     local against = IC.house_of_cqi(faction_key, cqi)
@@ -4991,7 +5831,7 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
 
     if chance and cm:random_number(100, 1) > chance then
         if against then
-            IC.move_loyalty(faction_key, against, -IC.TUNE.plot_fail_loyalty)
+            IC.move_loyalty(faction_key, against, -IC.tune(faction_key, "plot_fail_loyalty"))
             if plot_key == "purge" then
                 IC.move_loyalty(faction_key, against,
                                 -IC.TUNE.plot_purge_backfire)
@@ -5068,7 +5908,7 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         end
     elseif plot_key == "embezzle" then
         cm:treasury_mod(faction_key, IC.TUNE.plot_embezzle_gold)
-        IC.mood_of_the_court(faction_key, -IC.TUNE.plot_embezzle_loyalty)
+        IC.mood_of_the_court(faction_key, -IC.tune(faction_key, "plot_embezzle_loyalty"))
     elseif plot_key == "feast" then
         IC.add_standing(faction_key, actor_cqi, IC.TUNE.plot_feast_standing)
         IC.mood_of_the_court(faction_key, -IC.TUNE.plot_feast_loyalty)
@@ -5145,7 +5985,7 @@ end
 -- can leave him under his seat's bar, and IC.plot unseats him the moment it is
 -- paid. The price alone, since a move may fail and pay him nothing back.
 function IC.plot_costs_seat(faction_key, plot_key, actor_cqi)
-    local after = IC.standing(faction_key, actor_cqi) - IC.plot_cost(plot_key)
+    local after = IC.standing(faction_key, actor_cqi) - IC.plot_cost(plot_key, faction_key)
     for office_slug, cqi in pairs(IC.court(faction_key).offices) do
         local office = IC.office_by_slug(office_slug)
         if cqi == actor_cqi and office and after < IC.tier_influence(office.tier) then
@@ -5177,6 +6017,262 @@ function IC.enforce_bars(faction_key)
     end
 end
 
+-- THE PARTY THAT LEADS THE COURT, Crown included, and its share. Ties go to
+-- the first in IC.present_houses' order, the same on every machine.
+function IC.gov_top(faction_key)
+    local top, best = nil, -1
+    for _, slug in ipairs(IC.present_houses(faction_key)) do
+        local s = IC.share(faction_key, slug)
+        if s > best then top, best = slug, s end
+    end
+    return top, math.max(best, 0)
+end
+
+-- WHERE A COURT STARTS: its house's own, else its strongest rival's, else the
+-- Conclave - lore's own picture of Chaos Dwarf rule with nobody leading.
+function IC.start_gov(faction_key)
+    if IC.START_GOV[faction_key] then return IC.START_GOV[faction_key] end
+    local best, best_share = nil, -1
+    for _, slug in ipairs(IC.present_houses(faction_key)) do
+        if slug ~= IC.CROWN then
+            local s = IC.share(faction_key, slug)
+            if s > best_share then best, best_share = slug, s end
+        end
+    end
+    return (best and IC.gov_for_party(best)) or "conclave"
+end
+
+function IC.apply_gov_bundle(faction_key)
+    local want = IC.governments_on() and IC.court(faction_key).gov or nil
+    for _, g in ipairs(IC.GOV_ORDER) do
+        cm:remove_effect_bundle(IC.gov_bundle(g), faction_key)
+    end
+    if want then cm:apply_effect_bundle(IC.gov_bundle(want), faction_key, -1) end
+    return want
+end
+
+-- ONCE A TURN, every court: the start, or (player courts) the drift. A court
+-- that only now takes its government - a new campaign, a save from before
+-- governments - builds no pressure the same turn.
+function IC.gov_step(faction_key)
+    if not IC.governments_on() then return IC.apply_gov_bundle(faction_key) end
+    local court = IC.court(faction_key)
+    if not court.gov then
+        court.gov = IC.start_gov(faction_key)
+    elseif IC.gov_turn then
+        IC.gov_turn(faction_key)
+    end
+    -- ONCE PER PLAYER COURT, a court that already had a government included
+    -- (spec 2026-10-02 deeds section 4).
+    if not court.gov_intro and IC.is_human(faction_key) then
+        court.gov_intro = true
+        IC.feed(faction_key, "gov_intro")
+    end
+    return IC.apply_gov_bundle(faction_key)
+end
+
+-- WHAT THE COURT IS PULLING TOWARD NOW, ignoring the clock: the leading
+-- rival's government at gov_drift_share, the Conclave when no rival is that
+-- big, nothing when the leader has no government (the Crown, the Hearth) at
+-- any share. `step` is this turn's pressure: the Conclave's pull comes every
+-- gov_balance_turns.
+function IC.gov_pull(faction_key)
+    local top, share = IC.gov_top(faction_key)
+    if not top or not IC.gov_for_party(top) then return nil, top, 0 end
+    if share >= IC.TUNE.gov_drift_share then
+        return IC.gov_for_party(top), top, 1
+    end
+    local now = cm:model():turn_number()
+    return "conclave", nil, (now % IC.TUNE.gov_balance_turns == 0) and 1 or 0
+end
+
+function IC.gov_drift_on(faction_key)
+    return IC.governments_on() and IC.TUNE.gov_drift ~= false
+        and IC.is_human(faction_key) and IC.grace_left() == 0
+end
+
+-- THE DRIFT (spec section 5). Player courts only; frozen in the grace period,
+-- a cooldown, or while a choice waits.
+function IC.gov_turn(faction_key)
+    local court = IC.court(faction_key)
+    if IC.gov_expire then IC.gov_expire(faction_key) end
+    local now = cm:model():turn_number()
+    if not IC.gov_drift_on(faction_key) or now < (court.gov_cool or 0)
+       or court.gov_ask then
+        return false
+    end
+    local want, top, step = IC.gov_pull(faction_key)
+    if not want then return false end
+    -- THE GOVERNMENT'S OWN PARTY LEADING is a different leader (spec section
+    -- 5): the count toward anything else starts again.
+    if want == court.gov then
+        court.gov_toward, court.gov_pressure = nil, 0
+        return false
+    end
+    if court.gov_toward ~= want then court.gov_toward, court.gov_pressure = want, 0 end
+    court.gov_pressure = (court.gov_pressure or 0) + step
+    if court.gov_pressure >= IC.TUNE.gov_pressure_line then
+        court.gov_ask = {gov = want, ends = now + IC.TUNE.gov_choice_turns, party = top}
+        IC.log(faction_key, "doctrine_ask", top, want, court.gov_pressure)
+        IC.feed(faction_key, "gov_pressure")
+    end
+    return true
+end
+
+-- WHAT A PARTY'S MEN CAN SPARE (plan ruling 5; spec 2026-10-02 laws section
+-- 3.4): each man's influence above his own seat's bar, richest first, so
+-- paying never unseats anybody.
+function IC.party_purse(faction_key, slug)
+    local court, men, total, bar = IC.court(faction_key), {}, 0, {}
+    for office_slug, cqi in pairs(court.offices) do
+        local office = IC.office_by_slug(office_slug)
+        if office then bar[cqi] = math.max(bar[cqi] or 0, IC.tier_influence(office.tier)) end
+    end
+    local faction = real_faction(faction_key)
+    local ok, list = pcall(function() return faction:character_list() end)
+    if not ok or not list then return 0, men end
+    for i = 0, list:num_items() - 1 do
+        pcall(function()
+            local man = list:item_at(i)
+            if man and not man:is_null_interface() and man:is_alive()
+               and IC.house_of_character(man, faction_key) == slug then
+                local cqi = man:command_queue_index()
+                local spare = IC.standing(faction_key, cqi) - (bar[cqi] or 0)
+                if spare > 0 then
+                    men[#men + 1] = {cqi = cqi, spare = spare}
+                    total = total + spare
+                end
+            end
+        end)
+    end
+    table.sort(men, function(a, b)
+        if a.spare ~= b.spare then return a.spare > b.spare end
+        return a.cqi < b.cqi
+    end)
+    return total, men
+end
+
+function IC.spend_party(faction_key, slug, cost)
+    local total, men = IC.party_purse(faction_key, slug)
+    if total < cost then return false, cost - total end
+    local left, court = cost, IC.court(faction_key)
+    for _, m in ipairs(men) do
+        if left <= 0 then break end
+        local take = math.min(m.spare, left)
+        court.standing[m.cqi] = IC.standing(faction_key, m.cqi) - take
+        left = left - take
+    end
+    return true
+end
+
+function IC.crown_purse(faction_key) return IC.party_purse(faction_key, IC.CROWN) end
+function IC.spend_crown(faction_key, cost) return IC.spend_party(faction_key, IC.CROWN, cost) end
+
+-- ONE CHANGE, for Accept and for a forced doctrine alike.
+function IC.gov_change(faction_key, to, gain, loss, kind)
+    local court = IC.court(faction_key)
+    local from = court.gov
+    for _, p in ipairs(from and IC.GOVS[from] and IC.GOVS[from].parties or {}) do
+        IC.move_loyalty(faction_key, p, loss)
+    end
+    for _, p in ipairs(IC.GOVS[to].parties) do IC.move_loyalty(faction_key, p, gain) end
+    court.gov, court.gov_pressure, court.gov_toward, court.gov_ask = to, 0, nil, nil
+    IC.apply_gov_bundle(faction_key)
+    IC.log(faction_key, kind or "doctrine", nil, to, 0)
+    IC.feed(faction_key, "gov_changed")
+end
+
+-- THE WAITING CHOICE, if the court still pulls toward it. A party that asked
+-- can leave in the same turn (a secession, a purge) after the lapse test ran,
+-- and paying for or taking a choice nobody backs is the fault this closes.
+function IC.gov_ask_live(faction_key)
+    local court = IC.court(faction_key)
+    local ask = court.gov_ask
+    if not ask then return nil end
+    if IC.gov_pull(faction_key) ~= ask.gov then
+        court.gov_ask = nil
+        IC.log(faction_key, "doctrine_lapse", ask.party, ask.gov, 0)
+        return nil
+    end
+    return ask
+end
+
+function IC.gov_accept(faction_key)
+    local ask = IC.gov_ask_live(faction_key)
+    if not ask then return false, "no choice" end
+    IC.gov_change(faction_key, ask.gov, IC.TUNE.gov_accept_gain, IC.TUNE.gov_accept_loss, "doctrine")
+    IC.save(faction_key)
+    return true
+end
+
+function IC.gov_hold_price(faction_key)
+    return IC.TUNE.gov_hold_cost * (1 + (IC.court(faction_key).gov_holds or 0))
+end
+
+function IC.gov_hold(faction_key)
+    local court = IC.court(faction_key)
+    local ask = IC.gov_ask_live(faction_key)
+    if not ask then return false, "no choice" end
+    local price = IC.gov_hold_price(faction_key)
+    local ok, short = IC.spend_crown(faction_key, price)
+    if not ok then return false, "gov_purse", short end
+    court.gov_holds = (court.gov_holds or 0) + 1
+    court.gov_pressure = math.floor(IC.TUNE.gov_pressure_line / 2)
+    court.gov_ask = nil
+    if ask.party then IC.move_loyalty(faction_key, ask.party, IC.TUNE.gov_hold_loyalty) end
+    IC.log(faction_key, "doctrine_hold", ask.party, ask.gov, price)
+    IC.save(faction_key)
+    return true
+end
+
+-- THE CHOICE'S END, inside the court's turn so every machine settles it the
+-- same: a choice the court no longer pulls toward lapses, an unanswered one
+-- at its end is Accept. No test of ask.party: either party of a two-party
+-- government backs it (spec section 3), and the pull already answers that.
+function IC.gov_expire(faction_key)
+    local court = IC.court(faction_key)
+    local ask = court.gov_ask
+    if not ask then return nil end
+    local want = IC.gov_pull(faction_key)
+    if ask.gov == court.gov or want ~= ask.gov then
+        court.gov_ask = nil
+        IC.log(faction_key, "doctrine_lapse", ask.party, ask.gov, 0)
+        return "lapsed"
+    end
+    if cm:model():turn_number() >= ask.ends then
+        IC.gov_accept(faction_key)
+        return "accepted"
+    end
+    return nil
+end
+
+-- FORCING A DOCTRINE (spec section 7): from the Court tab, any time, paid
+-- from the Crown's spare influence. A government whose party sits in no court
+-- can be forced; it pleases nobody.
+function IC.can_force_gov(faction_key, to)
+    if not IC.governments_on() then return false, "gov_off" end
+    if not IC.GOVS[to or ""] then return false, "no such government" end
+    local court = IC.court(faction_key)
+    if to == court.gov then return false, "gov_same" end
+    local now = cm:model():turn_number()
+    if now < (court.gov_cool or 0) then return false, "gov_cool", court.gov_cool - now end
+    local total = IC.crown_purse(faction_key)
+    if total < IC.TUNE.gov_force_cost then
+        return false, "gov_purse", IC.TUNE.gov_force_cost - total
+    end
+    return true
+end
+
+function IC.gov_force(faction_key, to)
+    local ok, why, n = IC.can_force_gov(faction_key, to)
+    if not ok then return false, why, n end
+    IC.spend_crown(faction_key, IC.TUNE.gov_force_cost)
+    IC.gov_change(faction_key, to, IC.TUNE.gov_force_gain, IC.TUNE.gov_force_loss, "doctrine_force")
+    IC.court(faction_key).gov_cool = cm:model():turn_number() + IC.TUNE.gov_force_cooldown
+    IC.save(faction_key)
+    return true
+end
+
 function IC.turn(faction_key)
     IC.load(faction_key)
     -- BEFORE ANYTHING THIS TURN MOVES LOYALTY. See IC.party_placate.
@@ -5187,6 +6283,8 @@ function IC.turn(faction_key)
     IC.roll_court(faction_key)
     IC.stamp_court(faction_key)
     IC.reconcile_houses(faction_key)
+    -- BEFORE ANYTHING READS A SHARE THIS TURN (spec 2026-10-02 deeds).
+    IC.fade_renown(faction_key)
     IC.ensure_leaders(faction_key)
     IC.reconcile_governors(faction_key)
     IC.tick_provinces(faction_key)
@@ -5204,6 +6302,9 @@ function IC.turn(faction_key)
     IC.apply_governor_bundles(faction_key)
     -- Apply pressure after loyalty drift and before advancing secession clocks.
     IC.apply_control_bundle(faction_key)
+    -- BEFORE THE GOVERNMENT (spec 2026-10-02 laws section 3.5).
+    IC.law_turn(faction_key)
+    IC.gov_step(faction_key)
     IC.tick_pressure(faction_key)
     if not IC.feed_held then IC.flush_feed() end
     if IC.party_turn then
@@ -5846,6 +6947,76 @@ IC.MP_OPS.fill = function(fk, arg)             -- nothing: the plan is re-read h
     local n = IC.fill_offices(fk)
     return answer(fk, "fill", arg, n > 0, n > 0 and nil or "no fill", n)
 end
+IC.MP_OPS.gov_accept = function(fk, arg)       -- nothing
+    return answer(fk, "gov_accept", arg, IC.gov_accept(fk))
+end
+IC.MP_OPS.gov_hold = function(fk, arg)         -- nothing
+    return answer(fk, "gov_hold", arg, IC.gov_hold(fk))
+end
+IC.MP_OPS.doctrine = function(fk, arg)         -- government slug
+    return answer(fk, "doctrine", arg, IC.gov_force(fk, fields(arg)[1]))
+end
+
+-- THE LAWS (spec 2026-10-02 laws section 5). Every one is re-checked by the
+-- model function it calls.
+IC.MP_OPS.law_propose = function(fk, arg)      -- category|option
+    local f = fields(arg)
+    return answer(fk, "law_propose", arg, IC.law_propose(fk, f[1], f[2]))
+end
+IC.MP_OPS.law_stance = function(fk, arg)       -- category|aye|nay|abstain
+    local f = fields(arg)
+    return answer(fk, "law_stance", arg, IC.law_set_stance(fk, f[1], f[2]))
+end
+IC.MP_OPS.law_win = function(fk, arg)          -- category|cqi
+    local f = fields(arg)
+    return answer(fk, "law_win", arg, IC.law_win(fk, f[1], tonumber(f[2])))
+end
+IC.MP_OPS.law_push = function(fk, arg)         -- category|level
+    local f = fields(arg)
+    return answer(fk, "law_push", arg, IC.law_push(fk, f[1], tonumber(f[2])))
+end
+IC.MP_OPS.law_overrule = function(fk, arg)     -- category|1 pass, category|0 fail
+    local f = fields(arg)
+    return answer(fk, "law_overrule", arg, IC.law_overrule(fk, f[1], f[2] == "1"))
+end
+
+-- THE DEEDS' DISCRIMINATORS (spec 2026-10-02 deeds section 2). Keys read out of
+-- CA's db 2026-10-02: the guardhouse chain is military and is not a temple, and
+-- recruiting captives (enslave_replenishment_only) is not taking slaves.
+IC.TEMPLE_BUILDINGS = {
+    wh3_dlc23_chd_tower_temple_of_hashut_1 = true,
+    wh3_dlc23_special_great_temple_of_hashut_chd = true,
+}
+IC.ENSLAVE_RECORD = "wh3_dlc23_captive_option_enslave_chaos_dwarfs"
+IC.ENSLAVE_OUTCOME = "enslave_slaves_only"
+
+function IC.deed_of_ritual(category)
+    category = tostring(category or "")
+    -- NO PLAIN FLAG: in this game it corrupts the string library process-wide.
+    if string.find(category, "HELLFORGE_CAPS") then return "hellforge" end
+    if string.sub(category, 1, 10) == "DISTRICTS_" or category == "TOZ_TIER_4" then
+        return "rite"
+    end
+    return nil
+end
+
+-- ONCE PER BATTLE: CharacterCompletedBattle fires for every character in it.
+-- Keyed on the two commanders; a battle the interface cannot name scores.
+IC.battles_seen, IC.battles_turn = {}, nil
+function IC.battle_once(faction_key, battle)
+    local now = cm:model():turn_number()
+    if IC.battles_turn ~= now then IC.battles_seen, IC.battles_turn = {}, now end
+    local a, d
+    pcall(function()
+        if battle:has_attacker() then a = battle:attacker():command_queue_index() end
+        if battle:has_defender() then d = battle:defender():command_queue_index() end
+    end)
+    if not a and not d then return true end
+    local key = faction_key .. ":" .. tostring(a) .. ":" .. tostring(d)
+    if IC.battles_seen[key] then return false end
+    IC.battles_seen[key] = true
+    return true
+end
 
 function IC.register()
     -- THE MULTIPLAYER TRANSPORT'S RECEIVING END - see IC.mp_send. Registered and
@@ -5880,6 +7051,9 @@ function IC.register()
         local host = context:confederation()
         local joined = context:faction()
         if not IC.runs_court(host) then return end
+        -- CA RE-PERFORMS THE JOINER'S TOWER SEATS THIS TURN: no deed for them.
+        IC.loaded(host:name())
+        IC.court(host:name()).confed_turn = cm:model():turn_number()
         local slug = IC.origin_for_faction(joined:name())
         if not slug then return end
         local host_key = host:name()
@@ -5909,7 +7083,8 @@ function IC.register()
         IC.price_recruit(faction_key, character)
         if IC.is_chd(faction) and IC.court_rolled(faction_key) then
             IC.stamp_origin(character, IC.origin_for(character))
-            IC.stamp_bg(character, IC.background_for(character, faction_key))
+            IC.stamp_bg(character, IC.deed_join(character, faction_key)
+                                   or IC.background_for(character, faction_key))
         end
     end, true)
 
@@ -5937,19 +7112,69 @@ function IC.register()
         if not IC.runs_court(faction) then return end
         local battle = context:pending_battle()
         if not battle or battle:is_null_interface() then return end
-        local result = battle:attacker_battle_result()
-        if not IC.TUNE.battle_influence[result] then
-            result = battle:defender_battle_result()
-        end
-        local gain = IC.TUNE.battle_influence[result]
-        if not gain then return end
         local faction_key = faction:name()
         IC.loaded(faction_key)
+        local worth = IC.tune(faction_key, "battle_influence")
+        local result = battle:attacker_battle_result()
+        if not worth[result] then
+            result = battle:defender_battle_result()
+        end
+        local gain = worth[result]
+        if not gain then return end
         IC.move_loyalty(faction_key,
                         IC.house_of_character(character, faction_key),
-                        IC.TUNE.loyalty_battle_won)
+                        IC.tune(faction_key, "loyalty_battle_won"))
         IC.add_standing(faction_key, character:command_queue_index(), gain)
+        if IC.battle_once(faction_key, battle) and IC.deed(faction_key, "battle") > 0 then
+            IC.save(faction_key)
+        end
     end, true)
+
+    -- THE DEEDS (spec 2026-10-02 deeds). Each reads its faction and its deed,
+    -- or nothing; a failure is said and drops nothing else.
+    local function on_deed(name, event, read)
+        core:add_listener(name, event, true, function(context)
+            local ok, err = pcall(function()
+                local faction, code = read(context)
+                if not faction or faction:is_null_interface() or not code then return end
+                if not IC.runs_court(faction) then return end
+                local faction_key = faction:name()
+                IC.loaded(faction_key)
+                if IC.deed(faction_key, code) > 0 then IC.save(faction_key) end
+            end)
+            if not ok then IC.warn("IRON COURT: " .. name .. " failed: " .. tostring(err)) end
+        end, true)
+    end
+    on_deed("ic_deed_ritual", "RitualCompletedEvent", function(context)
+        local faction = context:performing_faction()
+        if not IC.runs_court(faction) then return nil end
+        IC.loaded(faction:name())
+        local code = IC.deed_of_ritual(context:ritual():ritual_category())
+        if code == "rite" and IC.court(faction:name()).confed_turn
+                == cm:model():turn_number() then
+            return nil
+        end
+        return faction, code
+    end)
+    on_deed("ic_deed_building", "BuildingCompleted", function(context)
+        local building = context:building()
+        return building:faction(), IC.TEMPLE_BUILDINGS[building:name()] and "temple" or nil
+    end)
+    on_deed("ic_deed_captives", "CharacterPostBattleCaptureOption", function(context)
+        local yes = context:get_outcome_key() == IC.ENSLAVE_OUTCOME
+                    or context:get_record_key() == IC.ENSLAVE_RECORD
+        return context:character():faction(), yes and "slaves" or nil
+    end)
+    on_deed("ic_deed_raze", "CharacterRazedSettlement", function(context)
+        return context:character():faction(), "raze"
+    end)
+    -- NOT ScriptEventCaravanCompleted too: CA re-raises this same context.
+    on_deed("ic_deed_convoy", "CaravanCompleted", function(context)
+        return context:faction(), "convoy"
+    end)
+    on_deed("ic_deed_research", "ResearchCompleted", function(context)
+        return context:faction(), "research"
+    end)
 
     core:add_listener("ic_took", "GarrisonOccupiedEvent", true, function(context)
         local character = context:character()
@@ -5971,7 +7196,7 @@ function IC.register()
         local gained = context:ranks_gained() or 1
         IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
-                        gained * IC.TUNE.rank_influence)
+                        gained * IC.tune(faction:name(), "rank_influence"))
     end, true)
 
     core:add_listener("ic_dead", "CharacterConvalescedOrKilled", true, function(context)

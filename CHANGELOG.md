@@ -5,6 +5,120 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-03 - build 05C8F762
+
+Deployed 2026-10-03. MD5 `05C8F762FB6CEEDC5F129E10B88468C0`, 10,911,050 bytes. The detail is in section 5 of `docs/history/HANDOFF_20261003_IRON_COURT_BAR_BORDER_AND_LIVE_CHECKS.md`. Not yet seen in game.
+
+- **The vote screen's buttons fit their words.** The bottom box has two rows: Your side and
+  Decide it now on the first, Your support on the second. Sized for 1600x900 too.
+- **A bronze border on the vote screen's support bar.**
+- **The bar's labels follow the bar.** Nay ends where the bar ends; Abstaining sits over the
+  abstaining share and never runs into the Aye or Nay figures.
+- Check 20k now allows a tab-art button only the room between its skull caps, which is why it
+  had passed the overrunning labels.
+
+## 2026-10-03 - build 65333E8C
+
+Deployed 2026-10-03. MD5 `65333E8C28459E66362D743F49D8D149`, 10,907,906 bytes. Seen working in game.
+
+- **A bronze border on the laws board's projection bar.**
+
+## 2026-10-03 - build 47E345D7
+
+Deployed 2026-10-03. MD5 `47E345D79E8A73A91678AA69681CFA54`, 10,905,484 bytes. The detail is in section 10 of `docs/history/HANDOFF_20261002_IRON_COURT_GOVERNMENTS.md`.
+
+- **Fewer rivals by default.** Default now rolls two rival parties (was three) and Harsh
+  three (was four). Ruthless is renamed Political Chaos and keeps five; Gentle keeps one.
+  Saved MCT choices carry over. Only a new court rolls the new size.
+
+## 2026-10-03 - build 74A26316
+
+Deployed 2026-10-03. MD5 `74A26316F0D07B1037DDDF3AB5F2BD9E`, 10,905,465 bytes.
+
+- **No growth anywhere in the court.** Chaos Dwarfs have no use for it. Rule of the High
+  Priest now gives Conclave Influence +10%, a Priesthood governor's province gets Control +3
+  from its slaves, every governor's base gives 5% less workload, and the Iron Grip and
+  Court Is Not Yours bands give and take 5% Conclave Influence.
+
+## 2026-10-03 - build 5B9242D2
+
+Deployed 2026-10-03. MD5 `5B9242D26288231C6398B588C0B70334`, 10,905,241 bytes.
+
+- **Sharper government pictures.** The six card pictures ship at 224px, upscaled from CA's
+  72px tech icons, instead of being stretched by the game.
+- **The Offices tab's title reads THE ZIGGURAT OF ZHARR.**
+- **The laws board shows its projection as a bar** under the percentages: aye in green from
+  the left, nay in red from the right, the grey between is the share that would abstain.
+
+## 2026-10-03 - build A08AC983
+
+Deployed 2026-10-03. MD5 `A08AC9837D3B9858F776367AA43F42C3`, 10,464,837 bytes.
+
+- **Change Doctrine opens five cards** centred on the screen, one per other government:
+  its picture, rule, effect, who it pleases and angers in this court, and a Choose button
+  with the price or, in red, why not. A title above names the government in force.
+- **Absent parties are greyed out on the laws tab.** A party not at this court shows a grey
+  crest on the law cards and in the side pane.
+- **A title on the ziggurat** on the Offices tab.
+
+## 2026-10-03 - build CE214EAB
+
+Deployed 2026-10-03. MD5 `CE214EABA038799178CC4F19D2485DC5`, 10,223,228 bytes.
+
+- **The laws tab's category names are titles**, centred over each column on the heading
+  plate the Intrigue tab uses.
+- Five small laws fixes from the final review, and the Help page explains that a man you
+  win over keeps his side for the whole vote.
+
+## 2026-10-03 - build F745426B
+
+Deployed 2026-10-03. MD5 `F745426B3FAFFB1835CFB873524F7FE5`, 10,240,710 bytes.
+
+- The laws review's three fixes, the day after the first laws build.
+
+## 2026-10-02 - build 57B2FFB9
+
+Deployed 2026-10-02. MD5 `57B2FFB9EA89AF241C5B5A2A73DAE18A`, 10,240,072 bytes. The detail is in section 9 of `docs/history/HANDOFF_20261002_IRON_COURT_GOVERNMENTS.md`.
+
+- **Laws and votes.** A seventh tab, Laws: four categories (Labour, Tribute, Worship and
+  War) of five laws each, one in force per category, each with real effects and a party
+  for and against it. Propose a law for 150 influence, or a party proposes one; the vote
+  runs two turns. Every man votes with his own influence on his party's line. Push your
+  side, win individual men over, or overrule the vote. Live switch: Laws.
+
+## 2026-10-02 - build E23D3F9D
+
+Deployed 2026-10-02. MD5 `E23D3F9D63B078E1AD31303E4D9BE80D`, 9,808,319 bytes. The detail is in section 8 of `docs/history/HANDOFF_20261002_IRON_COURT_GOVERNMENTS.md`.
+
+- **Deeds move the court.** Battles, Hell-Forge work, Tower rites and temples, slaves and
+  razing, convoys and research give the matching party renown that counts towards its
+  share and fades. A party not at court that reaches 15 renown takes the next lord you
+  recruit. Live switch: Your deeds move the court.
+
+## 2026-10-02 - build EAC30CC3
+
+Deployed 2026-10-02. MD5 `EAC30CC3AF185453B2B2036A38E8C17E`, 9,787,587 bytes.
+
+- **Each government wears its own picture**, on the Court tab, in the chooser and on its
+  effect bundle.
+
+## 2026-10-02 - build FA9EED2D
+
+Deployed 2026-10-02. MD5 `FA9EED2DB157D4861454D1D06A1E9EC1`, 9,786,887 bytes.
+
+- **The government line is labelled** "Government: <name>".
+
+## 2026-10-02 - build FEA1936D
+
+Deployed 2026-10-02. MD5 `FEA1936DC34023ABE1131A10F99F3A40`, 9,786,842 bytes. The detail is in sections 1-5 of `docs/history/HANDOFF_20261002_IRON_COURT_GOVERNMENTS.md`.
+
+- **Six governments.** The Conclave, Rule of the High Priest, Rule of the Daemonsmiths,
+  Command of the Legion, Rule of the Slave-Lords and the Convoy Concern. Each changes one
+  rule of the court and gives a faction-wide effect, and each house starts with its lore's.
+  A leading rival party asks for its own on the Petitions tab: accept, or hold the old one
+  at a rising price. Change Doctrine forces one for influence, the dropped government's
+  loyalty and a cooldown. Live switches: Governments, and Governments change with the court.
+
 ## 2026-10-02 - build 9A66C3C8
 
 Deployed 2026-10-02. MD5 `9A66C3C84E95594D2CEF5F888C1C5BE7`, 9,741,137 bytes, 1,797 files.

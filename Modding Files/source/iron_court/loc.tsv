@@ -86,7 +86,7 @@ effect_bundles_localised_description_derpy_ic_vacant_banners	The raiders keep th
 derpy_ic_effects_derpy_ic_vacant_banners	Raiding income -5%	false
 effect_bundles_localised_title_derpy_ic_control_grip	An Iron Grip on the Court	false
 effect_bundles_localised_description_derpy_ic_control_grip	Nothing moves in Zharr-Naggrund that the Crown did not set moving.	false
-derpy_ic_effects_derpy_ic_control_grip	Control +6, Building income +12%, Upkeep -15%, Growth +2	false
+derpy_ic_effects_derpy_ic_control_grip	Control +6, Building income +12%, Upkeep -15%, Conclave Influence +5%	false
 derpy_ic_control_name_grip	An Iron Grip on the Court	false
 effect_bundles_localised_title_derpy_ic_control_mastery	Master of the Court	false
 effect_bundles_localised_description_derpy_ic_control_mastery	The parties argue, and then they do as they are told.	false
@@ -102,17 +102,173 @@ derpy_ic_effects_derpy_ic_control_contested	Control -2, Upkeep +5%	false
 derpy_ic_control_name_contested	A Contested Court	false
 effect_bundles_localised_title_derpy_ic_control_lost	The Court Is Not Yours	false
 effect_bundles_localised_description_derpy_ic_control_lost	The parties rule and the Crown is consulted, when there is time.	false
-derpy_ic_effects_derpy_ic_control_lost	Control -8, Upkeep +20%, Building income -15%, Growth -2	false
+derpy_ic_effects_derpy_ic_control_lost	Control -8, Upkeep +20%, Building income -15%, Conclave Influence -5%	false
 derpy_ic_control_name_lost	The Court Is Not Yours	false
+effect_bundles_localised_title_derpy_ic_doctrine_conclave	The Conclave	false
+effect_bundles_localised_description_derpy_ic_doctrine_conclave	No one rules Zharr-Naggrund. Its Sorcerer-Prophets sit in council.	false
+derpy_ic_effects_derpy_ic_doctrine_conclave	Research +5	false
+derpy_ic_doctrine_name_conclave	The Conclave	false
+derpy_ic_doctrine_rule_conclave	Office terms are shorter. A man may take a seat again after 1 turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_priest	Rule of the High Priest	false
+effect_bundles_localised_description_derpy_ic_doctrine_priest	The eldest voice is the strongest, and it speaks for Hashut.	false
+derpy_ic_effects_derpy_ic_doctrine_priest	Conclave Influence +10%	false
+derpy_ic_doctrine_name_priest	Rule of the High Priest	false
+derpy_ic_doctrine_rule_priest	Each rank a man gains is worth double influence. Battles are worth less.	false
+effect_bundles_localised_title_derpy_ic_doctrine_forge	Rule of the Daemonsmiths	false
+effect_bundles_localised_description_derpy_ic_doctrine_forge	The priest-artificers rule from the forges.	false
+derpy_ic_effects_derpy_ic_doctrine_forge	Armaments +10%	false
+derpy_ic_doctrine_name_forge	Rule of the Daemonsmiths	false
+derpy_ic_doctrine_rule_forge	Governors earn more income. Men at court earn less influence each turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_legion	Command of the Legion	false
+effect_bundles_localised_description_derpy_ic_doctrine_legion	Rank in the court is won in the field.	false
+derpy_ic_effects_derpy_ic_doctrine_legion	Upkeep -5%	false
+derpy_ic_doctrine_name_legion	Command of the Legion	false
+derpy_ic_doctrine_rule_legion	Battles are worth more influence and loyalty. Men at court earn no influence each turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_chain	Rule of the Slave-Lords	false
+effect_bundles_localised_description_derpy_ic_doctrine_chain	Fear holds the court as the chain holds the slave.	false
+derpy_ic_effects_derpy_ic_doctrine_chain	Post-battle Labour +10%	false
+derpy_ic_doctrine_name_chain	Rule of the Slave-Lords	false
+derpy_ic_doctrine_rule_chain	Murder, Purge and Provoke cost less. A failed move costs double loyalty.	false
+effect_bundles_localised_title_derpy_ic_doctrine_convoy	The Convoy Concern	false
+effect_bundles_localised_description_derpy_ic_doctrine_convoy	Everything in the Dark Lands has a price.	false
+derpy_ic_effects_derpy_ic_doctrine_convoy	Building income +5%	false
+derpy_ic_doctrine_name_convoy	The Convoy Concern	false
+derpy_ic_doctrine_rule_convoy	Gifts and oaths cost less gold. Embezzling angers the parties twice as much.	false
+derpy_ic_law_cat_labour	Labour	false
+effect_bundles_localised_title_derpy_ic_law_labour_measure	The Measure	false
+effect_bundles_localised_description_derpy_ic_law_labour_measure	The overseers work the stock as they always have.	false
+derpy_ic_law_name_labour_measure	The Measure	false
+effect_bundles_localised_title_derpy_ic_law_labour_lash	The Lash	false
+effect_bundles_localised_description_derpy_ic_law_labour_lash	More are taken and they are driven hard, and they break.	false
+derpy_ic_effects_derpy_ic_law_labour_lash	Captives +15%, Rush cost -30%, Labourer leadership -4	false
+derpy_ic_law_name_labour_lash	The Lash	false
+derpy_ic_law_fx1_labour_lash	Casualties captured post-battle: +15%	false
+derpy_ic_law_fx2_labour_lash	Rush Construction Labour cost: -30%	false
+derpy_ic_law_fx3_labour_lash	Leadership: -4 for Labourer units	false
+effect_bundles_localised_title_derpy_ic_law_labour_kept	The Kept Stock	false
+effect_bundles_localised_description_derpy_ic_law_labour_kept	The stock is fed and kept, and fewer are taken.	false
+derpy_ic_effects_derpy_ic_law_labour_kept	Labourer upkeep -50%, Labourer rank +2, Captives -10%	false
+derpy_ic_law_name_labour_kept	The Kept Stock	false
+derpy_ic_law_fx1_labour_kept	Upkeep: -50% for Labourers units	false
+derpy_ic_law_fx2_labour_kept	Recruit rank: +2 for Labourer units	false
+derpy_ic_law_fx3_labour_kept	Casualties captured post-battle: -10%	false
+effect_bundles_localised_title_derpy_ic_law_labour_quota	The Furnace Quota	false
+effect_bundles_localised_description_derpy_ic_law_labour_quota	Every forge has its quota, and the stock pays for it.	false
+derpy_ic_effects_derpy_ic_law_labour_quota	Workload -15%, Raw Materials used -15%, Labourer upkeep +25%	false
+derpy_ic_law_name_labour_quota	The Furnace Quota	false
+derpy_ic_law_fx1_labour_quota	Workload requirement for Raw Materials: -15%	false
+derpy_ic_law_fx2_labour_quota	Raw Materials consumed per turn by buildings: -15%	false
+derpy_ic_law_fx3_labour_quota	Upkeep: +25% for Labourers units	false
+effect_bundles_localised_title_derpy_ic_law_labour_ash	The Ash Harvest	false
+effect_bundles_localised_description_derpy_ic_law_labour_ash	What cannot be held is burned, and its people with it.	false
+derpy_ic_effects_derpy_ic_law_labour_ash	Razing income +25%, Sacking income +15%, Captives -10%	false
+derpy_ic_law_name_labour_ash	The Ash Harvest	false
+derpy_ic_law_fx1_labour_ash	Income from razing settlements: +25%	false
+derpy_ic_law_fx2_labour_ash	Income from sacking settlements: +15%	false
+derpy_ic_law_fx3_labour_ash	Casualties captured post-battle: -10%	false
+derpy_ic_law_cat_tribute	Tribute	false
+effect_bundles_localised_title_derpy_ic_law_tribute_tithe	The Crown's Tithe	false
+effect_bundles_localised_description_derpy_ic_law_tribute_tithe	The Crown takes its tithe, as it always has.	false
+derpy_ic_law_name_tribute_tithe	The Crown's Tithe	false
+effect_bundles_localised_title_derpy_ic_law_tribute_roads	Open Roads	false
+effect_bundles_localised_description_derpy_ic_law_tribute_roads	The roads are opened to more convoys, and the vassals pay less.	false
+derpy_ic_effects_derpy_ic_law_tribute_roads	Active Convoys +1, Convoy ambush -25%, Vassal tribute -20%	false
+derpy_ic_law_name_tribute_roads	Open Roads	false
+derpy_ic_law_fx1_tribute_roads	Maximum number of active Convoys: +1	false
+derpy_ic_law_fx2_tribute_roads	Chance of Caravan intercept battle being an ambush: -25%	false
+derpy_ic_law_fx3_tribute_roads	Tribute from [[img:icon_vassal]][[/img]]vassals: -20%	false
+effect_bundles_localised_title_derpy_ic_law_tribute_tariff	The Ledger's Tariff	false
+effect_bundles_localised_description_derpy_ic_law_tribute_tariff	Every route pays the Ledger, and the cargo is worth less.	false
+derpy_ic_effects_derpy_ic_law_tribute_tariff	Convoy tariffs +5%, Refinery income +10%, Cargo value -10%	false
+derpy_ic_law_name_tribute_tariff	The Ledger's Tariff	false
+derpy_ic_law_fx1_tribute_tariff	Income from trade tariffs: +5% for every completed Convoy route	false
+derpy_ic_law_fx2_tribute_tariff	Income from Refinery buildings: +10%	false
+derpy_ic_law_fx3_tribute_tariff	Sale value of cargo: -10%	false
+effect_bundles_localised_title_derpy_ic_law_tribute_mines	The Mines Before All	false
+effect_bundles_localised_description_derpy_ic_law_tribute_mines	The mines come first, and the convoys carry less.	false
+derpy_ic_effects_derpy_ic_law_tribute_mines	Mine income +15%, Trade goods +10%, Cargo capacity -15%	false
+derpy_ic_law_name_tribute_mines	The Mines Before All	false
+derpy_ic_law_fx1_tribute_mines	Income from Iron Mines, Gold Mines and Stone Quarries: +15%	false
+derpy_ic_law_fx2_tribute_mines	Tradable resources produced: +10%	false
+derpy_ic_law_fx3_tribute_mines	Maximum Caravan cargo capacity: -15%	false
+effect_bundles_localised_title_derpy_ic_law_tribute_charter	The Overseers' Charter	false
+effect_bundles_localised_description_derpy_ic_law_tribute_charter	The convoy overseers are chartered, and the other houses resent it.	false
+derpy_ic_effects_derpy_ic_law_tribute_charter	Overseer rank +3, Overseer XP a turn +100, Chaos Dwarf ties -10	false
+derpy_ic_law_name_tribute_charter	The Overseers' Charter	false
+derpy_ic_law_fx1_tribute_charter	Lord recruit rank: +3 for Convoy Overseer	false
+derpy_ic_law_fx2_tribute_charter	Experience per turn: +100 for Convoy Overseers	false
+derpy_ic_law_fx3_tribute_charter	Diplomatic relations: -10 with Chaos Dwarfs	false
+derpy_ic_law_cat_worship	Worship	false
+effect_bundles_localised_title_derpy_ic_law_worship_rites	The Rites Kept	false
+effect_bundles_localised_description_derpy_ic_law_worship_rites	The rites are kept, as they always have been.	false
+derpy_ic_law_name_worship_rites	The Rites Kept	false
+effect_bundles_localised_title_derpy_ic_law_worship_fires	The Fires Fed	false
+effect_bundles_localised_description_derpy_ic_law_worship_fires	Hashut's fires are fed without stint, and building waits on them.	false
+derpy_ic_effects_derpy_ic_law_worship_fires	Conclave Influence +10%, Nearby corruption +1, Rush cost +15%	false
+derpy_ic_law_name_worship_fires	The Fires Fed	false
+derpy_ic_law_fx1_worship_fires	Conclave Influence gained from all sources: +10% 	false
+derpy_ic_law_fx2_worship_fires	Chaos Undivided corruption in adjacent provinces: +1	false
+derpy_ic_law_fx3_worship_fires	Rush Construction Labour cost: +15%	false
+effect_bundles_localised_title_derpy_ic_law_worship_seats	Seats Bought in the Tower	false
+effect_bundles_localised_description_derpy_ic_law_worship_seats	Seats in the Tower are sold, and the priests' favour cools.	false
+derpy_ic_effects_derpy_ic_law_worship_seats	Tower seat cost -25%, Conclave Influence -10%	false
+derpy_ic_law_name_worship_seats	Seats Bought in the Tower	false
+derpy_ic_law_fx1_worship_seats	Conclave Influence cost for Tower of Zharr Seats: -25%	false
+derpy_ic_law_fx2_worship_seats	Conclave Influence gained from all sources: -10% 	false
+effect_bundles_localised_title_derpy_ic_law_worship_lore	The Lore Taught	false
+effect_bundles_localised_description_derpy_ic_law_worship_lore	The Lore of Hashut is taught more widely, and more carelessly.	false
+derpy_ic_effects_derpy_ic_law_worship_lore	Hashut spell cost -10%, Hashut cooldown -10%, Miscast +15%	false
+derpy_ic_law_name_worship_lore	The Lore Taught	false
+derpy_ic_law_fx1_worship_lore	Winds of Magic cost: -10% for Lore of Hashut spells	false
+derpy_ic_law_fx2_worship_lore	Cooldown: -10% to Lore of Hashut spells	false
+derpy_ic_law_fx3_worship_lore	Miscast base chance: +15%	false
+effect_bundles_localised_title_derpy_ic_law_worship_licence	The Daemonsmiths' Licence	false
+effect_bundles_localised_description_derpy_ic_law_worship_licence	The Daemonsmiths are licensed, and the priests resent it.	false
+derpy_ic_effects_derpy_ic_law_worship_licence	K'daai resistance +10%, Temple build time -1, Conclave Influence -10%	false
+derpy_ic_law_name_worship_licence	The Daemonsmiths' Licence	false
+derpy_ic_law_fx1_worship_licence	Physical resistance: 10% for all K'daai units	false
+derpy_ic_law_fx2_worship_licence	Construction time: -1 for Temple of Hashut buildings	false
+derpy_ic_law_fx3_worship_licence	Conclave Influence gained from all sources: -10% 	false
+derpy_ic_law_cat_war	War	false
+effect_bundles_localised_title_derpy_ic_law_war_levy	The Levy	false
+effect_bundles_localised_description_derpy_ic_law_war_levy	The levy is raised as it always has been.	false
+derpy_ic_law_name_war_levy	The Levy	false
+effect_bundles_localised_title_derpy_ic_law_war_hellforge	The Hell-Forge Unbound	false
+effect_bundles_localised_description_derpy_ic_law_war_hellforge	The Hell-Forge works without leave, and the infantry pays for it.	false
+derpy_ic_effects_derpy_ic_law_war_hellforge	Forge upgrade cost -10%, Forgecraft options +1, Infantry cost +10%	false
+derpy_ic_law_name_war_hellforge	The Hell-Forge Unbound	false
+derpy_ic_law_fx1_war_hellforge	Armaments cost: -10% for all unit capacity upgrades in the Hell-Forge	false
+derpy_ic_law_fx2_war_hellforge	Maximum active Hell-Forge Forgecraft Options: +1	false
+derpy_ic_law_fx3_war_hellforge	Recruitment cost: +10% for Chaos Dwarf Infantry units	false
+effect_bundles_localised_title_derpy_ic_law_war_legions	Standing Legions	false
+effect_bundles_localised_description_derpy_ic_law_war_legions	The legions stand ready, and the guns wait.	false
+derpy_ic_effects_derpy_ic_law_war_legions	Infantry rank +1, Infantry cost -10%, Artillery upkeep +10%	false
+derpy_ic_law_name_war_legions	Standing Legions	false
+derpy_ic_law_fx1_war_legions	Recruit rank: +1 for Chaos Dwarf Infantry	false
+derpy_ic_law_fx2_war_legions	Recruitment cost: -10% for Chaos Dwarf Infantry units	false
+derpy_ic_law_fx3_war_legions	Upkeep: +10% for Artillery and War Machine units	false
+effect_bundles_localised_title_derpy_ic_law_war_grudge	The Old Grudge	false
+effect_bundles_localised_description_derpy_ic_law_war_grudge	The old grudge against the Dwarfs is fed, and the labour pays for it.	false
+derpy_ic_effects_derpy_ic_law_war_grudge	XP vs Dwarfs +100%, Labour upkeep +10%	false
+derpy_ic_law_name_war_grudge	The Old Grudge	false
+derpy_ic_law_fx1_war_grudge	Double experience gain for units when fighting against Dwarfs	false
+derpy_ic_law_fx2_war_grudge	Upkeep: +10% for Labourers and Hobgoblin Infantry units	false
+effect_bundles_localised_title_derpy_ic_law_war_gunnery	The Gunnery Doctrine	false
+effect_bundles_localised_description_derpy_ic_law_war_gunnery	The guns come first, and every shooter costs more.	false
+derpy_ic_effects_derpy_ic_law_war_gunnery	Artillery explosive +10%, Artillery range +5%, Ranged cost +15%	false
+derpy_ic_law_name_war_gunnery	The Gunnery Doctrine	false
+derpy_ic_law_fx1_war_gunnery	Explosive missile damage: +10% for Iron Daemon and Artillery units	false
+derpy_ic_law_fx2_war_gunnery	Range: +5% for Iron Daemon and Artillery units	false
+derpy_ic_law_fx3_war_gunnery	Recruitment cost: +15% for all Missile Infantry, Artillery and War Machine units	false
 effect_bundles_localised_title_derpy_ic_gov_base	Governor of the Province	false
 effect_bundles_localised_description_derpy_ic_gov_base	A governor of the court sits here, and the province knows it.	false
-derpy_ic_effects_derpy_ic_gov_base	Control +2, Growth +8	false
+derpy_ic_effects_derpy_ic_gov_base	Control +2, Workload -5%	false
 effect_bundles_localised_title_derpy_ic_gov_house_crown	Governor: The Crown	false
 effect_bundles_localised_description_derpy_ic_gov_house_crown	Your own men hold it, and they are watched.	false
 derpy_ic_effects_derpy_ic_gov_house_crown	Control +4	false
 effect_bundles_localised_title_derpy_ic_gov_house_temple	Governor: The Priesthood	false
 effect_bundles_localised_description_derpy_ic_gov_house_temple	The temples take the province in hand and it grows for Hashut.	false
-derpy_ic_effects_derpy_ic_gov_house_temple	Growth +8	false
+derpy_ic_effects_derpy_ic_gov_house_temple	Control +3	false
 effect_bundles_localised_title_derpy_ic_gov_house_forge	Governor: The Forge	false
 effect_bundles_localised_description_derpy_ic_gov_house_forge	Forge-guild overseers run the province like a workshop floor.	false
 derpy_ic_effects_derpy_ic_gov_house_forge	Armaments +6%	false
@@ -887,6 +1043,34 @@ event_feed_strings_text_derpy_ic_event_threat_over_primary	A party that was prep
 event_feed_strings_text_derpy_ic_event_threat_over_secondary	Stood Down	false
 event_feed_strings_text_derpy_ic_event_stall_end_title	An Office Is Back at Work	false
 event_feed_strings_text_derpy_ic_event_stall_end_primary	An office that stood stalled is working again, and its bonus applies from now on.	false
+event_feed_strings_text_derpy_ic_event_gov_changed_title	A New Government	false
+event_feed_strings_text_derpy_ic_event_gov_changed_primary	The court has a new government. Its rule bends the court's own, and its party expects much of it.	false
+event_feed_strings_text_derpy_ic_event_gov_changed_secondary	The Court Changes	false
+event_feed_strings_text_derpy_ic_event_gov_pressure_title	The Court Pulls Another Way	false
+event_feed_strings_text_derpy_ic_event_gov_pressure_primary	A party leads the court and asks for its own government. Accept it, or pay to keep the one you have, on the Petitions tab.	false
+event_feed_strings_text_derpy_ic_event_gov_pressure_secondary	A Choice Waits	false
+event_feed_strings_text_derpy_ic_event_gov_intro_title	Your Deeds Move the Court	false
+event_feed_strings_text_derpy_ic_event_gov_intro_primary	Your court has a government, shown in the Crown's box. What you do moves it. Victories raise the Legion, the Hell-Forge raises the Forge, the Tower's rites and temples raise the Priesthood, slaves and razing raise the Chain, convoys raise the Road, and research raises the Tower. A party that grows strong enough asks for its own government.	false
+event_feed_strings_text_derpy_ic_event_gov_intro_secondary	The Court Watches You	false
+event_feed_strings_text_derpy_ic_event_party_drawn_title	A Party Comes to Court	false
+event_feed_strings_text_derpy_ic_event_party_drawn_primary	Your deeds have drawn a new party into your court, and the next lord you raised has joined it. It holds weight now, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_secondary	The Court Grows	false
+event_feed_strings_text_derpy_ic_event_law_proposed_title	A Law Before the Court	false
+event_feed_strings_text_derpy_ic_event_law_proposed_primary	A law has been put to the court. Its men will vote by their parties' lines, and you can push, win men or overrule on the Laws tab.	false
+event_feed_strings_text_derpy_ic_event_law_proposed_secondary	The Court Will Vote	false
+event_feed_strings_text_derpy_ic_event_law_passed_title	A Law Passes	false
+event_feed_strings_text_derpy_ic_event_law_passed_primary	The court has voted, and a new law is in force. Its parties are pleased, and those against it are not.	false
+event_feed_strings_text_derpy_ic_event_law_passed_secondary	The Law Is Changed	false
+event_feed_strings_text_derpy_ic_event_law_failed_title	A Law Fails	false
+event_feed_strings_text_derpy_ic_event_law_failed_primary	The court has voted the law down. The law in force stands.	false
+event_feed_strings_text_derpy_ic_event_law_failed_secondary	The Law Stands	false
+event_feed_strings_text_derpy_ic_event_party_drawn_chain	Your slave-taking drew the Chain to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_forge	The Hell-Forge's work drew the Forge to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_ledger	Your convoys drew the Ledger to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_legion	Your victories drew the Legion to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_road	Your convoys drew the Road to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_temple	The Tower's rites drew the Priesthood to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_tower	Your research drew the Tower to court.	false
 event_feed_strings_text_derpy_ic_move_bribe_ok	Bribe - Success!	false
 event_feed_strings_text_derpy_ic_move_bribe_fail	Bribe - Failure	false
 event_feed_strings_text_derpy_ic_move_discredit_ok	Discredit - Success!	false

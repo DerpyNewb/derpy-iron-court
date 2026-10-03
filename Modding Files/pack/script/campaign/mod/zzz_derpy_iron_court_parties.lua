@@ -10,6 +10,7 @@ T.party_feud_turns      = 10
 T.party_feud_murder_age = 5
 T.party_feud_seat       = 20   -- motive to feud over a stolen seat
 T.party_feud_equal_motive = 12 -- motive to feud with an equal
+T.law_party_motive = 14   -- motive to put a law to the court
 T.party_feud_equal      = 5    -- share points apart that count as equal
 T.party_feud_apart      = 10   -- an equals feud ends past this gap
 T.party_feud_rest       = 5    -- turns before a party feuds again
@@ -264,7 +265,7 @@ end
 
 -- The player's own numbers: cost, base odds, 1 point per 10 influence of edge.
 function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
-    local cost = IC.plot_cost(move)
+    local cost = IC.plot_cost(move, faction_key)
     local base = T["plot_chance_" .. move] or 0
     local edge = math.floor((IC.standing(faction_key, actor)
                              - IC.standing(faction_key, target)) / 10)
@@ -360,7 +361,7 @@ function IC.plot_void(faction_key, p)
         return "placated"
     end
     if not IC.character_by_cqi(faction_key, p.actor) then return "plotter dead" end
-    if IC.standing(faction_key, p.actor) < IC.plot_cost(p.move) then
+    if IC.standing(faction_key, p.actor) < IC.plot_cost(p.move, faction_key) then
         return "poor"
     end
     local victim = IC.character_by_cqi(faction_key, p.target)
@@ -404,7 +405,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
         local actor, purse = IC.party_plotter(faction_key, slug)
         if not actor then return nil end
         for _, move in ipairs(IC.PARTY_MOVES) do
-            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key) then
+            if house.loyalty <= move.line and purse >= IC.plot_cost(move.key, faction_key) then
                 local target, key = IC.party_target(faction_key, slug,
                                                     move.key, IC.CROWN)
                 if target then
@@ -486,6 +487,18 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     end,
 }
 
+-- PUTTING A LAW TO THE COURT (spec 2026-10-02 laws section 3.2). It opens with
+-- the Crown abstaining, and the panel's marker waits for the player's answer.
+IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
+    key = "law",
+    can = function(faction_key, slug) return IC.law_party_pick(faction_key, slug) end,
+    motive = function() return T.law_party_motive end,
+    act = function(faction_key, slug, t)
+        IC.law_open(faction_key, t.category, t.option, slug, "abstain")
+        IC.court(faction_key).law_rest = cm:model():turn_number()
+    end,
+}
+
 IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     key = "feud_move",
     can = function(faction_key, slug)
@@ -499,7 +512,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
             order = {"murder", "sabotage", "discredit", "rumour"}
         end
         for _, move in ipairs(order) do
-            if purse >= IC.plot_cost(move) then
+            if purse >= IC.plot_cost(move, faction_key) then
                 local target, key = IC.party_target(faction_key, slug, move, enemy)
                 if target then
                     return {move = move, actor = actor, target = target, key = key}
@@ -522,7 +535,7 @@ function IC.can_arbitrate(faction_key, slug, side)
     local rec = IC.agenda(faction_key).feuds[slug or ""]
     if not rec then return false, "no feud" end
     if side == "peace" then
-        local cost = IC.favour_cost("gift")
+        local cost = IC.favour_cost("gift", faction_key)
         local gold = IC.treasury(faction_key)
         if gold < cost then return false, "gold", cost - gold end
         return true
@@ -542,7 +555,7 @@ function IC.arbitrate(faction_key, slug, side)
         IC.move_loyalty(faction_key, other, -T.arbit_side_loyalty)
         IC.log(faction_key, "arbit_side", slug, other, 0)
     else
-        local cost = IC.favour_cost("gift")
+        local cost = IC.favour_cost("gift", faction_key)
         cm:treasury_mod(faction_key, -cost)
         IC.move_loyalty(faction_key, slug, T.arbit_peace_loyalty)
         IC.move_loyalty(faction_key, other, T.arbit_peace_loyalty)
@@ -637,7 +650,7 @@ function IC.governor_xp(faction_key)
             pcall(function() rank = tostring(man:rank()) end)
             local line = tostring(cqi) .. "@r" .. rank
             if rank == "0" then
-                IC.add_standing(faction_key, cqi, IC.TUNE.governor_income)
+                IC.add_standing(faction_key, cqi, IC.tune(faction_key, "governor_income"))
                 line = line .. "+inf"
             end
             given[#given + 1] = line

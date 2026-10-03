@@ -157,3 +157,9 @@ the same day) names the court's column as the last windowed list.
   card reaches the list through the holder - not yet confirmed even on the Exchange); a click
   on a scrolled card picks that entry; a large picker (many characters) opens without a hitch,
   since every card is made at once.
+
+## 9. Pushed
+
+Pushed to GitHub on 2026-10-02 as 343c5fa (builds 3FBD2B1A, DE2E446C and 9A66C3C8 together),
+with CHANGELOG entries for all three and DEVELOPMENT.md at 862 checks and 996 mutants. This
+handoff was added to `sync_iron_court_repo.py`'s history list.

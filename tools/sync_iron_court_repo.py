@@ -59,6 +59,9 @@ _DOCS = [
     ("docs/superpowers/specs/2026-09-29-iron-court-civil-missions-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-29-iron-court-party-map-design.md", "docs/design/"),
     ("docs/superpowers/specs/2026-09-30-iron-court-governors-map-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-10-02-iron-court-governments-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-10-02-iron-court-deeds-design.md", "docs/design/"),
+    ("docs/superpowers/specs/2026-10-02-iron-court-laws-design.md", "docs/design/"),
     ("docs/IRON_COURT_VS_ROME2.md", "docs/design/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-ambition.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-20-iron-court-edict-loyalty.md", "docs/plans/"),
@@ -71,6 +74,9 @@ _DOCS = [
     ("docs/superpowers/plans/2026-09-29-iron-court-party-map.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-29-iron-court-civil-missions.md", "docs/plans/"),
     ("docs/superpowers/plans/2026-09-30-iron-court-governors-map.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-10-02-iron-court-governments.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-10-02-iron-court-deeds.md", "docs/plans/"),
+    ("docs/superpowers/plans/2026-10-02-iron-court-laws.md", "docs/plans/"),
 ] + [("docs/sessions/" + n, "docs/history/") for n in [
     "HANDOFF_20260911_IRON_COURT_DESIGN.md",
     "HANDOFF_20260914_IRON_COURT_SAVE_BUG_AND_FONT_PASS.md",
@@ -90,6 +96,8 @@ _DOCS = [
     "HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md",
     "HANDOFF_20261001_HUD_HUB_PLAN.md",
     "HANDOFF_20261002_IRON_COURT_KNOWN_BUG_PASS.md",
+    "HANDOFF_20261002_IRON_COURT_GOVERNMENTS.md",
+    "HANDOFF_20261003_IRON_COURT_BAR_BORDER_AND_LIVE_CHECKS.md",
     "CA_CHD_UI_FX_20260928.md",
     "IC_FEEDBACK_AUDIT_20260928.md",
 ]]
@@ -104,7 +112,8 @@ def manifest(root=ROOT):
         _MOD + "zzz_derpy_iron_court_ui_map.lua",
         "Modding Files/pack/script/mct/settings/derpy_iron_court.lua",
     ] + [_UI + "derpy_ic_%s%s.twui.xml" % (n, c)
-         for n in ("panel", "card", "row", "party", "plot", "gm_row") for c in ("", "_compact")] + [
+         for n in ("panel", "card", "row", "party", "plot", "gm_row", "law", "lawblock")
+         for c in ("", "_compact")] + [
         _UI + "derpy_ic_opener.twui.xml",
         _UI + "derpy_ic_standing.twui.xml",
         _UI + "derpy_ic_edict_note.twui.xml",
