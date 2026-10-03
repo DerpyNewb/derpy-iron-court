@@ -68,7 +68,7 @@ not aligned to the bar.
   no clamp) seen failing. Harness 973.
 
 Built as **`05C8F762`**, deployed to data/ (backup `.bak_pre_auto_20261003_170130` holds
-`65333E8C`), not pushed. `preview_iron_court.py` now draws `ic_lv_abs` at its dumped runtime x and
+`65333E8C`). Pushed to GitHub as aa5723d with every build since 9A66C3C8. `preview_iron_court.py` now draws `ic_lv_abs` at its dumped runtime x and
 both rims after the segments, as the panel declares them.
 
 ## 6. Open
