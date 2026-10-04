@@ -4662,6 +4662,8 @@ check("every panel, row and card cell has a layout offset", function()
     -- THE GOVERNMENT'S ROW IN THE CROWN'S BOX (spec 2026-10-02).
     want["ic_gov"] = true
     want["ic_gov_btn"] = true
+    -- AND THE GLOW UNDER ITS PICTURE (2026-10-04).
+    want["ic_gov_glow"] = true
     -- AND THE ZIGGURAT ITS CARDS STAND ON: with no offset it would sit at the
     -- box's corner, a stepped shape under nothing.
     want["ic_zig_bg"] = true
@@ -30349,6 +30351,8 @@ check("governments: the Crown's box names the government and its pull", function
         ICUI.refresh()
         assert(not panel.children.ic_gov.visible and not panel.children.ic_gov_btn.visible,
             "another tab left the government on screen")
+        assert(not panel.children.ic_gov_glow.visible,
+            "another tab left the government's glow on screen")
         ICUI.view = "court"
         ICUI.refresh()
         local line = panel.children.ic_gov
@@ -30367,13 +30371,56 @@ check("governments: the Crown's box names the government and its pull", function
                and string.find(line.tooltip, tostring(IC.TUNE.gov_pressure_line - 2), 1, true),
             "the tooltip does not say where the court is heading: " .. tostring(line.tooltip))
         assert(panel.children.ic_gov_btn.visible, "no Change Doctrine button")
+        -- THE GOVERNMENT IN FORCE BREATHES under its picture (2026-10-04).
+        assert(panel.children.ic_gov_glow.visible, "the government in force has no glow")
         -- GOVERNMENTS OFF: neither is drawn.
         IC_GOVS_ON = false
         ICUI.refresh()
         assert(not panel.children.ic_gov.visible and not panel.children.ic_gov_btn.visible,
             "governments off still draws the government")
+        assert(not panel.children.ic_gov_glow.visible,
+            "governments off still draws the government's glow")
     end)
     gov_done()
+end)
+
+check("governments: a government chosen bursts over the glow that marks it, and never pulses it", function()
+    -- CA'S STARBURST, where the new government is named (2026-10-04): the
+    -- picker closes onto the Court tab, and a sound alone said nothing of what
+    -- changed. NO PULSE: CA's lib_campaign_ui says a highlight "inadvertently
+    -- clears active shaders", and the glow's breathing is one.
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    sounds, pulses = {}, {}
+    local saved_cb = cm.callback
+    cm.callback = function() end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "court"
+        ICUI.pick = {kind = "doctrine"}
+        ICUI.refresh()
+        assert(IC.gov_force(F, "legion"), "the choice itself was refused")
+        ICUI.ANSWERS.doctrine("legion", true)
+        assert(ICUI.pick == nil, "the picker stayed open on a government chosen")
+        local glow = panel.children.ic_gov_glow
+        assert(glow.visible, "the glow under the new government is hidden")
+        assert(glow.children[ICUI.BURST], "no burst over the government's glow")
+        for _, p in ipairs(pulses) do
+            assert(p.id ~= "ic_gov_glow", "the government's glow was pulsed, which can clear its breathing")
+        end
+        assert(sounds[1] == ICUI.SOUNDS.doctrine,
+            "a government chosen played " .. tostring(sounds[1]))
+        -- A REFUSAL BURSTS NOTHING: the picker stays open with its reason.
+        glow.children[ICUI.BURST] = nil
+        pulses = {}
+        ICUI.pick = {kind = "doctrine"}
+        ICUI.ANSWERS.doctrine("legion", false, "gov_cool")
+        assert(not glow.children[ICUI.BURST], "a refused government burst anyway")
+        assert(#pulses == 0, "a refused government pulsed anyway")
+    end)
+    cm.callback = saved_cb
+    ICUI.pick = nil
+    gov_done()
+    assert(ok, err)
 end)
 
 check("governments: each wears a picture of its own, and no other part of the panel's", function()

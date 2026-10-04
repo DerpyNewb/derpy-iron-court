@@ -104,6 +104,8 @@
 							offset="0.00,0.00"
 							width="379"
 							height="222"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="1.00,1.30,0.80,0.00"
 							margin="24.00,24.00,24.00,24.00"/>
 						<image
 							this="IC430004-D008-4000-B000000000000004"

@@ -435,12 +435,15 @@ LAW_LAYOUT = {
     "ic_law_icon": (12, 10, 44, 44),
     "ic_law_name": (60, 8, 240, 22),
     "ic_law_name2": (60, 30, 240, 22),
-    "ic_law_fx1": (10, 56, 290, 18),
-    "ic_law_fx2": (10, 74, 290, 18),
-    "ic_law_fx3": (10, 92, 290, 18),
+    # 14 IN, NOT 10 (2026-10-04): at 10 the lines sat 3px off the frame's
+    # inner edge. The width stays 290 because 20k needs it at 1600x900, where
+    # the longest line measures 234px; left-aligned, only that line reaches.
+    "ic_law_fx1": (14, 56, 290, 18),
+    "ic_law_fx2": (14, 74, 290, 18),
+    "ic_law_fx3": (14, 92, 290, 18),
     # CLEAR OF THE IN-FORCE FRAME, whose bottom band covers the card's last
     # ~12px (seen on the preview, 2026-10-02).
-    "ic_law_foot": (12, 114, 240, 20),
+    "ic_law_foot": (14, 114, 238, 20),
     "ic_law_mark": (266, 110, 28, 28),
 }
 
@@ -590,10 +593,14 @@ GOV_CARDS, GC_RULE_LINES, GC_LOY_LINES = 5, 4, 3
 
 
 def gov_card_cells():
-    w, gap, h, y = 340, 22, 600, 250
+    # CENTRED DOWN THE PAGE (2026-10-04): the block ran 134..850 and left
+    # 230px of bare backdrop over the footer. DY puts the same space above
+    # the heading as below the cards' foot.
+    w, gap, h, dy = 340, 22, 600, 84
+    y = 250 + dy
     x0 = (PANEL_W - (GOV_CARDS * w + (GOV_CARDS - 1) * gap)) // 2
-    out = {"ic_gc_now": (360, 134, PANEL_W - 720, HEADING_H),
-           "ic_gc_nowrule": (160, 184, PANEL_W - 320, 26)}
+    out = {"ic_gc_now": (360, 134 + dy, PANEL_W - 720, HEADING_H),
+           "ic_gc_nowrule": (160, 184 + dy, PANEL_W - 320, 26)}
     for i in range(GOV_CARDS):
         x, n = x0 + i * (w + gap), i + 1
         out["ic_gc_card_%d" % n] = (x, y, w, h)
@@ -911,6 +918,15 @@ PANEL_LAYOUT["ic_gov"] = (_CROWN_X, _GOV_Y + 4,
                           - _CROWN_X, _CTL_H)
 PANEL_LAYOUT["ic_gov_btn"] = (_CROWN_RIGHT_X + _CROWN_RIGHT_W - GOV_BTN_W, _GOV_Y,
                               GOV_BTN_W, 34)
+# THE GOVERNMENT IN FORCE BREATHES (2026-10-04): CA's Hell-Forge heat glow under
+# the government's own picture, which is the first thing ic_gov writes - the
+# look of the Hell-Forge's active category block (MARK_LAYERS, glow_pulse_t0 at
+# 0.80,1.50,0.80). 48px square, centred 6px of LABEL_TX plus the 18px icon's
+# half in from the line's left, and on the line's middle. A picture under a
+# picture, so it is not one of CROWN_CELLS, whose 20b2 forbids any crossing;
+# check_gov_glow holds it on the icon and under the line instead.
+PANEL_LAYOUT["ic_gov_glow"] = (_CROWN_X + 6 + 9 - 24, _GOV_Y + 4 + _CTL_H // 2 - 24,
+                               48, 48)
 _GOV_BOTTOM = _GOV_Y + 34
 
 # EVERY CELL IN THE BOX, by name, for the three checks that hold it together:
@@ -3747,6 +3763,10 @@ def _panel_order(name):
         # plate declared after its contents is a plate drawn over them - which
         # is the same fault as a crest declared before the pie, in reverse.
         tier = -1
+    elif name == "ic_gov_glow":
+        # UNDER ic_gov, whose icon it lights, and over the Crown's plate. Not
+        # -1: make_ic_backdrop takes every tier -1 name for an opaque plate.
+        tier = -0.5
     elif name.startswith("ic_barc_") or name.startswith("ic_barp_"):
         tier = 3
     elif name == "ic_dial_rim":
@@ -3865,7 +3885,7 @@ def _panel():
             panel.add(EU.C(name, w, h, align="Center", valign="Center",
                            tx="0.00,0.00", ty=LABEL_TY, **style(name)))
             continue
-        if name.startswith("ic_mark_"):
+        if name.startswith("ic_mark_") or name == "ic_gov_glow":
             panel.add(EU.C(name, w, h, layers=MARK_LAYERS))
         elif name.startswith("ic_barc_"):
             # The crest plate. Blank white at index 0 so SetImagePath has a layer
@@ -4186,9 +4206,14 @@ def _card():
 PARTY_SELECTED = "ui/skins/default/dlc25_gunnery_school/frame_unit_card_selected.png"
 TEXTURE_MIN_MARGIN[PARTY_SELECTED] = 24
 PARTY_SEL_INDEX = 2
+# THE CHOSEN CARD BREATHES (2026-10-04): CA puts glow_pulse_t0 on what a panel
+# has selected - the Skull Throne's chosen ritual plate, the Hell-Forge's lit
+# torch - and the seat rim's ToZ furnace values are already this panel's breath.
+SELECTED_PULSE = {"shader": "glow_pulse_t0", "shader_vars": RIM_LOOKS["lit"]["shader_vars"]}
 PARTY_LAYERS = CARD_LAYERS + [
-    {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
-     "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}] + rim_layers(["lit", "fail"])
+    dict({"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
+          "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}, **SELECTED_PULSE)
+] + rim_layers(["lit", "fail"])
 # The flash's two looks, after the chosen frame. Must match ICUI.RIMS.party.
 PARTY_RIM = {"lit": PARTY_SEL_INDEX + 1, "fail": PARTY_SEL_INDEX + 2}
 # THE WHOLE CARD IS THE CONTROL NOW, so it says what a click does. Static text
@@ -4233,7 +4258,10 @@ LAW_GLOW = GM_ROW_ART % "selected"
 LAW_GLOW_INDEX = len(CARD_LAYERS)
 LAW_SEL_INDEX = LAW_GLOW_INDEX + 1
 LAW_LAYERS = CARD_LAYERS + [
-    {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0, "margin": (0, 16), "dock": None},
+    # THE CHOSEN CARD BREATHES; THE LAW IN FORCE DOES NOT. Four laws are always
+    # in force, and four frames breathing at once is noise, not a signal.
+    dict({"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0, "margin": (0, 16),
+          "dock": None}, **SELECTED_PULSE),
     {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
      "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]
 LAW_TIP = ("Choose this law||Click to read it on the right, and to propose it "
@@ -8496,6 +8524,21 @@ def selftest():
     LAW_SEGS = _segs
     assert _got, "a support bar too short for the largest court went unreported"
     assert not check_law_bar(), check_law_bar()
+    _order = sorted(PANEL_LAYOUT, key=_panel_order)
+    _order.remove("ic_gov_glow")
+    _order.append("ic_gov_glow")
+    assert any("draws over" in e for e in check_gov_glow(_order)), "a glow over its icon went unreported"
+    _box = PANEL_LAYOUT["ic_gov_glow"]
+    PANEL_LAYOUT["ic_gov_glow"] = (_box[0] + 4,) + tuple(_box[1:])
+    _got = check_gov_glow()
+    PANEL_LAYOUT["ic_gov_glow"] = _box
+    assert any("centred" in e for e in _got), "a glow off its icon went unreported"
+    _lay = LAW_LAYERS[LAW_GLOW_INDEX]
+    LAW_LAYERS[LAW_GLOW_INDEX] = dict(_lay, shader=None)
+    _got = check_gov_glow()
+    LAW_LAYERS[LAW_GLOW_INDEX] = _lay
+    assert any("law card's glow does not breathe" in e for e in _got), "a still chosen law went unreported"
+    assert not check_gov_glow(), check_gov_glow()
     # THE EMBER RULE FIRES. A particle named anything but template_particle is a
     # null the emitter dereferences on panel open, so the check has to be seen
     # catching one, and seen passing the shipped file.
@@ -9163,6 +9206,29 @@ def check_law_bar():
     return []
 
 
+def check_gov_glow(order=None):
+    """The government's glow sits on its icon, under its line, and breathes; the
+    chosen party and law cards breathe and the law in force does not."""
+    out = []
+    order = order or sorted(PANEL_LAYOUT, key=_panel_order)
+    if order.index("ic_gov_glow") > order.index("ic_gov"):
+        out.append("ic_gov_glow is declared after ic_gov, so it draws over the icon it lights")
+    gx, gy, gw, gh = PANEL_LAYOUT["ic_gov_glow"]
+    lx, ly, _lw, lh = PANEL_LAYOUT["ic_gov"]
+    tx = int(float(LABEL_TX.split(",")[0]))
+    # the icon is the line's first glyph: its middle is LABEL_TX plus half an 18px icon in
+    if (gx + gw // 2, gy + gh // 2) != (lx + tx + 9, ly + lh // 2):
+        out.append("ic_gov_glow is centred at %d,%d and the government's icon at %d,%d"
+                   % (gx + gw // 2, gy + gh // 2, lx + tx + 9, ly + lh // 2))
+    for what, lay in (("the chosen party card's frame", PARTY_LAYERS[PARTY_SEL_INDEX]),
+                      ("the chosen law card's glow", LAW_LAYERS[LAW_GLOW_INDEX])):
+        if lay.get("shader") != "glow_pulse_t0":
+            out.append("%s does not breathe" % what)
+    if LAW_LAYERS[LAW_SEL_INDEX].get("shader"):
+        out.append("the law in force breathes, and four of them always are")
+    return out
+
+
 def main(argv):
     if "--selftest" in argv:
         selftest()
@@ -9190,6 +9256,7 @@ def main(argv):
     problems += check_scale_sweep()
     problems += check_law_art()
     problems += check_law_bar()
+    problems += check_gov_glow()
     for problem in problems:
         sys.stderr.write("FAIL %s\n" % problem)
     if problems:

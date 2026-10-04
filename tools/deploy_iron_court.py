@@ -114,9 +114,13 @@ def game_running():
          " { exit 1 } else { exit 0 }"]).returncode)
 
 
+# Never beside the live pack: user rule, backups stay out of data/ and the Workshop folders.
+BACKUP_DIR = os.path.join(ROOT, "Modding Files", "Backup", "deployed_auto")
+
+
 def deploy(src, data_dir, wait=False, running=game_running, sleep=None,
-           poll=15):
-    """Back up the live pack, copy src over it, byte-compare. 0 on success.
+           poll=15, bak_dir=BACKUP_DIR):
+    """Back up the live pack into bak_dir, copy src over it, byte-compare. 0 on success.
 
     THE GAME HOLDS AN OPEN HANDLE ON EVERY PACK IT LOADED, so a copy under a
     running game fails with WinError 32 - or, where it did not, would swap a pack
@@ -144,7 +148,9 @@ def deploy(src, data_dir, wait=False, running=game_running, sleep=None,
         if open(dest, "rb").read() == new:
             print("already deployed: %s" % dest)
             return 0
-        bak = "%s.bak_pre_auto_%s" % (dest, time.strftime("%Y%m%d_%H%M%S"))
+        os.makedirs(bak_dir, exist_ok=True)
+        bak = os.path.join(bak_dir, "%s.bak_pre_auto_%s" % (
+            os.path.basename(dest), time.strftime("%Y%m%d_%H%M%S")))
         shutil.copy2(dest, bak)
         print("backed up the live pack to %s" % bak)
     shutil.copy2(src, dest)
@@ -163,24 +169,26 @@ def _selftest():
         data = os.path.join(tmp, "data")
         os.mkdir(data)
         open(src, "wb").write(b"new")
+        bdir = os.path.join(tmp, "bak")
         live = os.path.join(data, "p.pack")
         open(live, "wb").write(b"old")
         # Running, no wait: refused, live copy untouched.
-        assert deploy(src, data, running=lambda: True) == 1
+        assert deploy(src, data, running=lambda: True, bak_dir=bdir) == 1
         assert open(live, "rb").read() == b"old"
         # Running twice then closed, with wait: waits, backs up, deploys.
         states = [True, True, True, False]
         slept = []
         assert deploy(src, data, wait=True, running=lambda: states.pop(0),
-                      sleep=slept.append) == 0
+                      sleep=slept.append, bak_dir=bdir) == 0
         assert len(slept) == 3, slept
         assert open(live, "rb").read() == b"new"
-        baks = [f for f in os.listdir(data) if ".bak_pre_auto_" in f]
+        assert os.listdir(data) == ["p.pack"], os.listdir(data)  # no backup in data/
+        baks = [f for f in os.listdir(bdir) if ".bak_pre_auto_" in f]
         assert len(baks) == 1
-        assert open(os.path.join(data, baks[0]), "rb").read() == b"old"
+        assert open(os.path.join(bdir, baks[0]), "rb").read() == b"old"
         # Same bytes again: nothing copied, no second backup.
-        assert deploy(src, data, running=lambda: False) == 0
-        assert len([f for f in os.listdir(data) if ".bak_pre_auto_" in f]) == 1
+        assert deploy(src, data, running=lambda: False, bak_dir=bdir) == 0
+        assert len([f for f in os.listdir(bdir) if ".bak_pre_auto_" in f]) == 1
     assert main(["--no-such-flag"]) == 2
     print("selftest: ok")
     return 0

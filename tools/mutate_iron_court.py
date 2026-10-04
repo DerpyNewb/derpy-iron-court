@@ -5433,6 +5433,22 @@ end"""),
      """        show(comp(\"ic_gov\", panel), false)
         show(comp(\"ic_gov_btn\", panel), false)""",
      """"""),
+    # ---- the government's glow and burst (2026-10-04) -------------------------
+    ("gov fx: a government chosen bursts nothing", U,
+     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
+                ICUI.burst(\"ic_gov_glow\")""",
+     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])"""),
+    ("gov fx: CA's pulse on the glow, which can clear its breathing", U,
+     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
+                ICUI.burst(\"ic_gov_glow\")""",
+     """                ICUI.confirm(glow, true, ICUI.SOUNDS[op])
+                ICUI.burst(\"ic_gov_glow\")"""),
+    ("gov fx: another tab leaves the glow on screen", U,
+     """        show(comp(\"ic_gov_glow\", panel), false)""",
+     """"""),
+    ("gov fx: the glow drawn with governments off", U,
+     """    show(comp(\"ic_gov_glow\", panel), on)""",
+     """    show(comp(\"ic_gov_glow\", panel), true)"""),
     ('gov: the embezzle card states the base price', U,
      """    if plot.key ~= \"embezzle\" then return plot.effect end""",
      """    do return plot.effect end"""),

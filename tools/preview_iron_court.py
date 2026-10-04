@@ -1255,7 +1255,11 @@ def render(path=None, view="court", box_w=1920):
     _sufferance = int(re.search(r"sufferance_share\s*=\s*(\d+)", lua("model")).group(1))
     STRINGS = {
         "ic_title": "Hashut's Court",
-        "ic_influence": "0 of %d seats filled" % len(G.IC.OFFICES),
+        # The demo court's own count, so the header and the ziggurat agree.
+        "ic_influence": "%d of %d seats filled" % (len(DEMO_OFFICES), len(G.IC.OFFICES)),
+        # ICUI.draw_fill's label, read out of the Lua; without it the Offices
+        # picture showed an empty red bar under the ziggurat.
+        "ic_fill": re.search(r'ICUI\.FILL_LABEL = "([^"]*)"', ui).group(1),
         "ic_tab_court": "Court",
         "ic_tab_offices": "Offices",
         "ic_tab_govs": "Governors",
@@ -1297,7 +1301,12 @@ def render(path=None, view="court", box_w=1920):
         # that the panel would not draw.
         "ic_alert": ("Your own party holds %d%% of the court. Below %d%% you rule "
                      "on sufferance." % (court[0][2], _sufferance)
-                     if court[0][2] < _sufferance else ""),
+                     if court[0][2] < _sufferance
+                     # ONE STRING IN GAME: on Intrigue the dispatcher's `warn` is
+                     # draw_intrigue's sentence, which the intrigue branch below
+                     # writes - drawing this too printed two lines over each other.
+                     and not (view == "intrigue" and intrigue_lines(G, court))
+                     else ""),
     }
     # THE EFFECTS, NOT THE BLURB. ICUI.band_effects reads
     # derpy_ic_effects_derpy_ic_control_<slug>, which gen_iron_court builds by
@@ -1421,6 +1430,12 @@ def render(path=None, view="court", box_w=1920):
         hidden |= set(lua_words(ui, "ICUI.COLUMN_KEYS"))
         hidden |= set(lua_words(ui, "ICUI.LEADER_KEYS"))
         hidden |= set(lua_words(ui, "ICUI.CONTROL_KEYS"))
+        # THE GOVERNMENT'S ROW is not on CONTROL_KEYS (draw_gov shows it), but
+        # the tab switch hides it by name - so must this, or every tab wears it.
+        if not re.search(r'show\(comp\("ic_gov", panel\), false\)', ui):
+            raise SystemExit("ICUI.refresh no longer hides ic_gov by name on a "
+                             "tab switch - re-read it before trusting this picture")
+        hidden |= {"ic_gov", "ic_gov_btn", "ic_gov_glow"}
         if _base == "pick":
             # THE PICKER'S OWN QUESTION, not a tab's standing label. The format
             # string is read out of ICUI.pick_title and the two numbers out of

@@ -94,6 +94,8 @@
 							offset="0.00,0.00"
 							width="255"
 							height="125"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="1.00,1.30,0.80,0.00"
 							margin="0.00,16.00,0.00,16.00"/>
 						<image
 							this="IC580004-D008-4000-B000000000000004"
@@ -118,7 +120,7 @@
 				<standard
 					this="IC580008-D000-4000-B000000000000008"
 					name="standard"
-					width="200"
+					width="198"
 					height="17"
 					uniqueguid="IC580008-D000-4000-B000000000000008">
 					<component_text
@@ -145,7 +147,7 @@
 				<standard
 					this="IC58000B-D000-4000-B00000000000000B"
 					name="standard"
-					width="242"
+					width="241"
 					height="15"
 					uniqueguid="IC58000B-D000-4000-B00000000000000B">
 					<component_text
@@ -172,7 +174,7 @@
 				<standard
 					this="IC58000E-D000-4000-B00000000000000E"
 					name="standard"
-					width="242"
+					width="241"
 					height="15"
 					uniqueguid="IC58000E-D000-4000-B00000000000000E">
 					<component_text
@@ -199,7 +201,7 @@
 				<standard
 					this="IC580011-D000-4000-B000000000000011"
 					name="standard"
-					width="242"
+					width="241"
 					height="15"
 					uniqueguid="IC580011-D000-4000-B000000000000011">
 					<component_text

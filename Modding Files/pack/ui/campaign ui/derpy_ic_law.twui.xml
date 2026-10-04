@@ -94,6 +94,8 @@
 							offset="0.00,0.00"
 							width="306"
 							height="150"
+							shader_name="glow_pulse_t0"
+							shadertechnique_vars="1.00,1.30,0.80,0.00"
 							margin="0.00,16.00,0.00,16.00"/>
 						<image
 							this="IC560004-D008-4000-B000000000000004"
@@ -118,7 +120,7 @@
 				<standard
 					this="IC560008-D000-4000-B000000000000008"
 					name="standard"
-					width="240"
+					width="238"
 					height="20"
 					uniqueguid="IC560008-D000-4000-B000000000000008">
 					<component_text

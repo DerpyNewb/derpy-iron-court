@@ -5,6 +5,20 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-04 - build F4C63911
+
+Deployed 2026-10-04. MD5 `F4C6391183A7AA76309558640068318B`, 10,914,962 bytes. Covers builds
+E64B290E and 6DE3D85C on the way. The detail is in `docs/history/HANDOFF_20261004_IRON_COURT_UI_POLISH.md`.
+Not yet seen in game.
+
+- **The government in force glows.** A Hell-Forge heat glow breathes behind its icon, and
+  choosing a new government bursts there.
+- **The chosen party card and the chosen law card breathe.** The laws in force stay still.
+- **The government chooser sits centred down the page.**
+- **Law card text moved in from the edge** (10 to 14px).
+- The preview tool no longer draws the government line on every tab, a blank Fill button, two
+  footers on Intrigue or "0 seats filled". The panel itself was right each time.
+
 ## 2026-10-03 - build 05C8F762
 
 Deployed 2026-10-03. MD5 `05C8F762FB6CEEDC5F129E10B88468C0`, 10,911,050 bytes. The detail is in section 5 of `docs/history/HANDOFF_20261003_IRON_COURT_BAR_BORDER_AND_LIVE_CHECKS.md`. Not yet seen in game.

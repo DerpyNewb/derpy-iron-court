@@ -362,6 +362,7 @@ ICUI.PANEL_XY = {
     -- THE GOVERNMENT (spec 2026-10-02), one row under both halves.
     ic_gov           = {48, 875, 622, 26},
     ic_gov_btn       = {694, 871, 220, 34},
+    ic_gov_glow      = {39, 864, 48, 48},
     ic_leader_name   = {394, 697, 520, 28},
     ic_leader_party  = {394, 729, 520, 26},
     ic_leader_port   = {394, 763, 183, 100},
@@ -510,88 +511,88 @@ ICUI.PANEL_XY = {
     ic_mark_laws = {1688, 64, 28, 28},
     ic_tab_laws = {1482, 62, 240, 32},
     ic_off_title = {703, 128, 514, 44},
-    ic_gc_btn_1 = {116, 794, 240, 38},
-    ic_gc_btn_2 = {478, 794, 240, 38},
-    ic_gc_btn_3 = {840, 794, 240, 38},
-    ic_gc_btn_4 = {1202, 794, 240, 38},
-    ic_gc_btn_5 = {1564, 794, 240, 38},
-    ic_gc_card_1 = {66, 250, 340, 600},
-    ic_gc_card_2 = {428, 250, 340, 600},
-    ic_gc_card_3 = {790, 250, 340, 600},
-    ic_gc_card_4 = {1152, 250, 340, 600},
-    ic_gc_card_5 = {1514, 250, 340, 600},
-    ic_gc_fx_1 = {86, 636, 300, 26},
-    ic_gc_fx_2 = {448, 636, 300, 26},
-    ic_gc_fx_3 = {810, 636, 300, 26},
-    ic_gc_fx_4 = {1172, 636, 300, 26},
-    ic_gc_fx_5 = {1534, 636, 300, 26},
-    ic_gc_fxh_1 = {86, 610, 300, 26},
-    ic_gc_fxh_2 = {448, 610, 300, 26},
-    ic_gc_fxh_3 = {810, 610, 300, 26},
-    ic_gc_fxh_4 = {1172, 610, 300, 26},
-    ic_gc_fxh_5 = {1534, 610, 300, 26},
-    ic_gc_icon_1 = {180, 276, 112, 112},
-    ic_gc_icon_2 = {542, 276, 112, 112},
-    ic_gc_icon_3 = {904, 276, 112, 112},
-    ic_gc_icon_4 = {1266, 276, 112, 112},
-    ic_gc_icon_5 = {1628, 276, 112, 112},
-    ic_gc_loy_1_1 = {86, 696, 300, 26},
-    ic_gc_loy_1_2 = {86, 722, 300, 26},
-    ic_gc_loy_1_3 = {86, 748, 300, 26},
-    ic_gc_loy_2_1 = {448, 696, 300, 26},
-    ic_gc_loy_2_2 = {448, 722, 300, 26},
-    ic_gc_loy_2_3 = {448, 748, 300, 26},
-    ic_gc_loy_3_1 = {810, 696, 300, 26},
-    ic_gc_loy_3_2 = {810, 722, 300, 26},
-    ic_gc_loy_3_3 = {810, 748, 300, 26},
-    ic_gc_loy_4_1 = {1172, 696, 300, 26},
-    ic_gc_loy_4_2 = {1172, 722, 300, 26},
-    ic_gc_loy_4_3 = {1172, 748, 300, 26},
-    ic_gc_loy_5_1 = {1534, 696, 300, 26},
-    ic_gc_loy_5_2 = {1534, 722, 300, 26},
-    ic_gc_loy_5_3 = {1534, 748, 300, 26},
-    ic_gc_loyh_1 = {86, 670, 300, 26},
-    ic_gc_loyh_2 = {448, 670, 300, 26},
-    ic_gc_loyh_3 = {810, 670, 300, 26},
-    ic_gc_loyh_4 = {1172, 670, 300, 26},
-    ic_gc_loyh_5 = {1534, 670, 300, 26},
-    ic_gc_name2_1 = {82, 434, 308, 30},
-    ic_gc_name2_2 = {444, 434, 308, 30},
-    ic_gc_name2_3 = {806, 434, 308, 30},
-    ic_gc_name2_4 = {1168, 434, 308, 30},
-    ic_gc_name2_5 = {1530, 434, 308, 30},
-    ic_gc_name_1 = {82, 404, 308, 30},
-    ic_gc_name_2 = {444, 404, 308, 30},
-    ic_gc_name_3 = {806, 404, 308, 30},
-    ic_gc_name_4 = {1168, 404, 308, 30},
-    ic_gc_name_5 = {1530, 404, 308, 30},
-    ic_gc_now = {360, 134, 1200, 44},
-    ic_gc_nowrule = {160, 184, 1600, 26},
-    ic_gc_rule_1_1 = {86, 500, 300, 26},
-    ic_gc_rule_1_2 = {86, 526, 300, 26},
-    ic_gc_rule_1_3 = {86, 552, 300, 26},
-    ic_gc_rule_1_4 = {86, 578, 300, 26},
-    ic_gc_rule_2_1 = {448, 500, 300, 26},
-    ic_gc_rule_2_2 = {448, 526, 300, 26},
-    ic_gc_rule_2_3 = {448, 552, 300, 26},
-    ic_gc_rule_2_4 = {448, 578, 300, 26},
-    ic_gc_rule_3_1 = {810, 500, 300, 26},
-    ic_gc_rule_3_2 = {810, 526, 300, 26},
-    ic_gc_rule_3_3 = {810, 552, 300, 26},
-    ic_gc_rule_3_4 = {810, 578, 300, 26},
-    ic_gc_rule_4_1 = {1172, 500, 300, 26},
-    ic_gc_rule_4_2 = {1172, 526, 300, 26},
-    ic_gc_rule_4_3 = {1172, 552, 300, 26},
-    ic_gc_rule_4_4 = {1172, 578, 300, 26},
-    ic_gc_rule_5_1 = {1534, 500, 300, 26},
-    ic_gc_rule_5_2 = {1534, 526, 300, 26},
-    ic_gc_rule_5_3 = {1534, 552, 300, 26},
-    ic_gc_rule_5_4 = {1534, 578, 300, 26},
-    ic_gc_ruleh_1 = {86, 474, 300, 26},
-    ic_gc_ruleh_2 = {448, 474, 300, 26},
-    ic_gc_ruleh_3 = {810, 474, 300, 26},
-    ic_gc_ruleh_4 = {1172, 474, 300, 26},
-    ic_gc_ruleh_5 = {1534, 474, 300, 26},
+    ic_gc_btn_1 = {116, 878, 240, 38},
+    ic_gc_btn_2 = {478, 878, 240, 38},
+    ic_gc_btn_3 = {840, 878, 240, 38},
+    ic_gc_btn_4 = {1202, 878, 240, 38},
+    ic_gc_btn_5 = {1564, 878, 240, 38},
+    ic_gc_card_1 = {66, 334, 340, 600},
+    ic_gc_card_2 = {428, 334, 340, 600},
+    ic_gc_card_3 = {790, 334, 340, 600},
+    ic_gc_card_4 = {1152, 334, 340, 600},
+    ic_gc_card_5 = {1514, 334, 340, 600},
+    ic_gc_fx_1 = {86, 720, 300, 26},
+    ic_gc_fx_2 = {448, 720, 300, 26},
+    ic_gc_fx_3 = {810, 720, 300, 26},
+    ic_gc_fx_4 = {1172, 720, 300, 26},
+    ic_gc_fx_5 = {1534, 720, 300, 26},
+    ic_gc_fxh_1 = {86, 694, 300, 26},
+    ic_gc_fxh_2 = {448, 694, 300, 26},
+    ic_gc_fxh_3 = {810, 694, 300, 26},
+    ic_gc_fxh_4 = {1172, 694, 300, 26},
+    ic_gc_fxh_5 = {1534, 694, 300, 26},
+    ic_gc_icon_1 = {180, 360, 112, 112},
+    ic_gc_icon_2 = {542, 360, 112, 112},
+    ic_gc_icon_3 = {904, 360, 112, 112},
+    ic_gc_icon_4 = {1266, 360, 112, 112},
+    ic_gc_icon_5 = {1628, 360, 112, 112},
+    ic_gc_loy_1_1 = {86, 780, 300, 26},
+    ic_gc_loy_1_2 = {86, 806, 300, 26},
+    ic_gc_loy_1_3 = {86, 832, 300, 26},
+    ic_gc_loy_2_1 = {448, 780, 300, 26},
+    ic_gc_loy_2_2 = {448, 806, 300, 26},
+    ic_gc_loy_2_3 = {448, 832, 300, 26},
+    ic_gc_loy_3_1 = {810, 780, 300, 26},
+    ic_gc_loy_3_2 = {810, 806, 300, 26},
+    ic_gc_loy_3_3 = {810, 832, 300, 26},
+    ic_gc_loy_4_1 = {1172, 780, 300, 26},
+    ic_gc_loy_4_2 = {1172, 806, 300, 26},
+    ic_gc_loy_4_3 = {1172, 832, 300, 26},
+    ic_gc_loy_5_1 = {1534, 780, 300, 26},
+    ic_gc_loy_5_2 = {1534, 806, 300, 26},
+    ic_gc_loy_5_3 = {1534, 832, 300, 26},
+    ic_gc_loyh_1 = {86, 754, 300, 26},
+    ic_gc_loyh_2 = {448, 754, 300, 26},
+    ic_gc_loyh_3 = {810, 754, 300, 26},
+    ic_gc_loyh_4 = {1172, 754, 300, 26},
+    ic_gc_loyh_5 = {1534, 754, 300, 26},
+    ic_gc_name2_1 = {82, 518, 308, 30},
+    ic_gc_name2_2 = {444, 518, 308, 30},
+    ic_gc_name2_3 = {806, 518, 308, 30},
+    ic_gc_name2_4 = {1168, 518, 308, 30},
+    ic_gc_name2_5 = {1530, 518, 308, 30},
+    ic_gc_name_1 = {82, 488, 308, 30},
+    ic_gc_name_2 = {444, 488, 308, 30},
+    ic_gc_name_3 = {806, 488, 308, 30},
+    ic_gc_name_4 = {1168, 488, 308, 30},
+    ic_gc_name_5 = {1530, 488, 308, 30},
+    ic_gc_now = {360, 218, 1200, 44},
+    ic_gc_nowrule = {160, 268, 1600, 26},
+    ic_gc_rule_1_1 = {86, 584, 300, 26},
+    ic_gc_rule_1_2 = {86, 610, 300, 26},
+    ic_gc_rule_1_3 = {86, 636, 300, 26},
+    ic_gc_rule_1_4 = {86, 662, 300, 26},
+    ic_gc_rule_2_1 = {448, 584, 300, 26},
+    ic_gc_rule_2_2 = {448, 610, 300, 26},
+    ic_gc_rule_2_3 = {448, 636, 300, 26},
+    ic_gc_rule_2_4 = {448, 662, 300, 26},
+    ic_gc_rule_3_1 = {810, 584, 300, 26},
+    ic_gc_rule_3_2 = {810, 610, 300, 26},
+    ic_gc_rule_3_3 = {810, 636, 300, 26},
+    ic_gc_rule_3_4 = {810, 662, 300, 26},
+    ic_gc_rule_4_1 = {1172, 584, 300, 26},
+    ic_gc_rule_4_2 = {1172, 610, 300, 26},
+    ic_gc_rule_4_3 = {1172, 636, 300, 26},
+    ic_gc_rule_4_4 = {1172, 662, 300, 26},
+    ic_gc_rule_5_1 = {1534, 584, 300, 26},
+    ic_gc_rule_5_2 = {1534, 610, 300, 26},
+    ic_gc_rule_5_3 = {1534, 636, 300, 26},
+    ic_gc_rule_5_4 = {1534, 662, 300, 26},
+    ic_gc_ruleh_1 = {86, 558, 300, 26},
+    ic_gc_ruleh_2 = {448, 558, 300, 26},
+    ic_gc_ruleh_3 = {810, 558, 300, 26},
+    ic_gc_ruleh_4 = {1172, 558, 300, 26},
+    ic_gc_ruleh_5 = {1534, 558, 300, 26},
     ic_law_p_bar = {1320, 618, 558, 14},
     ic_law_p_baraye = {1320, 618, 558, 14},
     ic_law_p_barnay = {1320, 618, 558, 14},
@@ -762,10 +763,10 @@ ICUI.LAW_W, ICUI.LAW_H = 306, 150
 ICUI.LAWS_X, ICUI.LAWS_Y = 18, 186
 ICUI.LAW_GAP_X, ICUI.LAW_GAP_Y = 12, 8
 ICUI.LAW_CHILD_XY = {
-    ic_law_foot = {12, 114, 240, 20},
-    ic_law_fx1 = {10, 56, 290, 18},
-    ic_law_fx2 = {10, 74, 290, 18},
-    ic_law_fx3 = {10, 92, 290, 18},
+    ic_law_foot = {14, 114, 238, 20},
+    ic_law_fx1 = {14, 56, 290, 18},
+    ic_law_fx2 = {14, 74, 290, 18},
+    ic_law_fx3 = {14, 92, 290, 18},
     ic_law_icon = {12, 10, 44, 44},
     ic_law_mark = {266, 110, 28, 28},
     ic_law_name = {60, 8, 240, 22},
@@ -4945,6 +4946,9 @@ function ICUI.draw_gov(panel, faction, court)
     local line, btn = comp("ic_gov", panel), comp("ic_gov_btn", panel)
     show(line, on)
     show(btn, on)
+    -- THE GOVERNMENT IN FORCE BREATHES: CA's Hell-Forge heat glow under its
+    -- picture (tools/gen_ic_ui.py ic_gov_glow), shown and hidden with the line.
+    show(comp("ic_gov_glow", panel), on)
     if not on then return end
     local text = string.format("[[img:%s]][[/img]]Government: %s", ICUI.gov_icon(court.gov),
                                ICUI.gov_name(court.gov))
@@ -7783,6 +7787,7 @@ function ICUI.refresh()
         -- CONTROL_KEYS, which the court view switches on whatever is drawn.
         show(comp("ic_gov", panel), false)
         show(comp("ic_gov_btn", panel), false)
+        show(comp("ic_gov_glow", panel), false)
         -- THE PARTY GRID AND THE CROWN'S BLOCK. Nothing else hides these: the
         -- row pool is hidden by fill_rows, which the court view no longer
         -- calls, and a card left behind draws over the list of whatever tab
@@ -8462,12 +8467,27 @@ local function picked(op)
                     target = ICUI.party_card(slug)
                 end
             end
+            -- A GOVERNMENT CHOSEN is answered where the government is named
+            -- (2026-10-04): the picker closes onto the Court tab, and CA's
+            -- starburst goes off over the glow that marks it in force.
+            local glow = nil
+            if op == "doctrine" and ICUI.view == "court" then
+                ICUI.refresh()
+                local panel = comp(ICUI.PANEL)
+                glow = panel and comp("ic_gov_glow", panel)
+            end
             if card then
                 ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(card:Id())
             elseif target then
                 ICUI.play(ICUI.SOUNDS[op])
                 ICUI.burst(target:Id())
+            elseif glow then
+                -- SOUND AND BURST, NEVER CA'S PULSE: lib_campaign_ui says a
+                -- highlight "inadvertently clears active shaders", and the
+                -- glow's breathing is one (docs/UI_SHADERS.md, Traps).
+                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
+                ICUI.burst("ic_gov_glow")
             else
                 ICUI.confirm(nil, true, ICUI.SOUNDS[op])
             end

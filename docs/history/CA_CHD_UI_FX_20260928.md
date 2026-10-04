@@ -39,6 +39,8 @@ Legend: **PROVEN** = read in CA's shipped files/docs or already observed in game
 ## 2. The effect mechanisms CA uses, with exact names and paths
 
 There are **six** distinct mechanisms. Only the first two are needed for "edges light up".
+The full shader census (all 21 keys in CA's layouts, text shaders, UI materials and their
+overrides) is [../UI_SHADERS.md](../UI_SHADERS.md), 2026-10-04.
 
 ### 2a. A state (or image layer) that adds an edge-light image - CA's actual seat/district look
 
