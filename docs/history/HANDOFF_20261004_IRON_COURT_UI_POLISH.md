@@ -116,7 +116,7 @@ Built as **`6DE3D85C`** (MD5), deployed to data/ byte-identical (backup `Modding
 
 Then **`F4C63911`** (2026-10-04 11:09): the pulse removed after `docs/UI_SHADERS.md`'s trap was
 read against CA's source. Deployed byte-identical (backup `...bak_pre_auto_20261004_110941` holds
-`6DE3D85C`), not pushed. Harness 974, the four `gov fx` mutants caught, luac, API.
+`6DE3D85C`), pushed to GitHub as c97f25b. Harness 974, the four `gov fx` mutants caught, luac, API.
 
 ## 6. Open
 
