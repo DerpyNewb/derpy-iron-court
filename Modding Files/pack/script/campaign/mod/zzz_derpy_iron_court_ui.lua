@@ -39,6 +39,36 @@ ICUI.LAWBLOCK = "derpy_ic_lawblock"
 ICUI.PATH_LAWBLOCK = "ui/campaign ui/derpy_ic_lawblock"
 ICUI.PATH_OPENER = "ui/campaign ui/derpy_ic_opener"
 
+-- THE RACE'S SKIN (plan 2026-10-04 phase 3), set by ICUI.use_race at open. The
+-- Chaos Dwarf court's is empty: the twui as shipped.
+ICUI.ART = {}
+ICUI.SUFFIX = ""
+
+-- A RACE'S OWN PANEL CELLS at 1920. Must match gen_ic_ui.py's Dwarf layout (DWF,
+-- DWF_CELLS); import_iron_court.py compares them. The closer stays in column 0.
+ICUI.RACE_XY = {
+    dwf = {
+        ic_title = {18, 4, 1100, 56},
+        ic_help = {1126, 8, 48, 48},
+        ic_off_title = {703, 120, 514, 44},
+        ic_throne = {778, 192, 364, 184},
+        ic_throne_of = {794, 288, 332, 18},
+        ic_throne_name = {794, 306, 332, 26},
+        ic_throne_leader = {794, 334, 332, 22},
+    },
+}
+
+-- A RACE'S OWN WORDS (plan 2026-10-04 phase 3; spec 2.6). The faction's name is
+-- read at runtime. gen_ic_ui.check_dwf_text measures every one against its cell.
+ICUI.RACE_WORDS = {
+    dwf = {
+        title = "The Council of %s",
+        hall = "THE GREAT HALL",
+        throne_of = "THE THRONE OF",
+        no_leader = "The throne stands empty",
+    },
+}
+
 ICUI.BTN_SIZE = 44          -- must match OPENER_W/H in tools/gen_ic_ui.py
 ICUI.BTN_GAP  = 4
 ICUI.BTN_TRIES = 12
@@ -363,6 +393,9 @@ ICUI.PANEL_XY = {
     ic_gov           = {48, 875, 622, 26},
     ic_gov_btn       = {694, 871, 220, 34},
     ic_gov_glow      = {39, 864, 48, 48},
+    -- THE BOOK OF GRUDGES (plan 2026-10-04 phase 5): a Dwarf court's line,
+    -- under the Crown's box. tools/gen_ic_ui.py derives it.
+    ic_book          = {48, 943, 866, 26},
     ic_leader_name   = {394, 697, 520, 28},
     ic_leader_party  = {394, 729, 520, 26},
     ic_leader_port   = {394, 763, 183, 100},
@@ -406,8 +439,7 @@ ICUI.PANEL_XY = {
     ic_page_lbl      = {1600, 982, 164, 26},
     ic_page_next     = {1774, 978, 136, 34},
     -- THE PARTY ACTION BAR, in the pager's row, CENTRED under the grid. Court
-    -- only; ICUI.draw_actions moves it to ICUI.ACT_PAGED_XY while the pager
-    -- shows. ACT_BUTTONS in tools/gen_ic_ui.py derives the four.
+    -- only. ACT_BUTTONS in tools/gen_ic_ui.py derives the four.
     ic_act_provoke   = {1124, 978, 132, 34},
     ic_act_gift      = {1262, 978, 164, 34},
     ic_act_secure    = {1432, 978, 216, 34},
@@ -876,6 +908,28 @@ for col = 1, ICUI.PLOT_COLS do
     end
 end
 
+-- ONE GRID PER RACE (plan 2026-10-04 phase 4). A move with `race` is in its
+-- race's grid only, so the Chaos Dwarf grid above stays the sixteen cards it
+-- was and the Dwarf grid has Pay the Weregild in the party column. Same card
+-- size for both: gen_ic_ui.check_plot_depths holds every race's columns to
+-- PLOT_DEPTH. ICUI.use_plot_grid picks one when the panel opens.
+ICUI.PLOT_GRIDS = {}
+for _, rk in ipairs(IC.RACE_ORDER) do
+    local g = {xy = {}, at = {}, counts = {}}
+    for col = 1, ICUI.PLOT_COLS do
+        local moves = IC.plots_in(IC.PLOT_CATS[col].key, rk)
+        g.counts[col] = #moves
+        for row = 1, #moves do
+            g.xy[#g.xy + 1] = {
+                ICUI.plot_col_x(col - 1),
+                ICUI.PLOTS_Y + (row - 1) * (ICUI.PLOT_H + ICUI.CARD_GAP_Y),
+            }
+            g.at[#g.xy] = moves[row]
+        end
+    end
+    ICUI.PLOT_GRIDS[rk] = g
+end
+
 -- THE BLURB IS THREE CELLS, NOT ONE. twui text never wraps - the emitter writes
 -- texthbehaviour="Never split" on every cell deliberately, because of the three
 -- values the engine has, "Resize" breaks to one word per line and draws outside
@@ -957,21 +1011,6 @@ end
 -- is up and back at ICUI.PANEL_XY.ic_lbl_section otherwise.
 ICUI.COURT_SECTION_XY = {48, 665, 322, 26}
 
--- THE ACTION BAR WHILE THE COURT PAGES. Its home in PANEL_XY is centred under
--- the grid, which is where it almost always is: the court pages only when
--- confederates push it past the grid's slots. With the pager up the four
--- buttons and the pager do not fit one row of the grid's column, so the bar
--- moves to the left column's bottom row, centred under the Crown's box, level
--- with the pager. ACT_PAGED in tools/gen_ic_ui.py; the gate compares the two
--- entry by entry.
-ICUI.ACT_PAGED_XY = {
-    ic_act_provoke = {166, 978, 132, 34},
-    ic_act_gift    = {304, 978, 164, 34},
-    ic_act_secure  = {474, 978, 216, 34},
-    ic_act_purge   = {696, 978, 100, 34},
-    ic_act_hint    = {18, 982, 926, 26},
-}
-
 -- The party card's own children, panel-relative to the CARD. Must match
 -- PARTY_LAYOUT in tools/gen_ic_ui.py; the gate compares them entry by entry.
 -- THE CROWN'S BLOCK, as one list. It is shown by draw_leader and hidden by the
@@ -1004,6 +1043,7 @@ ICUI.CONTROL_KEYS = {"ic_control", "ic_control_band", "ic_control_fx",
 -- db effects table - keyed by the short label the effect line starts with,
 -- which tools/import_iron_court.py holds against the generator's EFFECT_SHORT.
 ICUI.BAND_ICON = "ui/campaign ui/effect_bundles/chd_toz_tier.png"
+ICUI.CHD_BAND_ICON = ICUI.BAND_ICON
 ICUI.FX_ICONS = {
     ["Control"]         = "ui/campaign ui/effect_bundles/public_order.png",
     ["Building income"] = "ui/campaign ui/effect_bundles/income.png",
@@ -1070,21 +1110,14 @@ ICUI.SOUND_SEAT = "UI_CLICK_Begin_Ritual"
 
 ICUI.btn_at = nil
 ICUI.view = "court"
--- Scroll offset PER VIEW. Shared state would jump the court list when the player
--- scrolled the governors list and came back.
-ICUI.scroll = {court = 0, offices = 0, govs = 0, intrigue = 0, log = 0,
-               petitions = 0, laws = 0,
-               pick = 0}
--- THE CHOSEN PARTY, by slug and not by card: a card is a slot the pager
--- recycles, and a choice that followed the slot would jump to whichever party
--- the next page put there. Nil until the player clicks one; cleared on close.
+-- THE CHOSEN PARTY, by slug and not by card: a card is rebuilt with its list,
+-- and a choice that followed the card would land on whichever party the next
+-- list put there. Nil until the player clicks one; cleared on close.
 ICUI.sel = nil
 -- THE PETITIONS AS THEY WERE LAST DRAWN, one entry per row - {kind = "offer",
 -- slug = ...} or {kind = "demand"} - so a click answers the petition the
 -- player saw rather than a list re-derived after it changed.
 ICUI.petition_rows = {}
--- How many lines the last draw had, so the scroll buttons know their own limit.
-ICUI.line_count = 0
 -- When set, the panel is choosing a character for something instead of showing a
 -- view: {kind = "office", key = <office slug>} or {kind = "gov", key = <province>}.
 -- It is its own mode rather than a fifth tab because it is modal - you are
@@ -1149,6 +1182,7 @@ end
 local function set_text(c, text)
     if not c then return end
     pcall(function() c:SetText(tostring(text), "") end)
+    if ICUI.grey_refused then ICUI.grey_refused(c, text) end
 end
 
 local function loc(key, fallback)
@@ -1331,6 +1365,7 @@ ICUI.COST_ICON = "ui/skins/default/icon_secure_loyalty.png"
 -- imagepath in the panel is held against, by the shape of the name rather than
 -- one icon at a time - so declaring it here is the whole of what it needs.
 ICUI.TRAIT_ICON = "ui/campaign ui/effect_bundles/chd_conclave_influence.png"
+ICUI.CHD_TRAIT_ICON = ICUI.TRAIT_ICON
 
 
 -- ONE TRAIT LINE, decorated. Nil and "" both come back empty and NOT as a bare
@@ -1470,7 +1505,7 @@ function ICUI.ambition_tip(faction_key, cqi)
     local house = IC.house_of_character(character, faction_key)
     if not slug or not house or not court.houses[house] then return "" end
 
-    local name = loc("character_trait_levels_onscreen_name_derpy_ic_ambition_" .. slug, "")
+    local name = loc("character_trait_levels_onscreen_name_" .. IC.ambition_trait(slug, faction_key), "")
     if name == "" then return "" end
     local factor = IC.ambition_factor(faction_key, cqi) / 100
     local contribution = IC.standing(faction_key, cqi) * factor
@@ -1587,6 +1622,7 @@ function ICUI.show_standing()
         end)
         plate = comp(ICUI.STANDING)
         if not plate then return hide() end
+        ICUI.race_plate(plate)
     end
     plate:MoveTo(x, y)
     -- SetStateText and not SetText would write the current state only; this
@@ -1610,6 +1646,7 @@ end
 -- THE COURT'S WAITING BUSINESS, once. The button's summary words it and the tab
 -- markers light from it, so the two can never disagree about the same fact.
 function ICUI.court_state(faction)
+    local R = IC.R(faction)
     local court = IC.court(faction)
     local s = {empty = 0, back = {}, ending = {}, leaving = {}}
     -- ONE POST AT A TIME: a man seated elsewhere since is not free to take his
@@ -1617,8 +1654,8 @@ function ICUI.court_state(faction)
     local posted = {}
     for _, cqi in pairs(court.offices) do posted[cqi] = true end
     for _, cqi in pairs(court.govs) do posted[cqi] = true end
-    for i = 1, #IC.OFFICES do
-        local slug = IC.OFFICES[i].slug
+    for i = 1, #R.OFFICES do
+        local slug = R.OFFICES[i].slug
         if not court.offices[slug] then
             s.empty = s.empty + 1
             local last = court.last[slug]
@@ -1655,7 +1692,7 @@ function ICUI.court_state(faction)
     if IC.governments_on() and court.gov_ask then s.petitions = s.petitions + 1 end
     -- A PARTY'S LAW THE PLAYER HAS NOT ANSWERED (spec 2026-10-02 laws 3.2).
     s.laws = 0
-    for _, cat in ipairs(IC.LAW_ORDER) do
+    for _, cat in ipairs(R.LAW_ORDER) do
         local v = IC.law_vote_of(faction, cat)
         if v and v.proposer ~= IC.CROWN and not v.answered then s.laws = s.laws + 1 end
     end
@@ -1687,6 +1724,7 @@ function ICUI.attention(faction)
 end
 
 function ICUI.opener_tip(faction)
+    local R = IC.R(faction)
     local court = IC.court(faction)
     local s = ICUI.court_state(faction)
     local back = s.back
@@ -1729,7 +1767,7 @@ function ICUI.opener_tip(faction)
             ICUI.cost(IC.control(faction)), ICUI.band_name(IC.control_band(faction)))
     end
     -- EVERY EMPTY SEAT, fillable or not: the seats are always worth a look.
-    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
+    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #R.OFFICES)
     -- MARKED ON ITS TAB BUT NOT A PULSE: most of a campaign has one.
     if s.unruled > 0 then
         lines[#lines + 1] = string.format("Provinces with no governor: %d (Governors tab).",
@@ -1847,6 +1885,7 @@ function ICUI.place_opener(attempt, quiet)
     if not button then
         pcall(function() root():CreateComponent(ICUI.BTN, ICUI.PATH_OPENER) end)
         button = comp(ICUI.BTN)
+        ICUI.skin_opener(button)
         if not button then return retry("could not create the button") end
     end
 
@@ -1961,16 +2000,22 @@ function ICUI.player()
     return human and human[1] or nil
 end
 
--- THE COURT IS THE CHAOS DWARFS'. In a mixed campaign this machine's player may
--- be anyone, and a Dwarf given the panel got an empty court that still hired
--- Chaos Dwarf officers into his faction. False only for a player known to be
--- something else: with no player read yet there is nothing to refuse.
+-- THE PLAYER'S RACE: every table the panel draws is the race's, never IC.X.
+function ICUI.race()
+    return IC.R(ICUI.player())
+end
+
+-- THE COURT IS FOR A RACE THAT HOLDS ONE. In a mixed campaign this machine's
+-- player may be anyone, and a player of another race given the panel got an
+-- empty court that still hired officers into his faction. False only for a
+-- player whose race holds no court (or has it switched off): with no player
+-- read yet there is nothing to refuse.
 function ICUI.court_player()
     local me = ICUI.player()
     if not me then return true end
     local ok, f = pcall(function() return cm:get_faction(me) end)
     if not ok or not f or f:is_null_interface() then return true end
-    return IC.is_chd(f)
+    return IC.has_court(f)
 end
 
 -- PLACES EVERY COMPONENT, including the panel's own children, which the .twui.xml
@@ -2018,16 +2063,11 @@ function ICUI.layout()
         end
     end
     pool(ICUI.CARD, ICUI.CARD_XY, ICUI.CARD_W, ICUI.CARD_H, ICUI.CARD_CHILD_XY)
-    pool(ICUI.PARTY, ICUI.PARTY_XY, ICUI.PARTY_W, ICUI.PARTY_H, ICUI.PARTY_CHILD_XY)
     pool(ICUI.PLOT, ICUI.PLOT_XY, ICUI.PLOT_W, ICUI.PLOT_H, ICUI.PLOT_CHILD_XY)
     pool(ICUI.LAW, ICUI.LAW_XY, ICUI.LAW_W, ICUI.LAW_H, ICUI.LAW_CHILD_XY)
     pool(ICUI.LAWBLOCK, ICUI.LB_XY, ICUI.LB_W, ICUI.LB_H, ICUI.LB_CHILD_XY)
-    -- The rows are a pool on the pitch rather than on a grid.
-    local rows = {}
-    for i = 1, ICUI.MAX_ROWS do
-        rows[i] = {ICUI.ROWS_X, ICUI.ROWS_Y + (i - 1) * ICUI.ROW_PITCH}
-    end
-    pool(ICUI.ROW, rows, ICUI.ROW_W, ICUI.ROW_H, ICUI.ROW_CHILD_XY)
+    -- THE PARTY CARDS AND THE ROWS ARE NOT HERE: their list makes and places them
+    -- (ICUI.list_items), and a pass here would put a scrolled list back at its top.
 end
 
 -- Houses in a stable order. pairs() draws a different order every redraw and the
@@ -2139,7 +2179,7 @@ function ICUI.offer_what(faction, slug, o, row)
             .. "loyalty rises by %d. If they are still angry, it starts again "
             .. "next turn", ICUI.house_name(o.target, faction), net)
     end
-    local units = loc("land_units_onscreen_name_" .. IC.troop_key(slug), "warriors")
+    local units = loc("land_units_onscreen_name_" .. IC.troop_key(slug, faction), "warriors")
     if row then return string.format("%d %s", o.n, units) end
     local lord = IC.character_by_cqi(faction, tonumber(o.target))
     return string.format("%d %s for %s's army", o.n, units,
@@ -2433,10 +2473,10 @@ function ICUI.click_column(view, col)
         ICUI.sort[view] = 1
         ICUI.sort_desc[view] = false
     end
-    -- BACK TO THE TOP OF THE PAGE TOO. The page offset addresses a position, and
-    -- after a re-sort position N is a different man - so a player on page two
-    -- would be looking at a page he never asked for.
-    ICUI.scroll[view] = 0
+    -- BACK TO THE TOP OF THE LIST TOO: after a re-sort the row under the bar is
+    -- a different man, so a player scrolled down would be looking at a part of
+    -- the list he never asked for.
+    ICUI.list_rescroll(view)
     return true
 end
 
@@ -2607,8 +2647,8 @@ function ICUI.sort_arrow_path(view, col)
     local index = ICUI.sort_for_column(view, col)
     -- NOT THE ACTIVE COLUMN: it points down, which is what an unpressed arrow
     -- looks like in every CA panel that has one.
-    if not index or ICUI.sort[view] ~= index then return ICUI.SORT_ARROW.down end
-    return ICUI.sort_desc[view] and ICUI.SORT_ARROW.up or ICUI.SORT_ARROW.down
+    if not index or ICUI.sort[view] ~= index then return ICUI.themed(ICUI.SORT_ARROW.down) end
+    return ICUI.themed(ICUI.sort_desc[view] and ICUI.SORT_ARROW.up or ICUI.SORT_ARROW.down)
 end
 
 -- WHICH TAB YOU ARE ON. Five identical plates said nothing about which one
@@ -2634,18 +2674,53 @@ ICUI.TAB_PLATE = {
 
 -- ICUI.view, not ICUI.live_view(): the picker is modal, and the tab behind it
 -- stays lit because that is where closing it puts you back.
+-- THE TAB CAPTIONS, in one table: a lit Dwarf tab's word is inked dark on the gold
+-- ribbon, so whatever lights the plate writes the word with it.
+ICUI.TAB_WORD = {
+    ic_tab_court = "Court", ic_tab_offices = "Offices", ic_tab_govs = "Governors",
+    ic_tab_intrigue = "Intrigue", ic_tab_log = "Record", ic_tab_petitions = "Petitions",
+    ic_tab_laws = "Laws",
+}
+
+-- THE PLATE A TAB-SHAPED BUTTON WEARS in slot `index` (0 standard, 1 hover). The
+-- Chaos Dwarf court's is ICUI.TAB_PLATE; a race with art.tab has a ribbon baked to
+-- each cell's 1920 size, named by that size (gen_ic_ui.py DWF_TAB).
+function ICUI.tab_art(c, lit, index)
+    local art = ICUI.ART or {}
+    if not art.tab then
+        local plate = ICUI.TAB_PLATE[index]
+        return lit and plate.on or plate.off
+    end
+    local ok, id = pcall(function() return c:Id() end)
+    local xy = ok and ICUI.BASE.PANEL_XY[id]
+    if not xy then return nil end
+    local state = "active"
+    if lit then state = "selected" elseif index == 1 then state = "hover" end
+    return string.format(art.tab, state, xy[3], xy[4])
+end
+
+-- THE WORD ON A LIT PLATE: dark ink where the race's lit plate is too bright for
+-- cream (the gold ribbon, check_dwf_contrast). [[col:black]] is db/ui_colours_tables'
+-- black, 000000.
+function ICUI.lit_word(word, lit)
+    local ink = (ICUI.ART or {}).lit_ink
+    if lit and ink then return "[[col:" .. ink .. "]]" .. word .. "[[/col]]" end
+    return word
+end
+
+-- LIGHT ONE TAB-SHAPED BUTTON: both image slots, and its word when given.
+function ICUI.light_plate(c, lit, word)
+    if not c then return end
+    for index = 0, 1 do
+        local path = ICUI.tab_art(c, lit, index)
+        if path then pcall(function() c:SetImagePath(path, index) end) end
+    end
+    if word then set_text(c, ICUI.lit_word(word, lit)) end
+end
+
 function ICUI.light_tabs(panel)
     for name, view in pairs(ICUI.TAB_VIEW) do
-        local c = comp(name, panel)
-        if c then
-            local lit = (view == ICUI.view)
-            for index = 0, 1 do
-                local art = ICUI.TAB_PLATE[index]
-                pcall(function()
-                    c:SetImagePath(lit and art.on or art.off, index)
-                end)
-            end
-        end
+        ICUI.light_plate(comp(name, panel), view == ICUI.view, ICUI.TAB_WORD[name])
     end
 end
 
@@ -2664,16 +2739,17 @@ ICUI.SECTION = {
 -- shape is a thing the player can read off the screen and a sentence that
 -- counts the seats in prose goes stale the moment a tier gains one.
 function ICUI.section_text(view)
+    local R = ICUI.race()
     if view == "petitions" then return ICUI.petitions_label() end
     if view == "help" then return ICUI.HELP_TITLE end
     if view ~= "offices" then return ICUI.SECTION[view] or "" end
     local widths = {}
-    for i = 1, #IC.TIERS do
-        widths[#widths + 1] = tostring(IC.TIER_SEATS[IC.TIERS[i]])
+    for i = 1, #R.TIERS do
+        widths[#widths + 1] = tostring(R.TIER_SEATS[R.TIERS[i]])
     end
     return string.format(
         "%d seats in %d tiers (%s). Each needs the influence shown and is held for %d turns.",
-        #IC.OFFICES, #IC.TIERS, table.concat(widths, "/"), IC.tune(ICUI.player(), "term_turns"))
+        #R.OFFICES, #R.TIERS, table.concat(widths, "/"), IC.tune(ICUI.player(), "term_turns"))
 end
 
 -- Column headers per view, or nil for a view that draws cards instead of a list.
@@ -2777,50 +2853,195 @@ function ICUI.character_name(character)
     return name
 end
 
--- The largest first-line index that still fills the window, so scrolling can
--- never strand the list on a screen of blanks. Pure arithmetic, checked offline.
-function ICUI.max_scroll(total, visible)
-    local max = total - visible
-    if max < 0 then max = 0 end
-    return max
+-- THE LISTS SCROLL (author, 2026-10-05: "use the scrollbar implemented by zharr
+-- exchange or the derpy great guilds"). Every list the pager used to page - the
+-- row lists and the Court's party cards - is CA's list drawn whole, the shape the
+-- Governors column already uses (docs/CUSTOM_UI.md, "Drawn whole"): list_box
+-- holds one empty row per line of the list, which is what the engine scrolls; the
+-- real items are made once each under a holder in list_clip; and the poll puts
+-- the holder where list_box is, so one MoveTo carries every item.
+--
+-- ONE LIST ON SCREEN, under a name of its own: the Exchange's list scrolls in game
+-- under any name that carries the Listview callback, so the Governors column's
+-- list is left as it is. Built from that column's list and empty-row files, which
+-- are sized here at runtime.
+--
+-- REBUILT, NEVER REWOUND: nothing documented scrolls a list from script. A new
+-- view, a new length or ICUI.list_rescroll makes the list again, at the top.
+ICUI.LIST = "ic_list"
+ICUI.LIST_HOLDER = "ic_list_rows"
+ICUI.LIST_SP = "ic_list_sp"
+ICUI.LIST_SLIDER_W = 16
+ICUI.LIST_SLIDER_GAP = 2
+ICUI.LIST_HANDLE_H = 40
+ICUI.list_key = nil                  -- what the built list is, nil while none is
+-- PER VIEW: a picker answered must not start the Court's cards again under a
+-- flash that is still running on them.
+ICUI.list_gens = {}
+-- SET BY EVERY list_build; refresh drops a list no view drew this time.
+ICUI.list_used = false
+
+-- THE NEXT DRAW OF `view`'s LIST STARTS IT AGAIN, at the top: a new picker
+-- (the default), a re-sort.
+function ICUI.list_rescroll(view)
+    view = view or "pick"
+    ICUI.list_gens[view] = (ICUI.list_gens[view] or 0) + 1
 end
 
--- WHICH ROW OF THE POOL A VIEW STARTS AT. All of them start at the top now.
--- The court used to start lower, to clear a pie drawn above the list; the pie
--- is in the left column and the court draws no list at all, so the exception
--- and the constant behind it are both gone.
-function ICUI.first_row(view)
-    return 1
+-- WHAT EACH KIND OF LIST IS, read at the call so the box's scale is in it. A
+-- line of the party list is a row of the card grid.
+function ICUI.list_spec(kind)
+    if kind == "party" then
+        return {prefix = ICUI.PARTY, file = ICUI.PATH_PARTY, pool = "PARTY",
+                x = ICUI.PARTIES_X, y = ICUI.PARTIES_Y, w = ICUI.PARTY_W,
+                h = ICUI.PARTY_H, cols = ICUI.PARTY_COLS,
+                step = ICUI.PARTY_W + ICUI.PARTY_GAP_X,
+                pitch = ICUI.PARTY_H + ICUI.PARTY_GAP_Y, lines = ICUI.PARTY_ROWS,
+                children = ICUI.PARTY_CHILD_XY}
+    end
+    return {prefix = ICUI.ROW, file = ICUI.PATH_ROW, x = ICUI.ROWS_X, y = ICUI.ROWS_Y,
+            w = ICUI.ROW_W, h = ICUI.ROW_H, cols = 1, step = 0,
+            pitch = ICUI.ROW_PITCH, lines = ICUI.MAX_ROWS, children = ICUI.ROW_CHILD_XY}
 end
 
--- HOW MANY ROWS THAT LEAVES, which is the page size as well as the window: a
--- pager that pages by the pool would skip the rows the court cannot draw.
-function ICUI.rows_shown(view)
-    -- THE COURT TAB IS A CARD GRID. Its page is ten cards, and a pager still
-    -- measuring the row pool would page in sevens through a grid of ten and
-    -- leave three parties nobody can reach.
-    if view == "court" then return ICUI.PARTY_SLOTS end
-    -- AND THE INTRIGUE TAB DRAWS NO ROWS AT ALL. It is four columns of cards
-    -- with their own headers; the warnings that used to sit above them ride
-    -- ic_alert now, because four cards deep leaves no band to put them in.
-    if view == "intrigue" then return 0 end
-    return ICUI.MAX_ROWS - ICUI.first_row(view) + 1
+-- THE WINDOW: every column, and every line down to the last one's foot - not its
+-- trailing gap, which would lie over whatever sits under the list.
+function ICUI.list_window(s)
+    return (s.cols - 1) * s.step + s.w, (s.lines - 1) * s.pitch + s.h
 end
 
--- Clamp and store this view's offset. Called on every draw, so a list that
--- SHRINKS under a parked offset (a province lost, a house seceding) pulls the
--- window back up instead of showing nothing.
-function ICUI.clamp_scroll(view, total)
-    local max = ICUI.max_scroll(total, ICUI.rows_shown(view))
-    local at = ICUI.scroll[view] or 0
-    if at > max then at = max end
-    if at < 0 then at = 0 end
-    ICUI.scroll[view] = at
-    return at
+function ICUI.list_drop(panel)
+    local list = panel and comp(ICUI.LIST, panel)
+    if list then pcall(function() list:Destroy() end) end
+    ICUI.list_key = nil
 end
 
--- Thumb geometry for a track of `track_h`: proportional height, floored so it
--- stays grabbable, positioned by how far through the list we are.
+-- THE LIST FOR `n` ITEMS of `kind`, made or kept. Returns the list, or nil when
+-- it could not be made - list_items then draws one window's worth unscrolled.
+function ICUI.list_build(panel, kind, n)
+    ICUI.list_used = true
+    local view = ICUI.live_view()
+    local key = table.concat({view, kind, n, ICUI.list_gens[view] or 0}, "|")
+    local list = comp(ICUI.LIST, panel)
+    if list and key == ICUI.list_key then
+        -- KEPT, AND STILL SCROLLED: the holder belongs where the list has gone.
+        ICUI.list_follow(panel)
+        return list
+    end
+    ICUI.list_drop(panel)
+    pcall(function() panel:CreateComponent(ICUI.LIST, ICUI.PATH_GM_LIST) end)
+    list = comp(ICUI.LIST, panel)
+    if not list then return nil end
+    local s = ICUI.list_spec(kind)
+    local px, py = panel:Position()
+    local x, y = px + ICUI.OX + s.x, py + ICUI.OY + s.y
+    local w, h = ICUI.list_window(s)
+    local lines = math.ceil(n / s.cols)
+    list:MoveTo(x, y)
+    ICUI.resize(list, w + ICUI.LIST_SLIDER_GAP + ICUI.LIST_SLIDER_W, h)
+    local clip, slider = comp("list_clip", list), comp("vslider", list)
+    if clip then
+        clip:MoveTo(x, y)
+        ICUI.resize(clip, w, h)
+    end
+    if slider then
+        slider:MoveTo(x + w + ICUI.LIST_SLIDER_GAP, y)
+        ICUI.resize(slider, ICUI.LIST_SLIDER_W, h)
+        -- THE TRAVEL IS A NUMBER, not a size: Resize never reaches it.
+        pcall(function() slider:SetProperty("maxValue", h - ICUI.LIST_HANDLE_H) end)
+        local handle = comp("handle", slider)
+        if handle then
+            pcall(function() handle:SetProperty("max_height", h - ICUI.LIST_HANDLE_H) end)
+            ICUI.skin_handle(handle)
+        end
+        show(slider, lines > s.lines)
+    end
+    local box = comp("list_box", list)
+    if box then
+        for i = 1, lines do
+            local name = ICUI.LIST_SP .. "_" .. i
+            pcall(function() box:CreateComponent(name, ICUI.PATH_GM_SP) end)
+            local sp = comp(name, box)
+            if sp then ICUI.resize(sp, w, s.pitch) end
+        end
+        -- Without it the rows sit stacked at the box's origin.
+        pcall(function() box:Layout() end)
+    end
+    -- THE HOLDER, made straight into the clip window, as the Governors column's:
+    -- its items go when the list does, so there is nothing to hand back.
+    if clip then
+        pcall(function() clip:CreateComponent(ICUI.LIST_HOLDER, ICUI.PATH_GM_SP) end)
+        local holder = comp(ICUI.LIST_HOLDER, clip)
+        if holder then
+            holder:MoveTo(x, y)
+            ICUI.resize(holder, w, math.max(s.lines, lines) * s.pitch)
+        end
+    end
+    ICUI.list_key = key
+    return list
+end
+
+-- THE ITEMS FOLLOW THE LIST: two reads and at most one move, however long it is.
+function ICUI.list_follow(panel)
+    local list = comp(ICUI.LIST, panel)
+    local clip = list and comp("list_clip", list)
+    local box, holder = clip and comp("list_box", clip), clip and comp(ICUI.LIST_HOLDER, clip)
+    if not (box and holder) then return end
+    local hx, hy = holder:Position()
+    local _bx, by = box:Position()
+    if hy ~= by then holder:MoveTo(hx, by) end
+end
+
+-- THE POLL, on the Governors column's own timer (zzz_derpy_iron_court_ui_map.lua):
+-- there is no scroll event. Returns at once with no list built.
+function ICUI.list_scroll_poll()
+    if not ICUI.list_key then return end
+    local panel = comp(ICUI.PANEL)
+    if panel then ICUI.list_follow(panel) end
+end
+
+-- EVERY ITEM, each made and placed once at its own index under the holder, whose
+-- MoveTo carries it from then on. With no holder - the list could not be made -
+-- one window's worth goes into the panel, unscrolled, placed every draw. Returns
+-- how many items there are.
+function ICUI.list_items(panel, kind, n)
+    local s = ICUI.list_spec(kind)
+    local list = comp(ICUI.LIST, panel)
+    local holder = list and comp(ICUI.LIST_HOLDER, list)
+    local host, count, x, y
+    if holder then
+        host, count = holder, n
+        x, y = holder:Position()
+    else
+        local px, py = panel:Position()
+        host, count = panel, math.min(n, s.lines * s.cols)
+        x, y = px + ICUI.OX + s.x, py + ICUI.OY + s.y
+    end
+    for i = 1, count do
+        local name = s.prefix .. "_" .. i
+        local item = comp(name, host)
+        local fresh = not item
+        if fresh then
+            pcall(function() host:CreateComponent(name, ICUI.path(s.file)) end)
+            item = comp(name, host)
+            if item then ICUI.skin_item(item, s.pool) end
+        end
+        if item and (fresh or host == panel) then
+            local ix = x + ((i - 1) % s.cols) * s.step
+            local iy = y + math.floor((i - 1) / s.cols) * s.pitch
+            item:MoveTo(ix, iy)
+            ICUI.resize(item, s.w, s.h)
+            for cname, b in pairs(s.children) do
+                local c = comp(cname, item)
+                if c then
+                    c:MoveTo(ix + b[1], iy + b[2])
+                    ICUI.resize(c, b[3], b[4])
+                end
+            end
+        end
+    end
+    return count
+end
 
 -- Fill the shared row pool from five-column lines, windowed by this view's scroll
 -- offset, and hide the tail. Every list view goes through this, so no view can
@@ -3148,10 +3369,11 @@ ICUI.PULSE_STRENGTH = 5
 -- The office card for a seat, by slug. IC.OFFICES' order IS the card order -
 -- draw_offices walks the two together - so the index is the whole lookup.
 function ICUI.office_card(office_slug)
+    local R = ICUI.race()
     local panel = comp(ICUI.PANEL)
     if not panel then return nil end
-    for i = 1, #IC.OFFICES do
-        if IC.OFFICES[i].slug == office_slug then
+    for i = 1, #R.OFFICES do
+        if R.OFFICES[i].slug == office_slug then
             return comp(ICUI.CARD .. "_" .. i, panel)
         end
     end
@@ -3283,16 +3505,18 @@ end
 function ICUI.fill_rows(panel, lines, view)
     view = view or ICUI.view
     local total = #lines
-    ICUI.line_count = total
-    local at = ICUI.clamp_scroll(view, total)
-    -- THE WHOLE POOL IS WALKED, not the window. A row this view does not own -
-    -- the ones behind the pie on the court view - still has to be hidden, or it
-    -- keeps whatever the last view wrote into it.
-    local first = ICUI.first_row(view)
-    for i = 1, ICUI.MAX_ROWS do
+    -- THE WHOLE LIST, made once (ICUI.list_build); refresh drops it when a view
+    -- draws none.
+    if total > 0 then
+        ICUI.list_build(panel, "row", total)
+        ICUI.list_items(panel, "row", total)
+    end
+    -- AT LEAST THE WINDOW IS WALKED: a list that could not be made draws its rows
+    -- into the panel, and those keep whatever the last view wrote until hidden.
+    for i = 1, math.max(total, ICUI.MAX_ROWS) do
         local row = comp(ICUI.ROW .. "_" .. i, panel)
         if row then
-            local line = i >= first and lines[(i - first + 1) + at] or nil
+            local line = lines[i]
             if line then
                 local over = ICUI.COL_W[view] or {}
                 for j = 1, #ICUI.ROW_KEYS do
@@ -3362,48 +3586,6 @@ function ICUI.fill_rows(panel, lines, view)
             end
         end
     end
-    ICUI.draw_pager(panel, total, at)
-end
-
--- The pager hides itself when the list fits on one page: two buttons that cannot
--- move anything read as broken rather than unnecessary.
---
--- A SCROLLBAR WAS THE WRONG CONTROL. Its thumb is a drag target, and the only
--- input events CA gives Lua are ComponentLClickUp, ComponentMouseOn and
--- ComponentMouseOff - there is no drag and no wheel - so the thumb could never
--- have been dragged. The buttons need only the click that exists.
-function ICUI.pages(total, view)
-    local n = ICUI.rows_shown(view or ICUI.live_view())
-    if total <= n then return 1 end
-    return math.ceil(total / n)
-end
-
-function ICUI.draw_pager(panel, total, at)
-    local prev = comp("ic_page_prev", panel)
-    local nxt = comp("ic_page_next", panel)
-    local lbl = comp("ic_page_lbl", panel)
-    local view = ICUI.live_view()
-    local pages = ICUI.pages(total, view)
-    local on = pages > 1
-    -- Integer division on the offset: `at` is a ROW offset, and the page it lands
-    -- on is what the caption must agree with or the buttons look like they are
-    -- lying about where they took you.
-    -- EXCEPT AT THE END: the clamp stops at total - page, short of a whole
-    -- page, and the caption read 2 of 3 there (sweep 2026-09-29).
-    local n = ICUI.rows_shown(view)
-    local page = (at >= ICUI.max_scroll(total, n)) and pages or math.floor(at / n) + 1
-    if prev then
-        prev:SetVisible(on)
-        set_text(prev, "Previous")
-    end
-    if nxt then
-        nxt:SetVisible(on)
-        set_text(nxt, "Next")
-    end
-    if lbl then
-        lbl:SetVisible(on)
-        set_text(lbl, string.format("Page %d of %d", page, pages))
-    end
 end
 
 -- WHICH VIEW IS ON SCREEN. The picker is modal and owns the list whichever tab is
@@ -3420,23 +3602,6 @@ function ICUI.live_view()
     -- shape.
     if ICUI.pick then return "pick" end
     return ICUI.view
-end
-
--- Move this view's window. Returns true if anything actually moved, so a click at
--- the end of the list is not reported as a redraw.
-function ICUI.scroll_by(delta)
-    local view = ICUI.live_view()
-    local before = ICUI.scroll[view] or 0
-    -- THE PAGE, not the pool. These were the same number for every view that
-    -- windows the row pool from its top, and they stopped being the same when
-    -- the court became a grid of ten: clamping a ten-card page against a
-    -- twelve-row pool leaves the last two parties unreachable.
-    local max = ICUI.max_scroll(ICUI.line_count, ICUI.rows_shown(view))
-    local at = before + delta
-    if at > max then at = max end
-    if at < 0 then at = 0 end
-    ICUI.scroll[view] = at
-    return at ~= before
 end
 
 -- A segment's own identity. Returns nothing; everything it does is to the two
@@ -3520,11 +3685,11 @@ end
 -- generator writes from the same table it builds the bundles from, so the
 -- panel cannot name a band the faction is not actually wearing.
 function ICUI.band_name(slug)
-    return loc("derpy_ic_control_name_" .. slug, slug)
+    return loc(IC.key("control_name", slug, ICUI.player()), slug)
 end
 
 function ICUI.band_effects(slug)
-    return loc("derpy_ic_effects_derpy_ic_control_" .. slug, "")
+    return loc("derpy_ic_effects_" .. IC.control_bundle(slug, ICUI.player()), "")
 end
 
 -- HOW WIDE A CELL REALLY IS. Dimensions and NOT Bounds: Bounds is the component
@@ -4113,6 +4278,24 @@ function ICUI.oath_status(faction, slug)
     return nil
 end
 
+-- A MOVE OR A FAVOUR IN THIS COURT'S WORDS: IC.plot_text / IC.favour_text over
+-- the model's row, so a Dwarf court reads its own names and every number stays
+-- IC.PLOTS'. Every panel site that names a move reads it through these.
+function ICUI.plot_of(plot_key, faction)
+    local plot = IC.plot_by_key(plot_key)
+    if not plot then return nil end
+    local name, blurb, effect, effect_ns, icon = IC.plot_text(plot_key, faction or ICUI.player())
+    return setmetatable({name = name, blurb = blurb, effect = effect,
+                         effect_no_secession = effect_ns, icon = icon}, {__index = plot})
+end
+
+function ICUI.favour_of(key, faction)
+    local favour = IC.favour_by_key(key)
+    if not favour then return nil end
+    local name, blurb = IC.favour_text(key, faction or ICUI.player())
+    return setmetatable({name = name, blurb = blurb}, {__index = favour})
+end
+
 -- WHAT THE BUTTON WILL DO, on hover: the move's own effect line and price out
 -- of the model's tables, and the refusal under them when there is one.
 function ICUI.act_tip(faction, key, slug)
@@ -4120,7 +4303,7 @@ function ICUI.act_tip(faction, key, slug)
     local name = ICUI.house_name(slug, faction)
     local lines = {}
     if move.favour then
-        local favour = IC.favour_by_key(move.favour)
+        local favour = ICUI.favour_of(move.favour, faction)
         lines[1] = string.format("%s: %s - %s gold", favour.name, name,
                                  IC.favour_cost(move.favour, faction))
         lines[2] = favour.blurb
@@ -4145,12 +4328,12 @@ function ICUI.act_tip(faction, key, slug)
             if status then lines[#lines + 1] = status end
         end
     else
-        local plot = IC.plot_by_key(move.plot)
+        local plot = ICUI.plot_of(move.plot, faction)
         local leader = IC.party_leader(faction, slug)
         local man = leader and IC.character_by_cqi(faction, leader) or nil
         lines[1] = string.format("%s: %s", plot.name, name)
         lines[2] = IC.TUNE.secession == false and plot.effect_no_secession
-                   or plot.effect
+                   or ICUI.plot_effect(plot, faction)
         lines[3] = string.format("The man you send spends %d influence. "
             .. "Aimed at %s, who speaks for them.", IC.plot_cost(move.plot, faction),
             man and ICUI.character_name(man) or "their leader")
@@ -4173,15 +4356,12 @@ function ICUI.draw_actions(panel, faction, court, px, py)
     -- not be closed (proven live 2026-09-25). `slug ~= nil` starts the chain
     -- with a boolean, so every value it can produce is one.
     local rival = slug ~= nil and slug ~= IC.CROWN and court.houses[slug] ~= nil
-    -- CENTRED UNDER THE GRID, or beside the pager while it shows. Read off the
-    -- pager itself, which draw_pager has just set, so the two cannot disagree.
-    local nxt = comp("ic_page_next", panel)
-    local paged = nxt ~= nil and nxt:Visible()
+    -- CENTRED UNDER THE GRID, which scrolls rather than pages.
     local keys = {"ic_act_hint"}
     for _, key in ipairs(ICUI.ACT_KEYS) do keys[#keys + 1] = key end
     for _, key in ipairs(keys) do
         local c = comp(key, panel)
-        local home = paged and ICUI.ACT_PAGED_XY[key] or ICUI.PANEL_XY[key]
+        local home = ICUI.PANEL_XY[key]
         if c and home then
             c:MoveTo(px + home[1], py + home[2])
             ICUI.resize(c, home[3], home[4])
@@ -4252,20 +4432,21 @@ end
 -- THE GOVERNMENT, in words (spec 2026-10-02). Loc first, as the panel always
 -- reads it; never from a turn handler.
 function ICUI.gov_name(slug)
-    return loc("derpy_ic_doctrine_name_" .. tostring(slug), tostring(slug))
+    return loc(IC.key("doctrine_name", tostring(slug), ICUI.player()), tostring(slug))
 end
 function ICUI.gov_rule(slug)
-    return loc("derpy_ic_doctrine_rule_" .. tostring(slug), "")
+    return loc(IC.key("doctrine_rule", tostring(slug), ICUI.player()), "")
 end
 
 -- ITS RULE, ITS EFFECT, AND WHERE THE COURT IS HEADING.
 function ICUI.gov_icon(slug)
-    local g = IC.GOVS[slug]
+    local R = ICUI.race()
+    local g = R.GOVS[slug]
     return g and g.icon and ("ui/campaign ui/effect_bundles/" .. g.icon) or ICUI.BAND_ICON
 end
 
 function ICUI.gov_fx(slug)
-    return loc("derpy_ic_effects_" .. IC.gov_bundle(slug), "")
+    return loc("derpy_ic_effects_" .. IC.gov_bundle(slug, ICUI.player()), "")
 end
 
 -- THE LAWS TAB (spec 2026-10-02 laws section 4). The board, or the vote on
@@ -4274,8 +4455,9 @@ ICUI.LAW_LEVEL = {"slightly favours", "strongly favours", "fully pushes"}
 ICUI.law_cat = nil      -- the category whose vote is on screen; nil is the board
 
 function ICUI.law_at(i)
-    local cat = IC.LAW_ORDER[math.floor((i - 1) / 5) + 1]
-    return cat, cat and IC.LAWS[cat].order[(i - 1) % 5 + 1] or nil
+    local R = ICUI.race()
+    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]
+    return cat, cat and R.LAWS[cat].order[(i - 1) % 5 + 1] or nil
 end
 
 -- THE SCREEN, and a vote that has ended since the screen opened goes back to
@@ -4307,7 +4489,7 @@ local function law_pic(parent, name, path)
 end
 
 function ICUI.law_cat_name(category)
-    return loc("derpy_ic_law_cat_" .. tostring(category), tostring(category))
+    return loc(IC.key("law_cat", tostring(category), ICUI.player()), tostring(category))
 end
 
 -- THE PANEL'S PICTURES (author, 2026-10-02: "the icons are blurry"). A
@@ -4338,24 +4520,31 @@ ICUI.GOV_ART = {conclave = "sorcery_1", priest = "sorcery_15", forge = "industry
 -- each GOV_ART picture at 224px to this file, since the engine's own scaling of
 -- a 72px texture to the card's 112 is soft. GOV_ART stays the source's name.
 ICUI.GOV_ART_FILE = "ui/derpy_ic/gov_%s.png"
+-- A RACE WITH art.gov_art has its own pictures, baked with its suffix.
 function ICUI.gov_art(slug)
-    if ICUI.GOV_ART[tostring(slug)] then return string.format(ICUI.GOV_ART_FILE, slug) end
+    local own = (ICUI.ART or {}).gov_art
+    if (own or ICUI.GOV_ART)[tostring(slug)] then
+        return string.format(ICUI.GOV_ART_FILE, tostring(slug) .. (own and ICUI.SUFFIX or ""))
+    end
     return ICUI.gov_icon(slug)
 end
 
 -- A law's picture.
 function ICUI.law_icon(category, option)
-    local art = ICUI.LAW_ART[tostring(category) .. "." .. tostring(option)]
-    if art then return ICUI.LAW_ART_DIR .. art .. ".png" end
-    local o = IC.law_opt(category, option)
-    return "ui/campaign ui/effect_bundles/" .. (o and o.icon or IC.LAWS[category].icon)
+    local R = ICUI.race()
+    -- A RACE WITH art.law_art paints its own cards from its art.tech_dir.
+    local own = (ICUI.ART or {}).law_art
+    local art = (own or ICUI.LAW_ART)[tostring(category) .. "." .. tostring(option)]
+    if art then return (own and ICUI.ART.tech_dir or ICUI.LAW_ART_DIR) .. art .. ".png" end
+    local o = IC.law_opt(category, option, ICUI.player())
+    return "ui/campaign ui/effect_bundles/" .. (o and o.icon or R.LAWS[category].icon)
 end
 
 -- THE CARD'S SHORT LINES, the bundle's own derpy_ic_effects_ line split at its
 -- commas. A start law has none, and its card says so.
 function ICUI.law_short(category, option)
     local out = {}
-    local text = loc("derpy_ic_effects_" .. IC.law_bundle(category, option), "")
+    local text = loc("derpy_ic_effects_" .. IC.law_bundle(category, option, ICUI.player()), "")
     for piece in string.gmatch(text, "([^,]+)") do
         out[#out + 1] = (string.gsub(piece, "^%s+", ""))
     end
@@ -4370,14 +4559,15 @@ end
 -- THE BOARD OPENS on the first law not in force in the first category with no
 -- open vote (spec 4.1), or on the first card.
 function ICUI.law_default(faction)
-    for _, cat in ipairs(IC.LAW_ORDER) do
+    local R = IC.R(faction)
+    for _, cat in ipairs(R.LAW_ORDER) do
         if not IC.law_vote_of(faction, cat) then
-            for _, opt in ipairs(IC.LAWS[cat].order) do
+            for _, opt in ipairs(R.LAWS[cat].order) do
                 if opt ~= IC.law_in_force(faction, cat) then return {cat, opt} end
             end
         end
     end
-    return {IC.LAW_ORDER[1], IC.LAWS[IC.LAW_ORDER[1]].order[1]}
+    return {R.LAW_ORDER[1], R.LAWS[R.LAW_ORDER[1]].order[1]}
 end
 
 function ICUI.law_refusal(why, n)
@@ -4395,7 +4585,7 @@ function ICUI.law_foot(faction, cat, opt, vote)
         local left = math.max(0, vote.ends - cm:model():turn_number())
         return string.format("Vote open: %d turn%s", left, left == 1 and "" or "s")
     end
-    local o = IC.law_opt(cat, opt)
+    local o = IC.law_opt(cat, opt, faction)
     if not o.pro then return "The old way" end
     return string.format("For [[img:%s]][[/img]]   Against [[img:%s]][[/img]]", ICUI.law_crest(faction, o.pro[1]), ICUI.law_crest(faction, o.con[1]))
 end
@@ -4461,11 +4651,11 @@ function ICUI.draw_law_pane(panel, faction, cat, opt)
     set_text(comp("ic_law_p_fxh", panel), "Effects")
     -- TWO ROWS AN EFFECT: CA's own wording runs past the pane's width.
     for k = 1, 3 do
-        local line = loc(string.format("derpy_ic_law_fx%d_%s_%s", k, cat, opt), "")
+        local line = loc(IC.key("law_fx" .. k, cat .. "_" .. opt, faction), "")
         if k == 1 and line == "" then line = "None. This is the old way." end
         ICUI.fit_lines({comp("ic_law_p_fx" .. (2 * k - 1), panel), comp("ic_law_p_fx" .. (2 * k), panel)}, line)
     end
-    local o = IC.law_opt(cat, opt)
+    local o = IC.law_opt(cat, opt, faction)
     set_text(comp("ic_law_p_forh", panel), "Favoured by")
     set_text(comp("ic_law_p_for", panel), ICUI.law_parties(faction, o.pro))
     set_text(comp("ic_law_p_conh", panel), "Opposed by")
@@ -4500,15 +4690,16 @@ end
 -- (spec 2026-10-02 section 7): the current government's parties lose, the new
 -- one's gain, and a party not seated is nobody to please.
 function ICUI.gov_choices(faction)
+    local R = IC.R(faction)
     local court, out = IC.court(faction), {}
-    for _, g in ipairs(IC.GOV_ORDER) do
+    for _, g in ipairs(R.GOV_ORDER) do
         if g ~= court.gov then
             local may, why, n = IC.can_force_gov(faction, g)
             local hit = {}
-            for _, p in ipairs(IC.GOVS[court.gov] and IC.GOVS[court.gov].parties or {}) do
+            for _, p in ipairs(R.GOVS[court.gov] and R.GOVS[court.gov].parties or {}) do
                 if court.houses[p] then hit[#hit + 1] = {p, IC.TUNE.gov_force_loss} end
             end
-            for _, p in ipairs(IC.GOVS[g].parties) do
+            for _, p in ipairs(R.GOVS[g].parties) do
                 if court.houses[p] then hit[#hit + 1] = {p, IC.TUNE.gov_force_gain} end
             end
             out[#out + 1] = {slug = g, may = may, why = why, n = n, hit = hit, fx = ICUI.gov_fx(g)}
@@ -4574,13 +4765,14 @@ function ICUI.draw_gov_cards(panel, faction)
 end
 
 function ICUI.draw_law_board(panel, faction)
+    local R = IC.R(faction)
     -- THE LISTS' ROWS ARE NOT THIS PAGE'S: hidden, and the pager with them.
     ICUI.fill_rows(panel, {}, "laws")
     local sel = ICUI.law_sel
-    if not sel or not IC.law_opt(sel[1], sel[2]) then sel = ICUI.law_default(faction) end
+    if not sel or not IC.law_opt(sel[1], sel[2], faction) then sel = ICUI.law_default(faction) end
     ICUI.law_sel = sel
     -- THE CATEGORY TITLES, on the heading plate and sized to their words.
-    for i, cat in ipairs(IC.LAW_ORDER) do
+    for i, cat in ipairs(R.LAW_ORDER) do
         local key, words = "ic_law_head_" .. i, string.upper(ICUI.law_cat_name(cat))
         set_text(comp(key, panel), words)
         ICUI.fit_plate(comp(key, panel), key, words, ICUI.HEADING_CAP, false)
@@ -4597,10 +4789,14 @@ function ICUI.draw_law_board(panel, faction)
             for k = 1, 3 do set_text(comp("ic_law_fx" .. k, card), fx[k] or "") end
             set_text(comp("ic_law_foot", card), ICUI.law_foot(faction, cat, opt, vote))
             show(comp("ic_law_mark", card), vote ~= nil and vote.option == opt)
+            -- THE RACE'S MARK: the law card file is shared, and built with the heat glow.
+            if (ICUI.ART or {}).mark then
+                pcall(function() comp("ic_law_mark", card):SetImagePath(ICUI.ART.mark, 0) end)
+            end
             local chosen = sel[1] == cat and sel[2] == opt
             local force = IC.law_in_force(faction, cat) == opt
             pcall(function()
-                card:SetImagePath(chosen and ICUI.LAW_GLOW or ICUI.MASK_NONE, ICUI.LAW_GLOW_INDEX)
+                card:SetImagePath(chosen and ICUI.law_glow() or ICUI.MASK_NONE, ICUI.LAW_GLOW_INDEX)
                 card:SetImagePath(force and ICUI.PARTY_SELECTED or ICUI.MASK_NONE, ICUI.LAW_SEL_INDEX)
             end)
         end
@@ -4616,12 +4812,8 @@ ICUI.LAW_STANCE_BTN = {"Support", "Oppose", "Abstain"}
 ICUI.LAW_LEVEL_BTN = {"Slightly favour", "Strongly favour", "Fully push"}
 
 -- LIT LIKE A TAB, with the tab's own two plates (as draw_help lights a topic).
-local function law_light(c, lit)
-    if not c then return end
-    for index = 0, 1 do
-        local art = ICUI.TAB_PLATE[index]
-        pcall(function() c:SetImagePath(lit and art.on or art.off, index) end)
-    end
+local function law_light(c, lit, text)
+    ICUI.light_plate(c, lit, text)
 end
 
 -- EACH SIDE'S PARTIES as blocks, heaviest first. A party's won men are a group
@@ -4834,8 +5026,7 @@ function ICUI.draw_law_vote(panel, faction, cat)
     set_text(comp("ic_lv_overh", panel), "Decide it now")
     for i = 1, 3 do
         local b = comp("ic_lv_st_" .. i, panel)
-        set_text(b, ICUI.LAW_STANCE_BTN[i])
-        law_light(b, vote.stance == ICUI.LAW_STANCES[i])
+        law_light(b, vote.stance == ICUI.LAW_STANCES[i], ICUI.LAW_STANCE_BTN[i])
     end
     local cur = (vote.push or {})[IC.CROWN] or 0
     for l = 1, 3 do
@@ -4848,8 +5039,7 @@ function ICUI.draw_law_vote(panel, faction, cat)
             label = string.format("%s [[img:%s]][[/img]]%d", ICUI.LAW_LEVEL_BTN[l], ICUI.COST_ICON, IC.law_push_price(vote, IC.CROWN, l))
             if not ok then label = ICUI.red(label) end
         end
-        set_text(b, label)
-        law_light(b, l <= cur)
+        law_light(b, l <= cur, label)
     end
     local can = IC.crown_purse(faction) >= IC.TUNE.law_overrule_cost
     for i, word in ipairs({"Pass now", "Fail now"}) do
@@ -4867,12 +5057,12 @@ function ICUI.draw_laws(panel, faction)
 end
 
 function ICUI.law_name(category, option)
-    return loc("derpy_ic_law_name_" .. tostring(category) .. "_" .. tostring(option), tostring(option))
+    return loc(IC.key("law_name", tostring(category) .. "_" .. tostring(option), ICUI.player()), tostring(option))
 end
 
 function ICUI.law_title(key)
     local cat, opt = string.match(tostring(key), "^(%w+)%.(%w+)$")
-    if not cat or not IC.law_opt(cat, opt) then return tostring(key) end
+    if not cat or not IC.law_opt(cat, opt, ICUI.player()) then return tostring(key) end
     return ICUI.law_name(cat, opt)
 end
 
@@ -4889,10 +5079,11 @@ end
 -- its deed and renown, then the absent ones waiting. house_name gives an
 -- absent party its generic name.
 function ICUI.deeds_tip(faction, court)
+    local R = IC.R(faction)
     if not IC.deeds_on(faction) then return nil end
     local here, away = {}, {}
-    for _, p in ipairs(IC.PARTIES) do
-        local text, n = ICUI.DEED_TEXT[p], IC.renown(faction, p)
+    for _, p in ipairs(R.PARTIES) do
+        local text, n = ICUI.deed_text(p, faction), IC.renown(faction, p)
         if text and court.houses[p] then
             here[#here + 1] = string.format("%s - %s - renown %d",
                                             ICUI.house_name(p, faction), text, n)
@@ -4939,6 +5130,51 @@ function ICUI.gov_tip(faction, court)
         lines[#lines + 1] = string.format("You can change it again in %d turns.", left)
     end
     return table.concat(lines, "\n")
+end
+
+-- THE BOOK OF GRUDGES (spec 2026-10-04 section 6), a Dwarf court only: the top
+-- names cut to the line, each with its points in the tooltip. A read: it never
+-- fills IC._book (multiplayer, see IC.book_list).
+ICUI.BOOK_LABEL = "The Book names: "
+ICUI.BOOK_EMPTY = "The Book names no enemy yet."
+ICUI.BOOK_REMEMBERED = "Remembered: "
+
+-- WHO A TREATY WRONGS (final review 2026-10-06): IC.in_book reads the SAVED
+-- bands, and victories drain the live points, so a faction beaten down below
+-- book_named - or off the line - is still a grudge to treat with. Say so, and
+-- name every one.
+function ICUI.book_tip(faction)
+    local b = IC.TUNE.book_bands
+    local tip = string.format("At %d, %d and %d grudge points their regard for you falls, once at each.\n"
+        .. "Peace, trade or an alliance with a faction the Book has ever named at %d or more "
+        .. "is a grudge to %s and %s, even after its points fall.",
+        b[1], b[2], b[3], IC.TUNE.book_named,
+        ICUI.house_name("legion", faction), ICUI.house_name("temple", faction))
+    local known = {}
+    for key in pairs((IC.state[faction] or {}).book or {}) do
+        if IC.in_book(faction, key) then
+            known[#known + 1] = loc("factions_screen_name_" .. key, key)
+        end
+    end
+    if #known == 0 then return tip end
+    table.sort(known)
+    return tip .. "\n" .. ICUI.BOOK_REMEMBERED .. table.concat(known, ", ")
+end
+
+function ICUI.draw_book(panel, faction)
+    local line = comp("ic_book", panel)
+    local on = IC.race_key(faction) == "dwf"
+    show(line, on)
+    if not on then return end
+    local names, tip = {}, {}
+    for i, e in ipairs(IC.book_names(faction, IC.TUNE.book_top)) do
+        names[i] = loc("factions_screen_name_" .. e.key, e.key)
+        tip[i] = string.format("%s: %d grudge points", names[i], e.weight)
+    end
+    ICUI.fit_cut(comp("ic_book", panel), #names > 0
+                 and (ICUI.BOOK_LABEL .. table.concat(names, ", ")) or ICUI.BOOK_EMPTY)
+    tip[#tip + 1] = ICUI.book_tip(faction)
+    pcall(function() line:SetTooltipText(table.concat(tip, "\n"), "", true) end)
 end
 
 function ICUI.draw_gov(panel, faction, court)
@@ -5054,6 +5290,7 @@ function ICUI.draw_court(panel, faction, court, px, py)
         set_text(comp(key, panel), ICUI.fx_line(fx[i]))
     end
     ICUI.draw_gov(panel, faction, court)
+    ICUI.draw_book(panel, faction)
 
     -- AND THE CROWN, WITH A FACE, in the block the dial leaves beside it.
     for key, words in pairs({ic_col_left = "Control of the Court",
@@ -5095,30 +5332,18 @@ function ICUI.draw_court(panel, faction, court, px, py)
             "Your own party holds %d%% of the court. Below %d%% you rule on sufferance.",
             math.floor(own_share + 0.5), IC.TUNE.sufferance_share)
     end
-    -- ONE CARD PER PARTY, windowed by this view's own page. The grid holds ten
-    -- and a court can hold more, so the offset and the pager are the same pair
-    -- every other view uses - and the keys recorded for the click are the ones
-    -- THIS draw used, offset included, or a paged grid acts on the wrong party.
-    -- HOW LONG THE LIST IS, which fill_rows used to record and the court no
-    -- longer calls. Without it scroll_by clamps against a line_count left over
-    -- from whichever tab the player was on last - zero, on a fresh panel - and
-    -- the pager moves nothing at all while looking perfectly correct.
-    -- THE CARDS' OWN ORDER, which is not the dial's. Everything above this line
-    -- has already been drawn from `slugs` and must stay on it; from here down
-    -- the cards, the pager and the click keys all use the sorted copy, and they
-    -- have to agree with each other or a click acts on the wrong party.
-    -- THE CARDS' OWN ORDER IS THE COURT'S, and there is only one list now.
-    -- It was sortable once, through a wide SORT button that lived alone on this
-    -- tab; the per-column arrows that replaced it need a header strip to sit
-    -- under, and the court draws cards. court_keys stays because on_party_click
-    -- reads it and must keep reading the list the cards were drawn from.
+    -- ONE CARD PER PARTY, every party, in the court's own order, in a list that
+    -- scrolls (ICUI.list_build). court_keys is the list the cards were drawn
+    -- from, and card i is party i: on_party_click and party_card read it back.
     ICUI.court_keys = slugs
-    ICUI.line_count = #slugs
-    local at = ICUI.clamp_scroll("court", #slugs)
-    for i = 1, ICUI.PARTY_SLOTS do
+    if #slugs > 0 then
+        ICUI.list_build(panel, "party", #slugs)
+        ICUI.list_items(panel, "party", #slugs)
+    end
+    for i = 1, math.max(#slugs, ICUI.PARTY_SLOTS) do
         local card = comp(ICUI.PARTY .. "_" .. i, panel)
         if card then
-            local slug = slugs[i + at]
+            local slug = slugs[i]
             if slug then
                 ICUI.fill_party(card, faction, court, slug)
                 card:SetVisible(true)
@@ -5127,7 +5352,6 @@ function ICUI.draw_court(panel, faction, court, px, py)
             end
         end
     end
-    ICUI.draw_pager(panel, #slugs, at)
     ICUI.draw_actions(panel, faction, court, px, py)
     return warn
 end
@@ -5247,21 +5471,24 @@ end
 ICUI.OFFICES_TITLE = "THE ZIGGURAT OF ZHARR"
 
 function ICUI.draw_offices(panel, faction, court)
-    set_text(comp("ic_off_title", panel), ICUI.OFFICES_TITLE)
-    ICUI.fit_plate(comp("ic_off_title", panel), "ic_off_title", ICUI.OFFICES_TITLE, ICUI.HEADING_CAP, false)
+    local R = IC.R(faction)
+    local hall = ICUI.offices_title()
+    set_text(comp("ic_off_title", panel), hall)
+    ICUI.fit_plate(comp("ic_off_title", panel), "ic_off_title", hall, ICUI.HEADING_CAP, false)
+    ICUI.draw_throne(panel, faction)
     for i = 1, #ICUI.CARD_XY do
         local card = comp(ICUI.CARD .. "_" .. i, panel)
-        local office = IC.OFFICES[i]
+        local office = R.OFFICES[i]
         if card and office then
             local cqi = court.offices[office.slug]
             local holder = nil
             if cqi then holder = IC.character_by_cqi(faction, cqi) end
             ICUI.card_fire(card, cqi ~= nil)
-            local bundle = IC.office_bundle(office.slug)
+            local bundle = IC.office_bundle(office.slug, faction)
             local slug = cqi and IC.house_of_cqi(faction, cqi) or nil
             set_text(comp("ic_card_name", card),
                      loc("effect_bundles_localised_title_"
-                         .. IC.office_bundle(office.slug), office.slug))
+                         .. IC.office_bundle(office.slug, faction), office.slug))
             -- WHAT THE SEAT ASKS. The tier's bar, on the card, because a
             -- ziggurat whose upper tiers grant more but ask nothing more is a
             -- shape and not a ladder - and the player cannot plan a climb
@@ -5274,8 +5501,8 @@ function ICUI.draw_offices(panel, faction, court)
             -- colour is whether you meet it. An occupied seat is not out of
             -- reach - it is simply taken - so only a vacant one is asked.
             local need = string.format("%s / lvl %d",
-                                       ICUI.cost(IC.office_influence(office.slug)),
-                                       IC.office_rank(office.slug))
+                                       ICUI.cost(IC.office_influence(office.slug, faction)),
+                                       IC.office_rank(office.slug, faction))
             if not cqi and not ICUI.seat_reachable(faction, office.slug) then
                 need = ICUI.red(need)
             end
@@ -5417,6 +5644,35 @@ function ICUI.draw_offices(panel, faction, court)
     return ""
 end
 
+function ICUI.race_words()
+    return ICUI.RACE_WORDS[ICUI.race().key] or {}
+end
+
+-- THE FACTION'S NAME AS CA WRITES IT: factions_screen_name_<key>, through loc(),
+-- which answers the key itself if CA has no row (get_localised_string gives "").
+function ICUI.faction_words(faction_key)
+    return loc("factions_screen_name_" .. tostring(faction_key), tostring(faction_key))
+end
+
+function ICUI.offices_title()
+    return ICUI.race_words().hall or ICUI.OFFICES_TITLE
+end
+
+-- THE THRONE (spec 2.5): the plate and its three lines, offices tab only.
+ICUI.THRONE_KEYS = {"ic_throne", "ic_throne_of", "ic_throne_name", "ic_throne_leader"}
+function ICUI.draw_throne(panel, faction_key)
+    local words = ICUI.race_words()
+    if not words.throne_of then return end
+    set_text(comp("ic_throne_of", panel), words.throne_of)
+    ICUI.fit_cut(comp("ic_throne_name", panel), ICUI.faction_words(faction_key))
+    local king = words.no_leader
+    local ok, leader = pcall(function() return cm:get_faction(faction_key):faction_leader() end)
+    if ok and leader and not leader:is_null_interface() then
+        king = ICUI.character_name(leader)
+    end
+    ICUI.fit_cut(comp("ic_throne_leader", panel), king)
+end
+
 -- The Overseer column. A name alone reads as a seat that is working, so an
 -- overseer who is not standing in his province is marked in the column that is
 -- read first, not only in the Effect column beside it.
@@ -5444,20 +5700,13 @@ function ICUI.gov_rank_tip(faction, province_key, holder)
 end
 
 
--- THE PARTY'S CARD ON SCREEN, or nil when the court view is not drawing it.
--- court_keys is the list the cards were drawn from and the court's scroll is
--- the window, so this is the draw loop's own sum run backwards.
+-- THE PARTY'S CARD, or nil when the court view is not drawing it. Card i is
+-- court_keys[i], the list the cards were drawn from.
 function ICUI.party_card(slug)
     local panel = comp(ICUI.PANEL)
     if not panel or ICUI.view ~= "court" then return nil end
-    local at = ICUI.scroll.court or 0
     for i, s in ipairs(ICUI.court_keys or {}) do
-        if s == slug then
-            local slot = i - at
-            if slot >= 1 and slot <= ICUI.PARTY_SLOTS then
-                return comp(ICUI.PARTY .. "_" .. slot, panel)
-            end
-        end
+        if s == slug then return comp(ICUI.PARTY .. "_" .. i, panel) end
     end
     return nil
 end
@@ -5551,29 +5800,29 @@ function ICUI.house_name(slug, faction_key)
             -- The faction's own name is a CA or lords-pack loc key and may not
             -- be there at all; the origin's display always is, and reads the
             -- same way.
-            return loc("derpy_ic_origin_name_" .. slug, slug)
+            return loc(IC.key("origin_name", slug, faction_key), slug)
         end
         local rolled = IC.party_name(faction_key, slug)
         if rolled then return rolled end
     end
-    return loc("derpy_ic_party_name_" .. slug, slug)
+    return loc(IC.key("party_name", slug, faction_key), slug)
 end
 
 -- WHAT HE IS, out of the trait he carries. Nil for a man not yet stamped,
 -- which is a man recruited since the last turn start and not an error.
 function ICUI.bg_name(character)
-    local bg = IC.bg_of_character(character)
+    local bg, R = IC.bg_of_character(character)
     if not bg then return nil end
-    return loc("derpy_ic_bg_name_" .. bg, bg)
+    return loc(IC.rkey("bg_name", bg, R), bg)
 end
 
 -- AND WHERE HE CAME FROM. Drawn on the office card, where there is room for it,
 -- and not in a row cell, where it would be the third thing competing for one
 -- line of text.
 function ICUI.origin_name(character)
-    local origin = IC.origin_of_character(character)
+    local origin, R = IC.origin_of_character(character)
     if not origin then return nil end
-    return loc("derpy_ic_origin_name_" .. origin, origin)
+    return loc(IC.rkey("origin_name", origin, R), origin)
 end
 
 -- His name and his trade. Two facts in one cell because the picker has five
@@ -5609,7 +5858,7 @@ end
 -- An office's display name, from its slug.
 function ICUI.office_name(key)
     if not key then return "an office" end
-    return loc("effect_bundles_localised_title_" .. IC.office_bundle(key), key)
+    return loc("effect_bundles_localised_title_" .. IC.office_bundle(key, ICUI.player()), key)
 end
 
 -- A SNUB IS EITHER, AND THE KEY SAYS WHICH. A house is insulted by its own seat
@@ -5621,7 +5870,7 @@ end
 -- packed court and a save format that older builds could not read.
 function ICUI.snub_name(key)
     if not key then return "an office" end
-    if IC.office_by_slug(key) then return ICUI.office_name(key) end
+    if IC.office_by_slug(key, ICUI.player()) then return ICUI.office_name(key) end
     return loc("provinces_onscreen_" .. tostring(key), key)
 end
 
@@ -5640,10 +5889,10 @@ function ICUI.logged_name(slug, who)
         local came_from = IC.faction_for_origin(slug)
         local name = came_from and loc("factions_screen_name_" .. came_from, "") or ""
         if name ~= "" then return name end
-        return loc("derpy_ic_origin_name_" .. tostring(slug), slug)
+        return loc(IC.key("origin_name", tostring(slug), ICUI.player()), slug)
     end
     local head, tail = string.match(who or "", "(%d+)%.(%d+)")
-    return IC.rolled_name(slug, tonumber(head), tonumber(tail))
+    return IC.rolled_name(slug, tonumber(head), tonumber(tail), ICUI.player())
            or ICUI.house_name(slug)
 end
 
@@ -5665,6 +5914,22 @@ ICUI.DEED_TEXT = {
     ledger = "convoys, when there is no Road",
     tower  = "research",
 }
+
+-- A RACE'S OWN DEEDS (plan 2026-10-04 phase 5): only the parties its DEEDS
+-- name, so a Dwarf court is never told a party grows on a Chaos Dwarf deed it
+-- has no way to do. A race with none here reads ICUI.DEED_TEXT.
+ICUI.RACE_DEED_TEXT = {
+    dwf = {
+        legion = "your victories and grudges settled",
+        temple = "grudges settled",
+        tower  = "research",
+    },
+}
+
+function ICUI.deed_text(party, faction)
+    local race = IC.race_key(faction or ICUI.player())
+    return (ICUI.RACE_DEED_TEXT[race or ""] or ICUI.DEED_TEXT)[party or ""]
+end
 
 function ICUI.intrigue_text(e)
     local house = ICUI.logged_name(e.slug, e.sw)
@@ -5742,13 +6007,13 @@ function ICUI.intrigue_text(e)
     elseif e.kind == "plot_failed" then
         -- A MISSION'S LINE carries where it went (plan ruling 3).
         local mission, where = string.match(e.key or "", "^(%a+):(.+)$")
-        local sent = mission and IC.plot_by_key(mission)
+        local sent = mission and ICUI.plot_of(mission)
         if sent then
             return string.format("%s to %s comes to nothing for %s. %d influence spent.",
                 sent.name, ICUI.mission_place(mission, where), house, e.n or 0)
         end
         -- AN ERRAND'S LINE carries the errand, and an older save's none.
-        local errand = not e.key or IC.plot_by_key(e.key)
+        local errand = not e.key or ICUI.plot_of(e.key)
         if errand then
             return string.format("%s comes to nothing for %s. %d influence spent.",
                 errand == true and "An errand" or errand.name, house, e.n or 0)
@@ -5856,12 +6121,23 @@ function ICUI.intrigue_text(e)
     elseif e.kind == "pledge" then
         return string.format("%s pledges the forge to %s for %d influence.", house,
                              ICUI.logged_name(e.key, e.kw), e.n or 0)
+    -- GRUDGES (plan 2026-10-04 phase 4). e.key is the grudge's code.
+    elseif e.kind == "weregild" then
+        return string.format("%s pays %d gold in weregild to %s.", house, e.n or 0,
+                             ICUI.logged_name(e.key, e.kw))
+    elseif e.kind == "grudge" then
+        return string.format("%s writes a grudge in its book: %s.", house,
+                             IC.GRUDGE_WORDS[e.key or ""] or tostring(e.key))
+    elseif e.kind == "grudge_settled" then
+        return string.format("%s strikes a grudge from its book: %s, %s.", house,
+                             IC.GRUDGE_WORDS[e.key or ""] or tostring(e.key),
+                             e.n == 1 and "for a seat it claims" or "for the weregild")
     elseif e.kind == "audience" then
         return string.format("%s spends %d influence holding the Ash Court. "
                              .. "Every party's loyalty rises.", house,
                              e.n or 0)
     elseif e.kind == "envoy" then
-        local province, task = IC.envoy_split(e.key)
+        local province, task = IC.envoy_split(e.key, ICUI.player())
         if not province or not task then
             return string.format("%s sends an envoy. %d influence spent.", house, e.n or 0)
         end
@@ -5917,7 +6193,7 @@ function ICUI.intrigue_text(e)
         return string.format("%s no longer asks for %s.", house, ICUI.gov_name(e.key))
     elseif e.kind == "deed" then
         return string.format("%s grew on %s: +%d renown.", house,
-                             ICUI.DEED_TEXT[e.slug or ""] or "your deeds", e.n or 0)
+                             ICUI.deed_text(e.slug) or "your deeds", e.n or 0)
     elseif e.kind == "drawn" then
         return string.format("Your deeds drew %s into the court.", house)
     elseif e.kind == "law_propose" then
@@ -5950,7 +6226,7 @@ end
 -- in this list pushed the one actionable line off the screen.
 -- The name of a move, and who it is aimed at once somebody has been named.
 function ICUI.plot_label(plot_key, target)
-    local plot = IC.plot_by_key(plot_key)
+    local plot = ICUI.plot_of(plot_key)
     if not plot then return tostring(plot_key) end
     if not target then return plot.name end
     if plot.target then
@@ -5974,6 +6250,11 @@ end
 -- built once at load (and read by the preview); a government that changes the
 -- loyalty an embezzlement costs (the Convoy Concern) is reworded here.
 function ICUI.plot_effect(plot, faction)
+    -- THE INSULT'S COUNT IS THE COURT'S RACE'S (plan 2026-10-04 phase 4).
+    if plot.key == "provoke" then
+        return (string.gsub(plot.effect, "to %d+ turns",
+            "to " .. IC.tune(faction, "plot_provoke_clock") .. " turns", 1))
+    end
     if plot.key ~= "embezzle" then return plot.effect end
     return (string.gsub(plot.effect, "%-%d+ loyalty",
         "-" .. IC.tune(faction, "plot_embezzle_loyalty") .. " loyalty", 1))
@@ -6045,12 +6326,16 @@ function ICUI.draw_intrigue(panel, faction, court)
 
     for i = 1, #ICUI.PLOT_XY do
         local card = comp(ICUI.PLOT .. "_" .. i, panel)
-        local plot = ICUI.plot_at[i]
+        local plot = ICUI.plot_at[i] and ICUI.plot_of(ICUI.plot_at[i].key, faction)
         if card and plot then
-            local price = ICUI.cost(IC.plot_cost(plot.key, faction))
-            local purse = IC.is_civil_mission(plot.key) and richest_civil
+            -- A GOLD MOVE (the weregild) is priced in the treasury, not in a
+            -- courtier's influence (plan 2026-10-04 phase 4).
+            local cost = IC.plot_cost(plot.key, faction)
+            local price = plot.gold and ICUI.gold(cost) or ICUI.cost(cost)
+            local purse = plot.gold and IC.treasury(faction)
+                          or IC.is_civil_mission(plot.key) and richest_civil
                           or richest
-            local afford = purse >= IC.plot_cost(plot.key, faction)
+            local afford = purse >= cost
             -- CA'S OWN ART, at the path the move carries, INTO LAYER 0.
             --
             -- set_face was the wrong call and drew a white square in every one
@@ -6230,7 +6515,7 @@ ICUI.HELP_ICONS = {
 }
 
 function ICUI.help_icon(name)
-    local move = IC.plot_by_key and IC.plot_by_key(name)
+    local move = ICUI.plot_of(name)
     return ICUI.HELP_ICONS[name] or (move and move.icon) or nil
 end
 ICUI.HELP = {
@@ -6369,10 +6654,31 @@ ICUI.HELP = {
         "{@bullet}Everything you pay comes from your own party's men, and their votes shrink with it.",
     }},
 }
+-- THE SHARED TEXT, kept: ICUI.use_race builds each race's page from it through
+-- the race's HELP_SWAP, and its marker from art.bullet.
+ICUI.HELP_BASE = ICUI.HELP
+ICUI.HELP_BULLET = ICUI.HELP_ICONS.bullet
+
+function ICUI.help_for(r)
+    local swap = r.HELP_SWAP
+    if not swap then return ICUI.HELP_BASE end
+    local out = {}
+    for i, topic in ipairs(ICUI.HELP_BASE) do
+        local lines = {}
+        for _, line in ipairs(topic.lines) do
+            local s = swap[line]
+            if s == nil then lines[#lines + 1] = line
+            elseif s then lines[#lines + 1] = s end
+        end
+        out[i] = {title = topic.title, icon = topic.icon, lines = lines}
+    end
+    return out
+end
 
 -- The numbers a help line may name: every number in IC.TUNE, and the court's
 -- counts and the ends of the seat ladder.
 function ICUI.help_vars(faction)
+    local R = IC.R(faction)
     local vars = {}
     -- THROUGH IC.tune: a government changes some of these numbers, and the
     -- Settings topic promises every figure here is this campaign's.
@@ -6381,12 +6687,12 @@ function ICUI.help_vars(faction)
     end
     -- THE WEIGHT RULE IN THE PLAYER'S TERMS: levels per point of weight.
     vars.levels_per_weight = IC.TUNE.gov_levels_per_weight
-    vars.seats = #IC.OFFICES
-    vars.tiers = #IC.TIERS
+    vars.seats = #R.OFFICES
+    vars.tiers = #R.TIERS
     -- THE THREE SUPPORT LEVELS, by name (spec 2026-10-02 laws).
     for i = 1, #IC.TUNE.law_push_cost do vars["law_push_" .. i] = IC.TUNE.law_push_cost[i] end
     local low, high = nil, nil
-    for _, t in ipairs(IC.TIERS) do
+    for _, t in ipairs(R.TIERS) do
         if not low or IC.tier_rank(t) < IC.tier_rank(low) then low = t end
         if not high or IC.tier_rank(t) > IC.tier_rank(high) then high = t end
     end
@@ -6442,13 +6748,10 @@ function ICUI.draw_help(panel, faction)
         local c = comp(key, panel)
         local topic = ICUI.HELP[i]
         if c then
-            set_text(c, topic and (ICUI.help_fill("{@" .. tostring(topic.icon) .. "}", {}) .. topic.title) or "")
             show(c, topic ~= nil)
-            -- LIT LIKE A TAB, with the tab's own two plates.
-            for index = 0, 1 do
-                local art = ICUI.TAB_PLATE[index]
-                pcall(function() c:SetImagePath(i == page and art.on or art.off, index) end)
-            end
+            -- LIT LIKE A TAB, with the tab's own two plates and ink.
+            ICUI.light_plate(c, i == page, topic and (ICUI.help_fill("{@" .. tostring(topic.icon)
+                .. "}", {}) .. topic.title) or "")
         end
     end
     local head = comp("ic_help_head", panel)
@@ -6609,6 +6912,7 @@ function ICUI.edict_note(show)
         pcall(function() stack:CreateComponent(ICUI.EDICT_NOTE, ICUI.PATH_EDICT_NOTE) end)
         note = comp(ICUI.EDICT_NOTE, stack)
         if not note then return nil end
+        ICUI.race_plate(note)
     end
     pcall(function()
         local x, y = stack:Position()
@@ -6675,7 +6979,7 @@ end
 -- page would come back over whatever the player returns to.
 function ICUI.toggle_help()
     ICUI.pick = nil
-    ICUI.scroll.pick = 0
+    ICUI.list_rescroll()
     ICUI.notice = nil
     if ICUI.view == "help" then
         ICUI.view = ICUI.help_back or "court"
@@ -6726,6 +7030,7 @@ ICUI.TARGET_REFUSAL = {
     oathed = "Oath Taken", ["no seats"] = "No Offices",
     ["no provinces"] = "No Governor", spent = "Too Small",
     ["crown spent"] = "No Influence", ["no house"] = "No Party",
+    ["no grudge"] = "No Grudge",
 }
 ICUI.PICK_HEADERS = {"Character", "Party", "Rank", "Influence / Holds",
                      "Available"}
@@ -6747,14 +7052,14 @@ function ICUI.mission_refusal(why, turns)
     if why == "rebel" then return "Rebel" end
     if why == "player" then return "Player" end
     if why == "gov_cool" then return string.format("Wait %d", turns or 0) end
-    if why == "gov_purse" then return "Short" end
+    if why == "gov_purse" then return "Short " .. ICUI.cost(turns or 0) end
     return "No"
 end
 
 -- WHERE A MISSION GOES, in words: "Gash Kadrak, Armaments", or a faction's name.
 function ICUI.mission_place(plot_key, target)
     if plot_key == "envoy" then
-        local province, task = IC.envoy_split(target)
+        local province, task = IC.envoy_split(target, ICUI.player())
         if not province then return tostring(target) end
         local name = loc("provinces_onscreen_" .. province, province)
         return task and (name .. ", " .. task.name) or name
@@ -6785,7 +7090,7 @@ function ICUI.mission_rows(faction)
             local order = 0
             if region then pcall(function() order = region:public_order() end) end
             local running = {}
-            for _, task in ipairs(IC.ENVOY_TASKS) do
+            for _, task in ipairs(IC.envoy_tasks(faction)) do
                 local left = IC.envoy_running(faction, province, task.bundle)
                 if left then running[#running + 1] = task.name .. " " .. left end
             end
@@ -6797,7 +7102,7 @@ function ICUI.mission_rows(faction)
                  key = province}, nil)
         end
     elseif kind == "envoy_task" then
-        for _, task in ipairs(IC.ENVOY_TASKS) do
+        for _, task in ipairs(IC.envoy_tasks(faction)) do
             add({task.name, IC.envoy_effect(task) .. string.format(" for %d turns",
                  IC.TUNE.mission_turns), "", "",
                  icon = "ui/campaign ui/effect_bundles/" .. task.icon, icon_kind = "crest"},
@@ -6835,6 +7140,8 @@ end
 function ICUI.reason_text(why, spare)
     if why == "gold" then
         return string.format("The treasury is %d gold short of that.", spare or 0)
+    elseif why == "no grudge" then
+        return "Their book holds no grudge to settle."
     elseif why == "content" then
         return "Their loyalty is already at its highest."
     elseif why == "given" then
@@ -7003,7 +7310,7 @@ end
 -- nothing reading it, which is exactly how it was found: a mutant that broke it
 -- changed nothing on screen.
 function ICUI.pick_cost(kind, key)
-    if kind == "office" then return IC.office_influence(key) end
+    if kind == "office" then return IC.office_influence(key, ICUI.player()) end
     -- ZERO, AND THAT IS THE TRUTH RATHER THAN A CONVENIENCE - the same reason
     -- the two plot lists carry a zero. A province asks nothing of a man now;
     -- IC.assign_governor has no standing test left to disagree with.
@@ -7014,8 +7321,8 @@ function ICUI.pick_title()
     if not ICUI.pick then return "" end
     if ICUI.pick.kind == "office" then
         return string.format("Choose who takes %s - needs %s influence, held for %d turns",
-            loc("effect_bundles_localised_title_" .. IC.office_bundle(ICUI.pick.key),
-                ICUI.pick.key), ICUI.cost(IC.office_influence(ICUI.pick.key)),
+            loc("effect_bundles_localised_title_" .. IC.office_bundle(ICUI.pick.key, ICUI.player()),
+                ICUI.pick.key), ICUI.cost(IC.office_influence(ICUI.pick.key, ICUI.player())),
             IC.tune(ICUI.player(), "term_turns"))
     end
     if ICUI.pick.kind == "house" then
@@ -7036,7 +7343,7 @@ function ICUI.pick_title()
         return string.format("Choose your court's government - costs %s influence "
             .. "from your own party", ICUI.cost(IC.TUNE.gov_force_cost))
     end
-    local plot = ICUI.pick.plot and IC.plot_by_key(ICUI.pick.plot)
+    local plot = ICUI.pick.plot and ICUI.plot_of(ICUI.pick.plot)
     if ICUI.pick.kind == "envoy_province" then
         return string.format("%s - to which province?", plot.name)
     elseif ICUI.pick.kind == "envoy_task" then
@@ -7050,6 +7357,12 @@ function ICUI.pick_title()
             ICUI.plot_label(ICUI.pick.plot))
     end
     if ICUI.pick.kind == "plot" then
+        local plot = IC.plot_by_key(ICUI.pick.plot)
+        if plot and plot.gold then
+            return string.format("Who carries this out? %s - pays %s gold from the treasury",
+                ICUI.plot_label(ICUI.pick.plot, ICUI.pick.key),
+                ICUI.gold(IC.plot_cost(ICUI.pick.plot, ICUI.player())))
+        end
         -- SPENDS, not needs. Every other line in this panel is about a bar a man
         -- has to clear and keep; this is the one thing that takes it off him,
         -- and the word has to say so before he clicks.
@@ -7236,7 +7549,7 @@ function ICUI.on_petition_click(context, yes)
     if not faction then return end
     local row = ICUI.clicked_index(context)
     if not row then return end
-    local p = ICUI.petition_rows[row + (ICUI.scroll.petitions or 0)]
+    local p = ICUI.petition_rows[row]
     if not p then return end
     -- SENT, NOT CALLED: see IC.mp_send. The answer is ICUI.ANSWERS'.
     local op, arg
@@ -7270,6 +7583,9 @@ function ICUI.draw_picker(panel, faction, court)
         ICUI.fill_rows(panel, rows, "pick")
         return ""
     end
+    -- A GOVERNOR CHOSEN ON THE MAP is chosen from the Governors column, which
+    -- lists the same men (ICUI.picker_lines); a row list here would lie over the map.
+    if ICUI.view == "govs" and ICUI.pick.kind == "gov" then return "" end
     local lines = ICUI.picker_lines(faction, court)
     if #lines == 0 then
         lines[1] = {"No characters in this faction.", "", "", "", ""}
@@ -7319,7 +7635,7 @@ function ICUI.picker_lines(faction, court)
     -- NOT ONE NUMBER FOR ALL FOURTEEN SEATS EITHER. IC.candidates used to carry
     -- a `ranked` boolean, measurable only against a single flat bar and
     -- meaningless once the apex asks 30 and the base 5.
-    local rank_bar = IC.office_rank(ICUI.pick.key)
+    local rank_bar = IC.office_rank(ICUI.pick.key, faction)
     for _, cand in ipairs(IC.candidates(faction)) do
       -- THE ROSTER IS ONE HOUSE'S, so everyone else is skipped before a row is
       -- built rather than drawn and greyed: a man of another party is not a
@@ -7331,7 +7647,7 @@ function ICUI.picker_lines(faction, court)
         if cand.busy then
             if cand.busy.kind == "office" then
                 holds = loc("effect_bundles_localised_title_"
-                            .. IC.office_bundle(cand.busy.key), cand.busy.key)
+                            .. IC.office_bundle(cand.busy.key, faction), cand.busy.key)
             else
                 holds = loc("provinces_onscreen_" .. cand.busy.key, cand.busy.key)
             end
@@ -7376,6 +7692,8 @@ function ICUI.picker_lines(faction, court)
                 if why_not == "standing" then
                     action = string.format("Short %s",
                                            ICUI.cost(short_by or 0))
+                elseif why_not == "gold" then
+                    action = string.format("Short %s", ICUI.gold(short_by or 0))
                 elseif why_not == "himself" then
                     action = "The Target"
                 elseif why_not == "his own house" then
@@ -7432,7 +7750,7 @@ function ICUI.picker_lines(faction, court)
         if loses then
             tip = string.format("Paying for this can leave him short of the influence "
                 .. "the %s needs, and he loses that seat the moment he pays.",
-                loc("effect_bundles_localised_title_" .. IC.office_bundle(loses), loses))
+                loc("effect_bundles_localised_title_" .. IC.office_bundle(loses, faction), loses))
         end
         local face = ICUI.portrait_path(cand.cqi)
         local man = ICUI.man_line(cand.character)
@@ -7558,8 +7876,7 @@ end
 function ICUI.on_pick_click(context, faction)
     local row = ICUI.clicked_index(context)
     if not row then return false end
-    local at = ICUI.scroll.pick or 0
-    local chosen = ICUI.pick_rows[row + at]
+    local chosen = ICUI.pick_rows[row]
     if not chosen then return false end     -- unranked, already busy, or refused
     -- SENT, NOT CALLED: see IC.mp_send. The answer (the picker closed, the
     -- notice, the sound) is ICUI.ANSWERS'. In single player it has already run
@@ -7571,7 +7888,7 @@ function ICUI.on_pick_click(context, faction)
         -- second picker opens on the same panel with the victim now named.
         ICUI.pick = {kind = "plot", plot = ICUI.pick.plot,
                      key = tostring(chosen)}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
         return true
     elseif ICUI.pick.kind == "plot" then
@@ -7583,7 +7900,7 @@ function ICUI.on_pick_click(context, faction)
     elseif ICUI.pick.kind == "envoy_province" then
         -- THE FIRST OF THREE QUESTIONS: `chosen` is the province key.
         ICUI.pick = {kind = "envoy_task", plot = ICUI.pick.plot, province = chosen}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
         return true
     elseif ICUI.pick.kind == "doctrine" then
@@ -7591,7 +7908,7 @@ function ICUI.on_pick_click(context, faction)
     elseif ICUI.pick.kind == "envoy_task" or ICUI.pick.kind == "diplomats_faction" then
         -- `chosen` IS THE TARGET the model splits: "province:code", or a faction.
         ICUI.pick = {kind = "plot", plot = ICUI.pick.plot, key = chosen}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
         return true
     else
@@ -7617,7 +7934,9 @@ function ICUI.refresh()
     -- section label, whichever tab is lit behind it.
     local view = ICUI.live_view()
 
-    local title = loc("derpy_ic_title", "Hashut's Court")
+    local words = ICUI.race_words()
+    local title = words.title and string.format(words.title, ICUI.faction_words(faction))
+                  or loc("derpy_ic_title", "Hashut's Court")
     set_text(comp("ic_title", panel), title)
     local tx, tw = ICUI.fit_plate(comp("ic_title", panel), "ic_title", title,
                                   ICUI.TITLE_CAP, true)
@@ -7629,17 +7948,10 @@ function ICUI.refresh()
     end
     set_text(comp("ic_influence", panel),
              string.format("%d of %d seats filled",
-                           IC.filled_offices(faction), #IC.OFFICES))
+                           IC.filled_offices(faction), #IC.R(faction).OFFICES))
     -- TITLE CASE ON EVERY BUTTON, not capitals (author, 2026-09-25): the
     -- engine's brand_header face draws capitals 12-20% wider than the width
     -- check's stand-in font, and GOVERNORS and PETITIONS ran over their plates.
-    set_text(comp("ic_tab_court", panel), "Court")
-    set_text(comp("ic_tab_offices", panel), "Offices")
-    set_text(comp("ic_tab_govs", panel), "Governors")
-    set_text(comp("ic_tab_intrigue", panel), "Intrigue")
-    set_text(comp("ic_tab_log", panel), "Record")
-    set_text(comp("ic_tab_petitions", panel), "Petitions")
-    set_text(comp("ic_tab_laws", panel), "Laws")
     ICUI.light_tabs(panel)
     ICUI.draw_marks(panel, faction)
     if ICUI.pick then
@@ -7739,6 +8051,12 @@ function ICUI.refresh()
     -- AND THE ZIGGURAT THEY STAND ON, with them, and its title.
     show(comp("ic_zig_bg", panel), view == "offices")
     show(comp("ic_off_title", panel), view == "offices")
+    -- AND THE THRONE, with the hall: a Dwarf court's only; the Chaos Dwarf panel
+    -- declares none of the four, so comp() finds nothing there.
+    for _, key in ipairs(ICUI.THRONE_KEYS) do
+        local c = comp(key, panel)
+        if c then show(c, view == "offices") end
+    end
     -- The move cards belong to the intrigue view and to nothing else. Same rule,
     -- same reason: CreateComponent makes a VISIBLE component, so one this loop
     -- does not reach has never been hidden since the panel was built.
@@ -7788,6 +8106,9 @@ function ICUI.refresh()
         show(comp("ic_gov", panel), false)
         show(comp("ic_gov_btn", panel), false)
         show(comp("ic_gov_glow", panel), false)
+        -- THE BOOK'S LINE: shown only by draw_book, hidden by name like the
+        -- government's row.
+        show(comp("ic_book", panel), false)
         -- THE PARTY GRID AND THE CROWN'S BLOCK. Nothing else hides these: the
         -- row pool is hidden by fill_rows, which the court view no longer
         -- calls, and a card left behind draws over the list of whatever tab
@@ -7839,6 +8160,11 @@ function ICUI.refresh()
     -- THE FILL BUTTON IS THE OFFICES TAB'S, and under a picker it is nobody's.
     -- A boolean, never nil: see draw_actions.
     show(comp("ic_fill", panel), ICUI.pick == nil and ICUI.view == "offices")
+    -- THE PAGER IS GONE: every list scrolls (ICUI.list_build). Its three cells are
+    -- still the panel file's bottom row, which the layout is measured from.
+    for _, name in ipairs({"ic_page_prev", "ic_page_lbl", "ic_page_next"}) do
+        show(comp(name, panel), false)
+    end
 
     -- EVERY DRAW IS WRAPPED, and this is not defensive padding. A draw that
     -- throws used to abort refresh() halfway: the headers had already been
@@ -7854,6 +8180,7 @@ function ICUI.refresh()
         show(comp(name, panel), view == "help" and not ICUI.pick)
     end
     local warn = ""
+    ICUI.list_used = false
     local ok, err = pcall(function()
         if ICUI.pick then
             warn = ICUI.draw_picker(panel, faction, court)
@@ -7896,6 +8223,9 @@ function ICUI.refresh()
             end)
         end
     end
+    -- A LIST NO VIEW DREW THIS TIME GOES: it is the last view's, and its rows
+    -- would lie over this one's.
+    if not ICUI.list_used then ICUI.list_drop(panel) end
 
     -- A notice about the player's last click outranks the standing secession
     -- warning: they just did something and are owed an answer about it.
@@ -8006,6 +8336,12 @@ function ICUI.open()
         -- A SCALE THAT FAILS OPENS THE PANEL AT THE BASE, the way every panel
         -- opened before it could scale, and says why. A court that will not
         -- open at all is worse than a 1920 court clipped on a small screen.
+        -- THE RACE BEFORE THE SCALE (plan 2026-10-04 phase 3): use_race writes the
+        -- race's 1920 cells and grid into ICUI.BASE, which apply_scale then scales,
+        -- and picks the panel file ICUI.path names below.
+        ICUI.use_race(ICUI.race())
+        -- THE PLAYER'S OWN MOVES, before anything is scaled or built.
+        ICUI.use_plot_grid(IC.race_key(ICUI.player()) or "chd")
         local scaled, why = pcall(ICUI.apply_scale, bw)
         if not scaled then
             log("scaling to a " .. tostring(bw) .. " box failed, opening at 1920: "
@@ -8046,9 +8382,6 @@ function ICUI.open()
         for i = 1, #ICUI.CARD_XY do
             panel:CreateComponent(ICUI.CARD .. "_" .. i, ICUI.path(ICUI.PATH_CARD))
         end
-        for i = 1, #ICUI.PARTY_XY do
-            panel:CreateComponent(ICUI.PARTY .. "_" .. i, ICUI.path(ICUI.PATH_PARTY))
-        end
         for i = 1, #ICUI.PLOT_XY do
             panel:CreateComponent(ICUI.PLOT .. "_" .. i, ICUI.path(ICUI.PATH_PLOT))
         end
@@ -8058,11 +8391,9 @@ function ICUI.open()
         for i = 1, #ICUI.LB_XY do
             panel:CreateComponent(ICUI.LAWBLOCK .. "_" .. i, ICUI.path(ICUI.PATH_LAWBLOCK))
         end
-        for i = 1, ICUI.MAX_ROWS do
-            panel:CreateComponent(ICUI.ROW .. "_" .. i, ICUI.path(ICUI.PATH_ROW))
-        end
         -- Creation only above. layout() places and sizes every component,
         -- including the panel's own children, which the .twui.xml offsets do not.
+        ICUI.skin(panel)
         ICUI.layout()
         -- WHAT THIS SCREEN GOT, read back off a card rather than off the
         -- tables: the one line in a player's log that says which box and which
@@ -8108,7 +8439,8 @@ function ICUI.close(quiet)
     -- back in a picker for an office the player has long since forgotten asking
     -- about, sitting over whichever tab is lit.
     ICUI.pick = nil
-    ICUI.scroll.pick = 0
+    -- AND THE LIST, which goes with the panel: the poll has nothing to follow.
+    ICUI.list_key = nil
     -- THE HELP PAGE IS NOT A TAB, so it is not the one the panel reopens on.
     if ICUI.view == "help" then ICUI.view = ICUI.help_back or "court" end
     ICUI.notice = nil
@@ -8180,7 +8512,7 @@ function ICUI.on_plot_click(context)
     else
         ICUI.pick = {kind = "plot", plot = move.plot, key = nil}
     end
-    ICUI.scroll.pick = 0
+    ICUI.list_rescroll()
     ICUI.notice = nil
     ICUI.refresh()
 end
@@ -8190,7 +8522,7 @@ function ICUI.on_office_click(context)
     if not faction then return end
     local slot = ICUI.clicked_index(context)
     if not slot then return end
-    local office = IC.OFFICES[slot]
+    local office = IC.R(faction).OFFICES[slot]
     if not office then return end
     local court = IC.court(faction)
     if court.offices[office.slug] then
@@ -8201,7 +8533,7 @@ function ICUI.on_office_click(context)
         -- branch is reached: a term keeps a man in his seat, it does not keep
         -- an empty seat shut.
         ICUI.pick = {kind = "office", key = office.slug}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
     end
     ICUI.refresh()
@@ -8250,11 +8582,9 @@ function ICUI.on_party_click(context)
     if ICUI.live_view() ~= "court" then return end
     local slot = ICUI.party_slot(context)
     if not slot then return end
-    -- THE KEYS THE LAST DRAW USED, plus that draw's page offset. Re-deriving
-    -- the party list here would act on a different court if it changed between
-    -- draw and click, and dropping the offset acts on the wrong party the
-    -- moment the grid is paged.
-    local slug = (ICUI.court_keys or {})[slot + (ICUI.scroll.court or 0)]
+    -- THE KEYS THE LAST DRAW USED. Re-deriving the party list here would act
+    -- on a different court if it changed between draw and click.
+    local slug = (ICUI.court_keys or {})[slot]
     if not slug then return end
     ICUI.notice = nil
     if ICUI.sel == slug then
@@ -8262,7 +8592,7 @@ function ICUI.on_party_click(context)
         -- chooses nothing - its rows report rather than offer - and it was
         -- your own house's alone until the card became the control.
         ICUI.pick = {kind = "house", slug = slug}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
     else
         ICUI.sel = slug
     end
@@ -8290,7 +8620,7 @@ function ICUI.on_act_click(key)
         -- ask is who carries it out - the same picker, odds and refusals the
         -- Intrigue tab's moves open.
         ICUI.pick = {kind = "plot", plot = move.plot, key = tostring(target)}
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
     else
         -- SENT, NOT CALLED; the answer is ICUI.ANSWERS.favour.
@@ -8432,7 +8762,7 @@ local function picked(op)
         local filled = nil
         if op == "appoint" then filled = string.match(arg or "", "^([^|]*)") end
         ICUI.pick = nil
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         -- A PLOT THAT RESOLVED IS STILL OWED AN ANSWER. `done` means the move
         -- happened, not that it worked: IC.plot hands back "landed" or "failed"
         -- in the slot a refusal uses for its reason.
@@ -8511,7 +8841,8 @@ end
 -- THE BAD SOUND, deliberately. Sacking a man is not a win: it empties a seat
 -- you were getting something from and insults the party he came from.
 ICUI.ANSWERS.dismiss = function(arg)
-    for slot, office in ipairs(IC.OFFICES) do
+    local R = ICUI.race()
+    for slot, office in ipairs(R.OFFICES) do
         if office.slug == arg then
             ICUI.confirm(comp(ICUI.CARD .. "_" .. slot, comp(ICUI.PANEL)), false,
                          ICUI.SOUNDS.dismiss)
@@ -8571,14 +8902,14 @@ function ICUI.register()
             -- A tab is also how you abandon the picker: it is modal, and a modal
             -- with no way out is worse than no modal.
             ICUI.pick = nil
-            ICUI.scroll.pick = 0
+            ICUI.list_rescroll()
             ICUI.notice = nil
             ICUI.law_cat = nil
             -- THE LAWS TAB OPENS ON THE VOTE ITS MARKER MEANS (spec 4.2): a
             -- party's proposal still waiting for your answer, else the board.
             if ICUI.TAB_VIEW[id] == "laws" then
                 local me = ICUI.player()
-                for _, cat in ipairs(IC.LAW_ORDER) do
+                for _, cat in ipairs(IC.R(me).LAW_ORDER) do
                     local v = me and IC.law_vote_of(me, cat)
                     if v and v.proposer ~= IC.CROWN and not v.answered then
                         ICUI.law_cat = cat
@@ -8597,10 +8928,6 @@ function ICUI.register()
             if ICUI.click_column(ICUI.live_view(), ICUI.HSORT_INDEX[id]) then
                 ICUI.refresh()
             end
-        elseif id == "ic_page_prev" and comp(ICUI.PANEL) then
-            if ICUI.scroll_by(-ICUI.rows_shown(ICUI.live_view())) then ICUI.refresh() end
-        elseif id == "ic_page_next" and comp(ICUI.PANEL) then
-            if ICUI.scroll_by(ICUI.rows_shown(ICUI.live_view())) then ICUI.refresh() end
         elseif id == "ic_card_button" and comp(ICUI.PANEL) then
             ICUI.on_office_click(context)
         -- THE MOVE CARD'S OWN BUTTON, and it had no branch at all: PLOT did
@@ -8625,7 +8952,7 @@ function ICUI.register()
             ICUI.on_fill_click()
         elseif id == "ic_gov_btn" and comp(ICUI.PANEL) then
             ICUI.pick = {kind = "doctrine"}
-            ICUI.scroll.pick = 0
+            ICUI.list_rescroll()
             ICUI.notice = nil
             ICUI.refresh()
         -- THE LAWS TAB (spec 2026-10-02 laws section 4.1): a whole law card
@@ -8880,6 +9207,7 @@ ICUI.SCALED = {
     "PARTY_GAP_X", "PARTY_GAP_Y", "PARTY_W", "PARTY_H", "PARTIES_X", "PARTIES_Y",
     "GM_ROW_X", "GM_ROW_Y", "GM_ROW_W", "GM_ROW_H", "GM_ROW_PITCH",
     "GM_SLIDER_W", "GM_SLIDER_GAP", "GM_HANDLE_H",
+    "LIST_SLIDER_W", "LIST_SLIDER_GAP", "LIST_HANDLE_H",
     "LAW_W", "LAW_H", "LAWS_X", "LAWS_Y", "LAW_GAP_X", "LAW_GAP_Y",
     "LB_W", "LB_H", "LB_X", "LB_Y", "LB_SIDE_DX", "LB_GAP",
 }
@@ -8888,7 +9216,7 @@ ICUI.SCALED = {
 -- multiplied by five ran a tier past its column at some widths.
 ICUI.SCALED_TABLES = {
     "PANEL_XY", "ROW_CHILD_XY", "CARD_CHILD_XY", "PARTY_CHILD_XY", "PLOT_CHILD_XY",
-    "CARD_XY", "PARTY_XY", "PLOT_XY", "COURT_SECTION_XY", "ACT_PAGED_XY",
+    "CARD_XY", "PARTY_XY", "PLOT_XY", "COURT_SECTION_XY",
     "GM_ROW_CHILD_XY",
     "LAW_CHILD_XY", "LB_CHILD_XY", "LAW_XY", "LB_XY",
 }
@@ -8905,6 +9233,11 @@ ICUI.DERIVED = {
 -- same at every size.
 ICUI.NOT_SCALED = {
     "TITLE_CAP", "HEADING_CAP", "PLATE_GAP", "PLATE_EST",
+    -- A race's 1920 cells and the Chaos Dwarf snapshot (use_race copies them into
+    -- BASE, which apply_scale scales), an image slot and the opener's slots.
+    "RACE_XY", "CHD_BASE", "CARD_FRAME_INDEX", "OPENER_ICON_SLOTS",
+    -- Each race's 1920 move grid (phase 4); use_plot_grid copies one into BASE.
+    "PLOT_GRIDS",
     "BTN_SIZE", "BTN_GAP", "BTN_TRIES", "DIAL_SLICES", "MAX_ROWS", "MAX_HOUSES",
     "PLATE_INDEX", "FACE_INDEX", "MASK_INDEX", "OX", "OY", "PLOT_COLS",
     "PLOT_COUNTS", "PLOT_DEPTH", "PLOT_BLURB_LINES", "PARTY_COLS", "PARTY_ROWS",
@@ -8950,7 +9283,9 @@ ICUI.HAS_COMPACT = {
     [ICUI.PATH_LAW] = true, [ICUI.PATH_LAWBLOCK] = true,
 }
 function ICUI.path(p)
-    if ICUI.COMPACT and ICUI.HAS_COMPACT[p] then return p .. "_compact" end
+    local base = p
+    if p == ICUI.PATH_PANEL then p = p .. (ICUI.SUFFIX or "") end
+    if ICUI.COMPACT and ICUI.HAS_COMPACT[base] then return p .. "_compact" end
     return p
 end
 
@@ -8970,6 +9305,22 @@ for _, list in ipairs({ICUI.SCALED, ICUI.SCALED_TABLES, ICUI.DERIVED}) do
         if type(v) == "table" then v = copy_table(v) end
         ICUI.BASE[n] = v
     end
+end
+
+-- THE PLAYER'S RACE'S MOVE GRID, as the 1920 layout apply_scale scales from,
+-- and as the cells themselves until it does. Written in place, so nothing
+-- holding ICUI.PLOT_XY holds a stale one, and trimmed, so a Chaos Dwarf grid
+-- after a Dwarf one keeps no seventeenth cell.
+function ICUI.use_plot_grid(race_key)
+    local g = ICUI.PLOT_GRIDS[race_key or ""] or ICUI.PLOT_GRIDS.chd
+    local xy = {}
+    for i, p in ipairs(g.xy) do xy[i] = {p[1], p[2]} end
+    ICUI.BASE.PLOT_XY = xy
+    for k in pairs(ICUI.PLOT_XY) do
+        if not xy[k] then ICUI.PLOT_XY[k] = nil end
+    end
+    for i, p in ipairs(xy) do ICUI.PLOT_XY[i] = {p[1], p[2]} end
+    ICUI.plot_at, ICUI.PLOT_COUNTS = g.at, g.counts
 end
 
 function ICUI.apply_scale(bw)
@@ -9013,6 +9364,215 @@ function ICUI.apply_scale(bw)
     ICUI.HSORT_DY = ICUI.PANEL_XY.ic_hsort_a[2] - ICUI.PANEL_XY.ic_hdr_a[2]
     ICUI.SHARE_MIN_SLICES = ICUI.min_slices(ICUI.SHARE_R, ICUI.SHARE_INK)
     ICUI.CREST_MIN_SLICES = ICUI.min_slices(ICUI.CREST_R, ICUI.CREST_PX)
+end
+
+-- THE CHAOS DWARF 1920 VALUES a race may override, taken once at load from BASE.
+ICUI.CHD_BASE = {CARD_XY = copy_table(ICUI.BASE.CARD_XY), PANEL_XY = {},
+                 TITLE_CAP = ICUI.TITLE_CAP, HEADING_CAP = ICUI.HEADING_CAP}
+for _, cells in pairs(ICUI.RACE_XY) do
+    for k in pairs(cells) do
+        if ICUI.BASE.PANEL_XY[k] then
+            ICUI.CHD_BASE.PANEL_XY[k] = copy_table(ICUI.BASE.PANEL_XY[k])
+        end
+    end
+end
+
+-- A GRID RACE'S CARDS (spec 2.5): one per office in IC.OFFICES order, at the cell
+-- the race table names, at 1920. Must match gen_ic_ui.card_grid; the packing gate
+-- runs this function and compares.
+function ICUI.grid_xy(grid)
+    local B = ICUI.BASE
+    local band = grid.cols * B.CARD_W + (grid.cols - 1) * B.CARD_GAP_X
+    local x0 = B.CARDS_X + math.floor((B.CONTENT_W - band) / 2)
+    local out = {}
+    for i, cr in ipairs(grid.cells) do
+        out[i] = {x0 + cr[1] * (B.CARD_W + B.CARD_GAP_X),
+                  B.CARDS_Y + cr[2] * (B.CARD_H + B.CARD_GAP_Y)}
+    end
+    return out
+end
+
+-- THE RACE INTO THE BASE, before apply_scale (contract). Every value it can change
+-- is written for every race, the Chaos Dwarf one from CHD_BASE, so a court opened
+-- after another race's is its own. A race-only cell is removed from the live table
+-- too: apply_scale only writes the keys BASE holds and would leave it standing.
+function ICUI.use_race(r)
+    local B, C = ICUI.BASE, ICUI.CHD_BASE
+    local mine = ICUI.RACE_XY[r.key] or {}
+    for _, cells in pairs(ICUI.RACE_XY) do
+        for k in pairs(cells) do
+            local want = mine[k] or C.PANEL_XY[k]
+            if want then
+                B.PANEL_XY[k] = copy_table(want)
+            else
+                B.PANEL_XY[k] = nil
+                ICUI.PANEL_XY[k] = nil
+            end
+        end
+    end
+    if r.layout == "grid" and r.grid then
+        B.CARD_XY = ICUI.grid_xy(r.grid)
+    else
+        B.CARD_XY = copy_table(C.CARD_XY)
+    end
+    ICUI.ART = r.art or {}
+    ICUI.SUFFIX = ICUI.ART.suffix or ""
+    ICUI.TITLE_CAP = ICUI.ART.title_cap or C.TITLE_CAP
+    ICUI.HEADING_CAP = ICUI.ART.heading_cap or C.HEADING_CAP
+    ICUI.HELP = ICUI.help_for(r)
+    ICUI.HELP_ICONS.bullet = ICUI.ART.bullet or ICUI.HELP_BULLET
+    ICUI.TRAIT_ICON = ICUI.ART.trait_icon or ICUI.CHD_TRAIT_ICON
+    ICUI.BAND_ICON = ICUI.ART.band_icon or ICUI.CHD_BAND_ICON
+    ICUI.HELP_ICONS.court, ICUI.HELP_ICONS.trait = ICUI.TRAIT_ICON, ICUI.TRAIT_ICON
+    ICUI.HELP_ICONS.crown = ICUI.BAND_ICON
+end
+
+-- THE POOLED CARDS' FRAME: CARD_LAYERS[1] in gen_ic_ui.py, the 9-sliced frame over
+-- the tiled body, in the card, party, move and law files alike.
+ICUI.CARD_FRAME_INDEX = 1
+ICUI.SKIN_POOLS = {
+    {"CARD", "CARD_XY", "CARD_W", "CARD_H"},
+    {"PARTY", "PARTY_XY", "PARTY_W", "PARTY_H"},
+    {"PLOT", "PLOT_XY", "PLOT_W", "PLOT_H"},
+    {"LAW", "LAW_XY", "LAW_W", "LAW_H"},
+}
+
+-- THE RACE'S ART ON WHAT ITS PANEL FILE CANNOT CARRY (contract): the pooled files
+-- are shared by every race, so their frame is re-pointed after CreateComponent, at
+-- each pool's 1920 size - the size it was baked at, and the geometry the twui's
+-- margin was set for. A race with no art.frame is left exactly as created.
+function ICUI.skin(panel)
+    if not panel then return end
+    for _, p in ipairs(ICUI.SKIN_POOLS) do
+        for i = 1, #ICUI[p[2]] do
+            ICUI.skin_item(comp(ICUI[p[1]] .. "_" .. i, panel), p[1])
+        end
+    end
+    for i = 1, #ICUI.LB_XY do
+        ICUI.skin_buttons(comp(ICUI.LAWBLOCK .. "_" .. i, panel))
+    end
+end
+
+-- THE BUTTONS IN THE FILES BOTH RACES SHARE, in the race's colour theme (author,
+-- 2026-10-05: "blue buttons"): image 0 the plate, 1 its hover, as gen_ic_ui.py
+-- builds BTN_LAYERS / BTN_HOVER. The same file names in another theme folder, so
+-- the plate keeps the twui's geometry. A race with no art.theme keeps CA's red.
+ICUI.BTN_FILES = {[0] = "button_square_medium_text_active.png",
+                  [1] = "button_square_medium_text_hover.png"}
+function ICUI.skin_buttons(c)
+    local theme = (ICUI.ART or {}).theme
+    if not (c and theme) then return end
+    local names = {"ic_card_button", "ic_plot_go", "ic_row_e", "ic_row_f"}
+    for k = 1, ICUI.LB_MEN or 0 do names[#names + 1] = "ic_lb_win_" .. k end
+    for _, name in ipairs(names) do
+        local b = comp(name, c)
+        if b then
+            for index, file in pairs(ICUI.BTN_FILES) do
+                pcall(function() b:SetImagePath(theme .. file, index) end)
+            end
+        end
+    end
+end
+
+-- A REFUSED BUTTON ON A THEMED COURT (author, 2026-10-05): every refusal is a
+-- label wrapped whole in ICUI.red, and CA's red on the blue plate measures 2.4:1
+-- at best, so the plate turns to the theme's grey disabled art - CA's own way of
+-- showing a thing that cannot be done - and the label to dark ink. Run from
+-- set_text, which every label goes through, so no refusal site can miss it. The
+-- tab-shaped ribbons are not plates and keep their art.
+ICUI.PLATE_BUTTONS = {ic_card_button = true, ic_plot_go = true, ic_row_e = true,
+                      ic_row_f = true, ic_lv_over_1 = true, ic_lv_over_2 = true,
+                      ic_lv_back = true, ic_law_p_btn = true, ic_fill = true, ic_gov_btn = true}
+function ICUI.plate_button(id)
+    id = tostring(id)
+    -- string.match, not find: WH3's find returns nothing at all for a ^ pattern.
+    return ICUI.PLATE_BUTTONS[id] or string.match(id, "^ic_lb_win_%d+$") ~= nil
+        or string.match(id, "^ic_gc_btn_%d+$") ~= nil
+        or (string.match(id, "^ic_act_%a+$") ~= nil and id ~= "ic_act_hint")
+end
+
+function ICUI.grey_refused(c, text)
+    local theme = (ICUI.ART or {}).theme
+    if not theme then return end
+    local ok, id = pcall(function() return c:Id() end)
+    if not (ok and ICUI.plate_button(id)) then return end
+    local refused = string.sub(tostring(text), 1, 6 + #ICUI.RED) == "[[col:" .. ICUI.RED
+    local files = refused and {[0] = "button_square_medium_text_inactive.png",
+                               [1] = "button_square_medium_text_inactive.png"}
+                          or ICUI.BTN_FILES
+    for index, file in pairs(files) do
+        pcall(function() c:SetImagePath(theme .. file, index) end)
+    end
+    -- AND ITS WORDS IN THE PLATE'S OWN CREAM, the red taken off (author,
+    -- 2026-10-05: no black text on dark UI). Measured on the drawn grey face,
+    -- p5/p50/p95: CA's red 3.0:1 at p50, black 1.3/1.9/3.8:1, cream
+    -- 14.9/10.2/5.2:1. The grey itself says the button is refused.
+    if refused then
+        local inner = string.match(tostring(text), "^%[%[col:%w+%]%](.*)%[%[/col%]%]$")
+        if inner then pcall(function() c:SetText(inner, "") end) end
+    end
+end
+
+-- CA'S DEFAULT-SKIN ART IN THE RACE'S COLOUR THEME: the same file under the
+-- theme's folder, where CA ships one (the plates, the round buttons, the sort
+-- arrows and the Hell-Forge plates all have a blue twin). A race with no theme,
+-- or a path outside the default skin, comes back as it went in.
+ICUI.DEFAULT_SKIN = "ui/skins/default/"
+function ICUI.themed(path)
+    local theme = (ICUI.ART or {}).theme
+    local base = ICUI.DEFAULT_SKIN
+    if not (theme and path) or string.sub(path, 1, #base) ~= base then return path end
+    return theme .. string.sub(path, #base + 1)
+end
+
+-- THE RACE'S PLATE under a readout we place beside CA's own panels (the
+-- influence plate, the governor note). Read off the player's race, not ICUI.ART:
+-- these show before the court panel has ever been opened. Their files are
+-- shared and built on the Hell-Forge plate; a race with no note keeps it.
+function ICUI.race_plate(c)
+    local note = ((ICUI.race() or {}).art or {}).note
+    if c and note then pcall(function() c:SetImagePath(note, 0) end) end
+end
+
+-- A SCROLLBAR HANDLE IN THE RACE'S THEME: the list file is shared and built with
+-- CA's red handle (underlay at 0, handle at 1, as gen_ic_ui emits them). A race
+-- with no theme keeps the file's own.
+ICUI.SLIDER_HANDLE = {[0] = "ui/skins/default/slider_vertical_handle_underlay.png",
+                      [1] = "ui/skins/default/slider_vertical_handle.png"}
+function ICUI.skin_handle(handle)
+    if not (handle and (ICUI.ART or {}).theme) then return end
+    for i, p in pairs(ICUI.SLIDER_HANDLE) do
+        pcall(function() handle:SetImagePath(ICUI.themed(p), i) end)
+    end
+end
+
+-- THE CHOSEN LAW'S GLOW: the Hell-Forge plate, or its recolour in the race's theme.
+function ICUI.law_glow()
+    return ICUI.themed(ICUI.LAW_GLOW)
+end
+
+-- ONE CARD OF POOL `name` ("PARTY", ...): the party cards are made by their list,
+-- after the panel, so they are skinned as they are made.
+function ICUI.skin_item(c, name)
+    ICUI.skin_buttons(c)
+    local frame = (ICUI.ART or {}).frame
+    if not (c and frame) then return end
+    for _, p in ipairs(ICUI.SKIN_POOLS) do
+        if p[1] == name then
+            local path = string.format(frame, ICUI.BASE[p[3]], ICUI.BASE[p[4]])
+            pcall(function() c:SetImagePath(path, ICUI.CARD_FRAME_INDEX) end)
+        end
+    end
+end
+
+-- THE OPENER'S GLYPH: slots 2 and 5 of derpy_ic_opener.twui.xml (standard and hover).
+ICUI.OPENER_ICON_SLOTS = {2, 5}
+function ICUI.skin_opener(button)
+    local icon = (ICUI.race().art or {}).opener_icon
+    if not (button and icon) then return end
+    for _, i in ipairs(ICUI.OPENER_ICON_SLOTS) do
+        pcall(function() button:SetImagePath(icon, i) end)
+    end
 end
 
 -- FOR zzz_derpy_iron_court_ui_map.lua, which loads after this file:

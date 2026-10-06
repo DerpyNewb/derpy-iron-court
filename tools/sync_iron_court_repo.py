@@ -16,6 +16,7 @@ workspace). No images - the backdrop, plates and rebel flags are all derived fro
 and no DB rows copied out of CA's db.pack. `refused()` checks the manifest for both before
 anything is copied, and the sync will not run while it reports anything.
 """
+import glob
 import os
 import sys
 
@@ -104,10 +105,26 @@ _DOCS = [
 ]]
 
 
+# THE DWARF WORK'S DOCS, found rather than typed (plan 2026-10-04 phase 6): six phase
+# plans and their handoffs, named by whoever wrote each. Every October court handoff
+# matches, the ones listed above too, so the list is de-duplicated in order.
+def _dated(folder, pattern):
+    return sorted(os.path.relpath(p, ROOT).replace(os.sep, "/")
+                  for p in glob.glob(os.path.join(ROOT, folder, pattern)))
+
+
+_DOCS += [("docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md", "docs/design/")]
+_DOCS += [(p, "docs/plans/") for p in _dated("docs/superpowers/plans",
+                                              "2026-10-04-iron-court-dwarfs-*.md")]
+_DOCS += [(p, "docs/history/") for p in _dated("docs/sessions", "HANDOFF_202610*_IRON_COURT*.md")]
+_DOCS = list(dict.fromkeys(_DOCS))
+
+
 def manifest(root=ROOT):
     """(workspace path, repo path) for every published file."""
     same = [
         _MOD + "zzz_derpy_iron_court.lua",
+        _MOD + "zzz_derpy_iron_court_dwarf.lua",
         _MOD + "zzz_derpy_iron_court_parties.lua",
         _MOD + "zzz_derpy_iron_court_ui.lua",
         _MOD + "zzz_derpy_iron_court_ui_map.lua",
@@ -115,6 +132,10 @@ def manifest(root=ROOT):
     ] + [_UI + "derpy_ic_%s%s.twui.xml" % (n, c)
          for n in ("panel", "card", "row", "party", "plot", "gm_row", "law", "lawblock")
          for c in ("", "_compact")] + [
+        # THE DWARF PANEL PAIR (plan 2026-10-04 dwarfs phase 3): a Dwarf court is
+        # created from these, so a clone without them builds no Dwarf court.
+        _UI + "derpy_ic_panel_dwf.twui.xml",
+        _UI + "derpy_ic_panel_dwf_compact.twui.xml",
         _UI + "derpy_ic_opener.twui.xml",
         _UI + "derpy_ic_standing.twui.xml",
         _UI + "derpy_ic_edict_note.twui.xml",
@@ -143,6 +164,7 @@ def manifest(root=ROOT):
         "deploy_iron_court.py",
         "preview_iron_court.py",
         "mutate_iron_court.py",
+        "check_ic_release.py",
         "make_ic_backdrop.py",
         "make_ic_rebel_flags.py",
         "probe_ic_string_break.lua",
@@ -155,6 +177,7 @@ def manifest(root=ROOT):
         "read_pack_index.py",
         "read_vanilla_cache.py",
         "read_vanilla_loc.py",
+        "read_vanilla_db.py",
         "import_house_ancillaries.py",
         "check_lua_undeclared.py",
         "check_lua_literal_left.py",

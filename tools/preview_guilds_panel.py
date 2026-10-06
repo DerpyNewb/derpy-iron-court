@@ -33,6 +33,11 @@ run Lua, so it draws a plausible set of contents, not your save's.
                                                 #   gg_standings, gg_guilds, gg_log, gg_pick
     py tools/preview_guilds_panel.py slavers    # ... with that guild's baked ground
     py tools/preview_guilds_panel.py --check    # validate the XML only, no PNG
+    py tools/preview_guilds_panel.py --help-page 7
+                                                # ONLY the Help tab, that chapter, to
+                                                #   gg_help_p7.png (the halls page; 7 exists
+                                                #   for a race with halls). Drives the
+                                                #   harness's GG_DUMP_HELP_PAGE.
     py tools/preview_guilds_panel.py --selftest
 
 Imports TWUI_Studio/pyc (the installed build's modules, tools/extract_twui_studio.py) when
@@ -482,12 +487,18 @@ IMG = re.compile(r"\[\[img:([^\]]*)\]\]\[\[/img\]\]")
 TOKENS = re.compile(r"\[\[(/?)col(?::([^\]]*))?\]\]|\[\[img:([^\]]*)\]\]\[\[/img\]\]")
 
 
-def snapshot(tag=""):
-    """{tab: {key: row}} from the harness's GG_DUMP, read as `tag`'s race."""
+def snapshot(tag="", help_page=None, page=None):
+    """{tab: {key: row}} from the harness's GG_DUMP, read as `tag`'s race. `help_page`
+    picks the Help chapter every tab is dumped on (GG_DUMP_HELP_PAGE); None is page 1.
+    `page` picks the guild page the same way (GG_DUMP_PAGE)."""
     import subprocess
     import tempfile
     out = tempfile.mkdtemp()
     env = dict(os.environ, GG_DUMP=out.replace(os.sep, "/"), GG_DUMP_TAG=tag)
+    if help_page:
+        env["GG_DUMP_HELP_PAGE"] = str(help_page)
+    if page:
+        env["GG_DUMP_PAGE"] = str(page)
     r = subprocess.run([LUA, HARNESS], cwd=ROOT, env=env, capture_output=True, text=True)
     if r.returncode or "harness ok" not in r.stdout:
         raise SystemExit("the guilds harness failed:\n" + r.stdout[-2000:] + r.stderr[-2000:])
@@ -535,7 +546,7 @@ def draw_order(P, rows):
         return [c.get("id", c.tag) for c in P.docs[kind].components]
     out = ["root/derpy_gg_panel"]
     out += ["P/" + i for i in ids("panel")]
-    for kind, n in (("card", 3), ("row", 6)):
+    for kind, n in (("card", 3), ("row", len(P.G.G.GUILDS))):
         for i in range(1, n + 1):
             top = "P/derpy_gg_%s_%d" % (kind, i)
             out += [top] + [top + "/" + c for c in ids(kind)]
@@ -776,9 +787,26 @@ if __name__ == "__main__":
             at = args.index("--flavour")
             tag = "_" + args[at + 1]
             del args[at:at + 2]
-        got = snapshot(tag)
+        page = None
+        if "--page" in args:
+            at = args.index("--page")
+            page = int(args[at + 1])
+            del args[at:at + 2]
+        if "--help-page" in args:
+            at = args.index("--help-page")
+            page = int(args[at + 1])
+            got = snapshot(tag, page)
+            print("wrote %s" % render_tab(5, got[5], tag, os.path.join(
+                CACHE, "gg_help_p%d%s.png" % (page, tag))))
+            for o in OVER:
+                print("  TOO WIDE " + o)
+            for m in LOW:
+                print("  LOW CONTRAST " + m)
+            sys.exit(1 if problems or LOW or OVER else 0)
+        got = snapshot(tag, page=page)
         for tab in VIEWS:
-            print("wrote %s" % render_tab(tab, got[tab], tag))
+            print("wrote %s" % render_tab(tab, got[tab], tag, None if not page else
+                  os.path.join(CACHE, "gg_%s%s_g%d.png" % (VIEWS[tab], tag, page))))
         pick, lines = render_pick(tag=tag)
         print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
               % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...") else ""))

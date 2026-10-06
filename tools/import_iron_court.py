@@ -19,11 +19,12 @@ import gen_iron_court as G            # noqa: E402
 
 SRC = "Modding Files/source/iron_court"
 MODEL_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua"
+DWARF_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua"
 UI_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua"
 MAP_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua"
 PARTIES_LUA = "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
 MCT_LUA = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
-SCRIPTS = [MODEL_LUA, UI_LUA, PARTIES_LUA, MCT_LUA, MAP_LUA]
+SCRIPTS = [MODEL_LUA, DWARF_LUA, UI_LUA, PARTIES_LUA, MCT_LUA, MAP_LUA]
 # THE DERPY HUD HUB's copy for this pack (tools/sync_derpy_hub.py). In SCRIPTS so luac,
 # check_lua_api and check_lua_undeclared see it: it is where DERPY_HUB is declared.
 import sync_derpy_hub as _HUB            # noqa: E402
@@ -145,6 +146,34 @@ def run_lua_card_grid():
             for line in proc.stdout.split() if line.strip()]
 
 
+
+def run_lua_grid_xy():
+    """ICUI.grid_xy cut out of the panel and run under lua.exe on the Dwarf race
+    table's own grid, so the comparison is against what the panel builds."""
+    if not os.path.isfile(LUA_EXE):
+        return None
+    import gen_ic_ui as U
+    ui = io.open(UI_LUA, encoding="utf-8").read()
+    m = re.search(r"^function ICUI\.grid_xy\(grid\)\n(.*?)^end\n", ui, re.S | re.M)
+    if not m:
+        return "ICUI.grid_xy is not in the panel"
+    consts = re.findall(r"^ICUI\.(CARDS?_\w+|CONTENT_W)\s*=\s*(-?\d+)$", ui, re.M)
+    cols, _rows, _throne, cells = U.race_grid("dwf")
+    src = ["ICUI = {BASE = {}}"] + ["ICUI.BASE.%s = %s" % (k, v) for k, v in consts]
+    src += ["function ICUI.grid_xy(grid)", m.group(1), "end",
+            "local g = ICUI.grid_xy({cols = %d, cells = {%s}})"
+            % (cols, ", ".join("{%d, %d}" % c for c in cells)),
+            'for i = 1, #g do print(g[i][1] .. "," .. g[i][2]) end']
+    path = os.path.join(tempfile.gettempdir(), "ic_grid_xy.lua")
+    io.open(path, "w", encoding="utf-8", newline="\n").write("\n".join(src))
+    try:
+        proc = subprocess.run([LUA_EXE, path], capture_output=True, text=True)
+    finally:
+        os.remove(path)
+    if proc.returncode != 0:
+        return "ICUI.grid_xy failed under lua.exe: " + proc.stderr.strip()
+    return [tuple(int(v) for v in line.split(",")) for line in proc.stdout.split()]
+
 def run_lua_party_grid():
     """The panel's OWN party-grid loop, lifted out and run under lua.exe.
 
@@ -219,20 +248,8 @@ def run_lua_plot_grid():
     # THE MOVES THEMSELVES DO NOT MATTER, only how many sit in each category:
     # the grid is arithmetic on the counts and nothing in the block reads a
     # move's own fields.
-    src += ["IC = {PLOT_CATS = {%s}}"
-            % ", ".join('{key = "%s"}' % c for c, _n in cats),
-            "IC.COUNTS = {%s}" % ", ".join(str(n) for n in counts),
-            "function IC.plots_in(key)",
-            "    for i = 1, #IC.PLOT_CATS do",
-            "        if IC.PLOT_CATS[i].key == key then",
-            "            local out = {}",
-            "            for j = 1, IC.COUNTS[i] do out[j] = {key = key} end",
-            "            return out",
-            "        end",
-            "    end",
-            "    return {}",
-            "end",
-            "ICUI.PLOTS_X = ICUI.CARDS_X",
+    src += plot_stub(_G2, cats)
+    src += ["ICUI.PLOTS_X = ICUI.CARDS_X",
             m.group(1).rstrip("\n"),
             "for i = 1, #ICUI.PLOT_XY do",
             '    print(ICUI.PLOT_XY[i][1] .. "," .. ICUI.PLOT_XY[i][2])',
@@ -241,6 +258,14 @@ def run_lua_plot_grid():
             "for i = 1, ICUI.PLOT_COLS do",
             '    local c = ICUI.PANEL_XY["ic_plotcat_" .. i]',
             '    print(c[1] .. "," .. c[2])',
+            "end",
+            # EACH RACE'S OWN GRID (plan 2026-10-04 phase 4), as use_plot_grid
+            # copies it in at open.
+            "for _, rk in ipairs(IC.RACE_ORDER) do",
+            '    print("=" .. rk)',
+            "    for _, p in ipairs(ICUI.PLOT_GRIDS[rk].xy) do",
+            '        print(p[1] .. "," .. p[2])',
+            "    end",
             "end"]
     path = os.path.join(tempfile.gettempdir(), "ic_plot_grid.lua")
     io.open(path, "w", encoding="utf-8", newline="\n").write("\n".join(src))
@@ -250,14 +275,53 @@ def run_lua_plot_grid():
         os.remove(path)
     if proc.returncode != 0:
         return None
-    cards, heads, seen = [], [], False
+    cards, heads, by_race, seen, race = [], [], {}, False, None
     for line in proc.stdout.split():
         line = line.strip()
         if line == "--":
             seen = True
+        elif line.startswith("="):
+            race = line[1:]
+            by_race[race] = []
         elif "," in line:
-            (heads if seen else cards).append([int(n) for n in line.split(",")])
-    return cards, heads
+            xy = [int(n) for n in line.split(",")]
+            if race:
+                by_race[race].append(xy)
+            else:
+                (heads if seen else cards).append(xy)
+    return cards, heads, by_race
+
+
+def plot_stub(G2, cats):
+    """IC as the panel's move-grid code reads it: the categories, the race
+    order, and how many moves each race has in each category.
+
+    The moves themselves do not matter, only the counts: the grid is arithmetic
+    on them and nothing in the block reads a move's own fields. Per race, since
+    a race's own move (the Dwarf weregild) sits in that race's grid only (plan
+    2026-10-04 phase 4); a stub with no RACE_ORDER stops the whole file loading.
+    """
+    return ["IC = {PLOT_CATS = {%s}, RACE_ORDER = {%s}}"
+            % (", ".join('{key = "%s"}' % c for c, _n in cats),
+               ", ".join('"%s"' % r for r in PLOT_RACES)),
+            "IC.COUNTS = {%s}"
+            % ", ".join("%s = {%s}" % (r, ", ".join(str(n) for n in G2.plot_counts(r)))
+                        for r in PLOT_RACES),
+            "function IC.plots_in(key, race)",
+            "    local counts = IC.COUNTS[race or 'chd']",
+            "    for i = 1, #IC.PLOT_CATS do",
+            "        if IC.PLOT_CATS[i].key == key then",
+            "            local out = {}",
+            "            for j = 1, counts[i] do out[j] = {key = key} end",
+            "            return out",
+            "        end",
+            "    end",
+            "    return {}",
+            "end"]
+
+
+# THE RACES WITH A MOVE GRID, as gen_ic_ui.check_plot_depths lists them.
+PLOT_RACES = ("chd", "dwf")
 
 
 # THE WIDTHS 8d RUNS THE PANEL AT: both ends, the middle of the compact range,
@@ -302,18 +366,12 @@ def run_lua_scaled(ui_text=None, widths=SCALE_WIDTHS):
         "IC = {TIERS = {%s}, TIER_SEATS = {%s}, MAX_SEATS = %d}"
         % (", ".join(str(t) for t in tiers),
            ", ".join("[%d] = %d" % (t, seats[t]) for t in tiers), _G2.MAX_HOUSES),
-        "IC.PLOT_CATS = {%s}" % ", ".join('{key = "%s"}' % c for c, _n in cats),
-        "IC.COUNTS = {%s}" % ", ".join(str(n) for n in counts),
-        "function IC.plots_in(key)",
-        "    for i = 1, #IC.PLOT_CATS do",
-        "        if IC.PLOT_CATS[i].key == key then",
-        "            local out = {}",
-        "            for j = 1, IC.COUNTS[i] do out[j] = {key = key} end",
-        "            return out",
-        "        end",
-        "    end",
-        "    return {}",
-        "end",
+    ] + [
+        # THE MOVE-GRID STUB, with the office tables above kept: plot_stub
+        # rebuilds IC, so they are copied across it.
+        "local _tiers, _seats, _max = IC.TIERS, IC.TIER_SEATS, IC.MAX_SEATS",
+    ] + plot_stub(_G2, cats) + [
+        "IC.TIERS, IC.TIER_SEATS, IC.MAX_SEATS = _tiers, _seats, _max",
         "assert(loadfile(arg[1]))()",
         "local function csv(t)",
         "    local o = {}",
@@ -450,7 +508,6 @@ def check_scaled(ui_text=None):
             "PARTY_XY": {str(i + 1): p for i, p in enumerate(g.PARTY_GRID)},
             "PLOT_XY": {str(i + 1): p for i, p in enumerate(g.plot_grid())},
             "COURT_SECTION_XY": {"-": g.COURT_SECTION_XY},
-            "ACT_PAGED_XY": g.ACT_PAGED,
             "GM_ROW_CHILD_XY": g.GM_ROW_LAYOUT,
             "LAW_CHILD_XY": g.LAW_LAYOUT, "LB_CHILD_XY": g.LB_LAYOUT,
             "LAW_XY": {str(i + 1): p for i, p in enumerate(g.LAW_GRID)},
@@ -581,7 +638,7 @@ def check_rollers(src):
     unnecessary, because a fifth site cannot be added without failing here.
     """
     out = []
-    for roller, gate in (("IC.roll_origin()", "IC.origin_for"),
+    for roller, gate in (("IC.roll_origin(", "IC.origin_for"),
                          ("IC.roll_background(", "IC.background_for")):
         callers = sorted(set(_roller_callers(src, roller)))
         if callers != [gate]:
@@ -826,6 +883,22 @@ def _selftest():
     quoted = model + 'local z = "gamma"\n'
     assert check_tune_reads(quoted, [quoted, parties]) == []
     assert check_tune_reads("local nothing = 1", []) != []
+    rollers = ('function IC.origin_for(character, faction_key)\n'
+               '    return IC.roll_origin(faction_key)\nend\n'
+               'function IC.background_for(character, faction_key, tally)\n'
+               '    return IC.roll_background(faction_key, tally)\nend\n')
+    assert check_rollers(rollers) == [], check_rollers(rollers)
+    bad, seq = check_race_tables("IC.ORIGINS = {\n}\nIC.OFFICES = {\n}\n", prefix="DWF")
+    assert any("no DWF.ORIGINS" in b for b in bad) and any("no DWF.OFFICES" in b for b in bad), bad
+    assert seq == [], seq
+    # check 4, both halves: the literal loop and the builder presence.
+    builders = 'IC.rkey("house", f) IC.rkey("bg", f) IC.key("title", s) IC.key("member", s)\n'
+    assert check_trait_keys(builders, {"derpy_ic_house_a"}) == []
+    bad = check_trait_keys(builders + 'x = "derpy_ic_house_zz"\n', {"derpy_ic_house_a"})
+    assert len(bad) == 1 and "derpy_ic_house_zz" in bad[0], bad
+    for gone in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"'):
+        bad = check_trait_keys(builders.replace(gone, "IC.other("), set())
+        assert len(bad) == 1 and gone in bad[0], (gone, bad)
     print("import_iron_court selftest: ok")
 
 
@@ -859,6 +932,87 @@ def check_fx_icons(ui):
                 out.append("ICUI.FX_ICONS gives %r the icon %s; CA gives %s"
                            % (label, table[label], want))
     return out
+
+
+def check_trait_keys(lua, traits):
+    """Check 4: every trait the Lua names must exist.
+
+    Two halves. The literal loop catches a hand-written "derpy_ic_house_..."
+    string. Since the keys are built (IC.rkey / IC.key), the literals are
+    normally zero, so the builder-presence loop is what fails if a builder is
+    renamed or dropped (controller ruling G6)."""
+    problems = []
+    for key in sorted(set(re.findall(r'"(derpy_ic_(?:house|title)_\w+)"', lua))):
+        if key.endswith("_"):
+            continue
+        if key not in traits:
+            problems.append("the Lua uses trait %s, which the generator does not emit"
+                            % key)
+    for builder in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"'):
+        if builder not in lua:
+            problems.append("the Lua no longer builds %s keys" % builder)
+    return problems
+
+
+def check_race_tables(lua, prefix="IC", race="chd"):
+    """<prefix>.ORIGINS and <prefix>.OFFICES against the generator's race (plan
+    2026-10-04 phase 1). Returns (problems, seq): seq is the Lua's (office slug,
+    tier) pairs in its own order, which the standing-band check reuses.
+
+    THE FACTION BESIDE EACH ORIGIN is the half nothing else looks at: a key that
+    names no faction never matches a confederation, and every lord of that house
+    is stamped with a birthplace instead. THE TIER is what the office grants as
+    well as where it is drawn, and the ORDER is half of what is checked: the
+    panel fills the bands in the Lua's order.
+    """
+    problems, seq = [], []
+    origins = G.RACES[race]["ORIGINS"]
+    offices = G.RACES[race]["OFFICES"]
+    body = G.lua_table("ORIGINS", prefix, lua)
+    if body is None:
+        problems.append("the Lua has no %s.ORIGINS table" % prefix)
+    else:
+        pairs = dict(re.findall(r'slug\s*=\s*"(\w+)"\s*,\s*faction\s*=\s*"([\w]+)"', body))
+        for slug, faction, _d in origins:
+            if faction is None:
+                if slug in pairs:
+                    problems.append("origin %s is a place and the Lua gives "
+                                    "it faction %s" % (slug, pairs[slug]))
+            elif slug not in pairs:
+                problems.append("origin %s has no faction in the Lua" % slug)
+            elif pairs[slug] != faction:
+                problems.append("origin %s: Lua faction %s, generator %s"
+                                % (slug, pairs[slug], faction))
+        mine = [o[0] for o in origins]
+        for slug in pairs:
+            if slug not in mine:
+                problems.append("origin %s is in the Lua and not the generator" % slug)
+    body = G.lua_table("OFFICES", prefix, lua)
+    if body is None:
+        problems.append("the Lua has no %s.OFFICES table" % prefix)
+        return problems, seq
+    pairs = dict(re.findall(r'slug\s*=\s*"(\w+)"\s*,\s*affinity\s*=\s*"(\w+)"', body))
+    by_slug = {o["slug"]: o for o in offices}
+    for office in offices:
+        if office["slug"] not in pairs:
+            problems.append("office %s is in the generator and not the Lua" % office["slug"])
+        elif pairs[office["slug"]] != office["affinity"]:
+            problems.append("office %s: Lua affinity %s, generator %s"
+                            % (office["slug"], pairs[office["slug"]], office["affinity"]))
+    for slug in pairs:
+        if slug not in by_slug:
+            problems.append("office %s is in the Lua and not the generator" % slug)
+    seq = [(slug, int(t)) for slug, t in re.findall(
+        r'slug\s*=\s*"(\w+)"\s*,\s*affinity\s*=\s*"\w+"\s*,\s*tier\s*=\s*(\d+)', body)]
+    tiers = dict(seq)
+    for office in offices:
+        if tiers.get(office["slug"]) != office["tier"]:
+            problems.append("office %s: Lua tier %r, generator %d"
+                            % (office["slug"], tiers.get(office["slug"]), office["tier"]))
+    order = [t for _slug, t in seq]
+    if order != sorted(order):
+        problems.append("the Lua's offices are not grouped by tier: %s" % order)
+    return problems, seq
 
 
 def verify():
@@ -910,7 +1064,7 @@ def verify():
                         "with no settings page")
     if os.path.isfile(MODEL_LUA):
         srcs = [io.open(p, encoding="utf-8").read()
-                for p in (MODEL_LUA, PARTIES_LUA, UI_LUA) if os.path.isfile(p)]
+                for p in (MODEL_LUA, PARTIES_LUA, UI_LUA, DWARF_LUA) if os.path.isfile(p)]
         problems.extend(check_tune_reads(srcs[0], srcs))
 
     # 1. Every generated table has a destination, and its on-disk TSV matches
@@ -956,86 +1110,26 @@ def verify():
     else:
         lua = io.open(MODEL_LUA, encoding="utf-8").read()
 
-        # THE FACTION BESIDE EACH ORIGIN, which is the half nothing else
-        # looks at: gen_ic_ui's check 22 compares the two slug lists and stops
-        # there. A confederated faction is matched to an origin by this key
-        # alone, and a key that names no faction never matches anything - so
-        # every lord of an absorbed house is stamped with a birthplace instead,
-        # silently, and the record of where he came from is gone.
-        block = re.search(r"IC\.ORIGINS\s*=\s*\{(.*?)\n\}", lua, re.S)
-        if not block:
-            problems.append("the Lua has no IC.ORIGINS table")
-        else:
-            pairs = dict(re.findall(r'slug\s*=\s*"(\w+)"\s*,\s*faction\s*=\s*"([\w]+)"',
-                                    block.group(1)))
-            for slug, faction, _d in G.ORIGINS:
-                if faction is None:
-                    # A PLACE. It must carry no faction at all, or a man raised
-                    # at home reads as a confederate out of a faction that is
-                    # very likely still alive on the map under its own name.
-                    if slug in pairs:
-                        problems.append("origin %s is a place and the Lua gives "
-                                        "it faction %s" % (slug, pairs[slug]))
-                elif slug not in pairs:
-                    problems.append("origin %s has no faction in the Lua" % slug)
-                elif pairs[slug] != faction:
-                    problems.append("origin %s: Lua faction %s, generator %s"
-                                    % (slug, pairs[slug], faction))
-            for slug in pairs:
-                if slug not in G.origin_slugs():
-                    problems.append("origin %s is in the Lua and not the generator"
-                                    % slug)
-
-        block = re.search(r"IC\.OFFICES\s*=\s*\{(.*?)\n\}", lua, re.S)
-        if not block:
-            problems.append("the Lua has no IC.OFFICES table")
-        else:
-            pairs = dict(re.findall(r'slug\s*=\s*"(\w+)"\s*,\s*affinity\s*=\s*"(\w+)"',
-                                    block.group(1)))
-            for office in G.OFFICES:
-                if office["slug"] not in pairs:
-                    problems.append("office %s is in the generator and not the Lua"
-                                    % office["slug"])
-                elif pairs[office["slug"]] != office["affinity"]:
-                    problems.append("office %s: Lua affinity %s, generator %s"
-                                    % (office["slug"], pairs[office["slug"]],
-                                       office["affinity"]))
-            for slug in pairs:
-                if not G.office_by_slug(slug):
-                    problems.append("office %s is in the Lua and not the generator" % slug)
-
-            # THE TIER, which is what the office GRANTS as well as where it is
-            # drawn: the generator multiplies every magnitude by it. A tier that
-            # disagrees is a card in the wrong band buffing by the wrong amount.
-            # A LIST, IN THE LUA'S ORDER, not a dict. The order is half of what
-            # is being checked: the panel walks IC.OFFICES top to bottom and
-            # fills the bands in that order, so a shuffled table draws a band
-            # with a hole in it - and re-deriving the order from G.OFFICES
-            # instead would make it the generator's order, which is never the
-            # one at fault.
-            seq = [(slug, int(t)) for slug, t in re.findall(
-                r'slug\s*=\s*"(\w+)"\s*,\s*affinity\s*=\s*"\w+"\s*,\s*tier\s*=\s*(\d+)',
-                block.group(1))]
-            tiers = dict(seq)
-            for office in G.OFFICES:
-                if tiers.get(office["slug"]) != office["tier"]:
-                    problems.append("office %s: Lua tier %r, generator %d"
-                                    % (office["slug"], tiers.get(office["slug"]),
-                                       office["tier"]))
-            order = [t for _slug, t in seq]
-            if order != sorted(order):
-                problems.append("the Lua's offices are not grouped by tier: %s" % order)
+        race_problems, seq = check_race_tables(lua)
+        problems.extend(race_problems)
 
         block = re.search(r"IC\.AMBITION\s*=\s*\{(.*?)\n\}", lua, re.S)
         if not block:
             problems.append("the Lua has no IC.AMBITION table")
         else:
-            lua_traits = re.findall(r'trait\s*=\s*"([^"]+)"', block.group(1))
+            # The trait key is built on read, IC.key("ambition", slug, faction),
+            # so the Lua names the slugs and the generator's keys are the chd
+            # race's (infix "") of the same slugs.
+            lua_traits = ["derpy_ic_ambition_" + s for s in
+                          re.findall(r'^\s+(\w+)\s*=\s*\{factor', block.group(1), re.M)]
             generator_traits = ["derpy_ic_ambition_" + slug
                                 for slug in G.AMBITION_BANDS]
             if lua_traits != generator_traits:
                 problems.append("ambition traits disagree: Lua %r, generator %r"
                                 % (lua_traits, generator_traits))
+            if 'IC.key("ambition", slug, faction_key)' not in lua:
+                problems.append("the Lua no longer builds ambition trait keys "
+                                "through IC.key")
 
         # 2a. THE CONTROL BANDS. The model decides which band the player is in
         #     and the generator ships the bundle that band applies - and they
@@ -1074,9 +1168,10 @@ def verify():
         #     THE TIER LIST COMES FROM THE LUA (check 2's own parse, reused),
         #     not from the generator: deriving both sides from G.OFFICES would
         #     make this a comparison of one number with itself.
+        # BUILT THROUGH IC.key now, so the stem is the chd race's (infix "").
         prefix = re.search(
-            'function IC[.]standing_trait[(]tier[)]'
-            r'\s*return\s*"(\w+?)"\s*[.][.]\s*tier', lua)
+            'function IC[.]standing_trait[(]tier, faction_key[)]'
+            r'\s*return IC[.]key[(]"(\w+)", tier, faction_key[)]', lua)
         if not prefix:
             problems.append("the Lua has no IC.standing_trait to derive band "
                             "keys from")
@@ -1084,7 +1179,7 @@ def verify():
             problems.append("no office tiers were read out of the Lua, so the "
                             "standing bands cannot be checked")
         else:
-            stem = prefix.group(1)
+            stem = "derpy_ic_%s_" % prefix.group(1)
             declared = set(r["key"] for r in built["character_traits"])
             want = set()
             # Tier 0 is the man who clears nothing - a real band, and the one a
@@ -1094,6 +1189,22 @@ def verify():
                 want.add(key)
                 if key not in declared:
                     problems.append("the Lua stamps standing band %s, which no "
+                                    "character_traits row declares" % key)
+            # THE DWARF BANDS (plan 2026-10-04 phase 2): the same stem with the
+            # race's infix, one per tier THE DWARF LUA declares - read out of
+            # that file by check_race_tables, not out of the generator, for the
+            # reason above (pre-flight D-2). Its problems are the Dwarf race's
+            # origin and office drift.
+            dwf_problems, dwf_seq = check_race_tables(
+                io.open(DWARF_LUA, encoding="utf-8").read(), "DWF", "dwf")
+            problems.extend(dwf_problems)
+            if not dwf_seq:
+                problems.append("no office tiers were read out of the Dwarf Lua")
+            for tier in [0] + sorted(set(t for _slug, t in dwf_seq)):
+                key = "%s%s%d" % (stem, G.RACES["dwf"]["infix"], tier)
+                want.add(key)
+                if key not in declared:
+                    problems.append("the Lua stamps Dwarf standing band %s, which no "
                                     "character_traits row declares" % key)
             # And the other way: a band the generator emits that the Lua can
             # never build is a trait row nothing ever stamps.
@@ -1115,19 +1226,23 @@ def verify():
                 problems.append("the Lua applies %s, which the generator does not emit" % key)
         # Both halves build their bundle keys by concatenation, so check the
         # prefixes the same way.
-        for prefix in ('"derpy_ic_office_"', '"derpy_ic_vacant_"',
-                       '"derpy_ic_gov_house_"'):
+        for prefix in ('IC.key("office"', 'IC.key("vacant"', 'IC.key("gov_house"'):
             if prefix not in lua:
                 problems.append("the Lua no longer builds %s keys" % prefix)
+        # The governor's base bundle is one fixed slug built by the race's key
+        # builder, so it has no literal left for the scan above to read: tie the
+        # builder to the row the generator emits (chd: derpy_ic_gov_base).
+        if not re.search(r'^function IC\.gov_bundle_base\(faction_key\) return '
+                         r'IC\.key\("gov", "base", faction_key\) end$', lua, re.M):
+            problems.append("the Lua no longer builds the governor's base bundle as "
+                            'IC.key("gov", "base", faction_key)')
+        if G.bundle_key("gov", "base") not in defined:
+            problems.append("the generator does not emit the governor's base bundle %s"
+                            % G.bundle_key("gov", "base"))
 
         # 4. Every trait the Lua names must exist.
-        traits = set(r["key"] for r in built["character_traits"])
-        for key in sorted(set(re.findall(r'"(derpy_ic_(?:house|title)_\w+)"', lua))):
-            if key.endswith("_"):
-                continue
-            if key not in traits:
-                problems.append("the Lua uses trait %s, which the generator does not emit"
-                                % key)
+        problems.extend(check_trait_keys(
+            lua, set(r["key"] for r in built["character_traits"])))
 
         # 5. string.find's plain flag corrupts the string subsystem process-wide
         #    for the rest of the game session. check_lua_api catches it too; it is
@@ -1432,7 +1547,17 @@ def verify():
                         "been renamed, and the sixteen card positions and four "
                         "column headings are now compared by nothing")
             else:
-                cards, heads = grid
+                cards, heads, by_race = grid
+                # EVERY RACE'S GRID AGAINST THE GENERATOR'S, so the Dwarf
+                # weregild card is placed where gen_ic_ui measured it.
+                for race in PLOT_RACES:
+                    got = by_race.get(race, [])
+                    want_r = U3.plot_grid(U3.plot_counts(race))
+                    if got != [list(p) for p in want_r]:
+                        problems.append(
+                            "the %s move grid in the panel (%d cards) is not "
+                            "the generator's (%d cards)"
+                            % (race, len(got), len(want_r)))
                 want = U3.plot_grid()
                 if len(cards) != len(want):
                     problems.append(
@@ -1659,7 +1784,65 @@ def verify():
     try:
         import gen_ic_ui as U2
         problems += U2.check()
-        built_xml = U2.build_xml()
+        built_xml = U2.race_xml()
+        problems += U2.check_race_files()
+        # 9d. THE DWARF PANEL (plan 2026-10-04 phase 3). The Lua's copy of every number
+        #     the Dwarf court shares with the generator, and every picture the Lua can
+        #     name at runtime, because a SetImagePath to a path nothing ships draws a
+        #     blank square and says nothing.
+        D = U2._dwf()
+        blk = U2._lua_block(ui, "ICUI.RACE_XY = {")
+        dblk = U2._lua_block(blk or "", "dwf = {")
+        lua_cells = dict((n, tuple(int(v) for v in vals)) for n, *vals in re.findall(
+            r"(\w+) = \{(\d+), (\d+), (\d+), (\d+)\}", dblk or ""))
+        for n in D.DWF_CELLS:
+            if lua_cells.get(n) != tuple(D.PANEL_LAYOUT_1920[n]):
+                problems.append("ICUI.RACE_XY.dwf.%s is %s and gen_ic_ui says %s"
+                                % (n, lua_cells.get(n), D.PANEL_LAYOUT_1920[n]))
+        for n in sorted(set(lua_cells) - set(D.DWF_CELLS)):
+            problems.append("ICUI.RACE_XY.dwf.%s is no Dwarf cell of gen_ic_ui" % n)
+        got = run_lua_grid_xy()
+        if isinstance(got, str):
+            problems.append(got)
+        elif got is not None and got != [tuple(p) for p in D.CARD_GRID]:
+            problems.append("ICUI.grid_xy builds %s and gen_ic_ui.card_grid('dwf') %s"
+                            % (got, D.CARD_GRID))
+        dsrc = io.open(U2.DWARF_LUA, encoding="utf-8").read()
+        art = dict(re.findall(r'(\w+)\s*=\s*"?([^",\n]+)"?,',
+                              U2._lua_block(dsrc, "art = {") or ""))
+        for key, want in (("suffix", D.PANEL_SUFFIX), ("tab", D.DWF_TAB),
+                          ("frame", D.DWF_FRAME), ("lit_ink", "black"),
+                          ("title_cap", str(D.TITLE_CAP)), ("heading_cap", str(D.HEADING_CAP)),
+                          ("opener_icon", D.DWF_OPENER_ICON), ("theme", D.DWF_THEME),
+                          ("mark", D.DWF_MARK), ("note", D.DWF_NOTE),
+                          ("gm_name", D.DWF_STRIP % tuple(D.GM_NAME_PLATE_BOX[2:])),
+                          ("gm_loyal", D.DWF_STRIP % (D.GM_LOYAL_W, D.GM_LOYAL_H))):
+            if art.get(key) != want:
+                problems.append("the dwf race's art.%s is %r and gen_ic_ui says %r"
+                                % (key, art.get(key), want))
+        path_panel = re.search(r'ICUI\.PATH_PANEL\s*=\s*"([^"]+)"', ui).group(1)
+        if path_panel + art.get("suffix", "") != "ui/campaign ui/" + D.PANEL_FILE[:-len(".twui.xml")]:
+            problems.append("PATH_PANEL plus the dwf suffix does not name %s" % D.PANEL_FILE)
+        shipped = U2.art_paths()
+        for w, h in D.dwf_tab_sizes():
+            for st in D.DWF_TAB_STATES:
+                if (art.get("tab", "") % (st, w, h)) not in shipped:
+                    problems.append("the Lua can draw %s and nothing ships it"
+                                    % (art.get("tab", "") % (st, w, h)))
+        for w, h in D.POOL_1920.values():
+            if (art.get("frame", "") % (w, h)) not in shipped:
+                problems.append("ICUI.skin can draw %s and nothing ships it"
+                                % (art.get("frame", "") % (w, h)))
+        opener = io.open(os.path.join(os.path.dirname(UI_FILES[0]), "derpy_ic_opener.twui.xml"),
+                         encoding="utf-8").read()
+        oblk = re.search(r"<componentimages>(.*?)</componentimages>", opener, re.S)
+        slots = [i for i, p in enumerate(re.findall(r'imagepath="([^"]+)"', oblk.group(1) if oblk else ""))
+                 if "icon_wh_main_lore_hashut" in p]
+        lua_slots = [int(v) for v in re.findall(r"\d+", re.search(
+            r"ICUI\.OPENER_ICON_SLOTS\s*=\s*\{([^}]*)\}", ui).group(1))]
+        if slots != lua_slots:
+            problems.append("the opener's glyph is in slots %s and ICUI.OPENER_ICON_SLOTS says %s"
+                            % (slots, lua_slots))
         for path in UI_FILES:
             name = os.path.basename(path)
             if not os.path.isfile(path):
@@ -1672,7 +1855,7 @@ def verify():
         #     apart nothing errors: the face is written to the plate's layer, the
         #     plate is never seen, and the portrait simply has no house colour
         #     behind it - which is indistinguishable from the bug this replaced.
-        for name in ("PLATE_INDEX", "FACE_INDEX", "MASK_INDEX"):
+        for name in ("PLATE_INDEX", "FACE_INDEX", "MASK_INDEX", "CARD_FRAME_INDEX"):
             m = re.search(r"ICUI\.%s\s*=\s*(\d+)" % name, ui)
             if not m:
                 problems.append("the panel declares no ICUI.%s" % name)

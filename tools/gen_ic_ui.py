@@ -35,6 +35,98 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 BOX_W = globals().get("_BOX_W", 1920)
 COMPACT = BOX_W < 1920
 
+# THE RACE THIS COPY DRAWS (plan 2026-10-04 phase 3). The base module is the Chaos
+# Dwarfs'; at_box(bw, "dwf") re-executes this file with _RACE injected beside
+# _BOX_W, so every layout number, layer list and check below is the race's own.
+RACE = globals().get("_RACE", "chd")
+PANEL_SUFFIX = {"chd": "", "dwf": "_dwf"}[RACE]
+PANEL_FILE = "derpy_ic_panel%s.twui.xml" % PANEL_SUFFIX
+# The other race's panel pair, which only the base module writes (race_xml).
+RACE_PANEL_FILES = ("derpy_ic_panel_dwf.twui.xml", "derpy_ic_panel_dwf_compact.twui.xml")
+# THE DWARF SKIN, ONE DICT (spec 2.5, 2.6; approved mockups dwf_skin_mockup2.py and
+# dwf_seat_mockups2.py layout E). Every colour, size and offset the Dwarf panel and
+# its art use, at 1920. Nothing Dwarf is typed anywhere else.
+DWF = {
+    # Cells, (x, y, w, h). The title is 1100 wide, not the mockup's 900: "The Council
+    # of Masters of Innovation" at the compact 20px is 442px against 422 usable at 1600.
+    "title_box": (18, 4, 1100, 56),
+    "help_box": (1126, 8, 48, 48),
+    "off_title_box": (703, 120, 514, 44),
+    # Relative to the throne's cell. Three lines: the longest playable name does not
+    # fit one line with "THE THRONE OF" in front of it at 1600.
+    "throne_cells": {"ic_throne_of": (16, 96, 332, 18),
+                     "ic_throne_name": (16, 114, 332, 26),
+                     "ic_throne_leader": (16, 142, 332, 22)},
+    # The hall (mockup shape_hall, round 3), in px off the card grid.
+    "hall_pad": 18, "hall_top": 12, "hall_neck": 10, "hall_foot": 7,
+    "runner_in": 70, "runner_top": 6, "runner_foot": 4,
+    "door_in": 40, "door_h": 70, "door_inset": 8, "knob": 4,
+    "pillar_half": 6, "rune_px": 28, "rune_step": 70, "rune_top": 24, "rune_clear": 40,
+    "hall_rule_y": 152, "hall_rim": 3,
+    # Caps and text.
+    # heading_cap 44, not the mockup's 80: every heading plate fits its words with
+    # this one cap (ICUI.fit_plate), and "ANCESTORS" at the compact 18px is 127px in
+    # a 255px law column at 1600 - 255 - 2 * (cap + PLATE_GAP) >= 127 needs cap <= 50.
+    # So the units-header mark goes on at half size (mark_scale), 6px in.
+    "title_cap": 150, "heading_cap": 44, "ribbon_cap": 34, "tab_text_inset": 36,
+    "tab_lift": 2, "tab_grow": 6, "tab_ty": "0.00,5.00",
+    # Measured by check_dwf_contrast over all four tab sizes (the mockup's 0.72
+    # and 0.52 were measured on one): the largest hundredth the worst size passes.
+    "ribbon_dim": {"active": 0.65, "hover": 0.51, "selected": 1.0},
+    "lintel_chamfer": 10, "seats_chamfer": 8,
+    "mark_x": 6, "mark_scale": 0.5, "mark_mid": 20, "rule_y": 37, "diamond": 10,
+    "throne_face": 0.5, "throne_face_top": 22,
+    # CA's knotwork frame, in its source pixels: corner box, top ornament columns,
+    # the straight run sampled for tiling, the side rows sampled for tiling.
+    "frame_corner": 48, "frame_orn": (200, 322), "frame_run": (120, 160),
+    "frame_side": (100, 140),
+    # Colours, RGBA.
+    "gold": (198, 156, 74, 235), "gold_dim": (150, 116, 56, 200),
+    "stone": (24, 27, 33, 200), "runner": (22, 36, 64, 200),
+    "pillar": (60, 56, 50, 230), "door": (92, 62, 34, 245),
+    "lintel": (20, 18, 16, 235), "throne_field": (26, 20, 14, 245),
+    "seats_field": (20, 18, 16, 235),
+}
+# The cells the Dwarf layout sets; ICUI.RACE_XY.dwf mirrors exactly these.
+DWF_CELLS = ("ic_title", "ic_help", "ic_off_title", "ic_throne") + tuple(sorted(DWF["throne_cells"]))
+# Spec 2.5, layout E: the tier of each hall cell, (column, row).
+HALL_TIER_CELLS = {1: {(1, 0), (3, 0)},
+                   2: {(0, 0), (4, 0), (1, 1), (3, 1)},
+                   3: {(0, 1), (4, 1), (1, 2), (3, 2)},
+                   4: {(0, 2), (4, 2), (1, 3), (3, 3)}}
+DWARF_LUA = os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                         "zzz_derpy_iron_court_dwarf.lua")
+
+
+def _lua_block(src, opener):
+    """The balanced { ... } that follows `opener` in a Lua source, or None."""
+    at = src.find(opener)
+    if at < 0:
+        return None
+    i = src.index("{", at)
+    depth = 0
+    for j in range(i, len(src)):
+        depth += {"{": 1, "}": -1}.get(src[j], 0)
+        if depth == 0:
+            return src[i:j + 1]
+    return None
+
+
+def race_grid(race):
+    """(cols, rows, throne, cells) out of the race table the panel itself reads. The
+    Lua is the one copy; a Python list here would be a second one to drift."""
+    assert race == "dwf", "only the Dwarf race lays a grid"
+    body = _lua_block(io.open(DWARF_LUA, encoding="utf-8").read(), "grid = {")
+    if not body:
+        raise SystemExit("%s has no grid = {...}: phase 2's race table is not there" % DWARF_LUA)
+
+    def num(key):
+        return int(re.search(r"\b%s\s*=\s*(\d+)" % key, body).group(1))
+    throne = tuple(int(v) for v in re.search(r"throne\s*=\s*\{(\d+),\s*(\d+)\}", body).groups())
+    cells = [(int(c), int(r)) for c, r in
+             re.findall(r"\{(\d+),\s*(\d+)\}", body[body.index("cells"):])]
+    return num("cols"), num("rows"), throne, cells
+
 
 def sc(v, bw):
     """One layout number at box width bw. Integers only: game Lua is float32."""
@@ -63,15 +155,28 @@ def box_for(sw, sh):
     return bw, bw * 9 // 16
 
 
-def at_box(bw):
-    """A fresh copy of this module with every layout number scaled to box bw."""
+def at_box(bw, race=None):
+    """A fresh copy of this module with every layout number scaled to box bw, for
+    `race` - by default this copy's own, so a Dwarf copy's _small() is Dwarf too."""
     import importlib.util
-    spec = importlib.util.spec_from_file_location("gen_ic_ui_at_%d" % bw,
+    race = race or RACE
+    spec = importlib.util.spec_from_file_location("gen_ic_ui_at_%d_%s" % (bw, race),
                                                   os.path.abspath(__file__))
     mod = importlib.util.module_from_spec(spec)
     mod.__dict__["_BOX_W"] = bw
+    mod.__dict__["_RACE"] = race
     spec.loader.exec_module(mod)
     return mod
+
+
+_DWF = []
+
+
+def _dwf():
+    """The Dwarf copy at 1920, built once a run: its panel pair and its art."""
+    if not _DWF:
+        _DWF.append(at_box(1920, "dwf"))
+    return _DWF[0]
 
 # ONE PREFIX PER FILE, not per mod. EU.assign restarts its counter for every file
 # it is given, so four files sharing a prefix mint four identical GUID sets - and
@@ -126,13 +231,18 @@ GUID_PREFIXES = {
     "derpy_ic_lawblock.twui.xml":           "IC57",
     "derpy_ic_law_compact.twui.xml":        "IC58",
     "derpy_ic_lawblock_compact.twui.xml":   "IC59",
+    # IC60-IC61 - THE DWARF PANEL (plan 2026-10-04 phase 3) and its compact copy.
+    # Its own file because the title's and the headings' end caps are twui
+    # margins (111 -> 150, 34 -> 80), and SetImagePath cannot change a margin.
+    "derpy_ic_panel_dwf.twui.xml":         "IC60",
+    "derpy_ic_panel_dwf_compact.twui.xml": "IC61",
 }
 
 # Base file -> its compact copy. The opener and the influence plate are HUD
 # pieces beside CA's own UI and are never scaled, so they have none.
 COMPACT_FILES = dict(
     (f, f.replace(".twui.xml", "_compact.twui.xml"))
-    for f in ("derpy_ic_panel.twui.xml", "derpy_ic_card.twui.xml",
+    for f in (PANEL_FILE, "derpy_ic_card.twui.xml",
               "derpy_ic_row.twui.xml", "derpy_ic_party.twui.xml",
               "derpy_ic_plot.twui.xml", "derpy_ic_gm_row.twui.xml",
               "derpy_ic_law.twui.xml", "derpy_ic_lawblock.twui.xml"))
@@ -943,6 +1053,14 @@ CROWN_CELLS = (("ic_control", "ic_control_band") + FX_KEYS
 # that failed.
 CROWN_H = max(_LEFT_BOTTOM, _LEADER_BOTTOM, _GOV_BOTTOM) + CROWN_BAND - CROWN_Y
 PANEL_LAYOUT["ic_crown_box"] = (COL_L_X, CROWN_Y, COL_W, CROWN_H)
+# THE BOOK OF GRUDGES (plan 2026-10-04 phase 5): "The Book names: ..." on a Dwarf
+# court, one line under the Crown's box at the box's inner width. OUTSIDE the
+# box so the Chaos Dwarf box keeps its height; the panel hides it on a Chaos
+# Dwarf court and on every other tab. Cut to fit (CUT_CELLS): CA's three longest
+# faction names run about 1,300px at BODY.
+BOOK_GAP = 8
+PANEL_LAYOUT["ic_book"] = (_CROWN_X, CROWN_Y + CROWN_H + BOOK_GAP,
+                           _CROWN_RIGHT_X + _CROWN_RIGHT_W - _CROWN_X, _CTL_H)
 
 # 1542 not 1560: the last 18px of the list area is the scrollbar column.
 # 61 tall, not 40, to carry a 104x57 face instead of a 66x36 one. Every text
@@ -1037,6 +1155,11 @@ GM_SLIDER_W, GM_SLIDER_GAP, GM_HANDLE_H = 16, 4, 40
 GM_LIST_SILENT = ("listview", "list_clip", "list_box", "vslider")
 GM_LIST_W = GM_ROW_W + GM_SLIDER_GAP + GM_SLIDER_W
 GM_LIST_H = GM_ROWS * GM_ROW_PITCH
+# THE OTHER VIEWS' LIST (author, 2026-10-05: "use the scrollbar implemented by
+# zharr exchange or the derpy great guilds"): the row lists and the Court's party
+# cards scroll in a list made at runtime from GM_LIST_FILE, its slider at the
+# window's right edge. Must match ICUI.LIST_* (import_iron_court compares).
+LIST_SLIDER_W, LIST_SLIDER_GAP, LIST_HANDLE_H = 16, 2, 40
 GM_HF = "ui/skins/default/dlc23_chd_hell_forge/"
 GM_ROW_ART = GM_HF + "button_square_extra_large_%s.png"
 # ITS RAILS, measured off CA's art (122x82, every state): the frame holds rows
@@ -1056,6 +1179,14 @@ GM_COL_ART_W, GM_COL_ART_H = 503, 1080
 GM_HEAD_ART_H = 90
 GM_TOG_LABEL_ART = "ui/skins/default/dlc23_tower_of_zharr/tab_sub_title.png"
 GM_ROUND = "ui/skins/default/button_round_medium_%s.png"
+# THE DWARF BUTTONS ARE BLUE (author, 2026-10-05: "blue buttons, didnt i sake make
+# it thematic?"): the same files out of CA's own blue colour theme, so every plate
+# keeps its geometry and only its colour changes. Rebound in the Dwarf copy only,
+# before any layer is built from them; the pooled files the races share keep CA's
+# red and the panel Lua re-points their buttons (ICUI.skin_buttons, DWF.art.theme).
+DWF_THEME = "ui/skins/wh3_main_theme_caledor_sky/"
+if RACE == "dwf":
+    GM_ROUND = DWF_THEME + "button_round_medium_%s.png"
 GM_TOG_ICONS = {
     "ic_gm_tog_1": "ui/skins/default/dlc23_tower_of_zharr/icon_button_seat_effects.png",
     "ic_gm_tog_2": "ui/skins/default/icon_provinces.png",
@@ -1079,8 +1210,8 @@ GM_PLATES = ["ic_gm_top", "ic_gm_foot", "ic_gm_col"]
 # ziggurat is now a change to IC.OFFICES and nothing else.
 CARDS_X, CARDS_Y = 18, 192
 CARD_GAP_X, CARD_GAP_Y = 16, 14
-CARD_TIERS = sorted(set(o["tier"] for o in IC.OFFICES))
-CARD_WIDEST = max(IC.TIER_SEATS.values())
+CARD_TIERS = sorted(IC.tier_seats(RACE))
+CARD_WIDEST = max(IC.tier_seats(RACE).values()) if RACE == "chd" else race_grid(RACE)[0]
 CARD_W = (CONTENT_W - (CARD_WIDEST - 1) * CARD_GAP_X) // CARD_WIDEST
 CARD_H = ((PANEL_LAYOUT["ic_page_prev"][1] - 6 - CARDS_Y
            - (len(CARD_TIERS) - 1) * CARD_GAP_Y) // len(CARD_TIERS))
@@ -1090,10 +1221,25 @@ CARD_H = ((PANEL_LAYOUT["ic_page_prev"][1] - 6 - CARDS_Y
 # ICUI.apply_scale does in game: rebuilding the grid from a card width rounded
 # down once and multiplied by five ran a tier 2-4px past its column at some
 # widths. The packing gate compares the two sides point by point.
-def card_grid():
+def _grid_xy(cols, c, r):
+    """(x, y) of grid cell (c, r): the band of `cols` cards centred in the content."""
+    band = cols * CARD_W + (cols - 1) * CARD_GAP_X
+    return (CARDS_X + (CONTENT_W - band) // 2 + c * (CARD_W + CARD_GAP_X),
+            CARDS_Y + r * (CARD_H + CARD_GAP_Y))
+
+
+def card_grid(race=None):
+    race = race or RACE
+    if race == "dwf":
+        # A GRID RACE (spec 2.5): one card per office, in IC.OFFICES order, at the
+        # cell its race table names. ICUI.grid_xy is the Lua copy; the packing gate
+        # runs it and compares.
+        cols, _rows, _throne, cells = race_grid(race)
+        return [_grid_xy(cols, c, r) for c, r in cells]
+    seats = IC.tier_seats(race)
     out = []
-    for row, tier in enumerate(CARD_TIERS):
-        n = IC.TIER_SEATS[tier]
+    for row, tier in enumerate(sorted(seats)):
+        n = seats[tier]
         band = n * CARD_W + (n - 1) * CARD_GAP_X
         for col in range(n):
             out.append((CARDS_X + (CONTENT_W - band) // 2
@@ -1102,7 +1248,14 @@ def card_grid():
     return out
 
 
-CARD_GRID = card_grid()
+def throne_box():
+    """The throne's cell at this copy's grid: (x, y, w, h)."""
+    cols, _rows, (c, r), _cells = race_grid("dwf")
+    x, y = _grid_xy(cols, c, r)
+    return (x, y, CARD_W, CARD_H)
+
+
+CARD_GRID = card_grid(RACE)
 
 # THE FILL BUTTON, on the offices tab (author, 2026-09-25): the pager's row,
 # which that tab never uses - fourteen seats never page - centred under the
@@ -1153,17 +1306,24 @@ def plot_cats():
     return re.findall(r'key\s*=\s*"(\w+)"\s*,\s*name\s*=\s*"([^"]+)"', blk)
 
 
-def plot_counts():
-    """How many moves each category holds, in plot_cats() order.
+def plot_counts(race="chd"):
+    """How many moves each category holds for one race, in plot_cats() order.
 
-    Read out of IC.PLOTS' own `cat` fields. A category with no moves counts 0 and
-    draws no column, which is what keeps this honest when one is emptied.
+    Read out of IC.PLOTS' own `cat` fields. A move with `race = "x"` counts for
+    race x only, so the Chaos Dwarf grid stays the one PLOT_COUNTS lays out
+    (plan 2026-10-04 phase 4). A category with no moves counts 0 and draws no
+    column, which is what keeps this honest when one is emptied.
     """
     src = _model_src()
     blk = src[src.index("IC.PLOTS = {"):]
     blk = blk[:blk.index(chr(10) + "}")]
     cats = [c for c, _n in plot_cats()]
-    got = re.findall(r'cat\s*=\s*"(\w+)"', blk)
+    got = []
+    for chunk in re.split(chr(10) + r"    \{", blk)[1:]:
+        r = re.search(r'race\s*=\s*"(\w+)"', chunk)
+        if r and r.group(1) != race:
+            continue
+        got.append(re.search(r'cat\s*=\s*"(\w+)"', chunk).group(1))
     return [got.count(c) for c in cats]
 
 
@@ -1290,6 +1450,22 @@ def check_card_cells(layout, w, h, what):
                     and y1 < y2 + h2 and y2 < y1 + h1
                     and frozenset((n1, n2)) not in CELL_OVERLAP_OK):
                 out.append("%s and %s overlap on the %s" % (n1, n2, what))
+    return out
+
+
+def check_plot_depths():
+    """Every race's move grid fits the card height PLOT_DEPTH was derived for.
+
+    The Chaos Dwarf grid sets the card (PLOT_COUNTS); a race's own move adds a
+    card to one column of that race's grid only, and a column deeper than
+    PLOT_DEPTH would draw its last card under the pager (plan 2026-10-04 phase 4).
+    """
+    out = []
+    for race in ("chd", "dwf"):
+        for (key, _n), n in zip(PLOT_CATS, plot_counts(race)):
+            if n > PLOT_DEPTH:
+                out.append("the %s grid's %s column holds %d moves; cards are sized for %d"
+                           % (race, key, n, PLOT_DEPTH))
     return out
 
 
@@ -1523,6 +1699,8 @@ PARTY_LAYOUT = {
 OPENER_W, OPENER_H = 44, 44
 
 PLATE = "ui/skins/default/button_round_medium_%s.png"
+if RACE == "dwf":
+    PLATE = DWF_THEME + "button_round_medium_%s.png"
 OPENER_SOUND = "UI_GBL_TMP_Round_Medium_Button"
 
 # Body then border: the border draws over the body's edge, so filling the whole
@@ -1588,6 +1766,10 @@ CARD_LAYERS = [
     {"path": "ui/derpy_ic/chd_frame.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 8, "dock": None},
 ]
+# THE FRAME'S LAYER in every file built on CARD_LAYERS: ICUI.skin re-points it for a
+# race whose art has a frame. import_iron_court.py holds the Lua's number to this.
+CARD_FRAME_INDEX = 1
+assert "frame" in CARD_LAYERS[CARD_FRAME_INDEX]["path"]
 # The smallest 9-slice margin that keeps the frame's rim and its rounded
 # corners whole, measured off the trimmed source: the bronze is 3px and the
 # corners round off inside 6. Check 18 holds every use of that texture to it.
@@ -1800,8 +1982,21 @@ def gov_art_sources(lua=None):
                                 "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
     d = re.search(r'ICUI\.LAW_ART_DIR = "([^"]+)"', lua).group(1)
     g = re.search(r"ICUI\.GOV_ART = \{([^}]*)\}", lua)
-    return dict((gov_art_path(k), d + v + ".png")
-                for k, v in re.findall(r'(\w+) = "(\w+)"', g.group(1) if g else ""))
+    out = dict((gov_art_path(k), d + v + ".png")
+               for k, v in re.findall(r'(\w+) = "(\w+)"', g.group(1) if g else ""))
+    out.update((gov_art_path(k + "_dwf"), v) for k, v in dwf_gov_art().items())
+    return out
+
+
+def dwf_gov_art():
+    """{government: CA's path} out of DWF.art.tech_dir and DWF.art.gov_art: the
+    Dwarf cards' pictures, written to gov_<slug>_dwf.png."""
+    text = io.open(DWARF_LUA, encoding="utf-8").read()
+    d = re.search(r'tech_dir = "([^"]+)"', text)
+    t = re.search(r"gov_art = \{([^}]*)\}", text)
+    if not d or not t:
+        return {}
+    return dict((k, d.group(1) + v + ".png") for k, v in re.findall(r'(\w+) = "(\w+)"', t.group(1)))
 
 
 def upscale_art(img, px):
@@ -2338,8 +2533,9 @@ ZIG_RIM_PX = 3
 ZIG_SHRINE = ((0.33, 0.55), (0.15, 1.0))
 
 
-def ziggurat_boxes():
+def ziggurat_boxes(race="chd"):
     """The tower as (x0, y0, x1, y1) in panel pixels: a tier per card row, then the shrine."""
+    assert race == "chd" and RACE == "chd", "the ziggurat is the Chaos Dwarfs' alone, not %s's" % race
     out = []
     for ry in sorted(set(y for _x, y in CARD_GRID)):
         xs = [x for x, y in CARD_GRID if y == ry]
@@ -2361,7 +2557,24 @@ def off_title_box():
     return (zb[-2][0], zb[-1][1] + 4, zb[-2][2] - zb[-2][0], HEADING_H)
 
 
-PANEL_LAYOUT["ic_off_title"] = off_title_box()
+if RACE == "chd":
+    PANEL_LAYOUT["ic_off_title"] = off_title_box()
+# THE DWARF LAYOUT (plan 2026-10-04 phase 3): the lintel and its help button, the
+# hall's title, the throne and its three lines. Everything else is the Chaos Dwarf
+# panel's own cell. The hall picture takes ic_zig_bg's box, from the section line
+# to the lowest card's foot.
+if RACE == "dwf":
+    PANEL_LAYOUT["ic_title"] = DWF["title_box"]
+    PANEL_LAYOUT["ic_help"] = DWF["help_box"]
+    PANEL_LAYOUT["ic_off_title"] = DWF["off_title_box"]
+    PANEL_LAYOUT["ic_throne"] = throne_box()
+    for _n, _b in DWF["throne_cells"].items():
+        PANEL_LAYOUT[_n] = (PANEL_LAYOUT["ic_throne"][0] + _b[0],
+                            PANEL_LAYOUT["ic_throne"][1] + _b[1], _b[2], _b[3])
+    PANEL_LAYOUT["ic_zig_bg"] = (0, PANEL_LAYOUT["ic_zig_bg"][1], PANEL_W,
+                                 max(y for _x, y in CARD_GRID) + CARD_H + ZIG_PAD_Y
+                                 - PANEL_LAYOUT["ic_zig_bg"][1])
+    del _n, _b
 
 
 def ziggurat_pixels():
@@ -2418,6 +2631,96 @@ def check_ziggurat(rows=None, layout=None):
         out.append("ic_zig_bg's top corners are filled: a block, not a ziggurat")
     return out
 
+
+
+def _hall_px(key):
+    return sc(DWF[key], BOX_W)
+
+
+def _cx(c):
+    return CARDS_X + c * (CARD_W + CARD_GAP_X)
+
+
+def _ry(r):
+    return CARDS_Y + r * (CARD_H + CARD_GAP_Y)
+
+
+def hall_boxes():
+    """The hall's stone as (x0, y0, x1, y1): the nave over rows 0-2 across the
+    whole grid, and its foot under columns 1-3 of row 3 (mockup shape_hall)."""
+    pad, top, neck, foot = (_hall_px(k) for k in ("hall_pad", "hall_top", "hall_neck", "hall_foot"))
+    return [(_cx(0) - pad, _ry(0) - top, _cx(4) + CARD_W + pad, _ry(3) - neck),
+            (_cx(1) - pad, _ry(3) - neck, _cx(3) + CARD_W + pad, _ry(3) + CARD_H + foot)]
+
+
+def hall_runner():
+    """The blue runner down the aisle from the throne to the doors."""
+    bottom = hall_boxes()[1][3]
+    return (_cx(2) + _hall_px("runner_in"), _ry(1) - _hall_px("runner_top"),
+            _cx(2) + CARD_W - _hall_px("runner_in"), bottom - _hall_px("runner_foot"))
+
+
+def hall_doors():
+    bottom = hall_boxes()[1][3]
+    return (_cx(2) + _hall_px("door_in"), bottom - _hall_px("door_h"),
+            _cx(2) + CARD_W - _hall_px("door_in"), bottom)
+
+
+def hall_pillars():
+    """The two pillars flanking the aisle, in the gaps either side of column 2."""
+    top, bottom = hall_boxes()[0][1], hall_boxes()[1][3]
+    half, inset = _hall_px("pillar_half"), _hall_px("runner_foot")
+    out = []
+    for x in (_cx(2) - CARD_GAP_X // 2, _cx(2) + CARD_W + CARD_GAP_X // 2):
+        out.append((x - half, top + inset, x + half, bottom - inset))
+    return out
+
+
+def check_hall(cells=None):
+    """THE GREAT HALL (spec 2.5, layout E): the fourteen seats in their tiers' cells,
+    the throne's cell free, every card on the hall's stone, the runner, the doors and
+    the pillars clear of every card, and the hall between its title and the fill
+    button. The picture's half is check_dwf_art."""
+    out = []
+    cols, rows, throne, got = race_grid("dwf")
+    planted = cells is not None
+    cells = got if cells is None else cells
+    tiers = [o["tier"] for o in IC.RACES["dwf"]["OFFICES"]]
+    if len(cells) != len(tiers):
+        out.append("the race table places %d seats and the Dwarf court has %d offices"
+                   % (len(cells), len(tiers)))
+    for t, want in sorted(HALL_TIER_CELLS.items()):
+        have = set(c for c, tier in zip(cells, tiers) if tier == t)
+        if have != want:
+            out.append("tier %d sits at %s, not the spec's %s" % (t, sorted(have), sorted(want)))
+    if len(set(cells)) != len(cells):
+        out.append("two seats share a hall cell")
+    if throne in cells:
+        out.append("a seat stands on the throne's cell %s" % (throne,))
+    for c, r in cells:
+        if not (0 <= c < cols and 0 <= r < rows):
+            out.append("cell %s is outside the %dx%d grid" % ((c, r), cols, rows))
+    boxes = hall_boxes()
+    grid = [_grid_xy(cols, c, r) for c, r in cells] if planted else list(CARD_GRID)
+    clear = [("runner", hall_runner()), ("doors", hall_doors())] + [
+        ("pillar", p) for p in hall_pillars()]
+    for (x, y), cell in zip(grid, cells):
+        if not any(a <= x and b <= y and x + CARD_W <= c and y + CARD_H <= d
+                   for a, b, c, d in boxes):
+            out.append("the card at cell %s stands off the hall's stone" % (cell,))
+        for what, (a, b, c, d) in clear:
+            if x < c and a < x + CARD_W and y < d and b < y + CARD_H:
+                out.append("the card at cell %s covers the hall's %s" % (cell, what))
+    zx, zy, zw, zh = PANEL_LAYOUT["ic_zig_bg"]
+    if max(d for _a, _b, _c, d in boxes) > zy + zh:
+        out.append("the hall runs past its picture's box (bottom %d)" % (zy + zh))
+    if zy + zh > PANEL_LAYOUT["ic_fill"][1]:
+        out.append("the hall ends at %d, under the fill button at %d"
+                   % (zy + zh, PANEL_LAYOUT["ic_fill"][1]))
+    ot = PANEL_LAYOUT["ic_off_title"]
+    if ot[1] + ot[3] > min(b for _a, b, _c, _d in boxes):
+        out.append("THE GREAT HALL's title runs onto the hall")
+    return out
 
 def plate_pixels(hexcol):
     """RGBA bytes for one plate. Pure function of the colour - no PIL needed."""
@@ -3045,6 +3348,10 @@ def art_paths():
     # the next --write and would never reach the pack at all: a blank square
     # behind the whole panel, with nothing in the log.
     out.add(PANEL_BG)
+    # The Chaos Dwarf backdrop and every Dwarf picture, whichever race this copy is:
+    # the pack ships both, and write_plates() prunes anything not named here.
+    out.add("ui/derpy_ic/panel_bg.png")
+    out.update(dwf_art_paths())
     # CA's Chaos Dwarf art, trimmed: cut from the game, not rasterised. See CHD_CUTS.
     out.update(CHD_CUTS)
     out.update(gov_art_sources())
@@ -3122,6 +3429,817 @@ def cut_chd_art(quiet=False):
     return written
 
 
+# ---------------------------------------------------------------------------
+# THE DWARF PLATES (plan 2026-10-04 phase 3; spec 2.6). Cut from CA's Book of
+# Grudges kit and baked to their components' exact 1920 sizes, the way the approved
+# mockup dwf_skin_mockup2.py builds them: caps and corners at a UNIFORM scale, runs
+# mirror-tiled, nothing stretched. The game's own art, read offline.
+DWF_SRC = "ui/skins/default/dlc25_book_of_grudges/"
+DWF_BACKDROP_SRC = "ui/loading_ui/load_images/campaign_dwarfs1.png"
+DWF_OPENER_ICON = "ui/skins/default/icon_book_grudges.png"
+DWF_TAB = PLATE_DIR + "/dwf_tab_%s_%dx%d.png"
+DWF_FRAME = PLATE_DIR + "/dwf_frame_%dx%d.png"
+DWF_LINTEL = PLATE_DIR + "/dwf_title.png"
+DWF_HEADING = PLATE_DIR + "/dwf_heading.png"
+DWF_HEADING_BARE = PLATE_DIR + "/dwf_heading_bare.png"
+DWF_HALL = PLATE_DIR + "/dwf_hall.png"
+DWF_THRONE = PLATE_DIR + "/dwf_throne.png"
+DWF_SEATS = PLATE_DIR + "/dwf_seats.png"
+DWF_PANEL_BG = PLATE_DIR + "/dwf_panel_bg.png"
+DWF_TAB_STATES = ("active", "hover", "selected")
+# The lit plate is the gold one in both image slots; the unlit tab is blue, a shade
+# lighter under the cursor.
+DWF_RIBBON = {"active": "tab_button_unit_pack_active.png",
+              "hover": "tab_button_unit_pack_selected.png",
+              "selected": "tab_button_legendary_grudges_selected.png"}
+# (left cap, middle start, middle end, right cap) in CA's source pixels, measured.
+DWF_RIBBON_CUTS = {"tab_button_unit_pack_active.png": (34, 34, 144, 34),
+                   "tab_button_unit_pack_selected.png": (34, 34, 151, 62),
+                   "tab_button_legendary_grudges_selected.png": (34, 34, 151, 62)}
+# Every panel plate _panel() gives CARD_LAYERS: each gets a knot frame baked to it.
+DWF_FRAMED = tuple(LAW_PLATES) + ("ic_help_box", "ic_dial_box", "ic_crown_box", "ic_gm_col")
+INK = 245.0          # cream #FFF8D7, Rec.709 luminance
+MIN_RATIO = 4.5
+
+_CA_PNG = {}
+
+
+def _ca_png(pack, path):
+    """CA's picture out of the installed pack as RGBA, or None with no game."""
+    if (pack, path) not in _CA_PNG:
+        import io as _io
+        import read_pack_index as RPI
+        from read_vanilla_loc import _decompress
+        from PIL import Image
+        full, data = os.path.join(GAME_DATA, pack), None
+        if os.path.isfile(full):
+            for p, comp, blob in RPI.read(full, path):
+                if p.lower() == path:
+                    data = _decompress(blob) if comp else blob
+        _CA_PNG[(pack, path)] = (Image.open(_io.BytesIO(data)).convert("RGBA")
+                                 if data and data[:4] == b"\x89PNG" else None)
+    return _CA_PNG[(pack, path)]
+
+
+def _bog(name):
+    img = _ca_png("ui2.pack", DWF_SRC + name)
+    assert img is not None, "%s%s is not in ui2.pack" % (DWF_SRC, name)
+    return img
+
+
+def _scale_h(im, h):
+    """A UNIFORM scale to height h: the art keeps its proportions."""
+    from PIL import Image
+    return im.resize((max(1, round(im.width * h / im.height)), h), Image.LANCZOS)
+
+
+def _scale(im, k):
+    from PIL import Image
+    return im.resize((max(1, round(im.width * k)), max(1, round(im.height * k))), Image.LANCZOS)
+
+
+def _tile_x(seg, w, mirror=False):
+    """seg repeated across w; mirror flips every other copy so no join shows a seam."""
+    from PIL import Image
+    out = Image.new("RGBA", (max(1, w), seg.height), (0, 0, 0, 0))
+    flip = seg.transpose(Image.FLIP_LEFT_RIGHT)
+    x, k = 0, 0
+    while x < w:
+        piece = flip if (mirror and k % 2) else seg
+        out.alpha_composite(piece.crop((0, 0, min(piece.width, w - x), piece.height)), (x, 0))
+        x += seg.width
+        k += 1
+    return out
+
+
+def _tile_y(seg, h):
+    from PIL import Image
+    out = Image.new("RGBA", (seg.width, max(1, h)), (0, 0, 0, 0))
+    y = 0
+    while y < h:
+        out.alpha_composite(seg.crop((0, 0, seg.width, min(seg.height, h - y))), (0, y))
+        y += seg.height
+    return out
+
+
+def _gold(im, colour=None):
+    """CA's art as a silhouette in our gold: its alpha, one colour."""
+    from PIL import Image
+    g = Image.new("RGBA", im.size, (colour or DWF["gold"])[:3] + (255,))
+    g.putalpha(im.split()[3])
+    return g
+
+
+def _chamfer(x0, y0, x1, y1, c):
+    return [(x0 + c, y0), (x1 - c, y0), (x1, y0 + c), (x1, y1 - c),
+            (x1 - c, y1), (x0 + c, y1), (x0, y1 - c), (x0, y0 + c)]
+
+
+def _dim(im, k):
+    from PIL import Image
+    if k == 1.0:
+        return im
+    r, g, b, a = im.split()
+    rgb = Image.merge("RGB", (r, g, b)).point(lambda v: int(v * k))
+    return Image.merge("RGBA", rgb.split() + (a,))
+
+
+def dwf_ribbon(state, w, h, dim=None):
+    """A tab ribbon for a w x h tab, baked tab_grow taller (its layer is lifted
+    tab_lift and grown tab_grow, so the field centres on the cell). The blue field is
+    dimmed so cream reads at 4.5:1; check_dwf_contrast holds both halves."""
+    from PIL import Image
+    name = DWF_RIBBON[state]
+    src = _bog(name)
+    H = h + DWF["tab_grow"]
+    lc, m0, m1, rc = DWF_RIBBON_CUTS[name]
+    left = _scale_h(src.crop((0, 0, lc, src.height)), H)
+    right = _scale_h(src.crop((src.width - rc, 0, src.width, src.height)), H)
+    mid = _scale_h(src.crop((m0, 0, m1, src.height)), H)
+    out = Image.new("RGBA", (w, H), (0, 0, 0, 0))
+    out.alpha_composite(_tile_x(mid, w - left.width - right.width, mirror=True), (left.width, 0))
+    out.alpha_composite(left, (0, 0))
+    out.alpha_composite(right, (w - right.width, 0))
+    return _dim(out, DWF["ribbon_dim"][state] if dim is None else dim)
+
+
+def dwf_knot_frame(w, h, k=1.0):
+    """CA's confederation knotwork frame built to w x h at scale k: corners and the
+    top ornament at k, the straight runs and sides tiled (mockup frame_img)."""
+    from PIL import Image
+    src = _bog("book_of_grudges_confederation_frame.png")
+    if k != 1.0:
+        src = _scale(src, k)
+    sw, sh = src.size
+
+    def s(v):
+        return round(v * k)
+    c = s(DWF["frame_corner"])
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    top, bot = src.crop((0, 0, sw, c)), src.crop((0, sh - c, sw, sh))
+    orn = top.crop((s(DWF["frame_orn"][0]), 0, s(DWF["frame_orn"][1]), c))
+    run_t = top.crop((s(DWF["frame_run"][0]), 0, s(DWF["frame_run"][1]), c))
+    run_b = bot.crop((s(DWF["frame_run"][0]), 0, s(DWF["frame_run"][1]), c))
+    side_l = src.crop((0, s(DWF["frame_side"][0]), c, s(DWF["frame_side"][1])))
+    side_r = src.crop((sw - c, s(DWF["frame_side"][0]), sw, s(DWF["frame_side"][1])))
+    out.alpha_composite(_tile_y(side_l, h - c * 2), (0, c))
+    out.alpha_composite(_tile_y(side_r, h - c * 2), (w - c, c))
+    out.alpha_composite(_tile_x(run_t, w - c * 2), (c, 0))
+    out.alpha_composite(_tile_x(run_b, w - c * 2), (c, h - c))
+    if orn.width <= w - c * 2:
+        out.alpha_composite(orn, ((w - orn.width) // 2, 0))
+    for sx, sy, dx, dy in ((0, 0, 0, 0), (sw - c, 0, w - c, 0),
+                           (0, sh - c, 0, h - c), (sw - c, sh - c, w - c, h - c)):
+        out.alpha_composite(src.crop((sx, sy, sx + c, sy + c)), (dx, dy))
+    return out
+
+
+def _ink_in(img, cells, alpha=32):
+    """True when the picture's ink (alpha over `alpha`) reaches into any cell."""
+    a = img.split()[3]
+    for x, y, cw, ch in cells:
+        box = (max(0, x), max(0, y), min(img.width, x + cw), min(img.height, y + ch))
+        if box[2] > box[0] and box[3] > box[1] and a.crop(box).getextrema()[1] > alpha:
+            return True
+    return False
+
+
+def _on_rim(cell, w, h, px=3):
+    """True when a cell comes within px of its box's edge: the layout lays it ON
+    the frame, as the Chaos Dwarf skin's bronze frame lies under it too."""
+    x, y, cw, ch = cell
+    return x < px or y < px or x + cw > w - px or y + ch > h - px
+
+
+def dwf_frame_cells(w, h, rim=False):
+    """Every cell drawn inside a box of this 1920 size, relative to the box: the
+    pooled card's own cells, or the panel cells a framed panel plate holds. Only
+    the cells clear of the rim, unless rim: those are the ones a frame must miss."""
+    if not rim:
+        return [c for c in dwf_frame_cells(w, h, rim=True) if not _on_rim(c, w, h)]
+    out = []
+    for pool, layout in (("card", CARD_LAYOUT), ("party", PARTY_LAYOUT),
+                         ("plot", PLOT_LAYOUT), ("law", LAW_LAYOUT)):
+        if POOL_1920[pool] == (w, h):
+            out += list(layout.values())
+    for n in DWF_FRAMED:
+        x, y, bw, bh = PANEL_LAYOUT_1920[n]
+        if (bw, bh) != (w, h):
+            continue
+        for m, (cx, cy, cw, ch) in PANEL_LAYOUT_1920.items():
+            if m == n or m in DWF_FRAMED:
+                continue
+            if x <= cx and y <= cy and cx + cw <= x + bw and cy + ch <= y + bh:
+                out.append((cx - x, cy - y, cw, ch))
+    return out
+
+
+def dwf_knot_scale(w, h, cells=None):
+    """The largest twentieth from 1.0 down to 0.4 at which the knot frame's ink
+    stays out of every cell inside the box. Measured, never typed per box."""
+    cells = dwf_frame_cells(w, h) if cells is None else cells
+    for i in range(20, 7, -1):
+        k = i / 20.0
+        if round(DWF["frame_corner"] * k) * 2 >= min(w, h):
+            continue
+        if not _ink_in(dwf_knot_frame(w, h, k), cells):
+            return k
+    return None
+
+
+def dwf_frame(w, h):
+    """The frame a w x h box wears: CA's knotwork at the largest scale that clears
+    its cells, or - where a cell lies on the rim, or no scale clears them, as on
+    the law card, whose effect lines run to 2px off its right edge - a 2px
+    chamfered gold rule, the seats plate's."""
+    k = None
+    if not any(_on_rim(c, w, h) for c in dwf_frame_cells(w, h, rim=True)):
+        k = dwf_knot_scale(w, h)
+    if k is not None:
+        return dwf_knot_frame(w, h, k)
+    from PIL import Image, ImageDraw
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    poly = _chamfer(0, 0, w - 1, h - 1, DWF["seats_chamfer"])
+    ImageDraw.Draw(im).line(poly + [poly[0]], fill=DWF["gold"], width=2)
+    return im
+
+
+def dwf_lintel():
+    """THE TITLE'S LINTEL (spec 2.6, title A): dark stone, a gold rule, the gold Dwarf
+    face in the left cap. 2*title_cap + 16 wide; its middle columns are identical."""
+    from PIL import Image, ImageDraw
+    cap, h = DWF["title_cap"], DWF["title_box"][3]
+    w = cap * 2 + 16
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    poly = _chamfer(0, 0, w - 1, h - 1, DWF["lintel_chamfer"])
+    d.polygon(poly, fill=DWF["lintel"])
+    d.line(poly + [poly[0]], fill=DWF["gold"], width=3)
+    inner = _chamfer(6, 6, w - 7, h - 7, DWF["lintel_chamfer"] - 3)
+    d.line(inner + [inner[0]], fill=DWF["gold_dim"], width=1)
+    face = _gold(_scale_h(_bog("book_of_grudges_legendary_grudges_decor_2.png"), h - 10))
+    assert face.width + 8 <= cap, "the face (%dpx) overruns the %dpx cap" % (face.width, cap)
+    im.alpha_composite(face, (8, 5))
+    return im
+
+
+def dwf_heading(bare=False):
+    """THE HEADING PLATE (spec 2.6, headings B): CA's units-header mark in gold at
+    each end and, unless bare, a 2px gold rule under the words ending in the knot
+    rule's diamonds. Transparent between: the words stand on the backdrop, which
+    make_ic_backdrop measures them against. 2*heading_cap + 16 wide; flat middle."""
+    from PIL import Image, ImageDraw
+    cap, h = DWF["heading_cap"], HEADING_H
+    w = cap * 2 + 16
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    mark = _gold(_scale(_bog("decor_units_header.png"), DWF["mark_scale"]))
+    assert DWF["mark_x"] + mark.width <= cap, "the heading mark overruns the cap"
+    y = DWF["mark_mid"] - mark.height // 2
+    im.alpha_composite(mark, (DWF["mark_x"], y))
+    im.alpha_composite(mark.transpose(Image.FLIP_LEFT_RIGHT),
+                       (w - DWF["mark_x"] - mark.width, y))
+    if not bare:
+        ry = DWF["rule_y"]
+        ImageDraw.Draw(im).rectangle((0, ry, w - 1, ry + 1), fill=DWF["gold"])
+        rule = _bog("book_of_grudges_confederation_decor_2.png")
+        dia = _gold(_scale_h(rule.crop((0, 0, rule.height, rule.height)), DWF["diamond"]))
+        dy = ry + 1 - dia.height // 2
+        im.alpha_composite(dia, (0, dy))
+        im.alpha_composite(dia.transpose(Image.FLIP_LEFT_RIGHT), (w - dia.width, dy))
+    return im
+
+
+def dwf_hall():
+    """THE GREAT HALL in ic_zig_bg's box (mockup shape_hall, round 3): stone with a
+    gold rim, the blue runner from the throne to the doors, two pillars, the doors
+    with their runes, runes down the runner, and CA's knot rule under the title."""
+    from PIL import Image, ImageDraw
+    x0, y0, w, h = PANEL_LAYOUT_1920["ic_zig_bg"]
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+
+    def rel(b):
+        return (b[0] - x0, b[1] - y0, b[2] - x0 - 1, b[3] - y0 - 1)
+    nave, foot = hall_boxes()
+    for b in (nave, foot):
+        d.rectangle(rel(b), fill=DWF["stone"])
+    a, b, c, e = rel(nave)
+    fa, _fb, fc, fe = rel(foot)
+    rim = [(a, b), (c, b), (c, e), (fc, e), (fc, fe), (fa, fe), (fa, e), (a, e), (a, b)]
+    d.line(rim, fill=DWF["gold"], width=DWF["hall_rim"])
+    ra, rb, rc, re_ = rel(hall_runner())
+    d.rectangle((ra, rb, rc, re_), fill=DWF["runner"])
+    for rx in (ra, rc):
+        d.line([(rx, rb), (rx, re_)], fill=DWF["gold"], width=2)
+    for p in hall_pillars():
+        d.rectangle(rel(p), fill=DWF["pillar"], outline=DWF["gold_dim"])
+    # TWO DOOR LEAVES, each with a rune, the knobs either side of the join.
+    da, db, dc, de = rel(hall_doors())
+    mid, i, k = (da + dc) // 2, DWF["door_inset"], DWF["knob"]
+    leaves = ((da, mid - 2), (mid + 2, dc))
+    for a, b in leaves:
+        d.rectangle((a, db, b, de - DWF["runner_foot"]), fill=DWF["door"], outline=DWF["gold"])
+        d.rectangle((a + i, db + i, b - i, de - DWF["runner_foot"] - i),
+                    outline=DWF["gold_dim"], width=2)
+    for kx in (mid - 5, mid + 5):
+        d.ellipse((kx - k + 1, db + 26, kx + k - 1, db + 32), fill=DWF["gold"])
+
+    def rune(n):
+        # CA's rune in its own glow, at its own size: the mockup's.
+        g = _bog("rune_%d_panel.png" % n)
+        return g.crop(g.getbbox())
+    for n, (a, b) in zip((1, 3), leaves):
+        g = rune(n)
+        im.alpha_composite(g, ((a + b) // 2 - g.width // 2, db + 10))
+    y, n = rb + DWF["runner_top"] + DWF["rune_top"], 0
+    while y < db - DWF["rune_clear"]:
+        g = rune(n % 5 + 1)
+        im.alpha_composite(g, ((ra + rc) // 2 - g.width // 2, y))
+        y += DWF["rune_step"]
+        n += 1
+    rule = _gold(_bog("book_of_grudges_confederation_decor_2.png"))
+    im.alpha_composite(rule, (w // 2 - rule.width // 2, DWF["hall_rule_y"] - y0))
+    return im
+
+
+def dwf_throne():
+    """THE THRONE (spec 2.5): a dark field in the knot frame, CA's Dwarf-face
+    ornament in gold at half size above the three lines."""
+    from PIL import Image, ImageDraw
+    _x, _y, w, h = PANEL_LAYOUT_1920["ic_throne"]
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    ImageDraw.Draw(im).rectangle((0, 0, w - 1, h - 1), fill=DWF["throne_field"])
+    cells = list(DWF["throne_cells"].values())
+    im.alpha_composite(dwf_knot_frame(w, h, dwf_knot_scale(w, h, cells)))
+    face = _gold(_scale(_bog("book_of_grudges_unit_pack_decor.png"), DWF["throne_face"]))
+    im.alpha_composite(face, ((w - face.width) // 2, DWF["throne_face_top"]))
+    return im
+
+
+def dwf_seats(w=None, h=None, chamfer=None):
+    """The seats counter's plate: a chamfered dark field in a gold rule."""
+    from PIL import Image, ImageDraw
+    if w is None:
+        _x, _y, w, h = PANEL_LAYOUT_1920["ic_influence"]
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    poly = _chamfer(0, 0, w - 1, h - 1, DWF["seats_chamfer"] if chamfer is None else chamfer)
+    d.polygon(poly, fill=DWF["seats_field"])
+    d.line(poly + [poly[0]], fill=DWF["gold"], width=2)
+    return im
+
+
+# THE GOVERNORS VIEW IN CA'S DWARF SKIN (author, 2026-10-05, of the Governors view:
+# "change it to dwarf themed, then approved"). Thorek's forge panel is the Dwarf
+# twin of the Hell-Forge side panel, and its leather strip with knot corners plates
+# every band, label and holder the Hell-Forge's sub_title plated - baked to each
+# cell's 1920 box, the corners whole and the runs mirror-tiled, as every Dwarf
+# plate is. The tab marker's glow is the Hell-Forge's own, its heat turned blue.
+DWF_SKIN = "ui/skins/wh_main_dwf_dwarfs/"
+DWF_STRIP_SRC = DWF_SKIN + "mortuary_cult_top_strip.png"
+DWF_STRIP = PLATE_DIR + "/dwf_strip_%dx%d.png"
+DWF_STRIP_CORNER = (36, 14)         # the knot corner, in the strip's own pixels
+DWF_STRIP_RAIL = (2, 8)             # its rim above the field and rim and shadow below
+DWF_STRIP_CELLS = ("ic_gm_top", "ic_gm_foot", "ic_gm_btns", "ic_gm_tog_lbl_1", "ic_gm_tog_lbl_2")
+DWF_GM_HEAD = DWF_SKIN + "mortuary_cult_title_frame.png"
+DWF_GM_HEAD_CAP = 120               # its knot arms, either side of the dark field
+DWF_GM_PIN = DWF_SKIN + "location_pin.png"
+DWF_TOG_ICON = DWF_SKIN + "icon_oaths.png"
+DWF_MARK = PLATE_DIR + "/dwf_mark.png"
+# THE READOUTS BESIDE CA'S PANELS (the influence plate on the character panel,
+# the governor note by the edicts) on the seats counter's Dwarf plate (phase 3
+# final review). Their files are shared and slice with SEATS_LAYERS' margin, so
+# the chamfer is that margin and the corners stay whole however wide the words.
+DWF_NOTE = PLATE_DIR + "/dwf_note.png"
+DWF_MARK_PX = 128
+DWF_MARK_RGB = (70, 160, 255)
+
+
+def dwf_strip_sizes():
+    """Every box the strip is baked to: the view's bands and labels, and the map
+    pin's two plates (the Lua's DWF.art.gm_name and gm_loyal)."""
+    sizes = set(tuple(PANEL_LAYOUT_1920[n][2:]) for n in DWF_STRIP_CELLS)
+    sizes.add(tuple(GM_NAME_PLATE_BOX[2:]))
+    sizes.add((GM_LOYAL_W, GM_LOYAL_H))
+    return sorted(sizes)
+
+
+def dwf_strip(w, h):
+    """CA's Dwarf strip at w x h: shrunk whole below its own height, knot corners kept
+    whole above it, every run between them mirror-tiled."""
+    from PIL import Image
+    src = _ca_png("ui2.pack", DWF_STRIP_SRC)
+    assert src is not None, "%s is not in ui2.pack" % DWF_STRIP_SRC
+    if h < src.height:
+        src = _scale_h(src, h)
+    k = src.height / 46.0
+    cw, ch = max(1, round(DWF_STRIP_CORNER[0] * k)), max(1, round(DWF_STRIP_CORNER[1] * k))
+    ch = min(ch, h // 2)
+
+    def band(y0, y1):
+        b = src.crop((0, y0, src.width, y1))
+        out = Image.new("RGBA", (w, b.height), (0, 0, 0, 0))
+        out.alpha_composite(b.crop((0, 0, cw, b.height)), (0, 0))
+        out.alpha_composite(_tile_x(b.crop((cw, 0, b.width - cw, b.height)), w - 2 * cw, mirror=True), (cw, 0))
+        out.alpha_composite(b.crop((b.width - cw, 0, b.width, b.height)), (w - cw, 0))
+        return out
+    out = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    out.alpha_composite(band(0, ch), (0, 0))
+    if h - 2 * ch > 0:
+        out.alpha_composite(_tile_y(band(ch, src.height - ch), h - 2 * ch), (0, ch))
+    out.alpha_composite(band(src.height - ch, src.height), (0, h - ch))
+    return out
+
+
+def dwf_strip_rails(name, h):
+    """The strip's rim above and below its field in cell `name` drawn h tall: baked
+    at the 1920 box (shrunk whole under 46, rims whole above), then scaled with the
+    cell. Rounded UP to the hundredth a ty is written in, so a word set by it sits
+    inside the field rather than a rounding inside the rim."""
+    import math
+    full = PANEL_LAYOUT_1920[name][3]
+    return tuple(math.ceil(r * min(1.0, full / 46.0) * h / full * 100) / 100.0
+                 for r in DWF_STRIP_RAIL)
+
+
+def dwf_mark():
+    """The Hell-Forge heat glow with its heat turned blue: its own light, a new hue."""
+    from PIL import Image
+    src = _ca_png("ui2.pack", "ui/skins/default/dlc23_chd_hell_forge/heat_glow.png")
+    assert src is not None, "the heat glow is not in ui2.pack"
+    src = src.resize((DWF_MARK_PX, DWF_MARK_PX), Image.LANCZOS)
+    lum = src.convert("L")
+    peak = max(1, lum.getextrema()[1])
+    out = Image.new("RGBA", src.size, (0, 0, 0, 0))
+    px = [tuple(min(255, int(c * l / peak + 255 * max(0, l - peak * 0.8) / peak)) for c in DWF_MARK_RGB)
+          for l in lum.getdata()]
+    out.putdata([p + (a,) for p, a in zip(px, src.split()[3].getdata())])
+    return out
+
+
+def dwf_tab_sizes():
+    """Every tab-shaped cell's 1920 size: the tabs, the help topics, the law buttons."""
+    return sorted(set(tuple(PANEL_LAYOUT_1920[n][2:]) for n in PANEL_LAYOUT_1920
+                      if n.startswith(("ic_tab_", "ic_help_topic_")) or n in LAW_TAB_BUTTONS))
+
+
+def dwf_frame_sizes():
+    sizes = set(POOL_1920.values())
+    sizes.update(tuple(PANEL_LAYOUT_1920[n][2:]) for n in DWF_FRAMED)
+    return sorted(sizes)
+
+
+def dwf_art_paths():
+    """Every Dwarf picture this pack owns, named without rasterising any of it."""
+    out = {DWF_LINTEL, DWF_HEADING, DWF_HEADING_BARE, DWF_HALL, DWF_THRONE, DWF_SEATS,
+           DWF_PANEL_BG}
+    for w, h in dwf_tab_sizes():
+        for st in DWF_TAB_STATES:
+            out.add(DWF_TAB % (st, w, h))
+    for w, h in dwf_frame_sizes():
+        out.add(DWF_FRAME % (w, h))
+    for w, h in dwf_strip_sizes():
+        out.add(DWF_STRIP % (w, h))
+    out.add(DWF_MARK)
+    out.add(DWF_NOTE)
+    return out
+
+
+def _dwf_size(path):
+    """The size a Dwarf picture's name promises."""
+    m = re.search(r"_(\d+)x(\d+)\.png$", path)
+    if m:
+        w, h = int(m.group(1)), int(m.group(2))
+        return (w, h + DWF["tab_grow"]) if "/dwf_tab_" in path else (w, h)
+    return {DWF_LINTEL: (DWF["title_cap"] * 2 + 16, DWF["title_box"][3]),
+            DWF_HEADING: (DWF["heading_cap"] * 2 + 16, HEADING_H),
+            DWF_HEADING_BARE: (DWF["heading_cap"] * 2 + 16, HEADING_H),
+            DWF_HALL: tuple(PANEL_LAYOUT_1920["ic_zig_bg"][2:]),
+            DWF_THRONE: tuple(PANEL_LAYOUT_1920["ic_throne"][2:]),
+            DWF_SEATS: tuple(PANEL_LAYOUT_1920["ic_influence"][2:]),
+            DWF_MARK: (DWF_MARK_PX, DWF_MARK_PX),
+            DWF_NOTE: (EDICT_NOTE_W, EDICT_NOTE_H),
+            DWF_PANEL_BG: (PANEL_W, PANEL_H)}[path]
+
+
+_PLATES = []
+
+
+def dwf_plates():
+    """{in-pack path: PIL image} for every Dwarf plate but the backdrop. Only the
+    Dwarf copy at 1920 bakes: the throne's and the hall's boxes are its cells."""
+    assert RACE == "dwf" and BOX_W == 1920, "bake the Dwarf plates from _dwf()"
+    if _PLATES:
+        return _PLATES[0]
+    out = {DWF_LINTEL: dwf_lintel(), DWF_HEADING: dwf_heading(),
+           DWF_HEADING_BARE: dwf_heading(bare=True), DWF_HALL: dwf_hall(),
+           DWF_THRONE: dwf_throne(), DWF_SEATS: dwf_seats()}
+    for w, h in dwf_tab_sizes():
+        for st in DWF_TAB_STATES:
+            out[DWF_TAB % (st, w, h)] = dwf_ribbon(st, w, h)
+    for w, h in dwf_frame_sizes():
+        out[DWF_FRAME % (w, h)] = dwf_frame(w, h)
+    for w, h in dwf_strip_sizes():
+        out[DWF_STRIP % (w, h)] = dwf_strip(w, h)
+    out[DWF_MARK] = dwf_mark()
+    out[DWF_NOTE] = dwf_seats(EDICT_NOTE_W, EDICT_NOTE_H, SEATS_LAYERS[0]["margin"])
+    _PLATES.append(out)
+    return out
+
+
+def _flat_middle(img, cap):
+    """True when every column between the caps is the same column."""
+    mid = img.crop((cap, 0, img.width - cap, img.height))
+    first = mid.crop((0, 0, 1, mid.height)).tobytes()
+    return all(mid.crop((x, 0, x + 1, mid.height)).tobytes() == first for x in range(mid.width))
+
+
+def _disk_plates():
+    from PIL import Image
+    out = {}
+    for path in sorted(dwf_art_paths() - {DWF_PANEL_BG}):
+        disk = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
+        if os.path.isfile(disk):
+            out[path] = Image.open(disk).convert("RGBA")
+    return out
+
+
+def check_dwf_art():
+    """Every Dwarf picture is on disk, listed in art_paths(), the size its component
+    draws it at, what this generator bakes today, and flat where it is nine-sliced;
+    and every card stands on the hall's stone in the picture, not only in the boxes."""
+    from PIL import Image, ImageChops
+    out = []
+    disk = _disk_plates()
+    # art_paths() redraws every plate, which is drawn at the base box only.
+    listed = art_paths() if BOX_W == 1920 else None
+    for path in sorted(dwf_art_paths()):
+        if listed is not None and path not in listed:
+            out.append("%s is not in art_paths(): write_plates() prunes it" % path)
+        if path == DWF_PANEL_BG:
+            # NOT BAKED HERE: make_ic_backdrop.py cuts and dims it (it measures every
+            # text cell against it). Here only that it is there and the panel's size
+            # at 1920, the one size it is cut at: the engine stretches it at others.
+            bg = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
+            if not os.path.isfile(bg):
+                out.append("%s is not written: run py tools/make_ic_backdrop.py --race dwf" % path)
+            elif BOX_W == 1920 and Image.open(bg).size != (PANEL_W, PANEL_H):
+                out.append("%s is %dx%d, not the panel's %dx%d"
+                           % ((path,) + Image.open(bg).size + (PANEL_W, PANEL_H)))
+            continue
+        if path not in disk:
+            out.append("%s is not written: run py tools/gen_ic_ui.py" % path)
+            continue
+        if disk[path].size != _dwf_size(path):
+            out.append("%s is %dx%d, its component draws %dx%d"
+                       % ((path,) + disk[path].size + _dwf_size(path)))
+    # THE DRIFT CHECK, in the Dwarf copy at 1920 only: that copy bakes the plates
+    # itself, and a copy at another box would bake a second set to compare with.
+    if disk and BOX_W == 1920 and _ca_png("ui2.pack", DWF_SRC + "decor_units_header.png") is not None:
+        for path, img in sorted(dwf_plates().items()):
+            have = disk.get(path)
+            if have is not None and ImageChops.difference(have, img).getbbox():
+                out.append("%s on disk differs from what this generator bakes" % path)
+    for path, cap in ((DWF_LINTEL, DWF["title_cap"]), (DWF_HEADING, DWF["heading_cap"]),
+                      (DWF_HEADING_BARE, DWF["heading_cap"])):
+        if path in disk and not _flat_middle(disk[path], cap):
+            out.append("%s is not flat between its caps: the 9-slice would stretch a picture"
+                       % path)
+    hall = disk.get(DWF_HALL)
+    if hall is not None and RACE == "dwf":
+        x0, y0, w, h = PANEL_LAYOUT["ic_zig_bg"]
+        a = hall.split()[3].resize((w, h))
+        for cx, cy in CARD_GRID:
+            for px, py in ((cx - 1, cy - 1), (cx + CARD_W, cy - 1),
+                           (cx - 1, cy + CARD_H), (cx + CARD_W, cy + CARD_H)):
+                u, v = px - x0, py - y0
+                if not (0 <= u < w and 0 <= v < h) or a.getpixel((u, v)) == 0:
+                    out.append("the card at (%d, %d) hangs off the hall's picture at (%d, %d)"
+                               % (cx, cy, px, py))
+    return out
+
+
+def _lum_q(img, box, q):
+    """Luminance quantile q (Rec.709 of the stored values, composited on black)."""
+    from PIL import Image
+    ground = Image.new("RGBA", img.size, (0, 0, 0, 255))
+    ground.alpha_composite(img)
+    raw = ground.convert("RGB").crop(box).tobytes()
+    lum = sorted(0.2126 * raw[i] + 0.7152 * raw[i + 1] + 0.0722 * raw[i + 2]
+                 for i in range(0, len(raw), 3))
+    return lum[min(len(lum) - 1, int(len(lum) * q))]
+
+
+def _cream(p95):
+    return (INK / 255.0 + 0.05) / (p95 / 255.0 + 0.05)
+
+
+def _dark(p5):
+    return (p5 / 255.0 + 0.05) / 0.05
+
+
+def _ribbon_field(img, inset):
+    """(top, bottom) rows of the ribbon's flat field: the rows whose median luminance
+    is within 12 of the middle row's, grown out from the middle."""
+    def med(y):
+        return _lum_q(img, (inset, y, img.width - inset, y + 1), 0.5)
+    rows = [med(y) for y in range(img.height)]
+    m = img.height // 2
+    a = b = m
+    while a > 0 and abs(rows[a - 1] - rows[m]) <= 12:
+        a -= 1
+    while b < img.height - 1 and abs(rows[b + 1] - rows[m]) <= 12:
+        b += 1
+    return a, b + 1
+
+
+def check_dwf_contrast(images=None):
+    """THE RIBBONS AND THE PLATES, against their own ground (spec section 10): cream
+    at 4.5:1 on the blue ribbon (active and hover), dark ink at 4.5:1 on the gold
+    lit ribbon, cream on the lintel, the throne's three lines and the seats plate.
+    And each blue dim is the LARGEST hundredth that passes: a ribbon darker than it
+    needs is a fault too."""
+    out = []
+    plates = _disk_plates() if images is None else images
+    inset = DWF["tab_text_inset"]
+    for w, h in dwf_tab_sizes():
+        for st in DWF_TAB_STATES:
+            img = plates.get(DWF_TAB % (st, w, h))
+            if img is None:
+                out.append("no %s ribbon at %dx%d to measure" % (st, w, h))
+                continue
+            top, bot = _ribbon_field(img, inset)
+            if bot - top < BODY[0]:
+                out.append("the %s ribbon's field is %dpx, under one line of %dpx text"
+                           % (st, bot - top, BODY[0]))
+            box = (inset, top, w - inset, bot)
+            if st == "selected":
+                r = _dark(_lum_q(img, box, 0.05))
+                if r < MIN_RATIO:
+                    out.append("dark ink on the gold %dx%d ribbon reads %.1f:1" % (w, h, r))
+                continue
+            r = _cream(_lum_q(img, box, 0.95))
+            if r < MIN_RATIO:
+                out.append("cream on the %s %dx%d ribbon reads %.2f:1" % (st, w, h, r))
+    # ONE DIM PER STATE, over every tab size: it is the largest hundredth at which
+    # the WORST size passes, so the next hundredth up must fail at some size.
+    if images is None:
+        for st in ("active", "hover"):
+            k = DWF["ribbon_dim"][st]
+            if k >= 1.0:
+                continue
+            up = round(k + 0.01, 2)
+            fails = False
+            for w, h in dwf_tab_sizes():
+                img = dwf_ribbon(st, w, h, dim=up)
+                top, bot = _ribbon_field(img, inset)
+                if _cream(_lum_q(img, (inset, top, w - inset, bot), 0.95)) < MIN_RATIO:
+                    fails = True
+                    break
+            if not fails:
+                out.append("the %s ribbon is dimmed to %.2f and %.2f would pass: dim it less"
+                           % (st, k, up))
+    lintel = plates.get(DWF_LINTEL)
+    if lintel is not None:
+        cap = DWF["title_cap"]
+        r = _cream(_lum_q(lintel, (cap, 6, lintel.width - cap, lintel.height - 6), 0.95))
+        if r < MIN_RATIO:
+            out.append("cream on the title's lintel reads %.1f:1" % r)
+    throne = plates.get(DWF_THRONE)
+    if throne is not None:
+        for n, (x, y, cw, ch) in sorted(DWF["throne_cells"].items()):
+            r = _cream(_lum_q(throne, (x, y, x + cw, y + ch), 0.95))
+            if r < MIN_RATIO:
+                out.append("%s reads %.1f:1 on the throne" % (n, r))
+    seats = plates.get(DWF_SEATS)
+    if seats is not None:
+        r = _cream(_lum_q(seats, (SEATS_PAD, 4, seats.width - SEATS_PAD, seats.height - 4), 0.95))
+        if r < MIN_RATIO:
+            out.append("the seats count reads %.1f:1 on its plate" % r)
+    return out
+
+
+def check_dwf_frame_ink(images=None):
+    """No knot frame's ink reaches into a cell it holds (alpha over 32). At 1920
+    only: the frames are baked at 1920 and the cells compared are 1920 cells."""
+    out = []
+    if BOX_W != 1920:
+        return out
+    plates = _disk_plates() if images is None else images
+    for w, h in dwf_frame_sizes():
+        img = plates.get(DWF_FRAME % (w, h))
+        if img is not None and _ink_in(img, dwf_frame_cells(w, h)):
+            out.append("the %dx%d knot frame draws over a cell it holds" % (w, h))
+    throne = plates.get(DWF_THRONE)
+    if throne is not None and RACE == "dwf":
+        frame_only = dwf_knot_frame(throne.width, throne.height,
+                                    dwf_knot_scale(throne.width, throne.height,
+                                                   list(DWF["throne_cells"].values())))
+        if _ink_in(frame_only, list(DWF["throne_cells"].values())):
+            out.append("the throne's frame draws over its lines")
+    return out
+
+
+
+# CHAOS DWARF ART STILL REACHABLE FROM A DWARF COURT - each one the author's to rule
+# on at the preview (Task 15). Anything Chaos Dwarf outside these is a fault.
+# NOTHING IS KEPT (author, 2026-10-05, of the Governors view: "change it to dwarf
+# themed, then approved"): every Chaos Dwarf picture the Dwarf court drew has a
+# Dwarf one - CA's Dwarf skin (wh_main_dwf_dwarfs), its blue theme, or a bake.
+# The set stays so a deliberate keep can be ruled one at a time again.
+DWF_KEEPS = set()
+DWF_KEEP_PREFIXES = ()
+CHD_ART = re.compile(r"chd|dlc23|hell_forge|hashut|zharr|ziggurat")
+
+
+def chd_art(path):
+    """True for Chaos Dwarf art a Dwarf court should not draw."""
+    p = path.lower().replace("\\", "/")
+    if p.startswith(DWF_THEME):
+        return False
+    return bool(CHD_ART.search(p)) and p not in DWF_KEEPS and not p.startswith(DWF_KEEP_PREFIXES)
+
+
+def check_race_art(text=None):
+    """No Chaos Dwarf picture in the Dwarf panel file outside DWF_KEEPS. The pooled
+    files are shared and are skinned at runtime; the preview checks what the shipped
+    Lua actually draws (preview_iron_court.py --race dwf)."""
+    text = build_xml()[PANEL_FILE] if text is None else text
+    paths = sorted(set(re.findall(r'imagepath="([^"]+)"', text)))
+    # AND NO RED BUTTON (author, 2026-10-05: "blue buttons, didnt i sake make it
+    # thematic?"): CA's default plates are red; the Dwarf panel wears the same
+    # files out of CA's blue colour theme, DWF_THEME.
+    return (["the Dwarf panel draws Chaos Dwarf art %s" % p for p in paths if chd_art(p)]
+            + ["the Dwarf panel draws CA's red button %s" % p for p in paths
+               if p.startswith(RED_PLATES)])
+
+
+RED_PLATES = ("ui/skins/default/button_square_medium_text_",
+              "ui/skins/default/button_round_medium_",
+              "ui/skins/default/button_square_extra_large_",
+              "ui/skins/default/parchment_sort_arrow_")
+
+
+# THE SIX PLAYABLE DWARF FACTIONS AND THEIR KINGS (spec section 3), keys verified
+# against CA's loc (factions_screen_name_*). The throne's lines must fit them uncut.
+DWF_PLAYABLE = {"wh_main_dwf_dwarfs": "Thorgrim Grudgebearer",
+                "wh_main_dwf_karak_kadrin": "Ungrim Ironfist",
+                "wh_main_dwf_karak_izor": "Belegar Ironhammer",
+                "wh3_main_dwf_the_ancestral_throng": "Grombrindal",
+                "wh2_dlc17_dwf_thorek_ironbrow": "Thorek Ironbrow",
+                "wh3_dlc25_dwf_malakai": "Malakai Makaisson"}
+
+
+def _race_words():
+    """ICUI.RACE_WORDS.dwf out of the panel Lua: the words are the Lua's, measured here."""
+    ui = io.open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+                              "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
+    blk = _lua_block(ui, "ICUI.RACE_WORDS = {")
+    dwf = _lua_block(blk, "dwf = {") if blk else None
+    return dict(re.findall(r'(\w+)\s*=\s*"([^"]*)"', dwf)) if dwf else {}
+
+
+def check_dwf_text(words=None):
+    """EVERY DWARF STRING FITS ITS CELL at this copy's fonts and boxes: the title for
+    every Dwarf faction CA names, the throne's name and king for the six playable
+    ones, the empty throne's line, the hall's heading and the throne's prefix."""
+    out = []
+    words = _race_words() if words is None else words
+    for key in ("title", "hall", "throne_of", "no_leader"):
+        if key not in words:
+            out.append("ICUI.RACE_WORDS.dwf has no %s, so nothing measures it" % key)
+    if out:
+        return out
+    try:
+        import read_vanilla_loc as L
+        names = L.load("factions")
+    except Exception as exc:
+        return ["cannot read CA's faction names to measure the Dwarf title: %r" % (exc,)]
+    every = sorted(set(v for k, v in names.items() if k.startswith("factions_screen_name_")
+                       and "_dwf_" in k and "rebels" not in k))
+    for key in DWF_PLAYABLE:
+        if not names.get("factions_screen_name_" + key):
+            out.append("CA's loc has no screen name for %s" % key)
+
+    def room(cell, cap=None):
+        w = PANEL_LAYOUT[cell][2]
+        return w - (cap + PLATE_GAP) * 2 if cap is not None else w
+
+    def fits(cell, s, cap=None):
+        px = TEXT_STYLE.get(cell, BODY)[0]
+        if measure_text(s, px) > room(cell, cap):
+            out.append("%s: %r is %dpx at %dpx, the cell has %d"
+                       % (cell, s, measure_text(s, px), px, room(cell, cap)))
+    for name in every:
+        fits("ic_title", words["title"] % name, TITLE_CAP)
+    for key, king in sorted(DWF_PLAYABLE.items()):
+        fits("ic_throne_name", names.get("factions_screen_name_" + key, key))
+        fits("ic_throne_leader", king)
+    fits("ic_throne_leader", words["no_leader"])
+    fits("ic_throne_of", words["throne_of"])
+    fits("ic_off_title", words["hall"], HEADING_CAP)
+    return out
+
 def build_plates():
     """in-pack path -> RGBA rows, for every png this generator writes.
 
@@ -3171,7 +4289,9 @@ def build_plates():
     out[RIM_FAIL_ART] = seat_rim_pixels(rgb=RIM_FAIL_RGB)
     out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
-    out[ZIG_PATH] = ziggurat_pixels()
+    # THE ZIGGURAT IS THE CHAOS DWARFS' (plan 2026-10-04 phase 3): a Dwarf copy
+    # names it, for art_paths, and never draws it.
+    out[ZIG_PATH] = ziggurat_pixels() if RACE == "chd" else None
     return out
 
 
@@ -3379,6 +4499,8 @@ OPENER_HOVER = [
 # every tab. button_square_medium_text_*.png is verified present in ui2.pack;
 # button_square_medium_*.png (no _text_) is the one that does not exist.
 BTN_PLATE = "ui/skins/default/button_square_medium_text_%s.png"
+if RACE == "dwf":
+    BTN_PLATE = DWF_THEME + "button_square_medium_text_%s.png"
 PLATE_TOP, PLATE_BOT, PLATE_PX = 3.0, 33.0, 46.0     # measured alpha rows
 _PLATE_SPAN = (PLATE_BOT - PLATE_TOP) / PLATE_PX
 
@@ -3463,6 +4585,56 @@ def fit_plate(name, x, w, text_w):
     return (x if left else x + (w - want) // 2), want
 TITLE_LAYERS = [{"path": TITLE_ART, "offset": (0, 0), "dw": 0, "dh": 0,
                  "margin": (0, TITLE_CAP), "dock": None}]
+# THE DWARF SKIN'S PANEL LAYERS (plan 2026-10-04 phase 3; spec 2.6). Rebound here,
+# in the Dwarf copy only, after every Chaos Dwarf value they replace is defined.
+# Every picture is baked to its 1920 cell (Task 4), named by that size even in a
+# compact copy, whose cells are smaller and whose pictures scale with them.
+if RACE == "dwf":
+    _old = {TITLE_CAP: DWF["title_cap"], HEADING_CAP: DWF["heading_cap"]}
+    TITLE_CAP, HEADING_CAP = DWF["title_cap"], DWF["heading_cap"]
+    FIT_PLATES = dict((k, (_old.get(cap, cap), left)) for k, (cap, left) in FIT_PLATES.items())
+    del _old
+    TAB_TEXT_INSET = DWF["tab_text_inset"]
+    TITLE_ART, TITLE_TY = DWF_LINTEL, "0.00,0.00"
+    TITLE_LAYERS = [{"path": DWF_LINTEL, "offset": (0, 0), "dw": 0, "dh": 0,
+                     "margin": (0, TITLE_CAP), "dock": None}]
+    HEADING_ART = DWF_HEADING
+    HEADER_LAYERS = [{"path": DWF_HEADING, "offset": (0, 0), "dw": 0, "dh": 0,
+                      "margin": (0, HEADING_CAP), "dock": None}]
+    PANEL_BG = DWF_PANEL_BG
+    PANEL_LAYERS = [dict(PANEL_LAYERS[0], path=DWF_PANEL_BG)]
+    MARK_LAYERS = [dict(MARK_LAYERS[0], path=DWF_MARK)]
+# The hall's own title wears the marks without the rule: the hall picture carries
+# the full knot rule under it.
+DWF_BARE_LAYERS = [{"path": DWF_HEADING_BARE, "offset": (0, 0), "dw": 0, "dh": 0,
+                    "margin": (0, DWF["heading_cap"]), "dock": None}]
+DWF_SEATS_LAYERS = [{"path": DWF_SEATS, "offset": (0, 0), "dw": 0, "dh": 0,
+                     "margin": DWF["seats_chamfer"], "dock": None}]
+
+
+def ribbon_kw(name):
+    """The plate a tab-shaped button wears: CA's skull tab, or the Dwarf ribbon baked
+    to this cell's 1920 size, lifted tab_lift and grown tab_grow so its field centres
+    on the cell. Margin ribbon_cap: the caps never scale, the mirror-tiled middle does."""
+    if RACE != "dwf":
+        return {"layers": TAB_LAYERS, "hover": TAB_HOVER}
+    w, h = PANEL_LAYOUT_1920[name][2:]
+
+    def lay(state):
+        return [{"path": DWF_TAB % (state, w, h), "offset": (0, -DWF["tab_lift"]),
+                 "dw": 0, "dh": DWF["tab_grow"], "margin": (0, DWF["ribbon_cap"]),
+                 "dock": None}]
+    return {"layers": lay("active"), "hover": lay("hover")}
+
+
+def framed(name):
+    """CARD_LAYERS for a panel plate: the tiled body, and the frame - CA's in the
+    Chaos Dwarf panel, the knot frame baked to this plate's 1920 size in the Dwarf's
+    (margin 0: it is exactly the plate)."""
+    if RACE != "dwf":
+        return CARD_LAYERS
+    w, h = PANEL_LAYOUT_1920[name][2:]
+    return [CARD_LAYERS[0], dict(CARD_LAYERS[1], path=DWF_FRAME % (w, h), margin=0)]
 
 LABEL_TX, LABEL_TY = "6.00,0.00", "4.00,0.00"
 
@@ -3588,6 +4760,7 @@ PANEL_TITLE = (24, "header_24_bold")   # the panel's own name, once
 # in silence. It takes a position name in front of that now, and 20j holds the
 # NAME half to the width while the cut takes the trade.
 CUT_CELLS = {"ic_party_leader": "ICUI.fit_cut",
+             "ic_book": "ICUI.fit_cut",
              "ic_card_holder": "ICUI.fit_cut",
              "ic_card_house": "ICUI.fit_cut",
              "ic_row_a": "ICUI.fit_cut"}
@@ -3678,6 +4851,16 @@ TEXT_STYLE = {
     # so a cell added later is content unless somebody says otherwise - which is
     # the right default and was not the old one.
 }
+if RACE == "dwf":
+    # THE THRONE'S THREE LINES: its prefix and its king at 16, the faction at the
+    # headings' 20. (Task 8 makes the name and the king cut cells, with the Lua
+    # that cuts them.)
+    TEXT_STYLE["ic_throne_of"] = (16, "header_16")
+    TEXT_STYLE["ic_throne_name"] = TITLE
+    TEXT_STYLE["ic_throne_leader"] = (16, "header_16")
+    # The name and the king are cut by ICUI.fit_cut, as a long party leader's line is.
+    CUT_CELLS["ic_throne_name"] = "ICUI.fit_cut"
+    CUT_CELLS["ic_throne_leader"] = "ICUI.fit_cut"
 # THE GOVERNMENT CARDS' NAME AND HEADINGS take the panel's title size.
 for _i in range(GOV_CARDS):
     for _k in ("name", "name2", "ruleh", "fxh", "loyh"):
@@ -3697,6 +4880,9 @@ COL_HDR_FONT = (18, "header_18_bold")
 
 TAB_TEXT = {"text": True, "size": BODY[0], "fontcat": BODY[1], "align": "Center", "valign": "Center",
             "tx": "0.00,0.00", "ty": "0.00,0.00", "leading": 0}
+# The tab caption on a Dwarf ribbon sits on the ribbon's field, which the lift and
+# the grow put 2.5px above the cell's middle.
+RIBBON_TEXT = dict(TAB_TEXT, ty=DWF["tab_ty"]) if RACE == "dwf" else TAB_TEXT
 
 
 # ---------------------------------------------------------------------------
@@ -3720,6 +4906,9 @@ PAGE_HOVER = plate(PANEL_LAYOUT["ic_page_prev"][3], "hover")
 # picture one call can supply.
 SORT_ARROW_DOWN = "ui/skins/default/parchment_sort_arrow_down.png"
 SORT_ARROW_UP = "ui/skins/default/parchment_sort_arrow_up.png"
+if RACE == "dwf":
+    SORT_ARROW_DOWN = DWF_THEME + "parchment_sort_arrow_down.png"
+    SORT_ARROW_UP = DWF_THEME + "parchment_sort_arrow_up.png"
 
 
 def _arrow(path):
@@ -3758,7 +4947,7 @@ def _panel_order(name):
     if name in ("ic_gm_top", "ic_gm_foot", "ic_gm_col"):
         # UNDER EVERYTHING THEY HOLD, and not tier -1: see ic_gm_pins.
         return (-2, name)
-    if name in ("ic_dial_box", "ic_crown_box") or name in LAW_PLATES:
+    if name in ("ic_dial_box", "ic_crown_box", "ic_throne") or name in LAW_PLATES:
         # THE TWO PLATES, under everything they hold. And the laws tab's. A plate is opaque, so a
         # plate declared after its contents is a plate drawn over them - which
         # is the same fault as a crest declared before the pie, in reverse.
@@ -3788,7 +4977,7 @@ def _panel():
         if name == "ic_zig_bg":
             # A PICTURE AND NOTHING ELSE: not interactive, or it eats the cards' gaps.
             panel.add(EU.C(name, w, h, layers=[
-                {"path": ZIG_PATH, "offset": (0, 0), "dw": 0, "dh": 0,
+                {"path": ZIG_PATH if RACE == "chd" else DWF_HALL, "offset": (0, 0), "dw": 0, "dh": 0,
                  "margin": 0, "colour": None, "dock": None}]))
             continue
         if name == "ic_gm_pins":
@@ -3799,24 +4988,35 @@ def _panel():
             # OPAQUE, AND IT TAKES THE CLICK: over the live map a click on its
             # blank must not fall through and select what stands under it.
             art, margin = ((GM_COL_ART, 0) if name == "ic_gm_col" else (GM_PLATE, GM_PLATE_MARGIN))
-            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=[_gm_full(art, margin)]))
+            if RACE == "dwf":
+                lay = (framed(name) if name == "ic_gm_col"
+                       else [_gm_full(DWF_STRIP % tuple(PANEL_LAYOUT_1920[name][2:]))])
+            else:
+                lay = [_gm_full(art, margin)]
+            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND, layers=lay))
             continue
         if name == "ic_gm_head":
-            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_HEAD_ART, (0, 80))],
+            head = (_gm_full(DWF_GM_HEAD, (0, DWF_GM_HEAD_CAP)) if RACE == "dwf"
+                    else _gm_full(GM_HEAD_ART, (0, 80)))
+            panel.add(EU.C(name, w, h, layers=[head],
                            **dict(TAB_TEXT, size=TITLE[0], fontcat=TITLE[1])))
             continue
         if name in GM_TOG_ICONS:
             # CA'S ROUND TOGGLE, lit by swapping its art into layers 0 and 2
             # (ICUI.GM_TOG_ART), as the court's tabs are lit.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=[_gm_full(GM_ROUND % "active"), _gm_inset(GM_TOG_ICONS[name], 12)],
-                           hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(GM_TOG_ICONS[name], 12)]))
+                           layers=[_gm_full(GM_ROUND % "active"), _gm_inset(_tog_icon(name), 12)],
+                           hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(_tog_icon(name), 12)]))
             continue
         if name.startswith("ic_gm_tog_lbl_"):
             # THE WORD IN THE FIELD: (top, bottom) padding of the art's rails.
-            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_TOG_LABEL_ART, GM_PLATE_MARGIN)],
-                           **dict(TAB_TEXT, ty="%.2f,%.2f" % GM_PLATE_RAIL)))
+            if RACE == "dwf":
+                # THE STRIP'S FIELD is rows 2-38 of 46: centred on the field.
+                panel.add(EU.C(name, w, h, layers=[_gm_full(DWF_STRIP % tuple(PANEL_LAYOUT_1920[name][2:]))],
+                               **dict(TAB_TEXT, ty="%.2f,%.2f" % dwf_strip_rails(name, h))))
+            else:
+                panel.add(EU.C(name, w, h, layers=[_gm_full(GM_TOG_LABEL_ART, GM_PLATE_MARGIN)],
+                               **dict(TAB_TEXT, ty="%.2f,%.2f" % GM_PLATE_RAIL)))
             continue
         if name == "ic_gm_hint":
             panel.add(EU.C(name, w, h, **style(name, valign="Center")))
@@ -3830,7 +5030,9 @@ def _panel():
                            **style(name, valign="Center")))
             continue
         if name == "ic_gm_btns":
-            panel.add(EU.C(name, w, h, layers=[_gm_full(GM_HF + "button_holder_back.png")]))
+            panel.add(EU.C(name, w, h, layers=[_gm_full(
+                DWF_STRIP % tuple(PANEL_LAYOUT_1920[name][2:]) if RACE == "dwf"
+                else GM_HF + "button_holder_back.png")]))
             continue
         if name in ("ic_gm_ok", "ic_gm_no"):
             icon = ("ui/skins/default/icon_check.png" if name == "ic_gm_ok"
@@ -3841,9 +5043,20 @@ def _panel():
                            layers=[_gm_full(GM_ROUND % "active"), _gm_inset(icon, 12)],
                            hover=[_gm_full(GM_ROUND % "hover"), _gm_inset(icon, 12)]))
             continue
+        if name == "ic_throne":
+            # THE THRONE (spec 2.5): one baked picture, not interactive, under its
+            # three lines (tier -1 in _panel_order).
+            panel.add(EU.C(name, w, h, layers=[
+                {"path": DWF_THRONE, "offset": (0, 0), "dw": 0, "dh": 0,
+                 "margin": 0, "colour": None, "dock": None}]))
+            continue
+        if name in ("ic_throne_of", "ic_throne_name", "ic_throne_leader"):
+            panel.add(EU.C(name, w, h, align="Center", valign="Center",
+                           tx="0.00,0.00", ty=LABEL_TY, **style(name)))
+            continue
         if name in LAW_PLATES:
             # THE LAWS TAB'S PLATES, the Crown's box's layers. Not interactive.
-            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
+            panel.add(EU.C(name, w, h, layers=framed(name)))
             continue
         if name in ("ic_law_p_icon", "ic_lv_icon") or name.startswith(
                 ("ic_lv_sicon_", "ic_lv_seg_", "ic_lv_segc_", "ic_gc_icon_")):
@@ -3874,7 +5087,7 @@ def _panel():
             continue
         if name in LAW_TAB_BUTTONS:
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=TAB_LAYERS, hover=TAB_HOVER, **TAB_TEXT))
+                           **dict(ribbon_kw(name), **RIBBON_TEXT)))
             continue
         if name in LAW_PAGE_BUTTONS:
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
@@ -3906,7 +5119,7 @@ def _panel():
         elif name.startswith(("ic_plotcat_", "ic_law_head_", "ic_off_title", "ic_gc_now"))                 and name != "ic_gc_nowrule":
             # THE MOVE GROUPS, on the same plate and centred on it like the
             # column titles: a left-aligned word would sit on the arrow.
-            panel.add(EU.C(name, w, h, layers=HEADER_LAYERS, align="Center",
+            panel.add(EU.C(name, w, h, layers=(DWF_BARE_LAYERS if RACE == "dwf" and name == "ic_off_title" else HEADER_LAYERS), align="Center",
                            valign="Center", tx="0.00,0.00", ty=HEADING_TY,
                            **style(name)))
         elif name.startswith("ic_barp_"):
@@ -3917,13 +5130,13 @@ def _panel():
         elif name == "ic_help_box":
             # THE HELP PAGE'S CARD, the dial's own layers. Not interactive: it
             # lies under the topic buttons and would eat their clicks.
-            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
+            panel.add(EU.C(name, w, h, layers=framed(name)))
         elif name == "ic_dial_box":
             # THE CARD'S OWN LAYERS: a tiled body and a 9-sliced frame over it,
             # which is what every other framed thing in this panel is made of.
             # NOT INTERACTIVE - it covers the whole dial, and an interactive
             # plate there would eat every crest's hover.
-            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
+            panel.add(EU.C(name, w, h, layers=framed(name)))
         elif name == "ic_dial_rim":
             # NOT INTERACTIVE. It is a frame, and an interactive frame over the
             # whole pie box would eat the crests' hovers.
@@ -3935,7 +5148,7 @@ def _panel():
             # dial's plate. NOT INTERACTIVE: it covers the control lines, the
             # leader's trait and his porthole, and an interactive plate over
             # them would eat every one of their hovers.
-            panel.add(EU.C(name, w, h, layers=CARD_LAYERS))
+            panel.add(EU.C(name, w, h, layers=framed(name)))
         elif (name == "ic_divider" or name.startswith("ic_crown_rule_")
               or name == "ic_help_rule"):
             # A FLAT FILL, not a frame texture. It is 4px wide and a 9-slice
@@ -3989,7 +5202,7 @@ def _panel():
             # list when clicked but is drawn as a caption is a control nobody
             # finds - the same fault in reverse as a dead button drawn live.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=TAB_LAYERS, hover=TAB_HOVER, **TAB_TEXT))
+                           **dict(ribbon_kw(name), **RIBBON_TEXT)))
         elif name == "ic_title":
             # ON ITS BANNER, and centred there: the banner's middle is the only
             # part of it with room for a word. See TITLE_ART.
@@ -3998,7 +5211,7 @@ def _panel():
                            **style(name)))
         elif name == "ic_influence":
             # ON ITS OWN PLATE, centred. See SEATS_FRAME.
-            panel.add(EU.C(name, w, h, layers=SEATS_LAYERS, align="Center",
+            panel.add(EU.C(name, w, h, layers=(DWF_SEATS_LAYERS if RACE == "dwf" else SEATS_LAYERS), align="Center",
                            valign="Center", tx="0.00,0.00", ty=LABEL_TY,
                            **style(name)))
         elif name == "ic_close":
@@ -4059,6 +5272,14 @@ def _row():
             row.add(EU.C(name, w, h, align="Left", valign="Center",
                          tx=LABEL_TX, ty=LABEL_TY, **style(name)))
     return root
+
+
+def _tog_icon(name):
+    """A Governors toggle's glyph: the Parties toggle wears CA's Dwarf oath glyph on
+    a Dwarf court, where the Tower of Zharr's seat-effects glyph meant nothing."""
+    if RACE == "dwf" and name == "ic_gm_tog_1":
+        return DWF_TOG_ICON
+    return GM_TOG_ICONS[name]
 
 
 def _gm_full(path, margin=0):
@@ -4372,7 +5593,7 @@ def _edict_note():
 
 
 FILES = [
-    ("derpy_ic_panel.twui.xml", _panel, "The Iron Court - panel frame, tabs, standing bar"),
+    (PANEL_FILE, _panel, "The Iron Court - panel frame, tabs, standing bar"),
     ("derpy_ic_card.twui.xml", _card, "The Iron Court - one office slot"),
     ("derpy_ic_row.twui.xml", _row, "The Iron Court - one house, province or feed row"),
     ("derpy_ic_party.twui.xml", _party,
@@ -4391,7 +5612,7 @@ FILES = [
 ]
 
 LAYOUT_TABLES = {
-    "derpy_ic_panel.twui.xml": PANEL_LAYOUT,
+    PANEL_FILE: PANEL_LAYOUT,
     "derpy_ic_card.twui.xml": CARD_LAYOUT,
     "derpy_ic_row.twui.xml": ROW_LAYOUT,
     "derpy_ic_party.twui.xml": PARTY_LAYOUT,
@@ -4510,7 +5731,7 @@ SCALED_SCALARS = [
     "_CONTROL_W", "_CROWN_Y0", "_CROWN_GAP", "_CROWN_LEFT_W", "_CROWN_RIGHT_X",
     "_CROWN_RIGHT_W", "_LEADER_Y", "_PORT_W", "_PORT_H", "_LEADER_ROW_Y",
     "_LEADER_TX", "_LEADER_TW", "_LEADER_BOTTOM", "_FX_Y", "_CTL_H", "CROWN_H",
-    "_CTL_Y", "_LEFT_BOTTOM", "_GOV_Y", "GOV_BTN_W", "_GOV_BOTTOM",
+    "_CTL_Y", "_LEFT_BOTTOM", "_GOV_Y", "GOV_BTN_W", "_GOV_BOTTOM", "BOOK_GAP",
     "ROW_W", "ROW_H", "CARDS_X", "CARDS_Y", "CARD_GAP_X", "CARD_GAP_Y", "CARD_W",
     "CARD_H", "PLOTS_X", "PLOTS_HDR_Y", "PLOTS_HDR_H", "PLOTS_Y", "PLOT_W", "PLOT_H",
     "PLOT_PAD", "PLOT_INNER_W", "PLOT_ICON_PX", "PLOT_FOOT_PAD", "PARTY_GAP_X",
@@ -4519,6 +5740,7 @@ SCALED_SCALARS = [
     "ACT_GAP", "FIRE_LIFT",
     "GM_ROW_X", "GM_ROW_Y", "GM_ROW_W", "GM_ROW_H", "GM_ROW_PITCH",
     "GM_SLIDER_W", "GM_SLIDER_GAP", "GM_HANDLE_H", "GM_LIST_W", "GM_LIST_H",
+    "LIST_SLIDER_W", "LIST_SLIDER_GAP", "LIST_HANDLE_H",
     "LAW_W", "LAW_H", "LAWS_X", "LAWS_Y", "LAW_GAP_X", "LAW_GAP_Y", "LAW_PBAR_H",
     "LB_W", "LB_H", "LB_X", "LB_Y", "LB_SIDE_DX", "LB_GAP",
 ]
@@ -4531,12 +5753,17 @@ SCALED_BOX_TABLES = ["PANEL_LAYOUT", "ROW_LAYOUT", "PLOT_LAYOUT", "CARD_LAYOUT",
 # once and multiplied by five ran a tier 2-4px past its column at some widths.
 SCALED_GRIDS = ["CARD_GRID", "PARTY_GRID", "LAW_GRID", "LB_GRID"]
 FONT_GLOBALS = ["TITLE", "BODY", "PANEL_TITLE", "COL_HDR_FONT", "TEXT_STYLE",
-                "TAB_TEXT"]
+                "TAB_TEXT", "RIBBON_TEXT"]
 # NOT GEOMETRY: counts, source-art sizes, the art generators' own numbers, the
 # image layers INSIDE a component (the engine stretches those with their box),
 # the HUD opener and the influence plate, and LAYOUT_TABLES, which only names
 # tables scaled under their own names.
 NOT_GEOMETRY = [
+    "CARD_FRAME_INDEX",
+    "DWF_BARE_LAYERS", "DWF_SEATS_LAYERS",
+    "DWF_RIBBON_CUTS", "INK", "MIN_RATIO", "_CA_PNG", "_PLATES",
+    "DWF_GM_HEAD_CAP", "DWF_MARK_PX", "DWF_MARK_RGB", "DWF_STRIP_CORNER", "DWF_STRIP_RAIL",
+    "DWF", "DWF_CELLS", "HALL_TIER_CELLS", "PANEL_LAYOUT_1920", "POOL_1920",
     "PORTHOLE_W", "PORTHOLE_H", "MAX_HOUSES", "OFFICE_COUNT", "DIAL_SLICES",
     "CARD_TIERS", "CARD_WIDEST", "PLOT_COUNTS", "PLOT_COLS", "PLOT_DEPTH",
     "PLOT_BLURB_LINES", "VISIBLE_ROWS", "PARTY_COLS", "PARTY_ROWS", "PARTY_SLOTS",
@@ -4678,6 +5905,11 @@ def _scale_pass(g, bw):
             g["TEXT_STYLE"][name] = _font(g["TEXT_STYLE"][name])
         g["TAB_TEXT"]["size"], g["TAB_TEXT"]["fontcat"] = _font(
             (g["TAB_TEXT"]["size"], g["TAB_TEXT"]["fontcat"]))
+        # The Dwarf ribbon's caption is its own copy of TAB_TEXT (the Chaos
+        # Dwarfs' is TAB_TEXT itself, already stepped).
+        if g["RIBBON_TEXT"] is not g["TAB_TEXT"]:
+            g["RIBBON_TEXT"]["size"], g["RIBBON_TEXT"]["fontcat"] = _font(
+                (g["RIBBON_TEXT"]["size"], g["RIBBON_TEXT"]["fontcat"]))
 
 
 # HOW FAR THE CARD FRAME'S INK REACHES IN FROM AN EDGE, measured 2026-09-24 off
@@ -4802,6 +6034,12 @@ def check_scale_sweep():
                              "and %s" % (grid, boxes[i], boxes[j]))
     return out
 
+# THE 1920 SIZES, taken before the scale pass. The Dwarf art is baked once, at 1920,
+# and a copy at another box still names each picture by these numbers - which is
+# also how ICUI.skin and ICUI.tab_art name them, from ICUI.BASE.
+PANEL_LAYOUT_1920 = dict(PANEL_LAYOUT)
+POOL_1920 = {"card": (CARD_W, CARD_H), "party": (PARTY_W, PARTY_H),
+             "plot": (PLOT_W, PLOT_H), "law": (LAW_W, LAW_H)}
 if BOX_W != 1920:
     _scale_pass(globals(), BOX_W)
 
@@ -4822,7 +6060,7 @@ def ui_file_names():
                                               GM_PIN_FILE, GM_FACE_FILE,
                                               GM_NAME_FILE, GM_LOYAL_FILE, GM_BADGE_FILE,
                                               GM_LIST_FILE]
-            + sorted(COMPACT_FILES.values()))
+            + sorted(COMPACT_FILES.values()) + (list(RACE_PANEL_FILES) if RACE == "chd" else []))
 
 
 # FIRE ON A HELD SEAT (author, 2026-09-26: "active seats should also have the
@@ -5457,7 +6695,7 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
     """
     lay = layout or PANEL_LAYOUT
     text = panel_text if panel_text is not None else EU.layout(
-        EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+        EU.assign(_panel(), GUID_PREFIXES[PANEL_FILE]), "")
     has_text = set(n for n, b in _component_blocks(text).items() if "<component_text" in b)
     plates = [lay[n] for n in GM_PLATES]
 
@@ -5507,14 +6745,19 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
     # THE SUB-TITLE PLATES: rails at the art's own thickness, and every word on
     # one inside its dark field (GM_PLATE_RAIL).
     blocks = _component_blocks(text)
-    rt_, rb_ = GM_PLATE_RAIL
     for name in ["ic_gm_top", "ic_gm_foot"] + sorted(n for n in lay if n.startswith("ic_gm_tog_lbl_")):
         blk = blocks.get(name, "")
-        m = re.search(r'margin="([\d.]+),[\d.]+,([\d.]+),', blk)
-        if not m or float(m.group(1)) < max(GM_PLATE_RAIL) or float(m.group(2)) < max(GM_PLATE_RAIL):
-            out.append("%s: its plate slices with vertical margin %s, under the %dpx rails, "
-                       "so the rails stretch with it" % (name, m and m.groups(), max(GM_PLATE_RAIL)))
         px, py, pw, ph = lay[name]
+        if RACE == "dwf":
+            # BAKED TO ITS BOX (DWF_STRIP), so nothing slices: its field is the
+            # strip's rows 2-38 of 46, shrunk with it under 46 and whole above.
+            rt_, rb_ = dwf_strip_rails(name, ph)
+        else:
+            rt_, rb_ = GM_PLATE_RAIL
+            m = re.search(r'margin="([\d.]+),[\d.]+,([\d.]+),', blk)
+            if not m or float(m.group(1)) < max(GM_PLATE_RAIL) or float(m.group(2)) < max(GM_PLATE_RAIL):
+                out.append("%s: its plate slices with vertical margin %s, under the %dpx rails, "
+                           "so the rails stretch with it" % (name, m and m.groups(), max(GM_PLATE_RAIL)))
         field = (py + rt_, py + ph - rb_)
         if name.startswith("ic_gm_tog_lbl_"):
             # ITS OWN WORD: the text area is the box less its (top, bottom) padding.
@@ -5595,7 +6838,7 @@ def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
     bt = badge_text if badge_text is not None else gm_badge_xml()
     wash = wash or gm_wash_pixels
     if panel_text is None:
-        panel_text = EU.layout(EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+        panel_text = EU.layout(EU.assign(_panel(), GUID_PREFIXES[PANEL_FILE]), "")
     tree = panel_text.split("<hierarchy>", 1)[-1].split("</hierarchy>", 1)[0]
     first = re.search(r"<derpy_ic_panel [^>]*>\s*<(\w+)", tree)
     if not first or first.group(1) != "ic_gm_pins":
@@ -5753,7 +6996,12 @@ def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
         out.append("ICUI.GM_NAME_W is not the plate's inside, %d: a name cut to "
                    "anything wider runs off it" % GM_NAME_W)
     m = re.search(r'ICUI\.GM_BACKDROP\s*=\s*"([^"]+)"', lua)
-    if not m or m.group(1) != PANEL_BG:
+    ground = m and m.group(1)
+    if RACE != "chd":
+        # A RACE'S GROUND is its art.panel_bg, which ICUI.gm_sync puts back first.
+        m = re.search(r'panel_bg\s*=\s*"([^"]+)"', io.open(DWARF_LUA, encoding="utf-8").read())
+        ground = m and "(ICUI.ART or {}).panel_bg" in lua and m.group(1)
+    if ground != PANEL_BG:
         out.append("ICUI.GM_BACKDROP is not PANEL_BG, %s: leaving the view would "
                    "put the wrong ground back" % PANEL_BG)
     return out
@@ -5828,6 +7076,37 @@ def build_xml():
         out.update(_SMALL[1])
     return out
 
+
+
+def race_xml():
+    """build_xml() plus the other race's panel pair: what write_ui writes, what the
+    packing gate compares, what ships. Only the base module adds the pair; a copy
+    returns its own files, which is what its own check() reads."""
+    out = build_xml()
+    if RACE == "chd" and BOX_W == 1920:
+        theirs = _dwf().build_xml()
+        for f in RACE_PANEL_FILES:
+            out[f] = theirs[f]
+    return out
+
+
+def check_race_files(files=None):
+    """Check 1's GUID rules over EVERY file the pack ships. check() sees only its own
+    copy's files, so a collision between the two races' panels is invisible to it."""
+    files = race_xml() if files is None else files
+    out, seen = [], {}
+    for fname, text in sorted(files.items()):
+        want = GUID_PREFIXES.get(fname)
+        if not want:
+            out.append("%s has no GUID prefix" % fname)
+            continue
+        for guid in re.findall(r'this="([0-9A-Za-z]{8}-[^"]+)"', text):
+            if guid in seen and seen[guid] != fname:
+                out.append("GUID %s appears in %s and %s" % (guid, seen[guid], fname))
+            seen[guid] = fname
+            if not guid.startswith(want):
+                out.append("%s: GUID %s is outside that file's %s range" % (fname, guid, want))
+    return out
 
 def xml_component_names(text):
     body = text.split("<components>", 1)[1]
@@ -6020,6 +7299,16 @@ def check_paint_layers(files):
 
 def check():
     out = []
+    # 0. EVERY LIST'S SLIDER IS INSIDE THE BOX (ICUI.list_build): the row list and
+    #    the party grid each end at their window's right edge, and the bar sits
+    #    LIST_SLIDER_GAP past it. A bar past the box's edge draws over the frame
+    #    or off the screen, and nothing else measures it.
+    for _what, _right in (("the row list", ROWS_X + ROW_W),
+                          ("the party grid", PARTIES_X + PARTY_COLS * PARTY_W
+                           + (PARTY_COLS - 1) * PARTY_GAP_X)):
+        if _right + LIST_SLIDER_GAP + LIST_SLIDER_W > BOX_W:
+            out.append("at %d: %s's scrollbar ends at %d, past the box"
+                       % (BOX_W, _what, _right + LIST_SLIDER_GAP + LIST_SLIDER_W))
     # EVERY FILE for the two GUID checks, which are about files colliding with
     # each other; the BASE SEVEN for everything after them. A compact copy is
     # checked in full as the 1600 module's own file, by at_box(1600).check().
@@ -6050,7 +7339,7 @@ def check():
                            set(p.lower() for p in _assets())))
     # 1c2. The Governors view's pins, the holder they stand in, and every mask.
     out.extend(check_gm(all_files.get(GM_PIN_FILE, ""), all_files.get(GM_FACE_FILE, ""),
-                        all_files.get("derpy_ic_panel.twui.xml", ""),
+                        all_files.get(PANEL_FILE, ""),
                         name_text=all_files.get(GM_NAME_FILE, ""),
                         loyal_text=all_files.get(GM_LOYAL_FILE, ""),
                         badge_text=all_files.get(GM_BADGE_FILE, "")))
@@ -6063,7 +7352,13 @@ def check():
     # "the corners are not filled" on CA's rounded one).
     out.extend(check_seat_rim())
     out.extend(check_portrait_frame())
-    out.extend(check_ziggurat())
+    out.extend(check_ziggurat() if RACE == "chd" else check_hall())
+    if RACE == "dwf":
+        out.extend(check_dwf_art())
+        out.extend(check_dwf_contrast())
+        out.extend(check_dwf_frame_ink())
+        out.extend(check_race_art())
+        out.extend(check_dwf_text())
 
     # 2. The prefix is ours, and DE15 is retired.
     for fname, text in all_files.items():
@@ -6132,6 +7427,8 @@ def check():
     for fname, text in files.items():
         named = set(LAYOUT_TABLES[fname])
         roots = {"root", fname.replace(".twui.xml", "")}
+        if fname in (PANEL_FILE, COMPACT_FILES.get(PANEL_FILE)):
+            roots.add("derpy_ic_panel")     # a race's panel file keeps the one root name
         if fname == GM_LIST_FILE:
             roots |= {"list_box", "handle"}     # the List and VSlider callbacks place these
         for comp in xml_component_names(text):
@@ -6326,7 +7623,7 @@ def check():
     #     IN THE HIERARCHY, which is the section that says what contains what
     #     and therefore what draws over what; <components> below it is a flat
     #     list of definitions and its order means nothing.
-    panel_xml = files["derpy_ic_panel.twui.xml"]
+    panel_xml = files[PANEL_FILE]
     tree = panel_xml[:panel_xml.find("</hierarchy>")]
     last_cell = tree.rfind("<ic_wedge_")
     first_crest = tree.find("<ic_barc_")
@@ -6408,6 +7705,11 @@ def check():
             # The harness holds both hidden on every other view ("...no other
             # view shows it", "...on the offices tab alone").
             continue
+        if name.startswith("ic_throne"):
+            # THE DWARF HALL'S THRONE (plan 2026-10-04 phase 3), offices tab only:
+            # the harness holds ICUI.THRONE_KEYS hidden on the court tab
+            # ("...shows on the court tab").
+            continue
         if name.startswith("ic_help_") and name != "ic_help":
             # THE HELP PAGE, which is a view of its own and draws no pie. The
             # harness holds every one of these hidden on the Court tab
@@ -6480,8 +7782,9 @@ def check():
 
     # THE ART IS DRAWN AT THE BASE BOX ONLY, and the engine stretches it with
     # its component. A copy of this module at another box would redraw every
-    # wedge at a scaled radius and call the shipped files stale.
-    if BOX_W == 1920:
+    # wedge at a scaled radius and call the shipped files stale. AND AT THE BASE
+    # RACE ONLY: the art is shared, and a Dwarf copy would draw the ziggurat.
+    if BOX_W == 1920 and RACE == "chd":
         for path, want in sorted(build_plates().items()):
             _compare(path, want)
         #     AND EVERY WEDGE, which is where a stale file actually hurts: the
@@ -7077,6 +8380,7 @@ def check():
     out.extend(check_card_cells(LB_LAYOUT, LB_W, LB_H, "party block"))
     out.extend(check_card_cells(PARTY_LAYOUT, PARTY_W, PARTY_H, "party card"))
     out.extend(check_plot_cells())
+    out.extend(check_plot_depths())
 
     # 20. No card child may sit under the card's own frame band. The band is
     #     the frame layer's 9-slice margin, on all four sides, and a label
@@ -7216,6 +8520,15 @@ def check():
                 _px = style("ic_help_line_1")["size"]
                 _help_lines = re.findall(r'^\s*"((?:[^"\\]|\\.)*)",\s*$',
                                          _hm.group(1), re.M)
+                # A RACE'S OWN LINES (phase 3, Task 13): DWF.HELP_SWAP's values draw
+                # on the Dwarf page, in the same row, so they are measured alike.
+                _sw = re.search(r"^DWF\.HELP_SWAP = \{\n(.*?)^\}",
+                                io.open(DWARF_LUA, encoding="utf-8").read(), re.S | re.M)
+                if not _sw:
+                    out.append("cannot read DWF.HELP_SWAP, so no Dwarf help line is measured")
+                else:
+                    _help_lines += re.findall(r'^\s*"((?:[^"\\]|\\.)*)",\s*$',
+                                              _sw.group(1), re.M)
                 # A PATTERN THAT MATCHES NOTHING PASSES EVERY LINE.
                 if not _help_lines:
                     out.append("ICUI.HELP holds no line this check can read, so "
@@ -7632,6 +8945,51 @@ def check():
             if not _plots:
                 out.append("no plots found in the model - 20d measured nothing")
 
+            # A RACE'S OWN WORDS (phase 3, Task 14): DWF.PLOT_TEXT's name, blurb
+            # and effect draw on a Dwarf court's cards in the same cells, each
+            # falling back to the model's where the race leaves it out - so each
+            # card is measured as IC.plot_text assembles it.
+            _base = {}
+            for _chunk in re.split(chr(10) + r"    \{", _pb)[1:]:
+                _k = re.search(r'key = "(\w+)"', _chunk)
+                _bn = re.search(r'name = "([^"]+)"', _chunk)
+                _bb = _chunk[_chunk.index("blurb"):]
+                _be = (_chunk[_chunk.index("effect = "):_chunk.index("blurb")]
+                       if "effect = " in _chunk else "")
+                _base[_k.group(1)] = (_bn.group(1),
+                                      "".join(re.findall(r'"([^"]*)"', _bb)), _be)
+            try:
+                _dtext = io.open(os.path.join(os.path.dirname(_lua),
+                                              "zzz_derpy_iron_court_dwarf.lua"),
+                                 encoding="utf-8").read()
+                _db = re.search(r"^DWF\.PLOT_TEXT = \{\n(.*?)^\}", _dtext,
+                                re.S | re.M).group(1)
+            except Exception as _exc:
+                out.append("cannot read DWF.PLOT_TEXT, so no Dwarf card is "
+                           "measured: %r" % (_exc,))
+                _db = ""
+            for _k, _body in re.findall(r"^    (\w+) = \{(.*?)(?=^    \w+ = \{|\Z)",
+                                        _db, re.S | re.M):
+                if _k not in _base:
+                    out.append("DWF.PLOT_TEXT names %r, which IC.PLOTS does not"
+                               % _k)
+                    continue
+                _bn, _bb, _be = _base[_k]
+                _dn = re.search(r'name = "([^"]+)"', _body)
+                _dbl = re.search(r'blurb = ((?:"[^"]*"\s*(?:\.\.\s*)?)+)', _body)
+                _de = re.search(r"\beffect = (string\.format\(.*?\))(?=,\s*\n\s*\w+ =|\}\s*,?\s*$)",
+                                _body, re.S)
+                try:
+                    _eff = _resolve(_de.group(1) if _de else _be) if (_de or _be) else ""
+                except (KeyError, ValueError) as _exc:
+                    out.append("Dwarf move %r has an effect line this check "
+                               "cannot resolve (%s)" % (_k, _exc))
+                    _eff = ""
+                _blurb = ("".join(re.findall(r'"([^"]*)"', _dbl.group(1)))
+                          if _dbl else _bb)
+                _plots.append((_dn.group(1) if _dn else _bn,
+                               (_eff + " " + _blurb).strip()))
+
             _pad = int(float(LABEL_TX.split(",")[0]))
             _px = BODY[0]
             _name_w = PLOT_LAYOUT["ic_plot_name"][2] - _pad
@@ -7927,8 +9285,9 @@ def check():
                         continue
                     arg = args[n] if n < len(args) else ""
                     n += 1
-                    if "ICUI.cost(" in arg:
-                        # Four digits and the icon, which is what a price is.
+                    if "ICUI.cost(" in arg or "ICUI.gold(" in arg:
+                        # Four digits and the icon, which is what a price is -
+                        # in influence or, for a gold move, the treasury's.
                         got.append(COST_MARKUP + "9999")
                     elif piece == "%d":
                         got.append("9999")
@@ -8368,7 +9727,7 @@ def write_ui(outdir=None):
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
     written = []
-    for fname, text in build_xml().items():
+    for fname, text in race_xml().items():
         path = os.path.join(outdir, fname)
         with io.open(path, "w", encoding="utf-8", newline="\n") as fh:
             fh.write(text)
@@ -8400,6 +9759,17 @@ def write_plates():
         disk = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
         _write_png(disk, rows)
         written.append(disk)
+    if _ca_png("ui2.pack", DWF_SRC + "decor_units_header.png") is not None:
+        import io as _io
+        for path, img in sorted(_dwf().dwf_plates().items()):
+            disk = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
+            buf = _io.BytesIO()
+            img.save(buf, "PNG")
+            if not os.path.isfile(disk) or open(disk, "rb").read() != buf.getvalue():
+                open(disk, "wb").write(buf.getvalue())
+                written.append(disk)
+    else:
+        print("  (no game install at %s - Dwarf plates not baked)" % GAME_DATA)
     folder = os.path.join(ROOT, "Modding Files", "pack", *PLATE_DIR.split("/"))
     keep = set(os.path.basename(p) for p in art_paths())
     for name in sorted(os.listdir(folder)):
@@ -8476,7 +9846,7 @@ def selftest_compact():
     # THE COMPACT COPIES: one per in-panel file, none for the two HUD pieces,
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
-    assert set(files) == set(ui_file_names()), "build_xml and ui_file_names disagree"
+    assert set(race_xml()) == set(ui_file_names()), "race_xml and ui_file_names disagree"
     # +7: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
     # twin, and the Governors view's pin, face, two plates and badge, never
     # scaled (2026-09-30 ruling 1). +8: and the column's list, whose size the
@@ -8497,9 +9867,135 @@ def selftest_compact():
             assert got[name] == COMPACT_FONTS[cat],                 "%s: %s is %s, not one step below %s" % (compact, name, got[name], cat)
 
 
+def selftest_race():
+    """THE RACE COPIES (plan 2026-10-04 phase 3, Task 2)."""
+    d = at_box(1920, "dwf")
+    assert d.RACE == "dwf" and d.PANEL_FILE == "derpy_ic_panel_dwf.twui.xml", d.PANEL_FILE
+    assert d._small().RACE == "dwf", "a Dwarf copy's compact source is not Dwarf"
+    assert at_box(1600).RACE == RACE, "at_box() forgot this copy's race"
+    files = race_xml()
+    for f in RACE_PANEL_FILES:
+        assert f in files and f in ui_file_names(), "%s is not built or not listed" % f
+        assert 'this="%s' % GUID_PREFIXES[f] in files[f], "%s is not on its own prefix" % f
+    assert not check_race_files(), check_race_files()
+    # A PLANTED COLLISION: the Dwarf panel carrying the Chaos Dwarf panel's GUIDs.
+    bad = dict(files)
+    bad["derpy_ic_panel_dwf.twui.xml"] = files[PANEL_FILE]
+    assert any("GUID" in p for p in check_race_files(bad)), "a GUID collision passed"
+def selftest_hall():
+    """THE HALL (spec 2.5 layout E; plan 2026-10-04 phase 3, Task 3)."""
+    d = _dwf()
+    # Measured against the spec's picture, not re-derived: cell (1, 0) and the throne.
+    assert d.CARD_GRID[0] == (398, 192), d.CARD_GRID[0]
+    assert d.throne_box() == (778, 192, 364, 184), d.throne_box()
+    assert d.PANEL_LAYOUT["ic_throne_name"] == (794, 306, 332, 26)
+    assert d.CARD_W == CARD_W == 364, "a Dwarf card is not a Chaos Dwarf card's size"
+    assert not d.check_hall(), d.check_hall()
+    cells = list(d.race_grid("dwf")[3])
+    # THREE PLANTED FAULTS: a seat on the throne, a seat off the hall's foot, a seat on the runner.
+    on_throne = [(2, 0)] + cells[1:]
+    assert any("throne" in p for p in d.check_hall(on_throne)), "a seat on the throne passed"
+    off_foot = cells[:-1] + [(0, 3)]
+    assert any("off the hall" in p for p in d.check_hall(off_foot)), "a seat off the hall passed"
+    on_runner = cells[:-1] + [(2, 2)]
+    assert any("runner" in p for p in d.check_hall(on_runner)), "a seat on the runner passed"
+
+
+def selftest_dwf_art():
+    """THE DWARF PLATES (plan 2026-10-04 phase 3, Task 4). Needs the game installed:
+    every Dwarf picture is cut from CA's own."""
+    if _ca_png("ui2.pack", DWF_SRC + "decor_units_header.png") is None:
+        print("  (no game install - the Dwarf art selftest is skipped)")
+        return
+    d = _dwf()
+    plates = d.dwf_plates()
+    assert set(plates) | {DWF_PANEL_BG} == d.dwf_art_paths(), \
+        sorted(set(plates) ^ (d.dwf_art_paths() - {DWF_PANEL_BG}))
+    for path, img in plates.items():
+        want = d._dwf_size(path)
+        assert img.size == want, "%s is %s, named for %s" % (path, img.size, want)
+    # FLAT MIDDLES: the lintel and the headings are nine-sliced across their middles.
+    assert d._flat_middle(plates[DWF_LINTEL], d.DWF["title_cap"])
+    bad = plates[DWF_LINTEL].copy()
+    bad.putpixel((bad.width // 2, bad.height // 2), (255, 0, 0, 255))
+    assert not d._flat_middle(bad, d.DWF["title_cap"]), "a spotted middle passed as flat"
+    # CONTRAST: the shipped ribbons pass; an undimmed blue one does not.
+    assert not d.check_dwf_contrast(plates), d.check_dwf_contrast(plates)
+    loud = dict(plates)
+    loud[DWF_TAB % ("active", 240, 32)] = d.dwf_ribbon("active", 240, 32, dim=1.0)
+    assert any("active" in p for p in d.check_dwf_contrast(loud)), "an undimmed ribbon passed"
+    # INK: a frame at full scale over a cell in its corner is caught.
+    assert d._ink_in(d.dwf_knot_frame(364, 184, 1.0), [(0, 0, 30, 30)])
+    assert not d.check_dwf_frame_ink(plates), d.check_dwf_frame_ink(plates)
+
+
+def selftest_dwf_panel():
+    """THE DWARF PANEL FILE (plan 2026-10-04 phase 3, Task 5)."""
+    d = _dwf()
+    text = d.build_xml()[d.PANEL_FILE]
+    for path in (DWF_LINTEL, DWF_HEADING, DWF_HEADING_BARE, DWF_HALL, DWF_THRONE,
+                 DWF_SEATS, DWF_PANEL_BG, DWF_TAB % ("active", 240, 32),
+                 DWF_TAB % ("hover", 240, 32), DWF_FRAME % d.PANEL_LAYOUT_1920["ic_dial_box"][2:]):
+        assert 'imagepath="%s"' % path in text, "the Dwarf panel never draws %s" % path
+    for path in ("ui/derpy_ic/chd_title.png", "ui/derpy_ic/chd_heading.png",
+                 "ui/derpy_ic/chd_tab_active.png", "ui/derpy_ic/offices_ziggurat.png",
+                 "ui/derpy_ic/panel_bg.png", "ui/derpy_ic/chd_frame.png"):
+        assert path not in text, "the Dwarf panel still draws %s" % path
+    assert not d.check_race_art(text), d.check_race_art(text)
+    planted = text + '<x imagepath="ui/skins/default/dlc23_chd_hell_forge/forge_fire.png"/>'
+    assert d.check_race_art(planted), "Chaos Dwarf art outside DWF_KEEPS passed"
+    # The Chaos Dwarf panel file is untouched by any of it.
+    assert 'imagepath="ui/derpy_ic/chd_title.png"' in build_xml()[PANEL_FILE]
+
+
+def selftest_dwf_text():
+    """THE DWARF WORDS FIT (plan 2026-10-04 phase 3, Task 8)."""
+    d = _dwf()
+    words = d._race_words()
+    assert set(words) >= {"title", "hall", "throne_of", "no_leader"}, words
+    assert not d.check_dwf_text(), d.check_dwf_text()
+    long_prefix = dict(words, throne_of="THE ANCIENT AND UNBROKEN THRONE OF")
+    assert any("ic_throne_of" in p for p in d.check_dwf_text(long_prefix)), \
+        "a prefix too long for its line passed"
+
+
 def selftest():
+    selftest_race()
+    selftest_hall()
+    selftest_dwf_art()
+    selftest_dwf_panel()
+    selftest_dwf_text()
+    # THE RACE SEAM (plan 2026-10-04 phase 1). card_grid lays out the race it is
+    # given - a 2/4/4/4 race gets rows of 2, 4, 4 and 4 - and the ziggurat
+    # refuses any race but the Chaos Dwarfs'.
+    IC.RACES["tst"] = dict(IC.RACES["chd"], OFFICES=[
+        dict(o, tier=t) for o, t in zip(IC.OFFICES, [1, 1, 2, 2, 2, 3, 3, 3, 2, 4, 4, 4, 3, 4])])
+    try:
+        rows = {}
+        for _x, y in card_grid("tst"):
+            rows[y] = rows.get(y, 0) + 1
+        assert [rows[y] for y in sorted(rows)] == [2, 4, 4, 4], rows
+    finally:
+        del IC.RACES["tst"]
+    try:
+        ziggurat_boxes("tst")
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("ziggurat_boxes drew a ziggurat for a race without one")
     selftest_scale()
     selftest_compact()
+    # THE DWARF GRID CARRIES THE WEREGILD AND THE CHAOS DWARF GRID DOES NOT, and
+    # a column past the depth is reported (plan 2026-10-04 phase 4).
+    global PLOT_DEPTH
+    _h = [c for c, _n in PLOT_CATS].index("house")
+    assert plot_counts("dwf")[_h] == plot_counts("chd")[_h] + 1, "the weregild is not in the Dwarf party column"
+    assert plot_counts("chd") == PLOT_COUNTS, "the Chaos Dwarf grid moved"
+    assert check_plot_depths() == [], check_plot_depths()
+    _depth, PLOT_DEPTH = PLOT_DEPTH, 2
+    _got = check_plot_depths()
+    PLOT_DEPTH = _depth
+    assert any("dwf grid's house column" in e for e in _got), "check_plot_depths cannot fail"
     # THE LAW CHECKS SAY SO WHEN THEY MEASURED NOTHING, and the bar check fires.
     _fonts = dict(_MEASURE_FONTS)
     _MEASURE_FONTS.update((px, None) for px in range(8, 40))
@@ -8583,7 +10079,7 @@ def selftest():
     assert any("under ic_gm_foot" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_btns=(0, 1000, 444, 90)))), \
         "the button plate over the footer went unreported"
-    _pn = EU.layout(EU.assign(_panel(), GUID_PREFIXES["derpy_ic_panel.twui.xml"]), "")
+    _pn = EU.layout(EU.assign(_panel(), GUID_PREFIXES[PANEL_FILE]), "")
     assert any("first child" in e for e in check_gm(
         panel_text=_pn.replace("<ic_gm_pins ", "<ic_gm_pinz ", 1))), \
         "a holder that is not the first child went unreported"
@@ -8682,7 +10178,7 @@ def selftest():
         "check_fire passed a particle that is not named template_particle"
     assert check_fire(_fire.replace('callback_id="Particle"', 'callback_id="Nothing"')), \
         "check_fire passed an emitter with no particle"
-    files = build_xml()
+    files = race_xml()
     # DERIVED, not a literal. A pinned count is a number to bump every time a
     # file is added, which teaches nothing; what matters is that every declared
     # file was actually built and given its own GUID prefix.
@@ -9108,7 +10604,7 @@ def selftest():
     # A GUID collision across files is a silent non-draw, and it is what a single
     # mod-wide prefix produces: EU.assign restarts its counter per file.
     saved_prefix = GUID_PREFIXES["derpy_ic_row.twui.xml"]
-    GUID_PREFIXES["derpy_ic_row.twui.xml"] = GUID_PREFIXES["derpy_ic_panel.twui.xml"]
+    GUID_PREFIXES["derpy_ic_row.twui.xml"] = GUID_PREFIXES[PANEL_FILE]
     injected("two files sharing a GUID prefix",
              lambda: GUID_PREFIXES.__setitem__("derpy_ic_row.twui.xml", saved_prefix),
              "appears in")
@@ -9176,7 +10672,45 @@ def check_law_art(lua=None):
         return out + ["cannot check the law pictures: no ui pack in %s" % GAME_DATA]
     out += ["law picture %s is in no ui pack" % (d.group(1) + v + ".png")
             for k, v in sorted(art.items()) if d.group(1) + v + ".png" not in have]
+    # A DWARF COURT'S CARDS (author, 2026-10-05: "government dwarf uses chaos dwarf
+    # icons"): one Dwarf picture per government, from CA's ui packs and no Chaos
+    # Dwarf art. The baked file's name says nothing of its source, so
+    # the race-art scan can never see this one.
+    dart = dwf_gov_art()
+    out += ["no Dwarf card picture for government %s" % k for k in sorted(govs - set(dart))]
+    out += ["DWF.art.gov_art names %s, which is no government" % k for k in sorted(set(dart) - govs)]
+    out += ["the Dwarf %s card is painted from Chaos Dwarf art %s" % (k, v)
+            for k, v in sorted(dart.items()) if CHD_ART.search(v.lower())]
+    out += ["Dwarf card picture %s is in no ui pack" % v
+            for k, v in sorted(dart.items()) if v not in have]
+    # AND ITS LAW CARDS, the same way (author, 2026-10-05).
+    lart = dwf_law_art()
+    out += ["no Dwarf picture for law %s" % k for k in sorted(want - set(lart))]
+    out += ["DWF.art.law_art names %s, which is no law" % k for k in sorted(set(lart) - want)]
+    out += ["the Dwarf law %s is painted from Chaos Dwarf art %s" % (k, v)
+            for k, v in sorted(lart.items()) if CHD_ART.search(v.lower())]
+    out += ["Dwarf law picture %s is in no ui pack" % v
+            for k, v in sorted(lart.items()) if v not in have]
+    # AND ITS MOVES' ICONS, which a typo would draw as nothing at all.
+    _dt = io.open(DWARF_LUA, encoding="utf-8").read()
+    _pt = re.search(r"^DWF\.PLOT_TEXT = \{\n(.*?)^\}", _dt, re.S | re.M)
+    _icons = re.findall(r'icon = "([^"]+)"', _pt.group(1)) if _pt else []
+    if len(_icons) < 8:
+        out.append("DWF.PLOT_TEXT gives %d moves a Dwarf icon, not the 8 that wore Chaos Dwarf or Cathay art" % len(_icons))
+    out += ["Dwarf move icon %s is in no ui pack" % v for v in _icons if v not in have]
+    out += ["Dwarf move icon %s is Chaos Dwarf art" % v for v in _icons if CHD_ART.search(v.lower())]
     return out
+
+
+def dwf_law_art():
+    """{"category.option": CA's path} out of DWF.art.tech_dir and DWF.art.law_art."""
+    text = io.open(DWARF_LUA, encoding="utf-8").read()
+    d = re.search(r'tech_dir = "([^"]+)"', text)
+    t = re.search(r"law_art = \{(.*?)\}", text, re.S)
+    if not d or not t:
+        return {}
+    return dict((k, d.group(1) + v + ".png")
+                for k, v in re.findall(r'\["([\w.]+)"\] = "(\w+)"', t.group(1)))
 
 
 def check_law_bar():
@@ -9257,11 +10791,14 @@ def main(argv):
     problems += check_law_art()
     problems += check_law_bar()
     problems += check_gov_glow()
+    problems += check_race_files()
+    for _bw in (1920, 1600, 2560):
+        problems += ["dwf at %d: %s" % (_bw, p) for p in at_box(_bw, "dwf").check()]
     for problem in problems:
         sys.stderr.write("FAIL %s\n" % problem)
     if problems:
         return 1
-    files = build_xml()
+    files = race_xml()
     print("ok: %d files, %d components"
           % (len(files), sum(len(xml_component_names(t)) for t in files.values())))
     if "--check" in argv:

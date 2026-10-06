@@ -151,6 +151,59 @@ LAW_EFFECTS = [E_LAW_CAPTIVES, E_LAW_RUSH, E_LAW_LAB_LD, E_LAW_LAB_UPKEEP, E_LAW
                E_LAW_TEMPLE_TIME, E_LAW_HF_COST, E_LAW_HF_CAP, E_LAW_INF_COST, E_LAW_INF_RANK,
                E_LAW_ART_UPKEEP, E_LAW_DWARF_XP, E_LAW_HOB_UPKEEP, E_LAW_ART_EXPL, E_LAW_ART_RANGE,
                E_LAW_RANGED_COST]
+# THE DWARF EFFECTS (plan 2026-10-04 phase 2, spec section 4). Every (effect,
+# scope) pair is one a vanilla Dwarf bundle, building or technology ships and
+# every flag is CA's, read out of db.pack 2026-10-04; the source is named on
+# each line. check() items 1, 2 and 15 re-read all of them. Dropped for want of
+# a shipped pair: plan ruling 5.
+E_DWF_OATHGOLD = ("wh2_dlc17_pooled_resource_oathgold_buildings_mod",
+                  "faction_to_faction_own_unseen", True)      # bundle wh2_dlc17_lord_trait_dwf_thorek
+E_DWF_CRAFT = ("wh3_dlc29_pooled_resource_oathgold_all_crafting_mod",
+               "faction_to_faction_own_unseen", False)        # bundle ..._dwarf_forge_assistant, -10
+E_DWF_RUNECRAFT = ("wh2_dlc17_pooled_resource_oathgold_runecrafting_mod",
+                   "faction_to_faction_own_unseen", False)    # Thorek's trait, -50
+# NEGATIVE IS THE BOON: fewer Settled Grudges per Age. CA's script reads it for
+# a human faction when the next Age's target is set, so it pays from that Age.
+E_DWF_GRUDGE_REQ = ("wh3_dlc25_effect_dwf_book_of_grudges_increase_requirements",
+                    "faction_to_faction_own_unseen", False)   # building wh3_main_underdeep_dwf_grudges_1
+E_DWF_GRUDGE_ORDER = ("wh_main_effect_public_order_grudges",
+                      "faction_to_province_own", True)        # bundle wh3_dlc25_grudge_cycle_1
+E_DWF_GROWTH = ("wh_main_effect_province_growth_tech",
+                "faction_to_province_own_unseen", True)       # tech wh_main_tech_dwf_civ_3_1
+E_DWF_GROWTH_GOV = ("wh_main_effect_province_growth_building",
+                    "faction_to_province_own", True)          # building wh2_main_special_underway_hub_dwf_1
+E_DWF_LOOT = ("wh_main_effect_force_all_campaign_post_battle_loot_mod",
+              "faction_to_faction_own_unseen", True)          # bundle wh_main_faction_trait_dwarfs, -60
+E_DWF_TARIFF = ("wh_main_effect_economy_trade_tariff_mod",
+                "faction_to_faction_own_unseen", True)        # tech wh_main_tech_dwf_civ_6_1
+E_DWF_CULTURE = ("wh_main_effect_technology_economy_gdp_mod_culture_dwarfs",
+                 "faction_to_region_own_unseen", True)        # tech wh_main_tech_dwf_civ_4_1
+E_DWF_SETTLER_COST = ("wh3_dlc25_effect_recruitment_cost_grudge_settlers",
+                      "faction_to_force_own_unseen", False)   # tech wh_main_tech_dwf_mil_1_3, -20
+E_DWF_SETTLER_SRC = ("wh3_dlc25_effect_recruitment_source_grudge_settlers",
+                     "faction_to_faction_own_unseen", True)   # bundle ..._dwf_eight_peaks_secured, 2
+E_DWF_WM_UPKEEP = ("wh3_dlc25_effect_resource_upkeep_cost_reduction_dwf_arty_warmachines",
+                   "faction_to_force_own", False)             # Malakai's trait, -15
+E_DWF_GT_DMG = ("wh2_dlc11_effect_force_stat_missile_damage_dwf_grudge_thrower_cannon_organ_gun",
+                "faction_to_force_own", True)                 # building ..._dwf_blocker_machines_1
+E_DWF_THUNDER = ("wh3_dlc25_effect_force_stat_range_dwf_thunderers_pirates",
+                 "faction_to_force_own_unseen", True)         # tech wh_main_tech_dwf_mil_2_4
+E_DWF_INF_COST = ("wh_main_effect_force_army_campaign_recruitment_cost_infantry",
+                  "faction_to_force_own_unseen", False)       # tech wh_main_tech_dwf_mil_1_1, -10
+E_DWF_ART_RANK = ("wh3_dlc25_effect_force_recruit_rank_dwf_arty_warmachines",
+                  "faction_to_force_own", True)               # Malakai's trait, 3
+# THE DWARF ENVOY'S THREE, in CA's province-bundle scopes (Dwarf edicts).
+E_ENVOY_OATH = ("wh2_dlc17_pooled_resource_oathgold_buildings_mod",
+                "province_to_region_own_unseen", True)        # edict wh_main_edict_dwf_high_kings_tribute
+E_ENVOY_GROW = ("wh_main_effect_province_growth_commandment",
+                "province_to_province_own_unseen", True)      # edict wh_main_edict_dwf_empower_the_guilds
+E_ENVOY_REC = ("wh_main_effect_force_all_campaign_recruitment_cost_all",
+               "province_to_province_own_unseen", False)      # edict ..._dwf_masters_of_steel_and_stone
+DWF_EFFECTS = [E_DWF_OATHGOLD, E_DWF_CRAFT, E_DWF_RUNECRAFT, E_DWF_GRUDGE_REQ,
+               E_DWF_GRUDGE_ORDER, E_DWF_GROWTH, E_DWF_GROWTH_GOV, E_DWF_LOOT,
+               E_DWF_TARIFF, E_DWF_CULTURE, E_DWF_SETTLER_COST, E_DWF_SETTLER_SRC,
+               E_DWF_WM_UPKEEP, E_DWF_GT_DMG, E_DWF_THUNDER, E_DWF_INF_COST,
+               E_DWF_ART_RANK, E_ENVOY_OATH, E_ENVOY_GROW, E_ENVOY_REC]
 ENVOY_EFFECT = {"ctl": E_ENVOY_CTL, "arm": E_ENVOY_ARM,
                 "raw": E_ENVOY_RAW, "lab": E_ENVOY_LAB}
 ENVOY_BLURB = {
@@ -172,7 +225,7 @@ ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
                E_UPKEEP, E_REPLEN, E_PB_LABOUR,
                E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID,
                E_HOBGOBLIN,
-               E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB] + LAW_EFFECTS
+               E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB] + LAW_EFFECTS + DWF_EFFECTS
 
 # ---------------------------------------------------------------------------
 # THE ZIGGURAT.
@@ -190,7 +243,6 @@ ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
 #
 # ALL FOURTEEN ARE OPEN FROM TURN 1. Nothing gates a tier.
 # ---------------------------------------------------------------------------
-TIER_SEATS = {1: 2, 2: 3, 3: 4, 4: 5}
 TIER_MULT = {1: 3.0, 2: 2.0, 3: 1.5, 4: 1.0}
 TIER_NAME = {1: "The Apex", 2: "The High Table", 3: "The Broad Step",
              4: "The Lower Step"}
@@ -477,6 +529,26 @@ EFFECT_TEXT = {
     E_LAW_ART_EXPL[0]: "Explosive missile damage: %+n% for Iron Daemon and Artillery units",
     E_LAW_ART_RANGE[0]: "Range: %+n% for Iron Daemon and Artillery units",
     E_LAW_RANGED_COST[0]: "Recruitment cost: %+n% for all Missile Infantry, Artillery and War Machine units",
+    # THE DWARFS (plan 2026-10-04 phase 2). E_ENVOY_OATH and E_ENVOY_REC share
+    # their keys with E_DWF_OATHGOLD and E_RECRUIT, so they need no line.
+    E_DWF_OATHGOLD[0]: "Oathgold from buildings: %+n%",
+    E_DWF_CRAFT[0]: "Oathgold cost for crafting in the Forge: %+n%",
+    E_DWF_RUNECRAFT[0]: "Oathgold cost for crafting Runes: %+n%",
+    E_DWF_GRUDGE_REQ[0]: "Increases the number of Settled Grudges required for each Age of Reckoning by %n%",
+    E_DWF_GRUDGE_ORDER[0]: "Control: %+n",
+    E_DWF_GROWTH[0]: "Growth: %+n",
+    E_DWF_GROWTH_GOV[0]: "Growth: %+n",
+    E_ENVOY_GROW[0]: "Growth: %+n",
+    E_DWF_LOOT[0]: "Income from post-battle loot: %+n%",
+    E_DWF_TARIFF[0]: "Income from trade tariffs: %+n%",
+    E_DWF_CULTURE[0]: "Income from Gem Cutters and Obsidian Quarries: %+n%",
+    E_DWF_SETTLER_COST[0]: "Recruitment cost: %+n% for Grudge Settler units",
+    E_DWF_SETTLER_SRC[0]: "%+n Grudge Settler unit capacity per army",
+    E_DWF_WM_UPKEEP[0]: "Upkeep: %+n% for Artillery and Flying War Machine units",
+    E_DWF_GT_DMG[0]: "Missile strength: %+n% for Bolt Throwers, Grudge Thrower, Cannon, Goblin Hewer and Organ Gun units",
+    E_DWF_THUNDER[0]: "Range: %+n% for Thunderer and Slayer Pirate units",
+    E_DWF_INF_COST[0]: "Recruitment cost: %+n% for Infantry units",
+    E_DWF_ART_RANK[0]: "Recruit rank: %+n for Artillery and Flying War Machine units",
 }
 # THE CARD'S OWN WORDING, and the only place in this mod that does not use CA's.
 #
@@ -544,6 +616,24 @@ EFFECT_SHORT = {
     E_LAW_ART_EXPL[0]: "Artillery explosive",
     E_LAW_ART_RANGE[0]: "Artillery range",
     E_LAW_RANGED_COST[0]: "Ranged cost",
+    E_DWF_OATHGOLD[0]: "Oathgold",
+    E_DWF_CRAFT[0]: "Forge Oathgold cost",
+    E_DWF_RUNECRAFT[0]: "Rune Oathgold cost",
+    E_DWF_GRUDGE_REQ[0]: "Grudges needed",
+    E_DWF_GRUDGE_ORDER[0]: "Control",
+    E_DWF_GROWTH[0]: "Growth",
+    E_DWF_GROWTH_GOV[0]: "Growth",
+    E_ENVOY_GROW[0]: "Growth",
+    E_DWF_LOOT[0]: "Post-battle loot",
+    E_DWF_TARIFF[0]: "Trade tariffs",
+    E_DWF_CULTURE[0]: "Gem cutter income",
+    E_DWF_SETTLER_COST[0]: "Grudge Settler cost",
+    E_DWF_SETTLER_SRC[0]: "Grudge Settler slots",
+    E_DWF_WM_UPKEEP[0]: "War machine upkeep",
+    E_DWF_GT_DMG[0]: "Artillery damage",
+    E_DWF_THUNDER[0]: "Thunderer range",
+    E_DWF_INF_COST[0]: "Infantry cost",
+    E_DWF_ART_RANK[0]: "Artillery rank",
 }
 
 # Which of them are percentages, so the short line does not put a % on Control
@@ -557,6 +647,8 @@ EFFECT_PERCENT = {
     E_LAW_OVR_RANK[0]: False, E_LAW_OVR_XP[0]: False, E_LAW_CHD_DIPLO[0]: False,
     E_LAW_CORRUPT[0]: False, E_LAW_TEMPLE_TIME[0]: False, E_LAW_HF_CAP[0]: False,
     E_LAW_INF_RANK[0]: False,
+    E_DWF_GRUDGE_ORDER[0]: False, E_DWF_GROWTH[0]: False, E_DWF_GROWTH_GOV[0]: False,
+    E_ENVOY_GROW[0]: False, E_DWF_SETTLER_SRC[0]: False, E_DWF_ART_RANK[0]: False,
 }
 
 
@@ -578,6 +670,7 @@ EFFECT_TEXT_TR = {
                     "Research rate"),
     E_LAW_AMBUSH[0]: ("wh3_campaign_notification_caravan", "Caravan"),
     E_LAW_CARGO_CAP[0]: ("wh3_campaign_notification_caravan", "Caravan"),
+    E_DWF_GRUDGE_ORDER[0]: ("public_order_effect", "Control"),
 }
 
 
@@ -873,16 +966,16 @@ ORIGIN_COLOUR = {
 # before the change is already carrying derpy_ic_house_conclave, which
 # reads correctly as an origin and needs no migration. Renaming the key
 # would leave every such lord holding a trait with no DB row behind it.
-def origin_trait_key(slug):
-    return "derpy_ic_house_" + slug
+def origin_trait_key(slug, race="chd"):
+    return bundle_key("house", slug, race)
 
 
-def bg_trait_key(slug):
-    return "derpy_ic_bg_" + slug
+def bg_trait_key(slug, race="chd"):
+    return bundle_key("bg", slug, race)
 
 
-def office_trait_key(slug):
-    return "derpy_ic_title_" + slug
+def office_trait_key(slug, race="chd"):
+    return bundle_key("title", slug, race)
 
 
 # The governor base bundle. cm:create_new_custom_effect_bundle takes this as its
@@ -1412,14 +1505,440 @@ LAWS = [
 ]
 
 
-def model_law_icons():
-    """{(category, option): bare effect_bundles picture} from IC.LAWS."""
-    block = re.search(r"IC\.LAWS = \{(.*?)\n\}", _model_lua(), re.S)
+# THE RACES (plan 2026-10-04 phase 1). Phase 2 adds "dwf". `prefix` is the Lua
+# table prefix the race's tables are declared under; LUA_OF_PREFIX names the file.
+RACES = {
+    "chd": {"infix": "", "prefix": "IC",
+            "ORIGINS": ORIGINS, "PARTIES": PARTIES, "BACKGROUNDS": BACKGROUNDS,
+            "OFFICES": OFFICES, "GOVERNMENTS": GOVERNMENTS, "LAWS": LAWS},
+}
+LUA_OF_PREFIX = {"IC": "zzz_derpy_iron_court.lua"}
+
+# ---------------------------------------------------------------------------
+# THE DWARFS (plan 2026-10-04 phase 2; spec sections 2-4, 7, 8). The model's
+# tables are in zzz_derpy_iron_court_dwarf.lua as DWF.X; check_dwf() holds the
+# two together. Slugs are the Chaos Dwarf slots; every key carries "dwf_".
+# ---------------------------------------------------------------------------
+DWF_ORIGINS = [
+    ("karaz",     "wh_main_dwf_dwarfs",                "Karaz-a-Karak"),
+    ("kadrin",    "wh_main_dwf_karak_kadrin",          "Karak Kadrin"),
+    ("angrund",   "wh_main_dwf_karak_izor",            "Clan Angrund"),
+    ("throng",    "wh3_main_dwf_the_ancestral_throng", "the Ancestral Throng"),
+    ("ironbrow",  "wh2_dlc17_dwf_thorek_ironbrow",     "Ironbrow's Expedition"),
+    ("malakai",   "wh3_dlc25_dwf_malakai",             "the Masters of Innovation"),
+    ("barakvarr", "wh_main_dwf_barak_varr",            "Barak Varr"),
+    ("zhufbar",   "wh_main_dwf_zhufbar",               "Zhufbar"),
+    ("krakadrak", "wh_main_dwf_kraka_drak",            "Kraka Drak"),
+    ("azorn",     "wh3_main_dwf_karak_azorn",          "Karak Azorn"),
+    ("norn",      "wh_main_dwf_karak_norn",            "Karak Norn"),
+    ("hirn",      "wh_main_dwf_karak_hirn",            "Karak Hirn"),
+    ("azul",      "wh_main_dwf_karak_azul",            "Karak Azul"),
+    ("ziflin",    "wh_main_dwf_karak_ziflin",          "Karak Ziflin"),
+    ("rangers",   None,                                "the Ranger clans"),
+    ("deeps",     None,                                "the Deeps"),
+    ("grey",      None,                                "the Grey Mountains"),
+    ("black",     None,                                "the Black Mountains"),
+]
+
+# Dwarf factions deliberately NOT origins, each named (spec section 3).
+DWF_NOT_AN_ORIGIN = {
+    "wh_main_dwf_dwarf_rebels",              # the engine's rebels
+    "wh_main_dwf_dwarfs_qb1",                # CA's convoy ambushes, Worldroots, Sayl
+    "wh_main_dwf_dwarfs_qb2",                # the rising pool
+    "wh_main_dwf_dwarfs_qb3",
+    "wh_main_dwf_dwarfs_qb4",
+    "wh_main_dwf_dwarfs_seperatists_qb1",    # quest battles (CA's spelling)
+    "wh_main_dwf_dwarfs_seperatists_qb2",
+    "wh_main_dwf_dwarfs_seperatists_qb3",
+    "wh_main_dwf_dwarfs_seperatists_qb4",
+    "wh3_dlc26_dwf_dwarfs_invasion",         # Arbaal's challenge
+    "wh2_dlc15_dwf_clan_helhein",            # in the DB, unconfirmed on the map
+    "wh2_main_dwf_karak_zorn",
+    "wh2_main_dwf_greybeards_prospectors",
+    "wh2_main_dwf_spine_of_sotek_dwarfs",
+}
+
+DWF_ORIGIN_COLOUR = {
+    "karaz":     "Raised under the High King's own roof, and impossible to impress.",
+    "kadrin":    "Kadrin-born, where every second dwarf has sworn an oath he means to die by.",
+    "angrund":   "Clan Angrund raised him on the tale of Eight Peaks, and he means to see it retaken.",
+    "throng":    "He marched with the Throng, and saw things the Ancestors only spoke of.",
+    "ironbrow":  "Ironbrow's people go further from home than any dwarf should.",
+    "malakai":   "Malakai's people build things that should not fly, and fly them.",
+    "barakvarr": "Raised by the sea-gate, counting other folk's cargo.",
+    "zhufbar":   "Zhufbar-born: he knows an engine by its sound.",
+    "krakadrak": "From the far north, where the cold keeps a dwarf honest.",
+    "azorn":     "Azorn raised him, and raised him hard.",
+    "norn":      "Norn-born, from the Grey Mountains, and proud of the stone.",
+    "hirn":      "Hirn's people hear the mountain, and listen to it.",
+    "azul":      "Azul's forges never cool, and neither do its grudges.",
+    "ziflin":    "Ziflin-born, from a small hold with a long memory.",
+    "rangers":   "Raised among the rangers, and never easy under a roof.",
+    "deeps":     "Born deep underground and never entirely comfortable above it.",
+    "grey":      "Grey Mountains born: he measures everything against a peak.",
+    "black":     "From the Black Mountains, where the greenskins are never far.",
+}
+
+DWF_PARTIES = [
+    # slug,      display,                  gov effect,          mag
+    ("crown",    "The Throne-Sworn",       E_ORDER,             4),
+    ("temple",   "The Ancestor Priesthood", E_DWF_GRUDGE_ORDER, 3),
+    ("forge",    "The Forgewrights",       E_DWF_OATHGOLD,      6),
+    ("chain",    "The Deepdelvers",        E_DWF_LOOT,          10),
+    ("legion",   "The Clan Warriors",      E_UPKEEP,            6),
+    ("ledger",   "The Reckoners",          E_GDP,               6),
+    ("tower",    "The Runesmiths",         E_RESEARCH,          5),
+    ("road",     "The Underway Wardens",   E_MOVEMENT,          4),
+    ("hearth",   "The Hearth Clans",       E_REPLEN,            8),
+]
+
+DWF_PARTY_GOV_BLURB = {
+    "crown":  "Your own men hold it, and they are watched.",
+    "temple": "The priests keep the province, and every grudge in it is remembered.",
+    "forge":  "The Forgewrights run the province like a forge floor, and the Oathgold comes in.",
+    "chain":  "The Deepdelvers work the seams, and what the battlefields yield is counted.",
+    "legion": "A hold under a thane costs less to keep than it should.",
+    "ledger": "The Reckoners keep the province's books, and the tithe arrives whole.",
+    "tower":  "The Runesmiths read everything that passes through, and pass it on.",
+    "road":   "The Underway Wardens keep the roads open whatever the season.",
+    "hearth": "The Hearth Clans hold it, and men come back to the muster faster.",
+}
+
+DWF_BACKGROUNDS = {
+    "crown":  [("kinguard",     "Household Warrior"),
+               ("lineblood",    "Blood of the Line"),
+               ("oathsworn",    "Oath-Sworn Hand")],
+    "temple": [("shrinekeeper", "Shrine-Keeper"),
+               ("valayan",      "Priest of Valaya"),
+               ("tombwarden",   "Warden of the Tombs")],
+    "forge":  [("smith",        "Gromril Smith"),
+               ("engineer",     "Engineer"),
+               ("foundry",      "Foundry Master")],
+    "chain":  [("miner",        "Miner"),
+               ("prospector",   "Prospector"),
+               ("tunneller",    "Tunneller")],
+    "legion": [("longbeard",    "Longbeard"),
+               ("ironbreaker",  "Ironbreaker"),
+               ("thane",        "Thane of a Clan")],
+    "ledger": [("reckoner",     "Reckoner of Debts"),
+               ("trader",       "Hold Trader"),
+               ("goldsmith",    "Goldsmith")],
+    "tower":  [("runesmith",    "Runesmith"),
+               ("loremaster",   "Loremaster"),
+               ("scribe",       "Grudge-Scribe")],
+    "road":   [("ranger",       "Ranger"),
+               ("wayfinder",    "Wayfinder"),
+               ("underwarden",  "Underway Sentry")],
+    "hearth": [("farmer",       "Holdfarmer"),
+               ("brewer",       "Brewer"),
+               ("clanelder",        "Clan Elder")],
+}
+
+DWF_BG_COLOUR = {
+    "kinguard":     "He stood at the king's door before he ever stood in a shield wall.",
+    "lineblood":    "Close enough to the throne to be dangerous, and he knows it.",
+    "oathsworn":    "He swore to the throne before the Ancestors, and means every word.",
+    "shrinekeeper": "He keeps the ancestor shrines, and knows every name carved in them.",
+    "valayan":      "Valaya's priest. The hearth is his altar and the hold his charge.",
+    "tombwarden":   "He guards the dead of the hold, and the dead are many.",
+    "smith":        "He can tell good gromril by its ring, and bad by its silence.",
+    "engineer":     "He can tell you what a gun will do before it does it.",
+    "foundry":      "Twenty years at a furnace mouth. His beard is shorter for it.",
+    "miner":        "He has dug further down than most dwarfs have ever been.",
+    "prospector":   "He goes looking for seams nobody else believes in, and finds them.",
+    "tunneller":    "He can hear rock about to give before it gives.",
+    "longbeard":    "Old enough to complain that nothing is as it was, and right to.",
+    "ironbreaker":  "He has held the underways against things that never come up to the light.",
+    "thane":        "A thane of a small clan, with a long memory for every slight to it.",
+    "reckoner":     "He prices everything, including this conversation.",
+    "trader":       "He has traded with men, elves and worse, and been cheated by none of them.",
+    "goldsmith":    "He weighs gold by eye and is never more than a grain out.",
+    "runesmith":    "He strikes the runes his master taught him, and tells no one how.",
+    "loremaster":   "He has read more of the hold's old books than they were written for.",
+    "scribe":       "He writes the grudges down, and forgets none of them.",
+    "ranger":       "He has walked the high passes enough times to have stopped counting.",
+    "wayfinder":    "He knows the old roads the maps have forgotten.",
+    "underwarden":  "He keeps the underways open by making the alternative worse.",
+    "farmer":       "He grows barley on a mountainside, which nobody believes until they drink it.",
+    "brewer":       "He can judge a brew by its smell, and has never been wrong.",
+    "clanelder":        "Old clan, small clan, and a memory for every slight in it.",
+}
+
+# THE FOURTEEN SEATS, tier-4 magnitudes raised by TIER_MULT (plan ruling 6).
+DWF_OFFICES = [
+    {"slug": "priest", "name": "High Priest of the Ancestors", "affinity": "temple", "tier": 1,
+     "blurb": "The Ancestors are honoured in every hall, and the hold is quiet.",
+     "vacant_blurb": "The shrines stand unattended and the old names go unspoken.",
+     "effects": [(E_ORDER, 2, BOON), (E_GDP, 4, BOON)],
+     "vacancy": [(E_ORDER, 2, MALUS)]},
+    {"slug": "forge", "name": "Master Forgewright", "affinity": "forge", "tier": 1,
+     "blurb": "Every forge in the hold answers to one hammer, and it is his.",
+     "vacant_blurb": "No master stands at the great anvil. The work slips and no one is blamed.",
+     "effects": [(E_DWF_OATHGOLD, 5, BOON), (E_DWF_CRAFT, 4, BOON)],
+     "vacancy": [(E_DWF_OATHGOLD, 2, MALUS)]},
+    {"slug": "ledger", "name": "Keeper of the Reckoning", "affinity": "ledger", "tier": 2,
+     "blurb": "Every debt the hold is owed is written down, and he holds the book.",
+     "vacant_blurb": "The books go unbalanced and the tithe arrives light.",
+     "effects": [(E_GDP, 6, BOON)],
+     "vacancy": [(E_GDP, 3, MALUS)]},
+    {"slug": "warden", "name": "Warden of the Gate", "affinity": "legion", "tier": 2,
+     "blurb": "The gate is watched, and the watchers are paid on time.",
+     "vacant_blurb": "The gate keeps itself, badly and at the hold's expense.",
+     "effects": [(E_UPKEEP, 5, BOON), (E_REPLEN, 5, BOON)],
+     "vacancy": [(E_ORDER, 2, MALUS)]},
+    {"slug": "hand", "name": "Keeper of the Grudge-Book", "affinity": "tower", "tier": 2,
+     "blurb": "Every wrong is written in his hand. From the next Age of Reckoning, fewer grudges need settling.",
+     "vacant_blurb": "The Book goes unkept. From the next Age of Reckoning, more grudges need settling.",
+     "effects": [(E_DWF_GRUDGE_REQ, 5, BOON)],
+     "vacancy": [(E_DWF_GRUDGE_REQ, 2, MALUS)]},
+    {"slug": "roads", "name": "Warden of the Underway", "affinity": "road", "tier": 2,
+     "blurb": "The underways are his, and they are quicker than they were.",
+     "vacant_blurb": "The underways go unwatched, and the traders take the long way round.",
+     "effects": [(E_MOVEMENT, 4, BOON)],
+     "vacancy": [(E_MOVEMENT, 2, MALUS)]},
+    {"slug": "chains", "name": "Overseer of the Mines", "affinity": "chain", "tier": 3,
+     "blurb": "He counts every cart that comes up the shaft, and the miners know he counts.",
+     "vacant_blurb": "Uncounted, the miners dig at their own pace.",
+     "effects": [(E_LAW_MINES, 10, BOON)],
+     "vacancy": [(E_LAW_MINES, 4, MALUS)]},
+    {"slug": "pits", "name": "Master of the Delvings", "affinity": "chain", "tier": 3,
+     "blurb": "What comes back from a battlefield is his to weigh and his to store.",
+     "vacant_blurb": "The spoils are picked over by whoever reaches them first.",
+     "effects": [(E_DWF_LOOT, 16, BOON)],
+     "vacancy": [(E_DWF_LOOT, 7, MALUS)]},
+    {"slug": "quarry", "name": "Master of the Stonecutters", "affinity": "forge", "tier": 3,
+     "blurb": "Stone is cut to his measure, and the halls rise for less.",
+     "vacant_blurb": "The stonecutters work at the pace of the slowest of them.",
+     "effects": [(E_CONSTRUCT, 6, BOON)],
+     "vacancy": [(E_CONSTRUCT, 3, MALUS)]},
+    {"slug": "muster", "name": "Thane of the Muster", "affinity": "legion", "tier": 3,
+     "blurb": "He knows what a warrior costs, and he pays no more than that.",
+     "vacant_blurb": "Every clan is mustered at whatever it asks for.",
+     "effects": [(E_RECRUIT, 8, BOON)],
+     "vacancy": [(E_RECRUIT, 4, MALUS)]},
+    {"slug": "kilns", "name": "Brewmaster of the Hold", "affinity": "hearth", "tier": 4,
+     "blurb": "The hold's ale is the best in the mountains, and the trade in its fine work follows it.",
+     "vacant_blurb": "The brewhouse goes unkept, and the hold's fine work sells for less.",
+     "effects": [(E_DWF_CULTURE, 8, BOON)],
+     "vacancy": [(E_DWF_CULTURE, 4, MALUS)]},
+    {"slug": "fields", "name": "Steward of the Holdfarms", "affinity": "hearth", "tier": 4,
+     "blurb": "The holdfarms are tended, and the hold grows.",
+     "vacant_blurb": "The holdfarms go untended, and the hold grows slowly.",
+     "effects": [(E_DWF_GROWTH, 5, BOON)],
+     "vacancy": [(E_DWF_GROWTH, 2, MALUS)]},
+    {"slug": "scribes", "name": "Keeper of the Lore", "affinity": "tower", "tier": 4,
+     "blurb": "The old books are kept and read, and new work comes quicker for it.",
+     "vacant_blurb": "The lore goes unread, and new work comes slowly.",
+     "effects": [(E_RESEARCH, 5, BOON)],
+     "vacancy": [(E_RESEARCH, 2, MALUS)]},
+    {"slug": "banners", "name": "Keeper of the Clan Banners", "affinity": "legion", "tier": 4,
+     "blurb": "Every clan banner is counted, and the Grudge Settlers march cheaper for it.",
+     "vacant_blurb": "The banners go uncounted, and the Grudge Settlers ask more to march.",
+     "effects": [(E_DWF_SETTLER_COST, 10, BOON)],
+     "vacancy": [(E_DWF_SETTLER_COST, 5, MALUS)]},
+]
+
+# THE GOVERNMENTS, in DWF.GOV_ORDER's order: slug, name, rule, blurb, effects.
+DWF_GOVERNMENTS = [
+    ("conclave", "The Council of Elders",
+     "Office terms are shorter. A man may take a seat again after 1 turn.",
+     "The eldest of the clans sit in council, and the throne hears them out.",
+     [(E_RESEARCH, 5, BOON)]),
+    ("priest", "The Ancestors' Writ",
+     "Each rank a man gains is worth double influence. Battles are worth less.",
+     "The Ancestors set down how a hold is ruled, and the priests read it aloud.",
+     [(E_DWF_GRUDGE_ORDER, 2, BOON)]),
+    ("forge", "The Forge-Throne",
+     "Governors earn more income. Men at court earn less influence each turn.",
+     "The master smiths rule from the forge, and the anvil keeps the time.",
+     [(E_DWF_OATHGOLD, 10, BOON)]),
+    ("legion", "The War-King",
+     "Battles are worth more influence and loyalty. Men at court earn no "
+     "influence each turn.",
+     "The king rules from the shield wall, and so does every dwarf who would follow him.",
+     [(E_UPKEEP, 5, BOON)]),
+    ("chain", "The Iron Law",
+     "Ancestor Oath, Stand His Patron and Oath on the Anvil cost a third less. "
+     "A broken oath costs 10 more loyalty.",
+     "An oath sworn in the hold is kept, or it is written down.",
+     [(E_DWF_SETTLER_SRC, 1, BOON)]),
+    ("convoy", "The Reckoning-Throne",
+     "Gifts and oaths cost less gold. Skimming the Tally angers the parties twice as much.",
+     "Every debt is counted, and the throne keeps the count.",
+     [(E_DWF_TARIFF, 10, BOON)]),
+]
+
+# THE LAWS (spec section 7), in DWF.LAW_ORDER and each category's order.
+DWF_LAWS = [
+    ("labour", "Craft", "edict_masters_of_steel_and_stone.png", [
+        ("measure", "The Old Ways", "The clans work as their fathers worked.", []),
+        ("lash", "Deep Seams", "The miners go deeper, and the holdfarms go short of hands.",
+         [(E_LAW_MINES, 15, BOON), (E_DWF_GROWTH, 3, MALUS)]),
+        ("kept", "Hearth and Holdfarm", "The holdfarms are tended first, and the mines wait.",
+         [(E_DWF_GROWTH, 8, BOON), (E_LAW_MINES, 10, MALUS)]),
+        ("quota", "The Master's Mark", "Only marked work leaves the forge, and the forge eats the hours.",
+         [(E_DWF_CRAFT, 15, BOON), (E_REPLEN, 5, MALUS)]),
+        ("ash", "Raise the Halls", "The halls are raised and widened, and the counting-houses pay.",
+         [(E_CONSTRUCT, 15, BOON), (E_GDP, 5, MALUS)]),
+    ]),
+    ("tribute", "Tribute", "edict_collect_tribute.png", [
+        ("tithe", "The King's Tithe", "The throne takes its tithe, as it always has.", []),
+        ("roads", "Open Underways", "The underways are opened to trade, and the vassal holds pay less.",
+         [(E_DWF_TARIFF, 15, BOON), (E_MOVEMENT, 5, BOON), (E_LAW_VASSAL, 20, MALUS)]),
+        ("tariff", "The Reckoners' Tariff", "Every hall pays the Reckoners, and the traders pay more at the gate.",
+         [(E_GDP, 5, BOON), (E_DWF_TARIFF, 10, MALUS)]),
+        ("mines", "The Oathgold Hoard", "The Oathgold is hoarded, and the roads are left to keep themselves.",
+         [(E_DWF_OATHGOLD, 15, BOON), (E_MOVEMENT, 5, MALUS)]),
+        ("charter", "Hold Charters", "The holds are chartered to trade their craft, and the warriors pay for it.",
+         [(E_DWF_CULTURE, 15, BOON), (E_LAW_GOODS, 10, BOON), (E_UPKEEP, 5, MALUS)]),
+    ]),
+    ("worship", "Ancestors", "edict_venerate_the_ancestors.png", [
+        ("rites", "The Ancestors' Rites", "The rites are kept, as they always have been.", []),
+        ("fires", "Valaya's Hearth", "Valaya's hearths are kept warm, and the loremasters go short.",
+         [(E_DWF_GRUDGE_ORDER, 2, BOON), (E_DWF_GROWTH, 3, BOON), (E_RESEARCH, 5, MALUS)]),
+        ("seats", "Rune-Lore", "The runesmiths are given their head, and the shrines are given less.",
+         [(E_DWF_RUNECRAFT, 15, BOON), (E_DWF_GRUDGE_ORDER, 1, MALUS)]),
+        ("lore", "The Lore of the Book", "The old books are opened, and the holdfarms lose their hands to them.",
+         [(E_RESEARCH, 10, BOON), (E_DWF_GROWTH, 3, MALUS)]),
+        ("licence", "The Anvil's Licence", "The forge is licensed to work without the priests' leave.",
+         [(E_DWF_CRAFT, 10, BOON), (E_DWF_GRUDGE_ORDER, 1, MALUS)]),
+    ]),
+    ("war", "War", "edict_levy_conscripts.png", [
+        ("levy", "The Muster", "The clans are mustered as they always have been.", []),
+        ("grudge", "Grudge Settlers", "Grudge Settlers march at the throne's cost, and the counting-houses pay.",
+         [(E_DWF_SETTLER_COST, 15, BOON), (E_DWF_SETTLER_SRC, 1, BOON), (E_GDP, 5, MALUS)]),
+        ("hellforge", "Batteries of the Hold", "The guns come first, and every warrior costs more.",
+         [(E_DWF_WM_UPKEEP, 10, BOON), (E_DWF_GT_DMG, 5, BOON), (E_DWF_INF_COST, 10, MALUS)]),
+        ("legions", "Clan Hosts", "The clans march in strength, and the guns wait.",
+         [(E_DWF_INF_COST, 10, BOON), (E_DWF_WM_UPKEEP, 10, MALUS)]),
+        ("gunnery", "Thunder and Iron", "The engineers drill the guns and the thunderers, and every recruit costs more.",
+         [(E_DWF_THUNDER, 10, BOON), (E_DWF_ART_RANK, 1, BOON), (E_RECRUIT, 5, MALUS)]),
+    ]),
+]
+
+DWF_CONTROL_BANDS = [
+    ("grip", 75, "An Iron Grip on the Court",
+     "Nothing moves in the hold that the throne did not set moving.",
+     [(E_ORDER, 6, BOON), (E_GDP, 12, BOON), (E_UPKEEP, 15, BOON),
+      (E_DWF_OATHGOLD, 5, BOON)]),
+    ("mastery", 60, "Master of the Court",
+     "The clans argue, and then they do as they are told.",
+     [(E_ORDER, 4, BOON), (E_GDP, 8, BOON), (E_UPKEEP, 10, BOON)]),
+    ("command", 40, "In Command of the Court",
+     "The throne is first among the clans, and no more than first.",
+     [(E_ORDER, 2, BOON)]),
+    ("contested", 10, "A Contested Court",
+     "No decree passes without a bargain struck.",
+     [(E_ORDER, 2, MALUS), (E_UPKEEP, 5, MALUS)]),
+    ("lost", 0, "The Court Is Not Yours",
+     "The clans rule and the throne is consulted, when there is time.",
+     [(E_ORDER, 8, MALUS), (E_UPKEEP, 20, MALUS), (E_GDP, 15, MALUS),
+      (E_DWF_OATHGOLD, 5, MALUS)]),
+]
+
+DWF_TIER_NAME = {1: "The First Seats", 2: "The Elders' Bench", 3: "The Long Hall",
+                 4: "The Hall Doors"}
+
+DWF_STANDING_BAND = {
+    0: ("Unproven at Court",
+        "The court has yet to learn his name.",
+        "Too little influence for any seat at court. Influence is earned by "
+        "winning battles, taking settlements, gaining ranks and holding a seat."),
+    4: ("Noticed at Court",
+        "The court has begun to say his name.",
+        "Has enough influence for a seat at the Hall Doors, the lowest tier."),
+    3: ("Spoken For at Court",
+        "A clan or two would take him, and one says so openly.",
+        "Has enough influence for a seat in the Long Hall."),
+    2: ("Weighed at Court",
+        "The longbeards have stopped talking over him when he speaks.",
+        "Has enough influence for a seat on the Elders' Bench."),
+    1: ("Fit for the First Seats",
+        "There is no seat above him but the throne's own.",
+        "Has enough influence for any seat, the First Seats included."),
+}
+
+RACES["dwf"] = {
+    "infix": "dwf_",
+    "prefix": "DWF",
+    "ORIGINS": DWF_ORIGINS,
+    "NOT_AN_ORIGIN": DWF_NOT_AN_ORIGIN,
+    "ORIGIN_COLOUR": DWF_ORIGIN_COLOUR,
+    "PARTIES": DWF_PARTIES,
+    "PARTY_GOV_BLURB": DWF_PARTY_GOV_BLURB,
+    "BACKGROUNDS": DWF_BACKGROUNDS,
+    "BG_COLOUR": DWF_BG_COLOUR,
+    "OFFICES": DWF_OFFICES,
+    "GOVERNMENTS": DWF_GOVERNMENTS,
+    "LAWS": DWF_LAWS,
+    "CONTROL_BANDS": DWF_CONTROL_BANDS,
+    "GOVERNOR_BASE": [(E_ORDER, 2, BOON), (E_DWF_GROWTH_GOV, 5, BOON)],
+    "ENVOY_EFFECT": {"ctl": E_ENVOY_CTL, "oath": E_ENVOY_OATH,
+                     "grow": E_ENVOY_GROW, "rec": E_ENVOY_REC},
+    "ENVOY_BLURB": {
+        "ctl": "An envoy of the throne is keeping order here.",
+        "oath": "An envoy of the throne is seeing that the forges here pay their Oathgold.",
+        "grow": "An envoy of the throne is seeing to the holdfarms here.",
+        "rec": "An envoy of the throne is mustering the clans here for less.",
+    },
+    "TIER_NAME": DWF_TIER_NAME,
+    "STANDING_BAND": DWF_STANDING_BAND,
+    # THE SECONDARY LINE party_drawn PASSES, one per party a Dwarf deed draws.
+    "PARTY_DRAWN": {
+        "legion": "Your victories drew the Clan Warriors to court.",
+        "tower": "Your research drew the Runesmiths to court.",
+    },
+    # THE EVENTS IN DWF.EVENT_LOC: title, primary, secondary.
+    "EVENT_TEXT": {
+        "gov_intro": (
+            "Your Deeds Move the Court",
+            "Your court has a government, shown in the throne's box. What you do "
+            "moves it. Victories raise the Clan Warriors, and research raises the "
+            "Runesmiths. A party that grows strong enough asks for its own government.",
+            "The Court Watches You"),
+        "realm_secede": (
+            "A Rival Court Splits",
+            "A party in a Dwarf hold's court has broken away and risen in rebellion. "
+            "The Record tab names them; the camera button shows where.",
+            "Rebellion!"),
+    },
+    "BUNDLE_ICON": "trait_dwarf.png",
+}
+# THE DWARF TABLES' FILE: race_lua("DWF") / lua_table(name, "DWF") read it
+# (pre-flight B3).
+LUA_OF_PREFIX["DWF"] = "zzz_derpy_iron_court_dwarf.lua"
+_MOD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "Modding Files", "pack", "script", "campaign", "mod")
+
+
+def tier_seats(race="chd"):
+    """{tier: seats}, counted off the race's own OFFICES - the shape, never typed."""
     out = {}
-    if not block:
+    for office in RACES[race]["OFFICES"]:
+        out[office["tier"]] = out.get(office["tier"], 0) + 1
+    return out
+
+
+def race_lua(prefix="IC"):
+    """The text of the file that declares `prefix`'s tables."""
+    return io.open(os.path.join(_MOD_DIR, LUA_OF_PREFIX[prefix]), encoding="utf-8").read()
+
+
+def lua_table(name, prefix="IC", src=None):
+    """The body of `<prefix>.<name> = {` up to its column-0 `}`, or None."""
+    m = re.search(r"^%s\.%s = \{(.*?)\n\}" % (re.escape(prefix), name),
+                  race_lua(prefix) if src is None else src, re.S | re.M)
+    return m.group(1) if m else None
+
+
+def model_law_icons(prefix="IC"):
+    """{(category, option): bare effect_bundles picture} from <prefix>.LAWS."""
+    body = lua_table("LAWS", prefix)
+    out = {}
+    if body is None:
         return out
     for cm in re.finditer(r"\n    (\w+) = \{icon = \"[^\"]+\",\s*\n\s*order = \{[^}]*\},\s*\n\s*opts = \{(.*?)\n    \}\}",
-                          block.group(1), re.S):
+                          body, re.S):
         for om in re.finditer(r"(\w+)\s*=\s*\{icon = \"([^\"]+)\"", cm.group(2)):
             out[(cm.group(1), om.group(1))] = om.group(2)
     return out
@@ -1429,8 +1948,8 @@ def control_slugs():
     return [b[0] for b in CONTROL_BANDS]
 
 
-def bundle_key(kind, slug):
-    return "derpy_ic_%s_%s" % (kind, slug)
+def bundle_key(kind, slug, race="chd"):
+    return "derpy_ic_%s_%s%s" % (kind, RACES[race]["infix"], slug)
 
 
 def origin_slugs():
@@ -1475,11 +1994,7 @@ def model_moves():
 
 
 def _model_lua():
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Modding Files", "pack", "script", "campaign", "mod",
-        "zzz_derpy_iron_court.lua")
-    return io.open(path, encoding="utf-8").read()
+    return race_lua("IC")
 
 
 # RAISES RATHER THAN FALLING BACK, like model_moves: these feed build(), and a
@@ -1492,12 +2007,12 @@ def model_tune(name):
     return int(m.group(1))
 
 
-def model_gov_icons():
-    """{government slug: bare effect_bundles picture} from IC.GOVS."""
-    block = re.search(r"IC\.GOVS = \{(.*?)\n\}", _model_lua(), re.S)
-    if not block:
-        raise RuntimeError("the model Lua declares no IC.GOVS")
-    return dict(re.findall(r'(\w+)\s*=\s*\{icon = "([^"]+)"', block.group(1)))
+def model_gov_icons(prefix="IC"):
+    """{government slug: bare effect_bundles picture} from <prefix>.GOVS."""
+    body = lua_table("GOVS", prefix)
+    if body is None:
+        raise RuntimeError("the model Lua declares no %s.GOVS" % prefix)
+    return dict(re.findall(r'(\w+)\s*=\s*\{icon = "([^"]+)"', body))
 
 
 def model_envoy_tasks():
@@ -1516,27 +2031,181 @@ def model_envoy_tasks():
 # THE PARTY NAME TAILS, READ OUT OF THE SHIPPED LUA for the same reason as the
 # moves: IC.NAME_TAILS is what the roll lands on and what the panel draws, and a
 # party trait is keyed by the tail's position in it (IC.member_trait).
-def model_tails():
+def model_tails(prefix="IC"):
     """{interest slug: [tail, ...]} in the order the model declares them."""
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Modding Files", "pack", "script", "campaign", "mod",
-        "zzz_derpy_iron_court.lua")
-    src = io.open(path, encoding="utf-8").read()
-    block = re.search(r"IC\.NAME_TAILS = \{(.*?)\n\}", src, re.S)
-    if not block:
-        raise RuntimeError("the model Lua declares no IC.NAME_TAILS")
-    tails = {slug: re.findall(r'"([^"]+)"', body)
-             for slug, body in re.findall(r"(\w+)\s*=\s*\{(.*?)\}",
-                                          block.group(1), re.S)}
+    body = lua_table("NAME_TAILS", prefix)
+    if body is None:
+        raise RuntimeError("the model Lua declares no %s.NAME_TAILS" % prefix)
+    tails = {slug: re.findall(r'"([^"]+)"', b)
+             for slug, b in re.findall(r"(\w+)\s*=\s*\{(.*?)\}", body, re.S)}
     if not tails:
-        raise RuntimeError("IC.NAME_TAILS parsed to no parties at all")
+        raise RuntimeError("%s.NAME_TAILS parsed to no parties at all" % prefix)
     return tails
 
 
-def member_trait_key(slug, index=None):
+# THE DWARF RACE'S TABLES, READ OUT OF ITS OWN FILE (plan 2026-10-04 phase 2)
+# the way the Chaos Dwarf ones are read out of the model. Raises rather than
+# falling back: these feed build().
+DWF_LUA = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "Modding Files", "pack", "script", "campaign", "mod",
+    "zzz_derpy_iron_court_dwarf.lua")
+
+# WHAT emit_dwf WROTE, by kind, for check_dwf; refilled by every build().
+DWF_ROWS = {}
+
+
+def _dwf_src():
+    return io.open(DWF_LUA, encoding="utf-8").read()
+
+
+def _dwf_block(name):
+    """The body of a column-0 DWF.<name> = { ... } - phase 1's lua_table, the one
+    scraper (anchored at column 0); never a second regex."""
+    body = lua_table(name, "DWF")
+    if body is None:
+        raise RuntimeError("the Dwarf Lua declares no DWF.%s" % name)
+    return body
+
+
+def _dwf_list(name):
+    """A one-line DWF.<name> = {"a", "b"} list."""
+    m = re.search(r"^DWF\.%s = \{([^}]*)\}" % re.escape(name), _dwf_src(), re.M)
+    if not m:
+        raise RuntimeError("the Dwarf Lua declares no DWF.%s" % name)
+    return re.findall(r'"(\w+)"', m.group(1))
+
+
+def dwf_origins():
+    return [(s, f) for s, f in re.findall(
+        r'\{slug = "(\w+)"(?:,\s*faction = "(\w+)")?\}', _dwf_block("ORIGINS"))]
+
+
+def dwf_offices():
+    return [(s, a, int(t)) for s, a, t in re.findall(
+        r'\{slug = "(\w+)",\s*affinity = "(\w+)",\s*tier = (\d)\}', _dwf_block("OFFICES"))]
+
+
+
+
+
+
+
+
+
+
+def dwf_envoy_tasks():
+    tasks = re.findall(
+        r'\{code = "(\w+)", name = "([^"]+)", knob = "(\w+)", fmt = "[^"]*",\s*'
+        r'bundle = "(\w+)", icon = "([^"]+)"\}', _dwf_block("ENVOY_TASKS"))
+    if len(tasks) != 4:
+        raise RuntimeError("DWF.ENVOY_TASKS parsed to %d tasks, not 4" % len(tasks))
+    return tasks
+
+
+
+
+def dwf_start_gov():
+    return dict(re.findall(r'(\w+) = "(\w+)"', _dwf_block("START_GOV")))
+
+
+def dwf_plot_names():
+    return dict(re.findall(r'\n    (\w+) = \{name = "([^"]+)"', _dwf_block("PLOT_TEXT")))
+
+
+def emit_dwf(emit, emit_trait, emit_member, loc):
+    """Every Dwarf bundle, trait and loc row. Each key is bundle_key(kind, slug,
+    "dwf"), the Lua's IC.key with the dwf_ infix (plan 2026-10-04 phase 2)."""
+    R = RACES["dwf"]
+    icon = R["BUNDLE_ICON"]
+
+    def K(kind, slug):
+        return bundle_key(kind, slug, "dwf")
+
+    def text(key, value):
+        loc.append({"key": key, "text": value, "tooltip": "false"})
+
+    for office in R["OFFICES"]:
+        up = [(e, tier_value(office["tier"], b), i) for e, b, i in office["effects"]]
+        down = [(e, tier_value(office["tier"], b), i) for e, b, i in office["vacancy"]]
+        emit(K("office", office["slug"]), office["name"], office["blurb"], "faction", up, icon=icon)
+        emit(K("vacant", office["slug"]), office["name"] + " (Vacant)",
+             office["vacant_blurb"], "faction", down, icon=icon)
+        text(K("office_name", office["slug"]), office["name"])
+        emit_trait(K("title", office["slug"]), office["name"], office["blurb"],
+                   ", ".join(effect_line(e, m, i) for e, m, i in up),
+                   "He no longer holds the office.", "derpy_ic_cat_office")
+    for slug, _floor, name, blurb, effects in R["CONTROL_BANDS"]:
+        emit(K("control", slug), name, blurb, "faction", effects, icon=icon)
+        text(K("control_name", slug), name)
+    gov_icons = model_gov_icons("DWF")
+    for slug, name, rule, blurb, effects in R["GOVERNMENTS"]:
+        emit(K("doctrine", slug), name, blurb, "faction", effects, icon=gov_icons.get(slug))
+        text(K("doctrine_name", slug), name)
+        text(K("doctrine_rule", slug), rule)
+    law_icons = model_law_icons("DWF")
+    for cat, cat_name, _icon, options in R["LAWS"]:
+        text(K("law_cat", cat), cat_name)
+        for opt, name, blurb, effects in options:
+            emit(K("law", cat + "_" + opt), name, blurb, "faction", effects,
+                 icon=law_icons.get((cat, opt)))
+            text(K("law_name", cat + "_" + opt), name)
+            for n, (e, m, intent) in enumerate(effects, start=1):
+                text(K("law_fx%d" % n, cat + "_" + opt), effect_line(e, m, intent))
+    emit(K("gov", "base"), "Governor of the Province",
+         "A governor of the throne sits here, and the province knows it.",
+         "faction", R["GOVERNOR_BASE"], icon=icon)
+    for slug, display, effect, magnitude in R["PARTIES"]:
+        emit(K("gov_house", slug), "Governor: " + display, R["PARTY_GOV_BLURB"][slug],
+             "faction", [(effect, magnitude, BOON)], icon=icon)
+        text(K("party_name", slug), display)
+    for code, name, knob, bundle, b_icon in dwf_envoy_tasks():
+        emit(bundle, "Envoy: " + name, R["ENVOY_BLURB"][code], "province",
+             [(R["ENVOY_EFFECT"][code], model_tune(knob), BOON)], icon=b_icon)
+    for slug, _faction, display in R["ORIGINS"]:
+        text(K("origin_name", slug), display)
+        emit_trait(K("house", slug), "Born: " + display[0].upper() + display[1:],
+                   R["ORIGIN_COLOUR"][slug], "Where he was born. It has no effect at court.",
+                   "His origin has been struck from the rolls.", "derpy_ic_cat_origin")
+    for party, _d, _e, _m in R["PARTIES"]:
+        for slug, display in R["BACKGROUNDS"][party]:
+            text(K("bg_name", slug), display)
+            emit_trait(K("bg", slug), display, R["BG_COLOUR"][slug],
+                       "His former trade. It decides which party he sits with.",
+                       "He has left the trade behind, whatever he says.", party_cat(party))
+    for tier in [0] + sorted(R["TIER_NAME"]):
+        name, colour, explain = R["STANDING_BAND"][tier]
+        emit_trait(K("standing", str(tier)), name, colour, explain,
+                   "His influence at court has changed.", "derpy_ic_cat_standing")
+    for slug in ("cautious", "steady", "ambitious"):
+        name, colour, explain = AMBITION_BANDS[slug]
+        emit_trait(K("ambition", slug), name, colour, explain,
+                   "His ambition does not change.", "derpy_ic_cat_ambition")
+    emit_member(K("member", CROWN), "the Throne-Sworn", party_cat(CROWN))
+    for slug, _faction, display in R["ORIGINS"]:
+        emit_member(K("member", slug), display, "derpy_ic_cat_confed")
+    tails = model_tails("DWF")
+    for party, _d, _e, _m in R["PARTIES"]:
+        if party != CROWN:
+            for n, tail in enumerate(tails[party], 1):
+                emit_member("%s_%d" % (K("member", party), n), tail, party_cat(party))
+    for slug, (title, primary, secondary) in sorted(R["EVENT_TEXT"].items()):
+        stem = "event_feed_strings_text_" + K("event", slug)
+        text(stem + "_title", title)
+        text(stem + "_primary", primary)
+        text(stem + "_secondary", secondary)
+    for party, line in sorted(R["PARTY_DRAWN"].items()):
+        text("event_feed_strings_text_" + K("event_party_drawn", party), line)
+    keys = set(re.findall(r'"(\w+)"', _dwf_block("PLOT_KEYS")))
+    names = dwf_plot_names()
+    for move_key, move_name in model_moves():
+        if move_key in keys:
+            name = names.get(move_key, move_name)
+            text("event_feed_strings_text_" + K("move", move_key) + "_ok", name + " - Success!")
+            text("event_feed_strings_text_" + K("move", move_key) + "_fail", name + " - Failure")
+def member_trait_key(slug, index=None, race="chd"):
     """The key IC.member_trait builds: the Crown, a confederate origin, or a tail."""
-    key = "derpy_ic_member_" + slug
+    key = bundle_key("member", slug, race)
     return key if index is None else "%s_%d" % (key, index)
 
 
@@ -1625,7 +2294,7 @@ def build():
         emit(bundle_key("control", slug), name, blurb, "faction", effects)
         # The band's own name, for the panel: it is drawn at the top of the
         # court every turn and a loc call from a turn handler is a turn-1 CTD.
-        loc.append({"key": "derpy_ic_control_name_" + slug,
+        loc.append({"key": bundle_key("control_name", slug),
                     "text": name, "tooltip": "false"})
 
     # ONE PER GOVERNMENT, and the model puts exactly one of them on the faction.
@@ -1636,9 +2305,9 @@ def build():
              icon=gov_icons.get(slug))
         # Name and rule for the panel, read at draw time and never from a turn
         # handler (a loc call there is a turn-1 CTD).
-        loc.append({"key": "derpy_ic_doctrine_name_" + slug,
+        loc.append({"key": bundle_key("doctrine_name", slug),
                     "text": name, "tooltip": "false"})
-        loc.append({"key": "derpy_ic_doctrine_rule_" + slug,
+        loc.append({"key": bundle_key("doctrine_rule", slug),
                     "text": rule, "tooltip": "false"})
 
     # ONE PER LAW (spec 2026-10-02 laws), and the model puts one per category on
@@ -1646,14 +2315,14 @@ def build():
     # Faction Effects panel still names the law in force.
     law_icons = model_law_icons()
     for cat, cat_name, _icon, options in LAWS:
-        loc.append({"key": "derpy_ic_law_cat_" + cat, "text": cat_name, "tooltip": "false"})
+        loc.append({"key": bundle_key("law_cat", cat), "text": cat_name, "tooltip": "false"})
         for opt, name, blurb, effects in options:
-            key = "derpy_ic_law_%s_%s" % (cat, opt)
+            key = bundle_key("law", "%s_%s" % (cat, opt))
             emit(key, name, blurb, "faction", effects, icon=law_icons.get((cat, opt)))
-            loc.append({"key": "derpy_ic_law_name_%s_%s" % (cat, opt), "text": name,
+            loc.append({"key": bundle_key("law_name", "%s_%s" % (cat, opt)), "text": name,
                         "tooltip": "false"})
             for i, (e, m, intent) in enumerate(effects, start=1):
-                loc.append({"key": "derpy_ic_law_fx%d_%s_%s" % (i, cat, opt),
+                loc.append({"key": bundle_key("law_fx%d" % i, "%s_%s" % (cat, opt)),
                             "text": effect_line(e, m, intent), "tooltip": "false"})
 
     emit("derpy_ic_gov_base", "Governor of the Province",
@@ -1679,23 +2348,23 @@ def build():
     # turn handler - a loc call inside one is a turn-1 CTD that pcall does not
     # catch.
     for office in OFFICES:
-        loc.append({"key": "derpy_ic_office_name_" + office["slug"],
+        loc.append({"key": bundle_key("office_name", office["slug"]),
                     "text": office["name"], "tooltip": "false"})
     # A PARTY'S NAME IS ROLLED and lives in the save, so this is only the
     # generic fallback - what the panel draws before a court has been
     # rolled, and what the crown would be called if the faction it
     # belongs to somehow has no screen name of its own.
     for slug, display, _effect, _mag in PARTIES:
-        loc.append({"key": "derpy_ic_party_name_" + slug,
+        loc.append({"key": bundle_key("party_name", slug),
                     "text": display, "tooltip": "false"})
     # ORIGINS AND BACKGROUNDS IN ROW FORM. The trait carries its own name
     # ("Born: the House of Khorakk"), which is the right shape for a
     # character panel and the wrong one for a column.
     for slug, _faction, display in ORIGINS:
-        loc.append({"key": "derpy_ic_origin_name_" + slug,
+        loc.append({"key": bundle_key("origin_name", slug),
                     "text": display, "tooltip": "false"})
     for _party, slug, display in backgrounds():
-        loc.append({"key": "derpy_ic_bg_name_" + slug,
+        loc.append({"key": bundle_key("bg_name", slug),
                     "text": display, "tooltip": "false"})
 
     # --- traits -----------------------------------------------------------
@@ -1866,6 +2535,13 @@ def build():
                     "text": move_name + " - Failure",
                     "tooltip": "false"})
 
+    # THE DWARFS (plan 2026-10-04 phase 2), after every Chaos Dwarf row so none
+    # of those moves; what they wrote is kept for check_dwf.
+    _was = (len(bundles), len(traits), len(loc))
+    emit_dwf(emit, emit_trait, emit_member, loc)
+    DWF_ROWS["bundles"] = [r["key"] for r in bundles[_was[0]:]]
+    DWF_ROWS["traits"] = [r["key"] for r in traits[_was[1]:]]
+    DWF_ROWS["loc"] = [r["key"] for r in loc[_was[2]:]]
     missions = []
     for key, title, desc, done, objective in DEMANDS:
         missions.append({
@@ -1939,17 +2615,11 @@ REBEL_POOL = [
 ]
 
 
-def _lua_rebel_generals():
-    """IC.REBEL_GENERALS and IC.REBEL_LORD, read out of the shipped Lua."""
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Modding Files", "pack", "script", "campaign", "mod",
-        "zzz_derpy_iron_court.lua")
-    src = io.open(path, encoding="utf-8").read()
-    block = re.search(r"IC\.REBEL_GENERALS = \{(.*?)\n\}", src, re.S)
-    keys = set(re.findall(r'\["([^"]+)"\]\s*=\s*true', block.group(1))) \
-        if block else set()
-    lord = re.search(r'IC\.REBEL_LORD = "([^"]+)"', src)
+def _lua_rebel_generals(prefix="IC"):
+    """<prefix>.REBEL_GENERALS and IC.REBEL_LORD, read out of the shipped Lua."""
+    body = lua_table("REBEL_GENERALS", prefix)
+    keys = set(re.findall(r'\["([^"]+)"\]\s*=\s*true', body)) if body is not None else set()
+    lord = re.search(r'IC\.REBEL_LORD = "([^"]+)"', _model_lua())
     return keys, (lord.group(1) if lord else None)
 
 
@@ -2064,17 +2734,12 @@ def check_rebel_generals():
     return out
 
 
-def _lua_rebel_heroes():
-    """IC.REBEL_HEROES, read out of the shipped Lua."""
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Modding Files", "pack", "script", "campaign", "mod",
-        "zzz_derpy_iron_court.lua")
-    src = io.open(path, encoding="utf-8").read()
-    block = re.search(r"IC\.REBEL_HEROES = \{(.*?)\n\}", src, re.S)
-    if not block:
+def _lua_rebel_heroes(prefix="IC"):
+    """<prefix>.REBEL_HEROES, read out of the shipped Lua."""
+    body = lua_table("REBEL_HEROES", prefix)
+    if body is None:
         return None
-    return dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"', block.group(1)))
+    return dict(re.findall(r'\["([^"]+)"\]\s*=\s*"([^"]+)"', body))
 
 
 # THE TWO PAIRS THE LIST LEAVES OUT ON PURPOSE, and why. Named here rather than
@@ -2132,23 +2797,18 @@ def check_rebel_heroes():
     # Watched for, could not be made to fire, removed rather than left green.
     return out
 
-def _lua_rebel_roster():
-    """IC.REBEL_POOLS (role -> unit keys), IC.REBEL_DRAFT (the roles in slot
-    order) and IC.TUNE.rebel_units, read out of the shipped Lua."""
-    path = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        "Modding Files", "pack", "script", "campaign", "mod",
-        "zzz_derpy_iron_court.lua")
-    src = io.open(path, encoding="utf-8").read()
+def _lua_rebel_roster(prefix="IC"):
+    """<prefix>.REBEL_POOLS (role -> unit keys), <prefix>.REBEL_DRAFT (the roles in
+    slot order) and IC.TUNE.rebel_units, read out of the shipped Lua."""
+    src = race_lua(prefix)
     pools = {}
-    block = re.search(r"IC\.REBEL_POOLS = \{(.*?)\n\}", src, re.S)
-    if block:
-        for role, body in re.findall(r"(\w+) = \{(.*?)\n    \},",
-                                     block.group(1), re.S):
-            pools[role] = re.findall(r'\{"([^"]+)", (\d+)\}', body)
-    draft = re.search(r"IC\.REBEL_DRAFT = \{(.*?)\n\}", src, re.S)
-    roles = re.findall(r'"(\w+)"', draft.group(1)) if draft else []
-    want = re.search(r"rebel_units\s*=\s*(\d+)", src)
+    body = lua_table("REBEL_POOLS", prefix, src)
+    if body is not None:
+        for role, b in re.findall(r"(\w+) = \{(.*?)\n    \},", body, re.S):
+            pools[role] = re.findall(r'\{"([^"]+)", (\d+)\}', b)
+    draft = lua_table("REBEL_DRAFT", prefix, src)
+    roles = re.findall(r'"(\w+)"', draft) if draft is not None else []
+    want = re.search(r"rebel_units\s*=\s*(\d+)", _model_lua())
     return pools, roles, (int(want.group(1)) if want else None)
 
 
@@ -2462,27 +3122,27 @@ def unknown_sounds(lua_text, names):
     return sorted(s for s in found if s.lower() not in names)
 
 
-def check_governments():
+def check_governments(race="chd"):
     """The model's governments and this file's are one list, in one order, and
     the bundle the model applies is one this file builds (spec 2026-10-02)."""
-    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                        "Modding Files", "pack", "script", "campaign", "mod",
-                        "zzz_derpy_iron_court.lua")
-    lua = io.open(path, encoding="utf-8").read()
+    prefix = RACES[race]["prefix"]
+    lua = race_lua(prefix)
     out = []
-    m = re.search(r"IC\.GOV_ORDER\s*=\s*\{([^}]*)\}", lua)
+    m = re.search(r"%s\.GOV_ORDER\s*=\s*\{([^}]*)\}" % re.escape(prefix), lua)
     model_govs = re.findall(r'"(\w+)"', m.group(1)) if m else []
-    mine = [g[0] for g in GOVERNMENTS]
+    mine = [g[0] for g in RACES[race]["GOVERNMENTS"]]
     if model_govs != mine:
-        out.append("IC.GOV_ORDER is %s and GOVERNMENTS is %s" % (model_govs, mine))
-    m = re.search(r'function IC\.gov_bundle\(slug\) return "(\w+)" \.\. slug end', lua)
-    stem = m.group(1) if m else None
+        out.append("%s.GOV_ORDER is %s and GOVERNMENTS is %s" % (prefix, model_govs, mine))
+    m = re.search(r'function IC\.gov_bundle\(slug, faction_key\) return '
+                  r'IC\.key\("(\w+)", slug, faction_key\) end', _model_lua())
+    kind = m.group(1) if m else "?"
     built = {r["key"]: r for r in build()["effect_bundles"]}
-    icons = model_gov_icons()
+    icons = model_gov_icons(prefix)
     for slug in mine:
-        row = built.get((stem or "?") + slug)
+        key = bundle_key(kind, slug, race)
+        row = built.get(key)
         if not row:
-            out.append("the model applies %s%s and no such bundle is built" % (stem, slug))
+            out.append("the model applies %s and no such bundle is built" % key)
         elif not icons.get(slug) or row["ui_icon"] != icons[slug]:
             out.append("%s wears %s, not the model's picture %s"
                        % (row["key"], row["ui_icon"], icons.get(slug)))
@@ -2493,32 +3153,32 @@ def check_governments():
 JARGON = ("cap", "caps", "accrue", "accrues", "rep", "AI", "HUD", "standing")
 
 
-def check_laws():
+def check_laws(race="chd"):
     """The model's laws and this file's are one catalogue, in one order, each
     option's bundle built and wearing the model's picture (spec 2026-10-02 laws)."""
-    lua = _model_lua()
+    prefix = RACES[race]["prefix"]
+    lua = race_lua(prefix)
     out = []
     for r in build()["loc"]:
         if r["key"].startswith(("derpy_ic_law_", "derpy_ic_effects_derpy_ic_law_")):
             for w in JARGON:
                 if re.search(r"\b%s\b" % w, r["text"]):
                     out.append("%s says %r, which the plain-words rule bans" % (r["key"], w))
-    m = re.search(r"IC\.LAW_ORDER\s*=\s*\{([^}]*)\}", lua)
+    m = re.search(r"%s\.LAW_ORDER\s*=\s*\{([^}]*)\}" % re.escape(prefix), lua)
     model_cats = re.findall(r'"(\w+)"', m.group(1)) if m else []
-    mine = [c[0] for c in LAWS]
+    mine = [c[0] for c in RACES[race]["LAWS"]]
     if model_cats != mine:
-        out.append("IC.LAW_ORDER is %s and LAWS is %s" % (model_cats, mine))
+        out.append("%s.LAW_ORDER is %s and LAWS is %s" % (prefix, model_cats, mine))
     built = {r["key"]: r for r in build()["effect_bundles"]}
     loc = {r["key"]: r["text"] for r in build()["loc"]}
-    block = re.search(r"IC\.LAWS = \{(.*?)\n\}", lua, re.S)
-    body = block.group(1) if block else ""
-    for cat, _name, _icon, options in LAWS:
+    body = lua_table("LAWS", prefix, lua) or ""
+    for cat, _name, _icon, options in RACES[race]["LAWS"]:
         cm = re.search(r"\n    %s = \{.*?order = \{([^}]*)\}" % cat, body, re.S)
         order = re.findall(r'"(\w+)"', cm.group(1)) if cm else []
         if order != [o[0] for o in options]:
             out.append("%s: the model's order is %s, here %s" % (cat, order, [o[0] for o in options]))
         for opt, name, _blurb, effects in options:
-            key = "derpy_ic_law_%s_%s" % (cat, opt)
+            key = bundle_key("law", "%s_%s" % (cat, opt), race)
             im = re.search(r"\n\s+%s\s*=\s*\{icon = \"([^\"]+)\"" % opt, body)
             row = built.get(key)
             if not row:
@@ -2526,7 +3186,7 @@ def check_laws():
             elif not im or row["ui_icon"] != im.group(1):
                 out.append("%s wears %s, not the model's %s"
                            % (key, row["ui_icon"], im.group(1) if im else None))
-            if loc.get("derpy_ic_law_name_%s_%s" % (cat, opt)) != name:
+            if loc.get(bundle_key("law_name", "%s_%s" % (cat, opt), race)) != name:
                 out.append("no name loc for %s" % key)
             if len(effects) > 3:
                 out.append("%s has %d effects; a card holds three" % (key, len(effects)))
@@ -2535,13 +3195,13 @@ def check_laws():
     return out
 
 
-def check_party_drawn():
-    """Every party IC.DEEDS can name has a party_drawn line (spec 2026-10-02 deeds)."""
-    block = re.search(r"IC\.DEEDS = \{(.*?)\n\}", _model_lua(), re.S)
-    named = set(re.findall(r'(?:party|alt) = "(\w+)"', block.group(1))) if block else set()
+def check_party_drawn(prefix="IC"):
+    """Every party <prefix>.DEEDS can name has a party_drawn line (spec 2026-10-02 deeds)."""
+    body = lua_table("DEEDS", prefix)
+    named = set(re.findall(r'(?:party|alt|also) = "(\w+)"', body)) if body is not None else set()
     missing = sorted(named - set(PARTY_DRAWN))
     out = ["party_drawn has no line for %s" % p for p in missing] + (
-        [] if named else ["the model Lua declares no IC.DEEDS"])
+        [] if named else ["the model Lua declares no %s.DEEDS" % prefix])
     # EACH LINE NAMES ITS PARTY AS THE PANEL DOES (review 2026-10-02): the
     # generic display, not the government's name - "the Daemonsmiths" is a
     # government, "the Forge" is the party the card says arrived.
@@ -2595,6 +3255,258 @@ def check_recruit_rank():
 CACHE_WIDTH_KNOWN = {"factions"}
 
 
+def check_race_effects():
+    """Every effect a Dwarf row names is in ALL_EFFECTS, so checks 1, 2 and 15
+    (the vanilla key, its sign, its scope and CA's own words) reach it. An
+    effect used and not listed would ship unverified."""
+    R = RACES.get("dwf")
+    if not R:
+        return ["RACES has no dwf entry"]
+    used = set()
+    for office in R["OFFICES"]:
+        used |= set(e for e, _m, _i in office["effects"] + office["vacancy"])
+    for _s, _f, _n, _b, fx in R["CONTROL_BANDS"]:
+        used |= set(e for e, _m, _i in fx)
+    for _s, _n, _r, _b, fx in R["GOVERNMENTS"]:
+        used |= set(e for e, _m, _i in fx)
+    for _c, _n, _i, options in R["LAWS"]:
+        for _o, _n2, _b, fx in options:
+            used |= set(e for e, _m, _i in fx)
+    used |= set(e for e, _m, _i in R["GOVERNOR_BASE"])
+    used |= set(e for _s, _d, e, _m in R["PARTIES"])
+    used |= set(R["ENVOY_EFFECT"].values())
+    have = set(ALL_EFFECTS)
+    return ["%s / %s is used by a Dwarf row and is not in ALL_EFFECTS" % (e[0], e[1])
+            for e in sorted(used - have)]
+# WHY EACH DWARF SUBTYPE ALL THREE POOL FACTIONS PERMIT IS LEFT OUT (plan ruling 7).
+DWF_REBEL_GEN_EXCLUDED = {
+    "wh_main_dwf_thorgrim_grudgebearer": "a legendary lord; IC.is_legend bars him",
+    "wh_dlc06_dwf_belegar": "a legendary lord; IC.is_legend bars him",
+    "wh3_dlc25_dwf_daemon_slayer": "a Slayer has forsworn his hold and leads no rising",
+    "wh3_dlc25_dwf_daemon_slayer_spawned_army": "a Slayer, and CA's scripted spawn",
+}
+DWF_REBEL_HERO_EXCLUDED = {
+    ("dignitary", "wh3_dlc25_dwf_dragon_slayer"): "a Slayer has forsworn his hold",
+    ("colonel", "wh_main_dwf_lord"): "a lord's subtype on a hero's agent type",
+    ("minister", "wh_main_dwf_lord"): "a lord's subtype on a hero's agent type",
+}
+# THE CHAOS DWARFS' OWN WORDS, which no Dwarf string may carry (spec section 2).
+CHD_WORDS = re.compile(r"hashut|zharr|hell-?forge|slave|labourer|hobgoblin|convoy|"
+                       r"ziggurat|daemon|chaos dwarf", re.I)
+DWF_SUBCULTURE = "wh_main_sc_dwf_dwarfs"
+
+
+def great_guild_dwarf_names():
+    """The Great Guilds Dwarf names, off that mod's own leader bundles."""
+    path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "Modding Files", "source", "great_guilds", "effect_bundles.tsv")
+    names = set()
+    for line in io.open(path, encoding="utf-8"):
+        cells = line.rstrip("\n").split("\t")
+        if len(cells) > 2 and re.match(r"derpy_gg_lead_\w+_dwf$", cells[0]):
+            names.add(cells[2].split(" - ")[0])
+    return names
+
+
+def _bare(name):
+    name = name.strip().lower()
+    return name[4:] if name.startswith("the ") else name
+
+
+def check_dwf():
+    """The Dwarf race: Lua and Python one race, every key against the DB, its
+    words its own (plan 2026-10-04 phase 2)."""
+    out = []
+    R = RACES.get("dwf")
+    if not R:
+        return ["RACES has no dwf entry"]
+    tables = build()
+    if not DWF_ROWS.get("bundles"):
+        return ["build() emitted no Dwarf bundle"]
+
+    # 1. THE LUA AND THIS FILE ARE ONE RACE.
+    if dwf_origins() != [(s, f or "") for s, f, _d in R["ORIGINS"]]:
+        out.append("DWF.ORIGINS and RACES dwf ORIGINS disagree")
+    if dwf_offices() != [(o["slug"], o["affinity"], o["tier"]) for o in R["OFFICES"]]:
+        out.append("DWF.OFFICES and RACES dwf OFFICES disagree")
+    if tier_seats("dwf") != {1: 2, 2: 4, 3: 4, 4: 4}:
+        out.append("the Dwarf tiers are %s, not 2/4/4/4" % (tier_seats("dwf"),))
+    # The order, bundles and pictures of the governments and laws: phase 1's
+    # race-taking checks, run for the Dwarfs (pre-flight D-3).
+    out.extend(check_governments("dwf"))
+    out.extend(check_laws("dwf"))
+    for cat, _n, _i, options in R["LAWS"]:
+        for opt, _name, _blurb, effects in options:
+            if opt == options[0][0] and effects:
+                out.append("%s.%s is its category's start and has effects" % (cat, opt))
+            if len(effects) > 3:
+                out.append("%s.%s has %d effects; a card holds three" % (cat, opt, len(effects)))
+    origin_factions = set(f for _s, f, _d in R["ORIGINS"] if f)
+    for fk, gov in dwf_start_gov().items():
+        if gov not in _dwf_list("GOV_ORDER"):
+            out.append("%s starts on %s, which is no government" % (fk, gov))
+        if fk not in origin_factions:
+            out.append("%s has a start government and is no origin" % fk)
+    for party in set(re.findall(r'(?:party|alt) = "(\w+)"', _dwf_block("DEEDS"))):
+        if party not in R["PARTY_DRAWN"]:
+            out.append("a Dwarf deed draws %s and party_drawn has no line for it" % party)
+    display = dict((s, d) for s, d, _e, _m in R["PARTIES"])
+    for party, line in R["PARTY_DRAWN"].items():
+        if ("the %s to court" % display[party][4:]) not in line:
+            out.append("party_drawn line for %s does not name %s" % (party, display[party]))
+    if set(re.findall(r"(\w+) = true", _dwf_block("EVENT_LOC"))) != set(R["EVENT_TEXT"]):
+        out.append("DWF.EVENT_LOC and EVENT_TEXT name different events")
+    for slug in R["EVENT_TEXT"]:
+        if slug not in [e[0] for e in EVENTS]:
+            out.append("the Dwarfs word %s, which is no event" % slug)
+
+    # 2. THE HOLDS, against factions_tables both ways.
+    vf = _cache_table("factions")
+    if vf is None:
+        out.append("factions not cached")
+    else:
+        f, rows = vf
+        ki, si = f.index("key"), f.index("subculture")
+        sub = dict((r[ki], r[si]) for r in rows)
+        for fk in sorted(origin_factions):
+            if sub.get(fk) != DWF_SUBCULTURE:
+                out.append("origin faction %s is subculture %s" % (fk, sub.get(fk)))
+        for fk in sorted(k for k, s in sub.items() if s == DWF_SUBCULTURE):
+            if fk not in origin_factions and fk not in R["NOT_AN_ORIGIN"]:
+                out.append("Dwarf faction %s is neither an origin nor named as not one" % fk)
+
+    # 3. THE RISINGS, against faction_agent_permitted_subtypes and main_units.
+    pool = re.findall(r'"(\w+)"', _dwf_block("REBEL_POOL"))
+    perm = _cache_table("faction_agent_permitted_subtypes")
+    if perm is None:
+        out.append("faction_agent_permitted_subtypes not cached")
+    else:
+        f, rows = perm
+        fi, ai, si = f.index("faction"), f.index("agent"), f.index("subtype")
+        di = f.index("mod_disabled") if "mod_disabled" in f else None
+        gens, heroes = {}, {}
+        for r in rows:
+            if r[fi] in pool and not (di is not None and r[di]):
+                if r[ai] == "general":
+                    gens.setdefault(r[fi], set()).add(r[si])
+                else:
+                    heroes.setdefault(r[fi], set()).add((r[ai], r[si]))
+        if sorted(gens) != sorted(pool) or sorted(heroes) != sorted(pool):
+            out.append("a Dwarf pool faction permits no general or no hero")
+        else:
+            want = set.intersection(*gens.values()) - set(DWF_REBEL_GEN_EXCLUDED)
+            have = set(re.findall(r'\["(\w+)"\]', _dwf_block("REBEL_GENERALS")))
+            if have != want:
+                out.append("DWF.REBEL_GENERALS is %s, the DB permits %s"
+                           % (sorted(have), sorted(want)))
+            lord = re.search(r'DWF\.REBEL_LORD = "(\w+)"',
+                             io.open(DWF_LUA, encoding="utf-8").read())
+            if not lord or lord.group(1) not in want:
+                out.append("DWF.REBEL_LORD is no general every pool faction permits")
+            want_h = set.intersection(*heroes.values()) - set(DWF_REBEL_HERO_EXCLUDED)
+            have_h = set((a, s) for s, a in re.findall(r'\["(\w+)"\]\s*=\s*"(\w+)"',
+                                                        _dwf_block("REBEL_HEROES")))
+            if have_h != want_h:
+                out.append("DWF.REBEL_HEROES is %s, the DB permits %s"
+                           % (sorted(have_h), sorted(want_h)))
+    mu = _cache_table("main_units")
+    roles = re.findall(r'"(\w+)"', _dwf_block("REBEL_DRAFT"))
+    pools = dict((role, re.findall(r'\{"(\w+)", \d+\}', body)) for role, body in
+                 re.findall(r"(\w+) = \{(.*?)\n    \},", _dwf_block("REBEL_POOLS"), re.S))
+    if mu is None:
+        out.append("main_units not cached")
+    else:
+        f, rows = mu
+        known = set(r[f.index("unit")] for r in rows)
+        for role, units in pools.items():
+            for u in units:
+                if u not in known:
+                    out.append("DWF.REBEL_POOLS.%s lists %s, which is not in main_units" % (role, u))
+    for role in roles:
+        if role not in pools:
+            out.append("DWF.REBEL_DRAFT names %s, which has no pool" % role)
+    if len(roles) < model_tune("rebel_units"):
+        out.append("the Dwarf draft holds %d slots" % len(roles))
+
+    # 3b. EVERY OTHER DWARF KEY THE MODEL HANDS THE ENGINE, re-read here so a game
+    #     patch that drops one fails the build (phase 2 final review, finding 4).
+    src = io.open(DWF_LUA, encoding="utf-8").read()
+
+    def one(name):
+        m = re.search(r'^DWF\.%s = "(\w+)"' % name, src, re.M)
+        return m.group(1) if m else None
+    if mu is not None:
+        f, rows = mu
+        known = set(r[f.index("unit")] for r in rows)
+        troops = re.findall(r'(\w+)\s*=\s*"(\w+)"', _dwf_block("PARTY_TROOPS"))
+        if len(troops) != 8:
+            out.append("DWF.PARTY_TROOPS holds %d parties, not 8" % len(troops))
+        for party, unit in troops + [("default", one("TROOPS_DEFAULT"))]:
+            if unit not in known:
+                out.append("the Dwarf %s troops %s are not in main_units" % (party, unit))
+    if perm is not None:
+        f, rows = perm
+        fi, ai, si = f.index("faction"), f.index("agent"), f.index("subtype")
+        lords = re.findall(r'"(\w+)"', _dwf_block("STORE_LORDS"))
+        for fk in sorted(origin_factions):
+            allowed = set(r[si] for r in rows if r[fi] == fk and r[ai] == "general")
+            for lord in lords:
+                if lord not in allowed:
+                    out.append("%s does not permit the Dwarf store lord %s" % (fk, lord))
+    for table, col, keys, what in [
+            ("cai_personalities", "key", [one("REBEL_PERSONALITY")], "rebel personality"),
+            ("agent_subtypes", "key", re.findall(r'\["(\w+)"\] = true', _dwf_block("LEGEND_SUBTYPES")),
+             "legend subtype")]:
+        t = _cache_table(table)
+        if t is None:
+            out.append("%s not cached" % table)
+            continue
+        f, rows = t
+        have = set(r[f.index(col)] for r in rows)
+        if not keys:
+            out.append("the Dwarf Lua names no %s" % what)
+        for k in keys:
+            if k not in have:
+                out.append("the Dwarf %s %s is not in %s" % (what, k, table))
+
+    # 4. THE WORDS: no Chaos Dwarf word, no Guild, no jargon in a Dwarf row.
+    dwf_loc = set(DWF_ROWS["loc"])
+    for r in tables["loc"]:
+        if r["key"] in dwf_loc:
+            if CHD_WORDS.search(r["text"]):
+                out.append("%s says %r" % (r["key"], r["text"]))
+            if "guild" in r["text"].lower():
+                out.append("%s says Guild: %r" % (r["key"], r["text"]))
+            for w in JARGON:
+                if re.search(r"\b%s\b" % w, r["text"]):
+                    out.append("%s says %r, which the plain-words rule bans" % (r["key"], w))
+    for r in tables["effect_bundles"]:
+        if r["key"] in set(DWF_ROWS["bundles"]):
+            for text in (r["localised_title"], r["localised_description"]):
+                if CHD_WORDS.search(text) or "guild" in text.lower():
+                    out.append("%s says %r" % (r["key"], text))
+
+    # 5. NO DWARF PARTY IS A GREAT GUILD.
+    guilds = set(_bare(n) for n in great_guild_dwarf_names())
+    # A FLOOR, not a count: the Great Guilds mod adds guilds on its own schedule
+    # (a seventh, the Ancestor Temples, on 2026-10-05). Fewer than six is a scraper
+    # that read nothing.
+    if len(guilds) < 6:
+        out.append("read %d Great Guilds Dwarf names, fewer than 6" % len(guilds))
+    for _s, d, _e, _m in R["PARTIES"]:
+        if _bare(d) in guilds:
+            out.append("the Dwarf party %s is a Great Guilds name" % d)
+
+    # 6. EVERY DWARF ROW IS A DWARF KEY, and no key is emitted twice.
+    for kind, keys in sorted(DWF_ROWS.items()):
+        for key in keys:
+            if "dwf_" not in key:
+                out.append("Dwarf %s row %s carries no dwf_ infix" % (kind, key))
+    for table, col in (("effect_bundles", "key"), ("character_traits", "key"), ("loc", "key")):
+        keys = [r[col] for r in tables[table]]
+        for key in sorted(set(k for k in keys if keys.count(k) > 1)):
+            out.append("duplicate %s key: %s" % (table, key))
+    return out
 def check():
     """Every way this data can be wrong and say nothing about it."""
     out = []
@@ -2617,6 +3529,8 @@ def check():
     out.extend(check_governments())
     out.extend(check_laws())
     out.extend(check_party_drawn())
+    out.extend(check_race_effects())
+    out.extend(check_dwf())
 
     # 1. Effect keys must exist in vanilla, and the declared is_positive_value_good
     #    must match. A wrong sign flag silently inverts a reward into a penalty.
@@ -3211,6 +4125,25 @@ def write_tsvs(outdir):
 # selftest
 # ---------------------------------------------------------------------------
 def selftest():
+    # THE RACE SEAM (plan 2026-10-04 phase 1). The tiers are counted off the
+    # race's own offices, a key carries the race's infix, and a scraper reads
+    # the prefix it is given and no other.
+    assert tier_seats("chd") == {1: 2, 2: 3, 3: 4, 4: 5}, tier_seats("chd")
+    RACES["tst"] = dict(RACES["chd"], infix="tst_", prefix="TST")
+    try:
+        assert bundle_key("office", "priest", "tst") == "derpy_ic_office_tst_priest"
+        assert bundle_key("office", "priest") == "derpy_ic_office_priest"
+    finally:
+        del RACES["tst"]
+    _src = ('IC.OFFICES = {\n    {slug = "a"},\n}\n'
+            'DWF.OFFICES = {\n    {slug = "b"},\n}\n')
+    assert '"b"' in lua_table("OFFICES", "DWF", _src)
+    assert '"a"' not in lua_table("OFFICES", "DWF", _src)
+    assert lua_table("LAWS", "DWF", _src) is None
+    # Only a column-0 definition counts: not a longer prefix, not an indented copy.
+    assert lua_table("OFFICES", "IC", 'XIC.OFFICES = {\n    {slug = "x"},\n}\n') is None
+    assert lua_table("OFFICES", "IC", 'do\n    IC.OFFICES = {\n    {slug = "x"},\n}\n') is None
+
     # DERIVED, not hardcoded. These were pinned at ten and so failed the moment
     # a house was added - which is a selftest reporting on its own literals
     # rather than on the data. What is actually invariant is that the counts
@@ -3234,12 +4167,9 @@ def selftest():
     # selftest report on itself when a house was added; what is invariant is the
     # SHAPE - narrow at the top, wide at the base - so the shape is what is
     # asserted and the total falls out of it.
-    seats = {}
-    for office in OFFICES:
-        seats[office["tier"]] = seats.get(office["tier"], 0) + 1
-    assert seats == TIER_SEATS,         "the court is not a ziggurat: seats per tier %r, wanted %r" % (seats, TIER_SEATS)
-    assert len(OFFICES) == sum(TIER_SEATS.values()), "an office outside every tier"
-    widths = [TIER_SEATS[t] for t in sorted(TIER_SEATS)]
+    seats = tier_seats()
+    assert len(OFFICES) == sum(seats.values()), "an office outside every tier"
+    widths = [seats[t] for t in sorted(seats)]
     assert widths == sorted(widths),         "a tier is narrower than the one above it: %r" % (widths,)
 
     # And the higher seat must actually BE the better seat. A multiplier table
@@ -3247,7 +4177,7 @@ def selftest():
     # more - fourteen equal offices drawn in a pyramid.
     mults = [TIER_MULT[t] for t in sorted(TIER_MULT)]
     assert all(a > b for a, b in zip(mults, mults[1:])),         "tier multipliers are not strictly decreasing: %r" % (mults,)
-    assert sorted(TIER_MULT) == sorted(TIER_SEATS) == sorted(TIER_NAME),         "the three tier tables disagree about which tiers exist"
+    assert sorted(TIER_MULT) == sorted(seats) == sorted(TIER_NAME),         "the three tier tables disagree about which tiers exist"
     assert tier_value(1, 4) > tier_value(4, 4), "a tier-1 seat grants no more than a tier-4 one"
     assert tier_value(4, 7) == 7, "tier 4 is the base: its magnitude is what is declared"
 
@@ -3304,11 +4234,16 @@ def selftest():
     n_laws = sum(len(options) for _cat, _name, _icon, options in LAWS)
     want = (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy
             + len(GOVERNMENTS) + n_laws)
-    assert len(keys) == want, \
+    # PER RACE (plan 2026-10-04 phase 2): the Dwarfs keep the skeleton, so each
+    # race builds the same count; a Dwarf key carries "_dwf_".
+    chd_keys = [k for k in keys if "_dwf_" not in k]
+    assert len(chd_keys) == want, \
         ("one office and one vacancy bundle per office, one governor base, and "
          "one governor flavour per PARTY - it was per house, and there were "
          "sixteen of those, plus one per control band, one per envoy task, "
-         "one per government and one per law: expected %d, got %d" % (want, len(keys)))
+         "one per government and one per law: expected %d, got %d" % (want, len(chd_keys)))
+    assert len(keys) - len(chd_keys) == want, \
+        "the Dwarfs build %d bundles, not the skeleton's %d" % (len(keys) - len(chd_keys), want)
 
     # Every office's boon and its vacancy penalty must land on opposite sides of
     # zero. A vacancy that helps you is the sign bug wearing a different hat.
@@ -3362,10 +4297,19 @@ def selftest():
     n_members = 1 + len(ORIGINS) + sum(len(_tails[p[0]]) for p in PARTIES if p[0] != CROWN)
     n_traits = (n_origins + n_backgrounds + n_offices + n_bands + len(AMBITION_BANDS)
                 + n_members)
-    assert len(tables["character_traits"]) == n_traits, \
+    chd_traits = [r for r in tables["character_traits"] if "_dwf_" not in r["key"]]
+    assert len(chd_traits) == n_traits, \
         ("one trait per origin, per background, per office, per standing band "
          "and per party: expected %d, got %d"
-         % (n_traits, len(tables["character_traits"])))
+         % (n_traits, len(chd_traits)))
+    # THE SAME COUNT FOR THE DWARFS, off their own tables (plan 2026-10-04 phase 2).
+    D = RACES["dwf"]
+    d_tails = model_tails("DWF")
+    d_members = 1 + len(D["ORIGINS"]) + sum(len(d_tails[p[0]]) for p in D["PARTIES"] if p[0] != CROWN)
+    d_want = (len(D["ORIGINS"]) + sum(len(v) for v in D["BACKGROUNDS"].values()) + len(D["OFFICES"])
+              + len(D["TIER_NAME"]) + 1 + len(AMBITION_BANDS) + d_members)
+    d_got = len(tables["character_traits"]) - len(chd_traits)
+    assert d_got == d_want, "the Dwarfs build %d traits, not %d" % (d_got, d_want)
     # AND EACH WEARS A PICTURE OF ITS OWN KIND, not the generic Chaos Dwarf one.
     cats = set(r["category"] for r in tables["trait_categories"])
     assert all(r["icon"] in cats for r in tables["character_traits"]), \
@@ -3380,7 +4324,7 @@ def selftest():
         assert row["key"] == row["trait"], \
             "single-level traits key the level as the trait - CA's own convention"
     trait_keys = set(r["key"] for r in tables["character_traits"])
-    assert len(trait_keys) == n_traits, "trait keys unique"
+    assert len(trait_keys) == len(tables["character_traits"]), "trait keys unique"
     assert all(k == k.lower() for k in trait_keys), "lowercase trait keys"
 
     ambition_keys = {"derpy_ic_ambition_" + slug for slug in AMBITION_BANDS}

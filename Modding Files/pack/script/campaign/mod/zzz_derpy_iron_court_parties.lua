@@ -203,10 +203,11 @@ end
 
 -- The Crown's office this party claims, else its highest-tier seat.
 local function crown_seat(faction_key, slug)
+    local R = IC.R(faction_key)
     local court = IC.court(faction_key)
     local best, best_tier
-    for i = 1, #IC.OFFICES do
-        local office = IC.OFFICES[i]
+    for i = 1, #R.OFFICES do
+        local office = R.OFFICES[i]
         local cqi = court.offices[office.slug]
         if cqi and IC.house_of_cqi(faction_key, cqi) == IC.CROWN then
             if office.affinity == slug then return cqi, office.slug end
@@ -234,6 +235,7 @@ local function crown_governor(faction_key)
 end
 
 function IC.party_target(faction_key, slug, move, enemy)
+    local R = IC.R(faction_key)
     if move == "unseat" then
         if enemy ~= IC.CROWN then return nil end
         return crown_seat(faction_key, slug)
@@ -243,8 +245,8 @@ function IC.party_target(faction_key, slug, move, enemy)
     elseif move == "sabotage" then
         -- AN OFFICE THE ENEMY'S MAN HOLDS and nobody has stalled yet.
         local court = IC.court(faction_key)
-        for i = 1, #IC.OFFICES do
-            local office_slug = IC.OFFICES[i].slug
+        for i = 1, #R.OFFICES do
+            local office_slug = R.OFFICES[i].slug
             local cqi = court.offices[office_slug]
             if cqi and not (court.stalled or {})[office_slug]
                     and IC.house_of_cqi(faction_key, cqi) == enemy then
@@ -417,11 +419,12 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
         return nil
     end,
     motive = function(faction_key, slug, _t)
+        local R = IC.R(faction_key)
         local court = IC.court(faction_key)
         local claimed = 0
-        for i = 1, #IC.OFFICES do
-            local cqi = court.offices[IC.OFFICES[i].slug]
-            if IC.OFFICES[i].affinity == slug and cqi
+        for i = 1, #R.OFFICES do
+            local cqi = court.offices[R.OFFICES[i].slug]
+            if R.OFFICES[i].affinity == slug and cqi
                     and IC.house_of_cqi(faction_key, cqi) == IC.CROWN then
                 claimed = claimed + 1
             end
@@ -439,6 +442,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
 }
 
 function IC.feud_target(faction_key, slug)
+    local R = IC.R(faction_key)
     local a = IC.agenda(faction_key)
     local now = cm:model():turn_number()
     local function free(s)
@@ -446,8 +450,8 @@ function IC.feud_target(faction_key, slug)
     end
     if not free(slug) then return nil end
     local court = IC.court(faction_key)
-    for i = 1, #IC.OFFICES do
-        local office = IC.OFFICES[i]
+    for i = 1, #R.OFFICES do
+        local office = R.OFFICES[i]
         local cqi = court.offices[office.slug]
         if office.affinity == slug and cqi then
             local holder = IC.house_of_cqi(faction_key, cqi)
@@ -689,12 +693,13 @@ end
 -- A vacant office one of its free men can take now, the offices it claims
 -- first; else a province with no overseer or a Crown one.
 function IC.demand_target(faction_key, slug)
+    local R = IC.R(faction_key)
     local men = free_men(faction_key, slug)
     if #men == 0 then return nil end
     local court = IC.court(faction_key)
     local claimed, other = {}, {}
-    for i = 1, #IC.OFFICES do
-        local office = IC.OFFICES[i]
+    for i = 1, #R.OFFICES do
+        local office = R.OFFICES[i]
         if not court.offices[office.slug] then
             local list = office.affinity == slug and claimed or other
             list[#list + 1] = office.slug
@@ -848,6 +853,7 @@ function IC.settle_demand(faction_key, outcome, ended)
         IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
+        IC.grudge_write(faction_key, d.slug, "demand")
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
@@ -987,38 +993,30 @@ core:add_listener("ic_demand_cancelled", "MissionCancelled", true,
 
 -- OFFERS. A loyal party gives the Crown something; the player takes it on the
 -- Petitions tab, and every other party resents it.
-IC.PARTY_TROOPS = {
-    temple = "wh3_dlc23_chd_inf_infernal_guard_fireglaives",
-    forge  = "wh3_dlc23_chd_inf_chaos_dwarf_blunderbusses",
-    chain  = "wh3_dlc23_chd_inf_hobgoblin_cutthroats",
-    legion = "wh3_dlc23_chd_inf_infernal_guard",
-    ledger = "wh3_dlc23_chd_inf_chaos_dwarf_warriors",
-    tower  = "wh3_dlc23_chd_inf_chaos_dwarf_warriors_great_weapons",
-    road   = "wh3_dlc23_chd_cav_hobgoblin_wolf_raiders_bows",
-    hearth = "wh3_dlc23_chd_inf_chaos_dwarf_warriors",
-}
--- A confederated house's slug is not one of the eight.
-IC.TROOPS_DEFAULT = "wh3_dlc23_chd_inf_chaos_dwarf_warriors"
+-- The race's PARTY_TROOPS and TROOPS_DEFAULT live in the model, with the other
+-- race fields, because the Chaos Dwarf race registers before this file loads.
 -- ponytail: the engine's army size, fixed at 20; read it if CA ever exposes it.
 local ARMY_UNITS = 20
 
-function IC.troop_key(slug)
-    return IC.PARTY_TROOPS[slug] or IC.TROOPS_DEFAULT
+function IC.troop_key(slug, faction_key)
+    local R = IC.R(faction_key)
+    return R.PARTY_TROOPS[slug] or R.TROOPS_DEFAULT
 end
 
 -- The free Crown man nearest below a vacant office's influence bar, within
 -- the backing of it and already past its rank bar.
 function IC.backing_target(faction_key)
+    local R = IC.R(faction_key)
     local court = IC.court(faction_key)
     local best, best_gap
     for _, cand in ipairs(IC.candidates(faction_key)) do
         if cand.slug == IC.CROWN and not cand.busy then
             local has = IC.standing(faction_key, cand.cqi)
-            for i = 1, #IC.OFFICES do
-                local office = IC.OFFICES[i]
+            for i = 1, #R.OFFICES do
+                local office = R.OFFICES[i]
                 local gap = IC.tier_influence(office.tier) - has
                 if not court.offices[office.slug]
-                        and cand.rank >= IC.office_rank(office.slug)
+                        and cand.rank >= IC.office_rank(office.slug, faction_key)
                         and gap > 0 and gap <= T.party_offer_backing
                         and (not best or gap < best_gap
                              or (gap == best_gap and cand.cqi < best)) then
@@ -1153,7 +1151,7 @@ function IC.accept_offer(faction_key, slug)
         local lord = IC.character_by_cqi(faction_key, tonumber(o.target))
         local lookup = cm:char_lookup_str(lord)
         for _ = 1, o.n do
-            cm:grant_unit_to_character(lookup, IC.troop_key(slug))
+            cm:grant_unit_to_character(lookup, IC.troop_key(slug, faction_key))
         end
     end
     for _, other in ipairs(IC.present_houses(faction_key)) do
@@ -1225,9 +1223,13 @@ function IC.party_turn_due(faction_key)
     -- Whether a faction is dead is the same on every machine.
     -- AND THE RISINGS, which run courts too: left out, every one of them took
     -- position 0 and acted on the same turn (audit 2026-09-29).
+    -- EACH RACE KEEPS ITS OWN ROUND (phase 2 final review): one shared round let
+    -- the fourteen Dwarf holds stretch every Chaos Dwarf court's turn about 3.5x.
+    -- The court's own race only; a race switched off holds no court to ask.
     local candidates = {}
-    for i = 1, #IC.ORIGINS do candidates[#candidates + 1] = IC.ORIGINS[i].faction end
-    for i = 1, #IC.REBEL_POOL do candidates[#candidates + 1] = IC.REBEL_POOL[i] end
+    local R = IC.R(faction_key)
+    for i = 1, #R.ORIGINS do candidates[#candidates + 1] = R.ORIGINS[i].faction end
+    for i = 1, #R.REBEL_POOL do candidates[#candidates + 1] = R.REBEL_POOL[i] end
     local keys = {}
     for i = 1, #candidates do
         local key = candidates[i]
@@ -1270,6 +1272,42 @@ function IC.ai_placate(faction_key)
     return nil
 end
 
+-- AN AI DWARF RULER PAYS WEREGILD (spec 2026-10-04 section 5): to the party
+-- with the most grudges, lowest loyalty first, ties in present_houses' order,
+-- through IC.plot - so every rule a player meets, the gold among them, holds.
+function IC.ai_weregild(faction_key)
+    if IC.race_key(faction_key) ~= "dwf" then return nil end
+    local court = IC.court(faction_key)
+    -- EVERY PARTY WITH A GRUDGE, WORST FIRST, so one party whose man cannot be
+    -- reached does not stop the rest being paid (phase 4 final review). The
+    -- order is present_houses' where the two keys tie: the same on every machine.
+    local owed = {}
+    for i, slug in ipairs(IC.present_houses(faction_key)) do
+        local n = #IC.grudges(faction_key, slug)
+        if n > 0 then
+            owed[#owed + 1] = {slug = slug, n = n, i = i,
+                               loyalty = court.houses[slug] and court.houses[slug].loyalty or 0}
+        end
+    end
+    table.sort(owed, function(a, b)
+        if a.n ~= b.n then return a.n > b.n end
+        if a.loyalty ~= b.loyalty then return a.loyalty < b.loyalty end
+        return a.i < b.i
+    end)
+    for _, o in ipairs(owed) do
+        local target = IC.party_leader(faction_key, o.slug)
+        if target then
+            for _, cand in ipairs(IC.candidates(faction_key)) do
+                if IC.can_plot(faction_key, "weregild", cand.cqi, tostring(target)) then
+                    IC.plot(faction_key, "weregild", cand.cqi, tostring(target))
+                    return o.slug
+                end
+            end
+        end
+    end
+    return nil
+end
+
 function IC.party_turn(faction_key)
     if not IC.party_turn_due(faction_key) then return nil end
     local human = IC.is_human(faction_key)
@@ -1279,7 +1317,10 @@ function IC.party_turn(faction_key)
     IC.expire_offers(faction_key)
     -- THE AI RULER'S DEFENCE FIRST, every turn it is due: it is not a party
     -- acting, so neither a plot landing nor parties_act off may skip it.
-    if not human then IC.ai_placate(faction_key) end
+    if not human then
+        IC.ai_placate(faction_key)
+        IC.ai_weregild(faction_key)
+    end
     if IC.agenda(faction_key).plot then
         local done = IC.land_plot(faction_key)
         IC.save_agenda(faction_key)

@@ -65,6 +65,10 @@ TABLES = [(G.TSV_META[t][0], G.TSV_META[t][1], t)
 SCRIPTS = [
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua",
      "script/campaign/mod/zzz_derpy_iron_court.lua"),
+    # THE DWARF RACE (plan 2026-10-04 phase 2): loads after the model, before
+    # the parties file.
+    ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua",
+     "script/campaign/mod/zzz_derpy_iron_court_dwarf.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua",
      "script/campaign/mod/zzz_derpy_iron_court_ui.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua",

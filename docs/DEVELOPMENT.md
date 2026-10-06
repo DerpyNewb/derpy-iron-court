@@ -17,6 +17,7 @@ entry to raise, a banner for a rebellion.
 | File | Global | Role |
 |---|---|---|
 | `zzz_derpy_iron_court.lua` | `IC` | The model: parties, backgrounds, influence, offices, overseers, loyalty, the five control bands, intrigue, favours, secession, splintering, the record, save state. |
+| `zzz_derpy_iron_court_dwarf.lua` | `IC` (extends it) | The Dwarf race: its parties, offices, governments, laws, moves, deeds, rebels and tuning, read through `IC.R(faction_key)` wherever the model asks for a race. The Chaos Dwarf court never reads it. |
 | `zzz_derpy_iron_court_parties.lua` | `IC` (extends it) | The rival parties' own acts: intrigue against the Crown, feuds, demands, offers, and overseer experience. Loads after the model (`.` sorts before `_`) and changes nothing in the campaign at load. |
 | `zzz_derpy_iron_court_ui_map.lua` | `ICUI` (extends it) | The Governors tab: clears the court's backdrop so the live map shows through, pins five components per held province to its capital settlement through CA's own world-space callbacks (`ContextWorldSpaceComponent` on `CcoCampaignSettlement.Position`, copied from the Gardens of Morr), and draws the left column's Parties, Provinces and Candidates pages. What each party would take is asked once a redraw (`ICUI.map_memo`). Loads after `_ui.lua` (`.` sorts before `_`), so `ICUI` exists. |
 | `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its seven tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. Every action it takes goes through `IC.mp_send`; it never calls a model mutator or writes court state directly. |
@@ -212,13 +213,14 @@ Run everything from the repo root. Several tools hard-code the game at
 |---|---|---|
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
-| Parse | `luac -p <file>` for the four scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all four shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (973 checks)` (2026-10-03). |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,093 mutants (2026-10-03; not re-run for build 05C8F762, whose changes no mutant targets), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Parse | `luac -p <file>` for the five scripts | Lua 5.1.5 |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all five shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (1070 checks)` (2026-10-06). |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,179 mutants (full run 2026-10-06, build F4CF5CA4), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
-| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 28 files, 1048 components`. |
+| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 30 files, 1914 components` (2026-10-06). |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
+| Release | `py tools/check_ic_release.py`, `--pack`, `--selftest` | Both races at 1600, 1920 and 2560: text fit and backdrop contrast. `--pack` also reads the saved pack with RPFM shut and compares every table with `gen_iron_court.build()`, and every row and loc line of F4C63911 (found by MD5 under `Modding Files/Backup/`) with the new pack. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |
 | Pack | `py tools/deploy_iron_court.py --no-copy` | Needs RPFM's MCP server. Runs the gate, refuses duplicate keys, creates the pack, imports every table the generator declares, adds scripts, layouts and art, saves to `Modding Files/Modpacks/`, then re-reads the saved pack and refuses if any expected file is missing. |
 | Deploy | `py tools/deploy_iron_court.py` | The same, then copies into `data/`. Refuses while `Warhammer3` is running. |

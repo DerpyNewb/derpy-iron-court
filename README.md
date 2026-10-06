@@ -152,6 +152,19 @@ each man on the map, and in single player the panel reopens on the tab you left 
 Figures for influence, gold, loyalty and turns carry their icons, each answer at court has a
 sound of its own, and a gold question mark beside the court's name opens a help page.
 
+## Dwarf courts
+
+Every Dwarf faction gets a court of its own; the race is read from the faction's subculture,
+so the same pack runs Chaos Dwarf and Dwarf courts side by side. A Dwarf court has its own
+party, office, government, law and move names and effects, its own art in CA's Book of Grudges
+look, and its fourteen seats in a Great Hall round the faction leader's throne; every party
+gains +1 loyalty a turn from kinship and takes half as long again to break away. A wronged
+party holds a grudge that costs 1 loyalty a turn until it is settled, by paying the weregild
+from the treasury or by giving that party's man an office it claims. The court also reads CA's
+Book of Grudges: its three most wronging factions are named on the Court tab, relations with a
+faction sour once each at 500, 1,000 and 2,000 grudge points, and the MCT switch "Dwarf
+courts" turns all of it on or off at any time.
+
 ## Settings (MCT)
 
 With the Mod Configuration Tool installed, the Iron Court page has:

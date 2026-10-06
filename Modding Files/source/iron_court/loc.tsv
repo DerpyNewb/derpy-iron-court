@@ -1087,6 +1087,8 @@ event_feed_strings_text_derpy_ic_move_unseat_ok	Strike Their Seats - Success!	fa
 event_feed_strings_text_derpy_ic_move_unseat_fail	Strike Their Seats - Failure	false
 event_feed_strings_text_derpy_ic_move_recall_ok	Recall Governors - Success!	false
 event_feed_strings_text_derpy_ic_move_recall_fail	Recall Governors - Failure	false
+event_feed_strings_text_derpy_ic_move_weregild_ok	Pay the Weregild - Success!	false
+event_feed_strings_text_derpy_ic_move_weregild_fail	Pay the Weregild - Failure	false
 event_feed_strings_text_derpy_ic_move_oath_ok	Blood-Oath - Success!	false
 event_feed_strings_text_derpy_ic_move_oath_fail	Blood-Oath - Failure	false
 event_feed_strings_text_derpy_ic_move_patron_ok	Stand His Patron - Success!	false
@@ -1107,6 +1109,950 @@ event_feed_strings_text_derpy_ic_move_envoy_ok	Send an Envoy - Success!	false
 event_feed_strings_text_derpy_ic_move_envoy_fail	Send an Envoy - Failure	false
 event_feed_strings_text_derpy_ic_move_diplomats_ok	Send Diplomats - Success!	false
 event_feed_strings_text_derpy_ic_move_diplomats_fail	Send Diplomats - Failure	false
+effect_bundles_localised_title_derpy_ic_office_dwf_priest	High Priest of the Ancestors	false
+effect_bundles_localised_description_derpy_ic_office_dwf_priest	The Ancestors are honoured in every hall, and the hold is quiet.	false
+derpy_ic_effects_derpy_ic_office_dwf_priest	Control +6, Building income +12%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_priest	High Priest of the Ancestors (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_priest	The shrines stand unattended and the old names go unspoken.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_priest	Control -6	false
+derpy_ic_office_name_dwf_priest	High Priest of the Ancestors	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_priest	High Priest of the Ancestors	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_priest	The Ancestors are honoured in every hall, and the hold is quiet.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_priest	Control: +6, Income from all buildings: +12%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_priest	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_forge	Master Forgewright	false
+effect_bundles_localised_description_derpy_ic_office_dwf_forge	Every forge in the hold answers to one hammer, and it is his.	false
+derpy_ic_effects_derpy_ic_office_dwf_forge	Oathgold +15%, Forge Oathgold cost -12%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_forge	Master Forgewright (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_forge	No master stands at the great anvil. The work slips and no one is blamed.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_forge	Oathgold -6%	false
+derpy_ic_office_name_dwf_forge	Master Forgewright	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_forge	Master Forgewright	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_forge	Every forge in the hold answers to one hammer, and it is his.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_forge	Oathgold from buildings: +15%, Oathgold cost for crafting in the Forge: -12%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_forge	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_ledger	Keeper of the Reckoning	false
+effect_bundles_localised_description_derpy_ic_office_dwf_ledger	Every debt the hold is owed is written down, and he holds the book.	false
+derpy_ic_effects_derpy_ic_office_dwf_ledger	Building income +12%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_ledger	Keeper of the Reckoning (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_ledger	The books go unbalanced and the tithe arrives light.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_ledger	Building income -6%	false
+derpy_ic_office_name_dwf_ledger	Keeper of the Reckoning	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_ledger	Keeper of the Reckoning	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_ledger	Every debt the hold is owed is written down, and he holds the book.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_ledger	Income from all buildings: +12%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_ledger	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_warden	Warden of the Gate	false
+effect_bundles_localised_description_derpy_ic_office_dwf_warden	The gate is watched, and the watchers are paid on time.	false
+derpy_ic_effects_derpy_ic_office_dwf_warden	Upkeep -10%, Replenishment +10%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_warden	Warden of the Gate (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_warden	The gate keeps itself, badly and at the hold's expense.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_warden	Control -4	false
+derpy_ic_office_name_dwf_warden	Warden of the Gate	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_warden	Warden of the Gate	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_warden	The gate is watched, and the watchers are paid on time.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_warden	Upkeep: -10%, Casualty replenishment rate: +10%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_warden	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_hand	Keeper of the Grudge-Book	false
+effect_bundles_localised_description_derpy_ic_office_dwf_hand	Every wrong is written in his hand. From the next Age of Reckoning, fewer grudges need settling.	false
+derpy_ic_effects_derpy_ic_office_dwf_hand	Grudges needed -10%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_hand	Keeper of the Grudge-Book (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_hand	The Book goes unkept. From the next Age of Reckoning, more grudges need settling.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_hand	Grudges needed +4%	false
+derpy_ic_office_name_dwf_hand	Keeper of the Grudge-Book	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_hand	Keeper of the Grudge-Book	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_hand	Every wrong is written in his hand. From the next Age of Reckoning, fewer grudges need settling.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_hand	Increases the number of Settled Grudges required for each Age of Reckoning by -10%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_hand	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_roads	Warden of the Underway	false
+effect_bundles_localised_description_derpy_ic_office_dwf_roads	The underways are his, and they are quicker than they were.	false
+derpy_ic_effects_derpy_ic_office_dwf_roads	Movement range +8%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_roads	Warden of the Underway (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_roads	The underways go unwatched, and the traders take the long way round.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_roads	Movement range -4%	false
+derpy_ic_office_name_dwf_roads	Warden of the Underway	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_roads	Warden of the Underway	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_roads	The underways are his, and they are quicker than they were.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_roads	Campaign movement range: +8%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_roads	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_chains	Overseer of the Mines	false
+effect_bundles_localised_description_derpy_ic_office_dwf_chains	He counts every cart that comes up the shaft, and the miners know he counts.	false
+derpy_ic_effects_derpy_ic_office_dwf_chains	Mine income +15%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_chains	Overseer of the Mines (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_chains	Uncounted, the miners dig at their own pace.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_chains	Mine income -6%	false
+derpy_ic_office_name_dwf_chains	Overseer of the Mines	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_chains	Overseer of the Mines	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_chains	He counts every cart that comes up the shaft, and the miners know he counts.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_chains	Income from Iron Mines, Gold Mines and Stone Quarries: +15%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_chains	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_pits	Master of the Delvings	false
+effect_bundles_localised_description_derpy_ic_office_dwf_pits	What comes back from a battlefield is his to weigh and his to store.	false
+derpy_ic_effects_derpy_ic_office_dwf_pits	Post-battle loot +24%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_pits	Master of the Delvings (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_pits	The spoils are picked over by whoever reaches them first.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_pits	Post-battle loot -10%	false
+derpy_ic_office_name_dwf_pits	Master of the Delvings	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_pits	Master of the Delvings	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_pits	What comes back from a battlefield is his to weigh and his to store.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_pits	Income from post-battle loot: +24%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_pits	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_quarry	Master of the Stonecutters	false
+effect_bundles_localised_description_derpy_ic_office_dwf_quarry	Stone is cut to his measure, and the halls rise for less.	false
+derpy_ic_effects_derpy_ic_office_dwf_quarry	Construction cost -9%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_quarry	Master of the Stonecutters (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_quarry	The stonecutters work at the pace of the slowest of them.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_quarry	Construction cost +4%	false
+derpy_ic_office_name_dwf_quarry	Master of the Stonecutters	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_quarry	Master of the Stonecutters	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_quarry	Stone is cut to his measure, and the halls rise for less.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_quarry	Construction cost: -9% for all buildings	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_quarry	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_muster	Thane of the Muster	false
+effect_bundles_localised_description_derpy_ic_office_dwf_muster	He knows what a warrior costs, and he pays no more than that.	false
+derpy_ic_effects_derpy_ic_office_dwf_muster	Recruitment cost -12%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_muster	Thane of the Muster (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_muster	Every clan is mustered at whatever it asks for.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_muster	Recruitment cost +6%	false
+derpy_ic_office_name_dwf_muster	Thane of the Muster	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_muster	Thane of the Muster	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_muster	He knows what a warrior costs, and he pays no more than that.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_muster	Recruitment cost: -12%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_muster	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_kilns	Brewmaster of the Hold	false
+effect_bundles_localised_description_derpy_ic_office_dwf_kilns	The hold's ale is the best in the mountains, and the trade in its fine work follows it.	false
+derpy_ic_effects_derpy_ic_office_dwf_kilns	Gem cutter income +8%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_kilns	Brewmaster of the Hold (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_kilns	The brewhouse goes unkept, and the hold's fine work sells for less.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_kilns	Gem cutter income -4%	false
+derpy_ic_office_name_dwf_kilns	Brewmaster of the Hold	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_kilns	Brewmaster of the Hold	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_kilns	The hold's ale is the best in the mountains, and the trade in its fine work follows it.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_kilns	Income from Gem Cutters and Obsidian Quarries: +8%	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_kilns	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_fields	Steward of the Holdfarms	false
+effect_bundles_localised_description_derpy_ic_office_dwf_fields	The holdfarms are tended, and the hold grows.	false
+derpy_ic_effects_derpy_ic_office_dwf_fields	Growth +5	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_fields	Steward of the Holdfarms (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_fields	The holdfarms go untended, and the hold grows slowly.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_fields	Growth -2	false
+derpy_ic_office_name_dwf_fields	Steward of the Holdfarms	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_fields	Steward of the Holdfarms	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_fields	The holdfarms are tended, and the hold grows.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_fields	Growth: +5	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_fields	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_scribes	Keeper of the Lore	false
+effect_bundles_localised_description_derpy_ic_office_dwf_scribes	The old books are kept and read, and new work comes quicker for it.	false
+derpy_ic_effects_derpy_ic_office_dwf_scribes	Research +5	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_scribes	Keeper of the Lore (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_scribes	The lore goes unread, and new work comes slowly.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_scribes	Research -2	false
+derpy_ic_office_name_dwf_scribes	Keeper of the Lore	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_scribes	Keeper of the Lore	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_scribes	The old books are kept and read, and new work comes quicker for it.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_scribes	Research rate: +5	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_scribes	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_office_dwf_banners	Keeper of the Clan Banners	false
+effect_bundles_localised_description_derpy_ic_office_dwf_banners	Every clan banner is counted, and the Grudge Settlers march cheaper for it.	false
+derpy_ic_effects_derpy_ic_office_dwf_banners	Grudge Settler cost -10%	false
+effect_bundles_localised_title_derpy_ic_vacant_dwf_banners	Keeper of the Clan Banners (Vacant)	false
+effect_bundles_localised_description_derpy_ic_vacant_dwf_banners	The banners go uncounted, and the Grudge Settlers ask more to march.	false
+derpy_ic_effects_derpy_ic_vacant_dwf_banners	Grudge Settler cost +5%	false
+derpy_ic_office_name_dwf_banners	Keeper of the Clan Banners	false
+character_trait_levels_onscreen_name_derpy_ic_title_dwf_banners	Keeper of the Clan Banners	false
+character_trait_levels_colour_text_derpy_ic_title_dwf_banners	Every clan banner is counted, and the Grudge Settlers march cheaper for it.	false
+character_trait_levels_explanation_text_derpy_ic_title_dwf_banners	Recruitment cost: -10% for Grudge Settler units	false
+character_trait_levels_removal_text_derpy_ic_title_dwf_banners	He no longer holds the office.	false
+effect_bundles_localised_title_derpy_ic_control_dwf_grip	An Iron Grip on the Court	false
+effect_bundles_localised_description_derpy_ic_control_dwf_grip	Nothing moves in the hold that the throne did not set moving.	false
+derpy_ic_effects_derpy_ic_control_dwf_grip	Control +6, Building income +12%, Upkeep -15%, Oathgold +5%	false
+derpy_ic_control_name_dwf_grip	An Iron Grip on the Court	false
+effect_bundles_localised_title_derpy_ic_control_dwf_mastery	Master of the Court	false
+effect_bundles_localised_description_derpy_ic_control_dwf_mastery	The clans argue, and then they do as they are told.	false
+derpy_ic_effects_derpy_ic_control_dwf_mastery	Control +4, Building income +8%, Upkeep -10%	false
+derpy_ic_control_name_dwf_mastery	Master of the Court	false
+effect_bundles_localised_title_derpy_ic_control_dwf_command	In Command of the Court	false
+effect_bundles_localised_description_derpy_ic_control_dwf_command	The throne is first among the clans, and no more than first.	false
+derpy_ic_effects_derpy_ic_control_dwf_command	Control +2	false
+derpy_ic_control_name_dwf_command	In Command of the Court	false
+effect_bundles_localised_title_derpy_ic_control_dwf_contested	A Contested Court	false
+effect_bundles_localised_description_derpy_ic_control_dwf_contested	No decree passes without a bargain struck.	false
+derpy_ic_effects_derpy_ic_control_dwf_contested	Control -2, Upkeep +5%	false
+derpy_ic_control_name_dwf_contested	A Contested Court	false
+effect_bundles_localised_title_derpy_ic_control_dwf_lost	The Court Is Not Yours	false
+effect_bundles_localised_description_derpy_ic_control_dwf_lost	The clans rule and the throne is consulted, when there is time.	false
+derpy_ic_effects_derpy_ic_control_dwf_lost	Control -8, Upkeep +20%, Building income -15%, Oathgold -5%	false
+derpy_ic_control_name_dwf_lost	The Court Is Not Yours	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_conclave	The Council of Elders	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_conclave	The eldest of the clans sit in council, and the throne hears them out.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_conclave	Research +5	false
+derpy_ic_doctrine_name_dwf_conclave	The Council of Elders	false
+derpy_ic_doctrine_rule_dwf_conclave	Office terms are shorter. A man may take a seat again after 1 turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_priest	The Ancestors' Writ	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_priest	The Ancestors set down how a hold is ruled, and the priests read it aloud.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_priest	Control +2	false
+derpy_ic_doctrine_name_dwf_priest	The Ancestors' Writ	false
+derpy_ic_doctrine_rule_dwf_priest	Each rank a man gains is worth double influence. Battles are worth less.	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_forge	The Forge-Throne	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_forge	The master smiths rule from the forge, and the anvil keeps the time.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_forge	Oathgold +10%	false
+derpy_ic_doctrine_name_dwf_forge	The Forge-Throne	false
+derpy_ic_doctrine_rule_dwf_forge	Governors earn more income. Men at court earn less influence each turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_legion	The War-King	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_legion	The king rules from the shield wall, and so does every dwarf who would follow him.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_legion	Upkeep -5%	false
+derpy_ic_doctrine_name_dwf_legion	The War-King	false
+derpy_ic_doctrine_rule_dwf_legion	Battles are worth more influence and loyalty. Men at court earn no influence each turn.	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_chain	The Iron Law	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_chain	An oath sworn in the hold is kept, or it is written down.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_chain	Grudge Settler slots +1	false
+derpy_ic_doctrine_name_dwf_chain	The Iron Law	false
+derpy_ic_doctrine_rule_dwf_chain	Ancestor Oath, Stand His Patron and Oath on the Anvil cost a third less. A broken oath costs 10 more loyalty.	false
+effect_bundles_localised_title_derpy_ic_doctrine_dwf_convoy	The Reckoning-Throne	false
+effect_bundles_localised_description_derpy_ic_doctrine_dwf_convoy	Every debt is counted, and the throne keeps the count.	false
+derpy_ic_effects_derpy_ic_doctrine_dwf_convoy	Trade tariffs +10%	false
+derpy_ic_doctrine_name_dwf_convoy	The Reckoning-Throne	false
+derpy_ic_doctrine_rule_dwf_convoy	Gifts and oaths cost less gold. Skimming the Tally angers the parties twice as much.	false
+derpy_ic_law_cat_dwf_labour	Craft	false
+effect_bundles_localised_title_derpy_ic_law_dwf_labour_measure	The Old Ways	false
+effect_bundles_localised_description_derpy_ic_law_dwf_labour_measure	The clans work as their fathers worked.	false
+derpy_ic_law_name_dwf_labour_measure	The Old Ways	false
+effect_bundles_localised_title_derpy_ic_law_dwf_labour_lash	Deep Seams	false
+effect_bundles_localised_description_derpy_ic_law_dwf_labour_lash	The miners go deeper, and the holdfarms go short of hands.	false
+derpy_ic_effects_derpy_ic_law_dwf_labour_lash	Mine income +15%, Growth -3	false
+derpy_ic_law_name_dwf_labour_lash	Deep Seams	false
+derpy_ic_law_fx1_dwf_labour_lash	Income from Iron Mines, Gold Mines and Stone Quarries: +15%	false
+derpy_ic_law_fx2_dwf_labour_lash	Growth: -3	false
+effect_bundles_localised_title_derpy_ic_law_dwf_labour_kept	Hearth and Holdfarm	false
+effect_bundles_localised_description_derpy_ic_law_dwf_labour_kept	The holdfarms are tended first, and the mines wait.	false
+derpy_ic_effects_derpy_ic_law_dwf_labour_kept	Growth +8, Mine income -10%	false
+derpy_ic_law_name_dwf_labour_kept	Hearth and Holdfarm	false
+derpy_ic_law_fx1_dwf_labour_kept	Growth: +8	false
+derpy_ic_law_fx2_dwf_labour_kept	Income from Iron Mines, Gold Mines and Stone Quarries: -10%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_labour_quota	The Master's Mark	false
+effect_bundles_localised_description_derpy_ic_law_dwf_labour_quota	Only marked work leaves the forge, and the forge eats the hours.	false
+derpy_ic_effects_derpy_ic_law_dwf_labour_quota	Forge Oathgold cost -15%, Replenishment -5%	false
+derpy_ic_law_name_dwf_labour_quota	The Master's Mark	false
+derpy_ic_law_fx1_dwf_labour_quota	Oathgold cost for crafting in the Forge: -15%	false
+derpy_ic_law_fx2_dwf_labour_quota	Casualty replenishment rate: -5%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_labour_ash	Raise the Halls	false
+effect_bundles_localised_description_derpy_ic_law_dwf_labour_ash	The halls are raised and widened, and the counting-houses pay.	false
+derpy_ic_effects_derpy_ic_law_dwf_labour_ash	Construction cost -15%, Building income -5%	false
+derpy_ic_law_name_dwf_labour_ash	Raise the Halls	false
+derpy_ic_law_fx1_dwf_labour_ash	Construction cost: -15% for all buildings	false
+derpy_ic_law_fx2_dwf_labour_ash	Income from all buildings: -5%	false
+derpy_ic_law_cat_dwf_tribute	Tribute	false
+effect_bundles_localised_title_derpy_ic_law_dwf_tribute_tithe	The King's Tithe	false
+effect_bundles_localised_description_derpy_ic_law_dwf_tribute_tithe	The throne takes its tithe, as it always has.	false
+derpy_ic_law_name_dwf_tribute_tithe	The King's Tithe	false
+effect_bundles_localised_title_derpy_ic_law_dwf_tribute_roads	Open Underways	false
+effect_bundles_localised_description_derpy_ic_law_dwf_tribute_roads	The underways are opened to trade, and the vassal holds pay less.	false
+derpy_ic_effects_derpy_ic_law_dwf_tribute_roads	Trade tariffs +15%, Movement range +5%, Vassal tribute -20%	false
+derpy_ic_law_name_dwf_tribute_roads	Open Underways	false
+derpy_ic_law_fx1_dwf_tribute_roads	Income from trade tariffs: +15%	false
+derpy_ic_law_fx2_dwf_tribute_roads	Campaign movement range: +5%	false
+derpy_ic_law_fx3_dwf_tribute_roads	Tribute from [[img:icon_vassal]][[/img]]vassals: -20%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_tribute_tariff	The Reckoners' Tariff	false
+effect_bundles_localised_description_derpy_ic_law_dwf_tribute_tariff	Every hall pays the Reckoners, and the traders pay more at the gate.	false
+derpy_ic_effects_derpy_ic_law_dwf_tribute_tariff	Building income +5%, Trade tariffs -10%	false
+derpy_ic_law_name_dwf_tribute_tariff	The Reckoners' Tariff	false
+derpy_ic_law_fx1_dwf_tribute_tariff	Income from all buildings: +5%	false
+derpy_ic_law_fx2_dwf_tribute_tariff	Income from trade tariffs: -10%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_tribute_mines	The Oathgold Hoard	false
+effect_bundles_localised_description_derpy_ic_law_dwf_tribute_mines	The Oathgold is hoarded, and the roads are left to keep themselves.	false
+derpy_ic_effects_derpy_ic_law_dwf_tribute_mines	Oathgold +15%, Movement range -5%	false
+derpy_ic_law_name_dwf_tribute_mines	The Oathgold Hoard	false
+derpy_ic_law_fx1_dwf_tribute_mines	Oathgold from buildings: +15%	false
+derpy_ic_law_fx2_dwf_tribute_mines	Campaign movement range: -5%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_tribute_charter	Hold Charters	false
+effect_bundles_localised_description_derpy_ic_law_dwf_tribute_charter	The holds are chartered to trade their craft, and the warriors pay for it.	false
+derpy_ic_effects_derpy_ic_law_dwf_tribute_charter	Gem cutter income +15%, Trade goods +10%, Upkeep +5%	false
+derpy_ic_law_name_dwf_tribute_charter	Hold Charters	false
+derpy_ic_law_fx1_dwf_tribute_charter	Income from Gem Cutters and Obsidian Quarries: +15%	false
+derpy_ic_law_fx2_dwf_tribute_charter	Tradable resources produced: +10%	false
+derpy_ic_law_fx3_dwf_tribute_charter	Upkeep: +5%	false
+derpy_ic_law_cat_dwf_worship	Ancestors	false
+effect_bundles_localised_title_derpy_ic_law_dwf_worship_rites	The Ancestors' Rites	false
+effect_bundles_localised_description_derpy_ic_law_dwf_worship_rites	The rites are kept, as they always have been.	false
+derpy_ic_law_name_dwf_worship_rites	The Ancestors' Rites	false
+effect_bundles_localised_title_derpy_ic_law_dwf_worship_fires	Valaya's Hearth	false
+effect_bundles_localised_description_derpy_ic_law_dwf_worship_fires	Valaya's hearths are kept warm, and the loremasters go short.	false
+derpy_ic_effects_derpy_ic_law_dwf_worship_fires	Control +2, Growth +3, Research -5	false
+derpy_ic_law_name_dwf_worship_fires	Valaya's Hearth	false
+derpy_ic_law_fx1_dwf_worship_fires	Control: +2	false
+derpy_ic_law_fx2_dwf_worship_fires	Growth: +3	false
+derpy_ic_law_fx3_dwf_worship_fires	Research rate: -5	false
+effect_bundles_localised_title_derpy_ic_law_dwf_worship_seats	Rune-Lore	false
+effect_bundles_localised_description_derpy_ic_law_dwf_worship_seats	The runesmiths are given their head, and the shrines are given less.	false
+derpy_ic_effects_derpy_ic_law_dwf_worship_seats	Rune Oathgold cost -15%, Control -1	false
+derpy_ic_law_name_dwf_worship_seats	Rune-Lore	false
+derpy_ic_law_fx1_dwf_worship_seats	Oathgold cost for crafting Runes: -15%	false
+derpy_ic_law_fx2_dwf_worship_seats	Control: -1	false
+effect_bundles_localised_title_derpy_ic_law_dwf_worship_lore	The Lore of the Book	false
+effect_bundles_localised_description_derpy_ic_law_dwf_worship_lore	The old books are opened, and the holdfarms lose their hands to them.	false
+derpy_ic_effects_derpy_ic_law_dwf_worship_lore	Research +10, Growth -3	false
+derpy_ic_law_name_dwf_worship_lore	The Lore of the Book	false
+derpy_ic_law_fx1_dwf_worship_lore	Research rate: +10	false
+derpy_ic_law_fx2_dwf_worship_lore	Growth: -3	false
+effect_bundles_localised_title_derpy_ic_law_dwf_worship_licence	The Anvil's Licence	false
+effect_bundles_localised_description_derpy_ic_law_dwf_worship_licence	The forge is licensed to work without the priests' leave.	false
+derpy_ic_effects_derpy_ic_law_dwf_worship_licence	Forge Oathgold cost -10%, Control -1	false
+derpy_ic_law_name_dwf_worship_licence	The Anvil's Licence	false
+derpy_ic_law_fx1_dwf_worship_licence	Oathgold cost for crafting in the Forge: -10%	false
+derpy_ic_law_fx2_dwf_worship_licence	Control: -1	false
+derpy_ic_law_cat_dwf_war	War	false
+effect_bundles_localised_title_derpy_ic_law_dwf_war_levy	The Muster	false
+effect_bundles_localised_description_derpy_ic_law_dwf_war_levy	The clans are mustered as they always have been.	false
+derpy_ic_law_name_dwf_war_levy	The Muster	false
+effect_bundles_localised_title_derpy_ic_law_dwf_war_grudge	Grudge Settlers	false
+effect_bundles_localised_description_derpy_ic_law_dwf_war_grudge	Grudge Settlers march at the throne's cost, and the counting-houses pay.	false
+derpy_ic_effects_derpy_ic_law_dwf_war_grudge	Grudge Settler cost -15%, Grudge Settler slots +1, Building income -5%	false
+derpy_ic_law_name_dwf_war_grudge	Grudge Settlers	false
+derpy_ic_law_fx1_dwf_war_grudge	Recruitment cost: -15% for Grudge Settler units	false
+derpy_ic_law_fx2_dwf_war_grudge	+1 Grudge Settler unit capacity per army	false
+derpy_ic_law_fx3_dwf_war_grudge	Income from all buildings: -5%	false
+effect_bundles_localised_title_derpy_ic_law_dwf_war_hellforge	Batteries of the Hold	false
+effect_bundles_localised_description_derpy_ic_law_dwf_war_hellforge	The guns come first, and every warrior costs more.	false
+derpy_ic_effects_derpy_ic_law_dwf_war_hellforge	War machine upkeep -10%, Artillery damage +5%, Infantry cost +10%	false
+derpy_ic_law_name_dwf_war_hellforge	Batteries of the Hold	false
+derpy_ic_law_fx1_dwf_war_hellforge	Upkeep: -10% for Artillery and Flying War Machine units	false
+derpy_ic_law_fx2_dwf_war_hellforge	Missile strength: +5% for Bolt Throwers, Grudge Thrower, Cannon, Goblin Hewer and Organ Gun units	false
+derpy_ic_law_fx3_dwf_war_hellforge	Recruitment cost: +10% for Infantry units	false
+effect_bundles_localised_title_derpy_ic_law_dwf_war_legions	Clan Hosts	false
+effect_bundles_localised_description_derpy_ic_law_dwf_war_legions	The clans march in strength, and the guns wait.	false
+derpy_ic_effects_derpy_ic_law_dwf_war_legions	Infantry cost -10%, War machine upkeep +10%	false
+derpy_ic_law_name_dwf_war_legions	Clan Hosts	false
+derpy_ic_law_fx1_dwf_war_legions	Recruitment cost: -10% for Infantry units	false
+derpy_ic_law_fx2_dwf_war_legions	Upkeep: +10% for Artillery and Flying War Machine units	false
+effect_bundles_localised_title_derpy_ic_law_dwf_war_gunnery	Thunder and Iron	false
+effect_bundles_localised_description_derpy_ic_law_dwf_war_gunnery	The engineers drill the guns and the thunderers, and every recruit costs more.	false
+derpy_ic_effects_derpy_ic_law_dwf_war_gunnery	Thunderer range +10%, Artillery rank +1, Recruitment cost +5%	false
+derpy_ic_law_name_dwf_war_gunnery	Thunder and Iron	false
+derpy_ic_law_fx1_dwf_war_gunnery	Range: +10% for Thunderer and Slayer Pirate units	false
+derpy_ic_law_fx2_dwf_war_gunnery	Recruit rank: +1 for Artillery and Flying War Machine units	false
+derpy_ic_law_fx3_dwf_war_gunnery	Recruitment cost: +5%	false
+effect_bundles_localised_title_derpy_ic_gov_dwf_base	Governor of the Province	false
+effect_bundles_localised_description_derpy_ic_gov_dwf_base	A governor of the throne sits here, and the province knows it.	false
+derpy_ic_effects_derpy_ic_gov_dwf_base	Control +2, Growth +5	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_crown	Governor: The Throne-Sworn	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_crown	Your own men hold it, and they are watched.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_crown	Control +4	false
+derpy_ic_party_name_dwf_crown	The Throne-Sworn	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_temple	Governor: The Ancestor Priesthood	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_temple	The priests keep the province, and every grudge in it is remembered.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_temple	Control +3	false
+derpy_ic_party_name_dwf_temple	The Ancestor Priesthood	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_forge	Governor: The Forgewrights	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_forge	The Forgewrights run the province like a forge floor, and the Oathgold comes in.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_forge	Oathgold +6%	false
+derpy_ic_party_name_dwf_forge	The Forgewrights	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_chain	Governor: The Deepdelvers	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_chain	The Deepdelvers work the seams, and what the battlefields yield is counted.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_chain	Post-battle loot +10%	false
+derpy_ic_party_name_dwf_chain	The Deepdelvers	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_legion	Governor: The Clan Warriors	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_legion	A hold under a thane costs less to keep than it should.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_legion	Upkeep -6%	false
+derpy_ic_party_name_dwf_legion	The Clan Warriors	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_ledger	Governor: The Reckoners	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_ledger	The Reckoners keep the province's books, and the tithe arrives whole.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_ledger	Building income +6%	false
+derpy_ic_party_name_dwf_ledger	The Reckoners	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_tower	Governor: The Runesmiths	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_tower	The Runesmiths read everything that passes through, and pass it on.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_tower	Research +5	false
+derpy_ic_party_name_dwf_tower	The Runesmiths	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_road	Governor: The Underway Wardens	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_road	The Underway Wardens keep the roads open whatever the season.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_road	Movement range +4%	false
+derpy_ic_party_name_dwf_road	The Underway Wardens	false
+effect_bundles_localised_title_derpy_ic_gov_house_dwf_hearth	Governor: The Hearth Clans	false
+effect_bundles_localised_description_derpy_ic_gov_house_dwf_hearth	The Hearth Clans hold it, and men come back to the muster faster.	false
+derpy_ic_effects_derpy_ic_gov_house_dwf_hearth	Replenishment +8%	false
+derpy_ic_party_name_dwf_hearth	The Hearth Clans	false
+effect_bundles_localised_title_derpy_ic_envoy_dwf_ctl	Envoy: Control	false
+effect_bundles_localised_description_derpy_ic_envoy_dwf_ctl	An envoy of the throne is keeping order here.	false
+derpy_ic_effects_derpy_ic_envoy_dwf_ctl	Control +6	false
+effect_bundles_localised_title_derpy_ic_envoy_dwf_oath	Envoy: Oathgold	false
+effect_bundles_localised_description_derpy_ic_envoy_dwf_oath	An envoy of the throne is seeing that the forges here pay their Oathgold.	false
+derpy_ic_effects_derpy_ic_envoy_dwf_oath	Oathgold +20%	false
+effect_bundles_localised_title_derpy_ic_envoy_dwf_grow	Envoy: Growth	false
+effect_bundles_localised_description_derpy_ic_envoy_dwf_grow	An envoy of the throne is seeing to the holdfarms here.	false
+derpy_ic_effects_derpy_ic_envoy_dwf_grow	Growth +5	false
+effect_bundles_localised_title_derpy_ic_envoy_dwf_rec	Envoy: Recruitment	false
+effect_bundles_localised_description_derpy_ic_envoy_dwf_rec	An envoy of the throne is mustering the clans here for less.	false
+derpy_ic_effects_derpy_ic_envoy_dwf_rec	Recruitment cost -15%	false
+derpy_ic_origin_name_dwf_karaz	Karaz-a-Karak	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_karaz	Born: Karaz-a-Karak	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_karaz	Raised under the High King's own roof, and impossible to impress.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_karaz	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_karaz	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_kadrin	Karak Kadrin	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_kadrin	Born: Karak Kadrin	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_kadrin	Kadrin-born, where every second dwarf has sworn an oath he means to die by.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_kadrin	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_kadrin	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_angrund	Clan Angrund	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_angrund	Born: Clan Angrund	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_angrund	Clan Angrund raised him on the tale of Eight Peaks, and he means to see it retaken.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_angrund	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_angrund	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_throng	the Ancestral Throng	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_throng	Born: The Ancestral Throng	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_throng	He marched with the Throng, and saw things the Ancestors only spoke of.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_throng	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_throng	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_ironbrow	Ironbrow's Expedition	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_ironbrow	Born: Ironbrow's Expedition	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_ironbrow	Ironbrow's people go further from home than any dwarf should.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_ironbrow	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_ironbrow	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_malakai	the Masters of Innovation	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_malakai	Born: The Masters of Innovation	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_malakai	Malakai's people build things that should not fly, and fly them.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_malakai	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_malakai	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_barakvarr	Barak Varr	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_barakvarr	Born: Barak Varr	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_barakvarr	Raised by the sea-gate, counting other folk's cargo.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_barakvarr	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_barakvarr	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_zhufbar	Zhufbar	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_zhufbar	Born: Zhufbar	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_zhufbar	Zhufbar-born: he knows an engine by its sound.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_zhufbar	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_zhufbar	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_krakadrak	Kraka Drak	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_krakadrak	Born: Kraka Drak	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_krakadrak	From the far north, where the cold keeps a dwarf honest.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_krakadrak	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_krakadrak	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_azorn	Karak Azorn	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_azorn	Born: Karak Azorn	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_azorn	Azorn raised him, and raised him hard.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_azorn	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_azorn	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_norn	Karak Norn	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_norn	Born: Karak Norn	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_norn	Norn-born, from the Grey Mountains, and proud of the stone.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_norn	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_norn	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_hirn	Karak Hirn	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_hirn	Born: Karak Hirn	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_hirn	Hirn's people hear the mountain, and listen to it.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_hirn	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_hirn	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_azul	Karak Azul	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_azul	Born: Karak Azul	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_azul	Azul's forges never cool, and neither do its grudges.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_azul	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_azul	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_ziflin	Karak Ziflin	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_ziflin	Born: Karak Ziflin	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_ziflin	Ziflin-born, from a small hold with a long memory.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_ziflin	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_ziflin	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_rangers	the Ranger clans	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_rangers	Born: The Ranger clans	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_rangers	Raised among the rangers, and never easy under a roof.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_rangers	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_rangers	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_deeps	the Deeps	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_deeps	Born: The Deeps	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_deeps	Born deep underground and never entirely comfortable above it.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_deeps	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_deeps	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_grey	the Grey Mountains	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_grey	Born: The Grey Mountains	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_grey	Grey Mountains born: he measures everything against a peak.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_grey	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_grey	His origin has been struck from the rolls.	false
+derpy_ic_origin_name_dwf_black	the Black Mountains	false
+character_trait_levels_onscreen_name_derpy_ic_house_dwf_black	Born: The Black Mountains	false
+character_trait_levels_colour_text_derpy_ic_house_dwf_black	From the Black Mountains, where the greenskins are never far.	false
+character_trait_levels_explanation_text_derpy_ic_house_dwf_black	Where he was born. It has no effect at court.	false
+character_trait_levels_removal_text_derpy_ic_house_dwf_black	His origin has been struck from the rolls.	false
+derpy_ic_bg_name_dwf_kinguard	Household Warrior	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_kinguard	Household Warrior	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_kinguard	He stood at the king's door before he ever stood in a shield wall.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_kinguard	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_kinguard	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_lineblood	Blood of the Line	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_lineblood	Blood of the Line	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_lineblood	Close enough to the throne to be dangerous, and he knows it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_lineblood	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_lineblood	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_oathsworn	Oath-Sworn Hand	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_oathsworn	Oath-Sworn Hand	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_oathsworn	He swore to the throne before the Ancestors, and means every word.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_oathsworn	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_oathsworn	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_shrinekeeper	Shrine-Keeper	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_shrinekeeper	Shrine-Keeper	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_shrinekeeper	He keeps the ancestor shrines, and knows every name carved in them.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_shrinekeeper	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_shrinekeeper	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_valayan	Priest of Valaya	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_valayan	Priest of Valaya	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_valayan	Valaya's priest. The hearth is his altar and the hold his charge.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_valayan	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_valayan	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_tombwarden	Warden of the Tombs	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_tombwarden	Warden of the Tombs	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_tombwarden	He guards the dead of the hold, and the dead are many.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_tombwarden	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_tombwarden	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_smith	Gromril Smith	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_smith	Gromril Smith	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_smith	He can tell good gromril by its ring, and bad by its silence.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_smith	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_smith	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_engineer	Engineer	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_engineer	Engineer	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_engineer	He can tell you what a gun will do before it does it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_engineer	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_engineer	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_foundry	Foundry Master	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_foundry	Foundry Master	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_foundry	Twenty years at a furnace mouth. His beard is shorter for it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_foundry	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_foundry	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_miner	Miner	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_miner	Miner	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_miner	He has dug further down than most dwarfs have ever been.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_miner	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_miner	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_prospector	Prospector	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_prospector	Prospector	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_prospector	He goes looking for seams nobody else believes in, and finds them.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_prospector	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_prospector	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_tunneller	Tunneller	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_tunneller	Tunneller	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_tunneller	He can hear rock about to give before it gives.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_tunneller	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_tunneller	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_longbeard	Longbeard	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_longbeard	Longbeard	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_longbeard	Old enough to complain that nothing is as it was, and right to.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_longbeard	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_longbeard	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_ironbreaker	Ironbreaker	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_ironbreaker	Ironbreaker	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_ironbreaker	He has held the underways against things that never come up to the light.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_ironbreaker	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_ironbreaker	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_thane	Thane of a Clan	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_thane	Thane of a Clan	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_thane	A thane of a small clan, with a long memory for every slight to it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_thane	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_thane	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_reckoner	Reckoner of Debts	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_reckoner	Reckoner of Debts	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_reckoner	He prices everything, including this conversation.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_reckoner	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_reckoner	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_trader	Hold Trader	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_trader	Hold Trader	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_trader	He has traded with men, elves and worse, and been cheated by none of them.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_trader	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_trader	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_goldsmith	Goldsmith	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_goldsmith	Goldsmith	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_goldsmith	He weighs gold by eye and is never more than a grain out.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_goldsmith	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_goldsmith	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_runesmith	Runesmith	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_runesmith	Runesmith	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_runesmith	He strikes the runes his master taught him, and tells no one how.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_runesmith	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_runesmith	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_loremaster	Loremaster	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_loremaster	Loremaster	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_loremaster	He has read more of the hold's old books than they were written for.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_loremaster	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_loremaster	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_scribe	Grudge-Scribe	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_scribe	Grudge-Scribe	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_scribe	He writes the grudges down, and forgets none of them.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_scribe	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_scribe	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_ranger	Ranger	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_ranger	Ranger	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_ranger	He has walked the high passes enough times to have stopped counting.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_ranger	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_ranger	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_wayfinder	Wayfinder	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_wayfinder	Wayfinder	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_wayfinder	He knows the old roads the maps have forgotten.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_wayfinder	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_wayfinder	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_underwarden	Underway Sentry	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_underwarden	Underway Sentry	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_underwarden	He keeps the underways open by making the alternative worse.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_underwarden	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_underwarden	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_farmer	Holdfarmer	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_farmer	Holdfarmer	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_farmer	He grows barley on a mountainside, which nobody believes until they drink it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_farmer	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_farmer	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_brewer	Brewer	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_brewer	Brewer	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_brewer	He can judge a brew by its smell, and has never been wrong.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_brewer	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_brewer	He has left the trade behind, whatever he says.	false
+derpy_ic_bg_name_dwf_clanelder	Clan Elder	false
+character_trait_levels_onscreen_name_derpy_ic_bg_dwf_clanelder	Clan Elder	false
+character_trait_levels_colour_text_derpy_ic_bg_dwf_clanelder	Old clan, small clan, and a memory for every slight in it.	false
+character_trait_levels_explanation_text_derpy_ic_bg_dwf_clanelder	His former trade. It decides which party he sits with.	false
+character_trait_levels_removal_text_derpy_ic_bg_dwf_clanelder	He has left the trade behind, whatever he says.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_dwf_0	Unproven at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_dwf_0	The court has yet to learn his name.	false
+character_trait_levels_explanation_text_derpy_ic_standing_dwf_0	Too little influence for any seat at court. Influence is earned by winning battles, taking settlements, gaining ranks and holding a seat.	false
+character_trait_levels_removal_text_derpy_ic_standing_dwf_0	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_dwf_1	Fit for the First Seats	false
+character_trait_levels_colour_text_derpy_ic_standing_dwf_1	There is no seat above him but the throne's own.	false
+character_trait_levels_explanation_text_derpy_ic_standing_dwf_1	Has enough influence for any seat, the First Seats included.	false
+character_trait_levels_removal_text_derpy_ic_standing_dwf_1	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_dwf_2	Weighed at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_dwf_2	The longbeards have stopped talking over him when he speaks.	false
+character_trait_levels_explanation_text_derpy_ic_standing_dwf_2	Has enough influence for a seat on the Elders' Bench.	false
+character_trait_levels_removal_text_derpy_ic_standing_dwf_2	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_dwf_3	Spoken For at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_dwf_3	A clan or two would take him, and one says so openly.	false
+character_trait_levels_explanation_text_derpy_ic_standing_dwf_3	Has enough influence for a seat in the Long Hall.	false
+character_trait_levels_removal_text_derpy_ic_standing_dwf_3	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_standing_dwf_4	Noticed at Court	false
+character_trait_levels_colour_text_derpy_ic_standing_dwf_4	The court has begun to say his name.	false
+character_trait_levels_explanation_text_derpy_ic_standing_dwf_4	Has enough influence for a seat at the Hall Doors, the lowest tier.	false
+character_trait_levels_removal_text_derpy_ic_standing_dwf_4	His influence at court has changed.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_dwf_cautious	Cautious	false
+character_trait_levels_colour_text_derpy_ic_ambition_dwf_cautious	He keeps his head down and his claims modest.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_dwf_cautious	His influence counts 25% less towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_dwf_cautious	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_dwf_steady	Steady	false
+character_trait_levels_colour_text_derpy_ic_ambition_dwf_steady	He asks for what he is owed, and no more.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_dwf_steady	His influence counts as usual towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_dwf_steady	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_ambition_dwf_ambitious	Ambitious	false
+character_trait_levels_colour_text_derpy_ic_ambition_dwf_ambitious	Every honour becomes another claim on the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_ambition_dwf_ambitious	His influence counts 25% more towards his party's.	false
+character_trait_levels_removal_text_derpy_ic_ambition_dwf_ambitious	His ambition does not change.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_crown	Party: The Throne-Sworn	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_crown	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_crown	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_crown	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_karaz	Party: Karaz-a-Karak	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_karaz	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_karaz	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_karaz	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_kadrin	Party: Karak Kadrin	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_kadrin	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_kadrin	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_kadrin	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_angrund	Party: Clan Angrund	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_angrund	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_angrund	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_angrund	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_throng	Party: The Ancestral Throng	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_throng	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_throng	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_throng	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ironbrow	Party: Ironbrow's Expedition	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ironbrow	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ironbrow	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ironbrow	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_malakai	Party: The Masters of Innovation	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_malakai	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_malakai	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_malakai	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_barakvarr	Party: Barak Varr	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_barakvarr	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_barakvarr	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_barakvarr	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_zhufbar	Party: Zhufbar	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_zhufbar	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_zhufbar	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_zhufbar	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_krakadrak	Party: Kraka Drak	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_krakadrak	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_krakadrak	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_krakadrak	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_azorn	Party: Karak Azorn	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_azorn	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_azorn	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_azorn	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_norn	Party: Karak Norn	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_norn	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_norn	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_norn	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hirn	Party: Karak Hirn	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hirn	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hirn	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hirn	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_azul	Party: Karak Azul	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_azul	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_azul	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_azul	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ziflin	Party: Karak Ziflin	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ziflin	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ziflin	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ziflin	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_rangers	Party: The Ranger clans	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_rangers	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_rangers	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_rangers	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_deeps	Party: The Deeps	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_deeps	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_deeps	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_deeps	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_grey	Party: The Grey Mountains	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_grey	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_grey	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_grey	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_black	Party: The Black Mountains	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_black	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_black	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_black	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_1	Party: The Ancestors	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_2	Party: Valaya's Hearth	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_3	Party: Grungni's Anvil	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_4	Party: The Old Shrine	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_5	Party: The Long Memory	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_temple_6	Party: The Stone Altar	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_temple_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_temple_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_temple_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_1	Party: The Gromril Anvil	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_2	Party: The Runic Forge	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_3	Party: The Master's Mark	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_4	Party: The Cold Hammer	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_5	Party: The Deep Furnace	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_forge_6	Party: The Bright Steel	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_forge_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_forge_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_forge_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_1	Party: The Deep Seam	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_2	Party: The Candle Shaft	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_3	Party: The Gold Vein	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_4	Party: The Lower Shafts	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_5	Party: The Pick	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_chain_6	Party: The Iron Seam	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_chain_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_chain_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_chain_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_1	Party: The Shield Wall	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_2	Party: The Unbroken Gate	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_3	Party: The War Banner	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_4	Party: The Iron Muster	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_5	Party: The First Rank	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_legion_6	Party: The Bearded Axe	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_legion_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_legion_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_legion_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_1	Party: The Reckoning	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_2	Party: The Weighed Coin	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_3	Party: The Sealed Vault	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_4	Party: The Tithe	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_5	Party: The Gold Scale	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_ledger_6	Party: The Counted Debt	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_ledger_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_ledger_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_ledger_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_1	Party: The Rune	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_2	Party: The Grudge-Book	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_3	Party: The Sealed Lore	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_4	Party: The Anvil of Doom	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_5	Party: The Master Rune	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_tower_6	Party: The Old Script	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_tower_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_tower_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_tower_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_1	Party: The Underway	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_2	Party: The Old Road	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_3	Party: The Deep Ways	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_4	Party: The Silver Road	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_5	Party: The High Pass	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_road_6	Party: The Lantern Road	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_road_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_road_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_road_6	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_1	Party: The First Hold	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_1	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_1	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_1	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_2	Party: The Hearthstone	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_2	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_2	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_2	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_3	Party: The Holdfarm	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_3	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_3	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_3	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_4	Party: The Brewhouse	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_4	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_4	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_4	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_5	Party: The Long Table	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_5	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_5	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_5	He sits with another party now.	false
+character_trait_levels_onscreen_name_derpy_ic_member_dwf_hearth_6	Party: The Barley Field	false
+character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_6	Counted with them at the Iron Court.	false
+character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_6	The party he sits with at the Iron Court. It changes when a party forms, breaks away or dissolves.	false
+character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_6	He sits with another party now.	false
+event_feed_strings_text_derpy_ic_event_dwf_gov_intro_title	Your Deeds Move the Court	false
+event_feed_strings_text_derpy_ic_event_dwf_gov_intro_primary	Your court has a government, shown in the throne's box. What you do moves it. Victories raise the Clan Warriors, and research raises the Runesmiths. A party that grows strong enough asks for its own government.	false
+event_feed_strings_text_derpy_ic_event_dwf_gov_intro_secondary	The Court Watches You	false
+event_feed_strings_text_derpy_ic_event_dwf_realm_secede_title	A Rival Court Splits	false
+event_feed_strings_text_derpy_ic_event_dwf_realm_secede_primary	A party in a Dwarf hold's court has broken away and risen in rebellion. The Record tab names them; the camera button shows where.	false
+event_feed_strings_text_derpy_ic_event_dwf_realm_secede_secondary	Rebellion!	false
+event_feed_strings_text_derpy_ic_event_party_drawn_dwf_legion	Your victories drew the Clan Warriors to court.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_dwf_tower	Your research drew the Runesmiths to court.	false
+event_feed_strings_text_derpy_ic_move_dwf_bribe_ok	Gift of Gold - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_bribe_fail	Gift of Gold - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_discredit_ok	Question His Work - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_discredit_fail	Question His Work - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_rumour_ok	Hall Whispers - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_rumour_fail	Hall Whispers - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_murder_ok	The Slayer Oath - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_murder_fail	The Slayer Oath - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_provoke_ok	An Insult to the Clan - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_provoke_fail	An Insult to the Clan - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_purge_ok	Cast Out the Clan - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_purge_fail	Cast Out the Clan - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_unseat_ok	Bar the Doors - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_unseat_fail	Bar the Doors - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_recall_ok	Recall Governors - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_recall_fail	Recall Governors - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_weregild_ok	Pay the Weregild - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_weregild_fail	Pay the Weregild - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_oath_ok	Ancestor Oath - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_oath_fail	Ancestor Oath - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_patron_ok	Stand His Patron - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_patron_fail	Stand His Patron - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_kinsman_ok	Name Him Kinsman - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_kinsman_fail	Name Him Kinsman - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_pledge_ok	Oath on the Anvil - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_pledge_fail	Oath on the Anvil - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_embezzle_ok	Skim the Tally - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_embezzle_fail	Skim the Tally - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_feast_ok	Host a Feast - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_feast_fail	Host a Feast - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_audience_ok	Hold Court - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_audience_fail	Hold Court - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_circuit_ok	Walk the Holds - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_circuit_fail	Walk the Holds - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_envoy_ok	Send an Envoy - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_envoy_fail	Send an Envoy - Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_diplomats_ok	Send Diplomats - Success!	false
+event_feed_strings_text_derpy_ic_move_dwf_diplomats_fail	Send Diplomats - Failure	false
 missions_localised_title_derpy_ic_demand_office	A Party Demands an Office	false
 missions_localised_description_derpy_ic_demand_office	One of the court's parties wants one of its men seated in a vacant office. Its party card names the man and the office. Seat him before the time runs out and its loyalty rises; let it run out, or give the office to someone else, and it falls.	false
 missions_localised_mission_completed_text_derpy_ic_demand_office	The office is filled as it asked, and the party is satisfied.	false

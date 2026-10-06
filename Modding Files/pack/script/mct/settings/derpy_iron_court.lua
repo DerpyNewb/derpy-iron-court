@@ -83,9 +83,9 @@ local SWITCHES = {
      "Parties scheme, feud, make demands and offer deals without being asked. "
      .. "Off, they do none of this; overseers still gain experience and anything "
      .. "already under way still settles.", true},
-    {"ai_courts", "Other Chaos Dwarf factions have courts", "systems",
-     "Chaos Dwarf factions you do not play run courts of their own, and theirs "
-     .. "can split. Off, only your court runs.", false},
+    {"ai_courts", "Other Chaos Dwarf and Dwarf factions have courts", "systems",
+     "Chaos Dwarf and Dwarf factions you do not play run courts of their own, and "
+     .. "theirs can split. Off, only your court runs.", false},
     {"secession", "Parties can secede", "systems",
      "A powerful, angry party counts down and then leaves, taking provinces with "
      .. "it. Off, no party ever leaves, and a countdown already running stops.", true},
@@ -117,6 +117,10 @@ local SWITCHES = {
      .. "You and the parties propose them, and you can push, win men or overrule. "
      .. "Off, no law applies and open votes end; the laws in force come back when "
      .. "you turn it on.", true},
+    {"dwarf_courts", "Dwarf courts", "systems",
+     "Dwarf factions run courts of their own: Dwarf parties, offices, governments "
+     .. "and laws. Off, no Dwarf faction has a court, and one already running is "
+     .. "taken off the map at its next turn.", true},
     {"detailed_log", "Detailed log", "debug",
      "Writes the court's routine events to script_log.txt. Failures are always "
      .. "written.", true},

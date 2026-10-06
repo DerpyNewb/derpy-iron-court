@@ -41,6 +41,7 @@ M = os.path.join(MOD, "zzz_derpy_iron_court.lua")
 U = os.path.join(MOD, "zzz_derpy_iron_court_ui.lua")
 UM = os.path.join(MOD, "zzz_derpy_iron_court_ui_map.lua")
 P = os.path.join(MOD, "zzz_derpy_iron_court_parties.lua")
+D = os.path.join(MOD, "zzz_derpy_iron_court_dwarf.lua")
 S = os.path.join(ROOT, "Modding Files", "pack", "script", "mct", "settings",
                  "derpy_iron_court.lua")
 HARNESS = os.path.join(ROOT, "tools", "_iron_court_harness.lua")
@@ -53,6 +54,41 @@ LUA = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 #
 # Anchor on CODE lines, never a comment line: the 2026-09-21 comment pass cut the
 # Lua's comments and staled seven anchors whose code had not moved at all.
+# THE CONTRACT'S SIGNATURES (docs/superpowers/plans/2026-10-04-iron-court-dwarfs-CONTRACT.md).
+# The "both races" mutants anchor on these and not on lines inside them: phases 2-5
+# own the bodies, the contract fixes the names. Each renames the real function to a
+# body and wraps it, which is how a mistake AROUND a function - a cache keyed by
+# nothing, the wrong faction, a guard nobody runs - is written without knowing what
+# the function says inside.
+_SIG_R = "function IC.R(faction_key)\n"
+_SIG_KEY = "function IC.key(kind, slug, faction_key)\n"
+_SIG_HAS = "function IC.has_court(faction)\n"
+_SIG_GRUDGES = "function IC.grudges(faction_key, slug)\n"
+_SIG_WRITE = "function IC.grudge_write(faction_key, slug, code)\n"
+_SIG_TURN = "function IC.turn(faction_key)\n"
+
+
+def _holder(sig):
+    """The one court Lua file that defines `sig`. None or two: M, and the run then
+    reports a stale anchor, which is a finding."""
+    hits = [p for p in (M, D, P, U) if os.path.isfile(p)
+            and io.open(p, encoding="utf-8").read().count(sig) == 1]
+    return hits[0] if len(hits) == 1 else M
+
+
+def _as_dwarf(call):
+    """Lua that runs `call` with every race accessor answering Dwarf - the race guard
+    forgotten, wherever inside it sat - and puts them back before any error is
+    re-raised. Leaves the first result in `out`."""
+    return ("    local keep = {IC.race_key, IC.R, IC.race_of, IC.is_chd}\n"
+            "    IC.race_key = function() return \"dwf\" end\n"
+            "    IC.R = function() return IC.RACES.dwf end\n"
+            "    IC.race_of = function() return IC.RACES.dwf end\n"
+            "    IC.is_chd = function() return false end\n"
+            "    local ok, out = pcall(%s)\n"
+            "    IC.race_key, IC.R, IC.race_of, IC.is_chd = keep[1], keep[2], keep[3], keep[4]\n"
+            "    if not ok then error(out, 0) end\n" % call)
+
 MUTANTS = [
     # ---- what your house can break into ------------------------------------
     # THE ROLL BACK OVER EVERY UNSEATED INTEREST. A man joins a party when his
@@ -264,7 +300,7 @@ MUTANTS = [
     ("a term running out that reaches the record but not the player", M,
      """    if #done > 0 then
         IC.feed(faction_key, "office_lost",
-                #done == 1 and IC.office_title_key(done[1].slug) or nil)
+                #done == 1 and IC.office_title_key(done[1].slug, faction_key) or nil)
     end""",
      """    if #done > 0 then
     end"""),
@@ -284,8 +320,8 @@ MUTANTS = [
     # AN OLD SAVE'S INDEX READ STRAIGHT: the head list got shorter on
     # 2026-09-23, so a party rolled before then names nothing, or errors.
     ("an old save's name index read without wrapping", M,
-     '    return IC.NAME_HEADS[(head - 1) % #IC.NAME_HEADS + 1] .. " of "',
-     '    return IC.NAME_HEADS[head] .. " of "'),
+     '    return R.NAME_HEADS[(head - 1) % #R.NAME_HEADS + 1] .. " of "',
+     '    return R.NAME_HEADS[head] .. " of "'),
 
     ("an event card with the empty plate back under its sentence", M,
      '            secondary or fallback,',
@@ -297,7 +333,7 @@ MUTANTS = [
     # sixteen moves the player just paid for. A screenshot cannot tell the
     # two apart, which is the whole reason this one is written down.
     ("a plot card that stops naming the move it reports", M,
-     '    IC.feed(faction_key, "plot_ok", IC.move_result_key(plot_key, true))',
+     '    IC.feed(faction_key, "plot_ok", IC.move_result_key(plot_key, true, faction_key))',
      '    IC.feed(faction_key, "plot_ok")'),
 
     # THE FOURTEENTH FIELD, DROPPED. house.snubbed is what drift_loyalty's
@@ -348,7 +384,7 @@ MUTANTS = [
 
     # ---- the clocks, the witnesses and the sweeps ------------------------
     ("provoke lengthens a clock it should only shorten", M,
-     """               and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then""",
+     """               and (now <= 0 or now > count) then""",
      """               and true then"""),
 
     ("a purge charges the Crown as a witness to itself", M,
@@ -463,14 +499,14 @@ MUTANTS = [
      """    if IC.is_unique(character) then return true end
     local key = nil
     pcall(function() key = character:character_subtype_key() end)
-    return key ~= nil and IC.LEGEND_SUBTYPES[key] == true""",
+    return in_any_race("LEGEND_SUBTYPES", key) == true""",
      """    return IC.is_unique(character)"""),
 
     # AND THE SAFETY NET UNDER IT. Whether a man may be killed and made again is
     # a whitelist question, and without it any subtype at all goes over - which
     # is what turned a political event into a deleted legendary lord.
     ("a lord killed to defect into a faction that cannot field him", M,
-     """    return key ~= nil and IC.REBEL_GENERALS[key] == true
+     """    return in_any_race("REBEL_GENERALS", key) == true
 end""",
      """    return true
 end"""),
@@ -546,7 +582,7 @@ end"""),
     # which is the whole point of him - and he belongs to the PLAYER's faction,
     # so he can be anything at all.
     ("a rebel general the rebels are not allowed to field", M,
-     """        if key and key ~= "" and IC.REBEL_GENERALS[key] then
+     """        if key and key ~= "" and R.REBEL_GENERALS[key] then
             out.subtype = key
         end""",
      """        if key and key ~= "" then
@@ -599,10 +635,10 @@ end"""),
     # with nobody left who can lead, and using it for everybody throws away the
     # only thing that makes a secession read as YOUR lord turning on you.
     ("a rebellion led by a stranger rather than by your own lord", M,
-     """        if key and key ~= "" and IC.REBEL_GENERALS[key] then
+     """        if key and key ~= "" and R.REBEL_GENERALS[key] then
             out.subtype = key
         end""",
-     """        if key and key ~= "" and IC.REBEL_GENERALS[key] then
+     """        if key and key ~= "" and R.REBEL_GENERALS[key] then
             out.subtype = IC.REBEL_LORD
         end"""),
 
@@ -1124,7 +1160,7 @@ end"""),
                     "ic_crown_rule_l", "ic_crown_rule_r", "ic_crown_rule_v"}""",
      """"ic_crown_box"}"""),
     ("a recruit arrives with nothing", M,
-     """    court.standing[cqi] = IC.recruit_influence(character:rank())""",
+     """    court.standing[cqi] = IC.recruit_influence(character:rank(), faction_key)""",
      """    court.standing[cqi] = 0"""),
     ("the ladder flat between its bars", M,
      """            return a[2] + math.floor((b[2] - a[2]) * (rank - a[1]) / (b[1] - a[1]))""",
@@ -1191,9 +1227,43 @@ end"""),
     # hazard still on that path is the offset - the court pages, and a page
     # offset kept from a larger court indexes past the end of a smaller one,
     # which draws an empty grid on a court that has parties in it.
-    ("a court pager that can run off the end of its own list", U,
-     """    local at = ICUI.clamp_scroll("court", #slugs)""",
-     """    local at = ICUI.scroll.court or 0"""),
+    # THE LISTS SCROLL (author, 2026-10-05): every list drawn whole, the pager
+    # gone. Each rule the drawn-whole list rests on, broken once.
+    ("the Court's cards never put in a list", U,
+     """        ICUI.list_build(panel, "party", #slugs)
+        ICUI.list_items(panel, "party", #slugs)""",
+     """        local _ = 0"""),
+    ("the rows never put in a list", U,
+     """        ICUI.list_build(panel, "row", total)
+        ICUI.list_items(panel, "row", total)""",
+     """        local _ = 0"""),
+    ("the items left behind when the list scrolls", U,
+     """    if hy ~= by then holder:MoveTo(hx, by) end
+end
+
+-- THE POLL, on the Governors""",
+     """end
+
+-- THE POLL, on the Governors"""),
+    ("the last view's list left over this one", U,
+     """    if not ICUI.list_used then ICUI.list_drop(panel) end
+""", ""),
+    ("a list kept at its old length", U,
+     """    local key = table.concat({view, kind, n, ICUI.list_gens[view] or 0}, "|")""",
+     """    local key = table.concat({view, kind, ICUI.list_gens[view] or 0}, "|")"""),
+    ("a re-sort that leaves the list scrolled", U,
+     """    ICUI.list_rescroll(view)
+    return true""",
+     """    return true"""),
+    ("a list whose bar shows when it fits", U,
+     """        show(slider, lines > s.lines)""",
+     """        show(slider, true)"""),
+    ("a governor pick on the map that draws a row list over it", U,
+     """    if ICUI.view == "govs" and ICUI.pick.kind == "gov" then return "" end
+""", ""),
+    ("a picker click that adds a window offset back", U,
+     """    local chosen = ICUI.pick_rows[row]""",
+     """    local chosen = ICUI.pick_rows[row + 10]"""),
 
     # THE SORT NEVER RUN. The picker's setting then cycles, relabels itself and
     # moves nothing at all - which on screen is indistinguishable from a control
@@ -1559,9 +1629,9 @@ end)"""),
      '''    if s.empty > 0 then
         waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",'''),
     ("the summary drops the empty seats it cannot fill", U,
-     '''    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)''',
+     '''    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #R.OFFICES)''',
      '''    if s.fillable > 0 then
-        lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #IC.OFFICES)
+        lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #R.OFFICES)
     end'''),
 
     # ---- why the button pulses (author, 2026-09-28: "no info why") ----------
@@ -1678,8 +1748,8 @@ end)"""),
      """            show(c, true)"""),
     # THE WRONG TOPIC LIT, or all of them.
     ("every help topic lit at once", U,
-     """                pcall(function() c:SetImagePath(i == page and art.on or art.off, index) end)""",
-     """                pcall(function() c:SetImagePath(art.on, index) end)"""),
+     """            ICUI.light_plate(c, i == page, topic and""",
+     """            ICUI.light_plate(c, true, topic and"""),
     # THE PAGE'S CARD LEFT OVER EVERY OTHER TAB.
     ("the help page left on screen over the other tabs", U,
      """        show(comp(name, panel), view == "help" and not ICUI.pick)""",
@@ -1693,11 +1763,11 @@ end)"""),
     # A RISING LEFT ON ITS SLEEPING PERSONALITY (author, 2026-09-28: "make the
     # rebel faction aggresive"), and the same call aimed at the court it left.
     ("a rebellion left with the personality of a sleeping faction", M,
-     """                cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)""",
-     """                local _ = IC.REBEL_PERSONALITY"""),
+     """                cm:force_change_cai_faction_personality(rebels, IC.rebel_personality(faction_key))""",
+     """                local _ = IC.rebel_personality(faction_key)"""),
     ("the court that was rebelled against made the aggressive one", M,
-     """                cm:force_change_cai_faction_personality(rebels, IC.REBEL_PERSONALITY)""",
-     """                cm:force_change_cai_faction_personality(faction_key, IC.REBEL_PERSONALITY)"""),
+     """                cm:force_change_cai_faction_personality(rebels, IC.rebel_personality(faction_key))""",
+     """                cm:force_change_cai_faction_personality(faction_key, IC.rebel_personality(faction_key))"""),
 
     # THE WRONG FACTION OF THE TWO IN SCOPE. faction_key is the court that was
     # rebelled against, is an upvalue here, and is the argument the war
@@ -1721,18 +1791,18 @@ end)"""),
     if IC.is_legend(character) then return false end
     local key = nil
     pcall(function() key = character:character_subtype_key() end)
-    return key ~= nil and IC.REBEL_HEROES[key] ~= nil""",
+    return in_any_race("REBEL_HEROES", key) ~= nil""",
      """    if IC.is_legend(character) then return false end
     local key = nil
     pcall(function() key = character:character_subtype_key() end)
-    return key ~= nil and IC.REBEL_HEROES[key] ~= nil"""),
+    return in_any_race("REBEL_HEROES", key) ~= nil"""),
 
     # THE WHITELIST DROPPED FOR ANY HERO AT ALL. It reads as generosity - why
     # should a Hobgoblin Khan not join a rebellion - and it deletes him from the
     # campaign: he is killed here and spawn_agent_at_position is handed a nil
     # agent type, so nothing is made there.
     ("any hero at all taken off the board to defect", M,
-     """    return key ~= nil and IC.REBEL_HEROES[key] ~= nil
+     """    return in_any_race("REBEL_HEROES", key) ~= nil
 end""",
      """    return key ~= nil
 end"""),
@@ -1837,8 +1907,8 @@ end"""),
     # The typed roster and the pad-with-his-own-stack loop are gone: a rising is
     # his own army, if he brought one, filled out off IC.REBEL_DRAFT.
     ("every slot of a rebel army rolled for the first role", M,
-     """        local role = IC.REBEL_DRAFT[(i - 1) % #IC.REBEL_DRAFT + 1]""",
-     """        local role = IC.REBEL_DRAFT[1]"""),
+     """        local role = R.REBEL_DRAFT[(i - 1) % #R.REBEL_DRAFT + 1]""",
+     """        local role = R.REBEL_DRAFT[1]"""),
     ("the two-of-a-kind cap never applied", M,
      """            if (used[u[1]] or 0) < IC.REBEL_UNIT_CAP then""",
      """            if true then"""),
@@ -1846,7 +1916,7 @@ end"""),
      """                roll = roll - u[2]""",
      """                roll = roll - total"""),
     ("a lord's short army left short", M,
-     """    local extra = IC.rebel_draw(want - #kit)""",
+     """    local extra = IC.rebel_draw(want - #kit, faction_key)""",
      """    local extra = {}"""),
 
     # ---- what he is worth -------------------------------------------------
@@ -2193,10 +2263,8 @@ end"""),
     # multiplier; changing it to Steady's value leaves the marker and the roll
     # intact while removing the incentive a player is meant to see in influence.
     ("ambition's Ambitious band flattened to Steady's factor", M,
-     """    ambitious = {factor = 125, roll = 25,
-                 trait = "derpy_ic_ambition_ambitious"},""",
-     """    ambitious = {factor = 100, roll = 25,
-                 trait = "derpy_ic_ambition_ambitious"},"""),
+     """    ambitious = {factor = 125, roll = 25},""",
+     """    ambitious = {factor = 100, roll = 25},"""),
 
     # THE SCALE READ AS A UNIT. A 400-standing Ambitious courtier contributes
     # five points, not 500; the harness checks both the live house arithmetic
@@ -2274,7 +2342,7 @@ end"""),
     # ---- what Military Doctrine contributes ------------------------------
     ("edict accepts every active commandment", M,
      """            if IC.governor_edict(faction_key, province_key)
-                    == IC.MILITARY_DOCTRINE then""",
+                    == R.MILITARY_DOCTRINE then""",
      """            if IC.governor_edict(faction_key, province_key)
                     ~= nil then"""),
 
@@ -2289,7 +2357,7 @@ end"""),
         if IC.house_of_cqi(faction_key, cqi) == slug then
             govs = govs + 1
             if IC.governor_edict(faction_key, province_key)
-                    == IC.MILITARY_DOCTRINE then
+                    == R.MILITARY_DOCTRINE then
                 doctrine = doctrine + 1
             end
         end
@@ -2299,7 +2367,7 @@ end"""),
             govs = govs + 1
         end
         if IC.governor_edict(faction_key, province_key)
-                == IC.MILITARY_DOCTRINE then
+                == R.MILITARY_DOCTRINE then
             doctrine = doctrine + 1
         end
     end"""),
@@ -2409,9 +2477,9 @@ end"""),
     # ONE INDEPENDENT ROLL PER MAN, which is how it shipped: a Conclave start
     # rolled the Chain for all six men who were not lords.
     ("deal: every man rolled at random again", M,
-     """    local list = IC.BACKGROUNDS[IC.fewest(pool, tally)]
+     """    local list = R.BACKGROUNDS[IC.fewest(pool, tally)]
     if not list or #list == 0 then return nil end""",
-     """    local list = IC.BACKGROUNDS[pool[cm:random_number(#pool, 1)]]
+     """    local list = R.BACKGROUNDS[pool[cm:random_number(#pool, 1)]]
     if not list or #list == 0 then return nil end"""),
 
     # THE TALLY READ ONCE AND NEVER KEPT, so every man in a pass sees the counts
@@ -2587,14 +2655,14 @@ end"""),
     # THE OLD TRADE LEFT ON HIM: two background traits, and whichever is read
     # first decides his party.
     ("a moved lord keeping his old trade too", M,
-     """                if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end
-                cm:force_add_trait(lookup, "derpy_ic_bg_" .. list[cm:random_number(#list, 1)], false)""",
-     """                cm:force_add_trait(lookup, "derpy_ic_bg_" .. list[cm:random_number(#list, 1)], false)"""),
+     """                if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+                cm:force_add_trait(lookup, IC.bg_trait(list[cm:random_number(#list, 1)]), false)""",
+     """                cm:force_add_trait(lookup, IC.bg_trait(list[cm:random_number(#list, 1)]), false)"""),
 
     # AND THE LORD PUT IN THE FIELD KEEPING THE TRADE HIS BIRTH DEALT HIM: the
     # Forge comes before the Chain in IC.PARTIES, so he reads as the Forge's.
     ("field: the lord keeping the trade his birth dealt him too", M,
-     """                        if old then cm:force_remove_trait(lookup, "derpy_ic_bg_" .. old) end""",
+     """                        if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end""",
      """"""),
 
     # NO LAST RESORT: a court of legends leaves its parties faceless.
@@ -2984,7 +3052,7 @@ end"""),
      """                        and gap > 0"""),
 
     ("backing offered to a man below the office's rank bar", P,
-     """                        and cand.rank >= IC.office_rank(office.slug)""",
+     """                        and cand.rank >= IC.office_rank(office.slug, faction_key)""",
      """"""),
 
     ("calm offered with no countdown running", P,
@@ -3094,6 +3162,7 @@ end"""),
         IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
+        IC.grudge_write(faction_key, d.slug, "demand")
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
@@ -3107,6 +3176,7 @@ end"""),
         IC.news(faction_key, "demand_met", d.slug)
     elseif outcome == "refused" then
         IC.move_loyalty(faction_key, d.slug, -T.party_demand_refused)
+        IC.grudge_write(faction_key, d.slug, "demand")
         IC.log(faction_key, "demand_refused", d.slug, d.key, 0)
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
@@ -3242,15 +3312,7 @@ end"""),
 
     -- A POOL"""),
 
-    # ---- the Crown's box in two halves, the bar's two homes (2026-09-24) -----
-    ("the action bar never steps aside for the pager", U,
-     """        local home = paged and ICUI.ACT_PAGED_XY[key] or ICUI.PANEL_XY[key]""",
-     """        local home = ICUI.PANEL_XY[key]"""),
-
-    ("the action bar beside the pager with no pager", U,
-     """        local home = paged and ICUI.ACT_PAGED_XY[key] or ICUI.PANEL_XY[key]""",
-     """        local home = ICUI.ACT_PAGED_XY[key] or ICUI.PANEL_XY[key]"""),
-
+    # ---- the Crown's box in two halves (2026-09-24) -----
     ("the hint moved beside the pager and left at the grid's width", U,
      """            c:MoveTo(px + home[1], py + home[2])
             ICUI.resize(c, home[3], home[4])""",
@@ -3420,8 +3482,8 @@ end"""),
                 o:set_locked(false)
             end"""),
     ("live: ai_courts marked live on the page", S,
-     """     .. "can split. Off, only your court runs.", false},""",
-     """     .. "can split. Off, only your court runs.", true},"""),
+     """     .. "theirs can split. Off, only your court runs.", false},""",
+     """     .. "theirs can split. Off, only your court runs.", true},"""),
     ("live: the live switches locked in a campaign", S,
      """            elseif SWITCHES[i][5] then
                 o:set_locked(false)""",
@@ -3454,8 +3516,8 @@ end"""),
      """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",""",
      """IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split", "ai_courts","""),
     ("live: the log switch dropped from the live set", M,
-     """                "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws"}""",
-     """                "all_cards", "governments", "gov_drift", "deeds", "laws"}"""),
+     """                "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws",""",
+     """                "all_cards", "governments", "gov_drift", "deeds", "laws","""),
     ("live: multiplayer following each machine's MCT", M,
      """function IC.refresh_live_tune()
     if IC.is_mp() then return false end""",
@@ -3590,9 +3652,10 @@ end"""),
      "secede_share = 15, secede_turns = 3, pressure_below = 20,"),
     ("plot: the odds read after the price is taken", M,
      "    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)\n"
-     "    IC.add_standing(faction_key, actor_cqi, -cost)\n",
+     "    if plot.gold then\n",
      "    IC.add_standing(faction_key, actor_cqi, -cost)\n"
-     "    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)\n"),
+     "    local chance = IC.plot_chance(faction_key, plot_key, actor_cqi, target)\n"
+     "    if plot.gold then\n"),
     ("court: a roll that never marks the court rolled", M,
      "    IC.court(faction_key).rolled = true\n",
      "\n"),
@@ -3603,10 +3666,10 @@ end"""),
      "                 court.rolled and \"1\" or \"\", join(last",
      "                 \"\", join(last"),
     ("office: a dismissal takes back the single weight again", M,
-     "            court.houses[slug].weight - IC.office_weight(office_slug, slug))",
+     "            court.houses[slug].weight - IC.office_weight(office_slug, slug, faction_key))",
      "            court.houses[slug].weight - IC.TUNE.weight_per_office)"),
     ("office: a death in the seat takes back the single weight again", M,
-     "                        - IC.office_weight(office_slug, slug))",
+     "                        - IC.office_weight(office_slug, slug, faction_key))",
      "                        - IC.TUNE.weight_per_office)"),
     ("office: a man whose term ended never kept waiting", M,
      "    if wait > 0 then return false, \"renew\", wait end\n",
@@ -3650,7 +3713,7 @@ end"""),
      "        if ends and ends - turn == 1 then out[#out + 1] = slug end\n",
      "        if ends and ends - turn == 2 then out[#out + 1] = slug end\n"),
     ("qol: the term warning never names the seat", M,
-     "            #ending == 1 and IC.office_title_key(ending[1]) or nil)",
+     "            #ending == 1 and IC.office_title_key(ending[1], faction_key) or nil)",
      "            nil)"),
     ("qol: all_cards off silences nothing", M,
      "    if IC.TUNE.all_cards == false and IC.ROUTINE_EVENTS[slug] then return false end\n",
@@ -3799,7 +3862,7 @@ end"""),
      "    if false then IC.load(faction_key) end"),
     ("the last warning pinned to warn_turns, which Ruthless never reaches", M,
      """elseif house.clock == math.min(IC.TUNE.warn_turns,
-                                               IC.TUNE.secede_turns - 1) then""",
+                                               IC.tune(faction_key, "secede_turns") - 1) then""",
      """elseif house.clock == IC.TUNE.warn_turns then"""),
     ("dead courts counted in the AI rotation", P,
      "alive = f and not f:is_null_interface() and not f:is_dead()",
@@ -3815,8 +3878,8 @@ end"""),
     local ok, runs"""),
     ("Provoke starts a countdown with secession off", M,
      """if IC.TUNE.secession ~= false
-               and (now <= 0 or now > IC.TUNE.plot_provoke_clock) then""",
-     """if (now <= 0 or now > IC.TUNE.plot_provoke_clock) then"""),
+               and (now <= 0 or now > count) then""",
+     """if (now <= 0 or now > count) then"""),
     ("the Crown's card threatens a split the settings switched off", U,
      """if IC.TUNE.crown_split ~= false and IC.grace_left() == 0 then
             if (house.split""",
@@ -3826,8 +3889,8 @@ end"""),
      'if packed and packed ~= "" then IC.dismantle(faction:name()) end',
      'if packed and packed ~= "" then end'),
     ("an AI ruler never placates", P,
-     "    if not human then IC.ai_placate(faction_key) end",
-     "    if false then IC.ai_placate(faction_key) end"),
+     "        IC.ai_placate(faction_key)\n        IC.ai_weregild(faction_key)",
+     "        IC.ai_weregild(faction_key)"),
     ("an away governor's tooltip claims his bonus", U,
      """    if not IC.governor_active(faction, province_key) then
         return string.format("He is away""",
@@ -3938,7 +4001,7 @@ end"""),
      """            IC.feed(faction_key, "officer_died",""",
      """            IC.feed(faction_key, "officer_gone","""),
     ("a death card that never names the seat", M,
-     """                    #seats == 1 and IC.office_title_key(seats[1]) or nil)""",
+     """                    #seats == 1 and IC.office_title_key(seats[1], faction_key) or nil)""",
      """                    nil)"""),
     ("a death card for a man who held nothing", M,
      """        if not arranged and (#seats > 0 or #provinces > 0) then""",
@@ -3987,21 +4050,21 @@ end"""),
      """        IC.log(faction_key, "stall_end", back[i].of, back[i].slug, 0)""",
      """        IC.log(faction_key, "stall_ended", back[i].of, back[i].slug, 0)"""),
     ("a back-at-work card that never names the seat", M,
-     """                #back == 1 and IC.office_title_key(back[1].slug) or nil)""",
+     """                #back == 1 and IC.office_title_key(back[1].slug, faction_key) or nil)""",
      """                nil)"""),
 
     # ---- the party a man sits with, on the man (author, 2026-09-29) --------
     ("a party trait that ignores the roll's wrap", M,
-     """    return IC.MEMBER_TRAIT .. slug .. "_" .. ((house.tail - 1) % #tails + 1)""",
-     """    return IC.MEMBER_TRAIT .. slug .. "_" .. house.tail"""),
+     """    return IC.key("member", slug .. "_" .. ((house.tail - 1) % #tails + 1), faction_key)""",
+     """    return IC.key("member", slug .. "_" .. house.tail, faction_key)"""),
     ("a confederate party's man wearing no party", M,
-     """    if house.confed then return IC.MEMBER_TRAIT .. slug end""",
+     """    if house.confed then return IC.key("member", slug, faction_key) end""",
      """"""),
     ("the sweep blind to the confederate parties", M,
-     """        keys[#keys + 1] = IC.MEMBER_TRAIT .. IC.ORIGINS[i].slug""",
+     """        keys[#keys + 1] = IC.rkey("member", R.ORIGINS[i].slug, R)""",
      """"""),
     ("the sweep blind to the rolled parties", M,
-     """                keys[#keys + 1] = IC.MEMBER_TRAIT .. slug .. "_" .. j""",
+     """                keys[#keys + 1] = IC.rkey("member", slug .. "_" .. j, R)""",
      """"""),
     ("a man wearing two parties at once", M,
      """            cm:force_remove_trait(lookup, keys[i])
@@ -4040,8 +4103,10 @@ end"""),
      """            ICUI.confirm(nil, false, ICUI.SOUNDS.plot_failed)""",
      """            ICUI.confirm(nil, false)"""),
     ("a landed plot back on the generic yes", U,
-     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])""",
-     """                ICUI.confirm(nil, true)"""),
+     """            else
+                ICUI.confirm(nil, true, ICUI.SOUNDS[op])""",
+     """            else
+                ICUI.confirm(nil, true)"""),
     ("a province given to the ritual sound", U,
      """    gov         = "UI_CAM_Click_Kislev_Select_Available_Atamans",""",
      """    gov         = ICUI.SOUND_SEAT,"""),
@@ -4246,8 +4311,141 @@ end"""),
     ("a failed errand logged against a party", M,
      """               or plot_key, cost)""",
      """               or against, cost)"""),
+    ("a button tip that names the move in the Chaos Dwarfs' words", U,
+     """        local plot = ICUI.plot_of(move.plot, faction)
+        local leader = IC.party_leader(faction, slug)""",
+     """        local plot = IC.plot_by_key(move.plot)
+        local leader = IC.party_leader(faction, slug)"""),
+    ("a favour's tip that names it in the Chaos Dwarfs' words", U,
+     """        local favour = ICUI.favour_of(move.favour, faction)""",
+     """        local favour = IC.favour_by_key(move.favour)"""),
+    ("a move label in the Chaos Dwarfs' words", U,
+     """    local plot = ICUI.plot_of(plot_key)
+    if not plot then return tostring(plot_key) end""",
+     """    local plot = IC.plot_by_key(plot_key)
+    if not plot then return tostring(plot_key) end"""),
+    ("a mission picker title in the Chaos Dwarfs' words", U,
+     """    local plot = ICUI.pick.plot and ICUI.plot_of(ICUI.pick.plot)""",
+     """    local plot = ICUI.pick.plot and IC.plot_by_key(ICUI.pick.plot)"""),
+    ("a move card in the Chaos Dwarfs' words", U,
+     """        local plot = ICUI.plot_at[i] and ICUI.plot_of(ICUI.plot_at[i].key, faction)""",
+     """        local plot = ICUI.plot_at[i]"""),
+    ("a failed mission's record line in the Chaos Dwarfs' words", U,
+     """        local sent = mission and ICUI.plot_of(mission)""",
+     """        local sent = mission and IC.plot_by_key(mission)"""),
+    ("a government card short of influence that hides by how much", U,
+     """    if why == "gov_purse" then return "Short " .. ICUI.cost(turns or 0) end""",
+     """    if why == "gov_purse" then return "Short" end"""),
+    ("a Dwarf government card in Chaos Dwarf paint", U,
+     """    local own = (ICUI.ART or {}).gov_art""",
+     """    local own = nil"""),
+    ("a Dwarf law card in Chaos Dwarf paint", U,
+     """    local own = (ICUI.ART or {}).law_art""",
+     """    local own = nil"""),
+    ("a Dwarf move card wearing the Chaos Dwarf icon", U,
+     """                         effect_no_secession = effect_ns, icon = icon}, {__index = plot})""",
+     """                         effect_no_secession = effect_ns}, {__index = plot})"""),
+    ("a Dwarf Help page wearing the Chaos Dwarf move icons", U,
+     """    local move = ICUI.plot_of(name)""",
+     """    local move = IC.plot_by_key(name)"""),
+    ("a Dwarf shared button left in CA's red", U,
+     """    local names = {"ic_card_button", "ic_plot_go", "ic_row_e", "ic_row_f"}""",
+     """    local names = {}"""),
+    ("a Dwarf chosen law glowing Hell-Forge red", U,
+     """                card:SetImagePath(chosen and ICUI.law_glow() or ICUI.MASK_NONE, ICUI.LAW_GLOW_INDEX)""",
+     """                card:SetImagePath(chosen and ICUI.LAW_GLOW or ICUI.MASK_NONE, ICUI.LAW_GLOW_INDEX)"""),
+    ("a Dwarf party block's Win left red", U,
+     """        ICUI.skin_buttons(comp(ICUI.LAWBLOCK .. "_" .. i, panel))""",
+     """        local _ = i"""),
+    ("a refused Dwarf button left on the blue plate", U,
+     """    if ICUI.grey_refused then ICUI.grey_refused(c, text) end""",
+     """    local _ = text"""),
+    ("a refused Dwarf button's words left red on grey", U,
+     """        if inner then pcall(function() c:SetText(inner, \"\") end) end""",
+     """        local _ = inner"""),
+    ("a refused Dwarf button's words in black on the dark grey", U,
+     """        if inner then pcall(function() c:SetText(inner, \"\") end) end""",
+     """        if inner then pcall(function() c:SetText(ICUI.lit_word(inner, true), \"\") end) end"""),
+    ("a Dwarf themed path left in CA's red", U,
+     """    return theme .. string.sub(path, #base + 1)""",
+     """    return path"""),
+    ("a Dwarf Governors row left in CA's red", UM,
+     """        row:SetImagePath(ICUI.themed(art[1]), 0)""",
+     """        row:SetImagePath(art[1], 0)"""),
+    ("a Dwarf Governors toggle left in CA's red", UM,
+     """                tog:SetImagePath(ICUI.themed(art[1]), ICUI.GM_TOG_ART[1])""",
+     """                tog:SetImagePath(art[1], ICUI.GM_TOG_ART[1])"""),
+    ("a Dwarf map pin in Chaos Dwarf paint", UM,
+     """                if art.gm_pin then pcall(function() pin:SetImagePath(art.gm_pin, 0) end) end""",
+     """                local _ = art.gm_pin"""),
+    ("a Dwarf pin's name plate in Chaos Dwarf paint", UM,
+     """                if art.gm_name then pcall(function() plate:SetImagePath(art.gm_name, 0) end) end""",
+     """                local _ = art.gm_name"""),
+    ("a Dwarf pin's loyalty plate in Chaos Dwarf paint", UM,
+     """                if art.gm_loyal then pcall(function() loyal:SetImagePath(art.gm_loyal, 0) end) end""",
+     """                local _ = art.gm_loyal"""),
+    ("a Dwarf trait icon left Chaos Dwarf", U,
+     """    ICUI.TRAIT_ICON = ICUI.ART.trait_icon or ICUI.CHD_TRAIT_ICON""",
+     """    local _ = ICUI.ART.trait_icon"""),
+    ("a Dwarf sort arrow left in CA's red", U,
+     """    if not index or ICUI.sort[view] ~= index then return ICUI.themed(ICUI.SORT_ARROW.down) end""",
+     """    if not index or ICUI.sort[view] ~= index then return ICUI.SORT_ARROW.down end"""),
+    ("a Dwarf law card's vote mark in Hell-Forge heat", U,
+     """                pcall(function() comp("ic_law_mark", card):SetImagePath(ICUI.ART.mark, 0) end)""",
+     """                local _ = card"""),
+    ("a Dwarf list's scrollbar handle left red", U,
+     """            ICUI.skin_handle(handle)
+        end
+        show(slider, lines > s.lines)""",
+     """        end
+        show(slider, lines > s.lines)"""),
+    ("a Dwarf Governors scrollbar handle left red", UM,
+     """            ICUI.skin_handle(handle)
+        end
+        show(slider, n > ICUI.GM_ROWS)""",
+     """        end
+        show(slider, n > ICUI.GM_ROWS)"""),
+    ("a Chaos Dwarf handle repainted with no theme", U,
+     """    if not (handle and (ICUI.ART or {}).theme) then return end""",
+     """    if not handle then return end"""),
+    ("a Dwarf envoy province list reading the Chaos Dwarf bundles", U,
+     """            for _, task in ipairs(IC.envoy_tasks(faction)) do
+                local left""",
+     """            for _, task in ipairs(IC.ENVOY_TASKS) do
+                local left"""),
+    ("a Dwarf envoy offered the Chaos Dwarf tasks", U,
+     """        for _, task in ipairs(IC.envoy_tasks(faction)) do
+            add({task.name""",
+     """        for _, task in ipairs(IC.ENVOY_TASKS) do
+            add({task.name"""),
+    ("a Dwarf envoy's record line losing its task", U,
+     """        local province, task = IC.envoy_split(e.key, ICUI.player())""",
+     """        local province, task = IC.envoy_split(e.key)"""),
+    ("a Dwarf envoy mission's place losing its task", U,
+     """        local province, task = IC.envoy_split(target, ICUI.player())""",
+     """        local province, task = IC.envoy_split(target)"""),
+    ("a Dwarf influence readout on the Hell-Forge plate", U,
+     """        if not plate then return hide() end
+        ICUI.race_plate(plate)""",
+     """        if not plate then return hide() end"""),
+    ("a Dwarf governor note on the Hell-Forge plate", U,
+     """        if not note then return nil end
+        ICUI.race_plate(note)""",
+     """        if not note then return nil end"""),
+    ("a race plate read off nothing", U,
+     """    local note = ((ICUI.race() or {}).art or {}).note""",
+     """    local note = nil"""),
+    ("a Chaos Dwarf readout repainted", U,
+     """    if c and note then pcall(function() c:SetImagePath(note, 0) end) end""",
+     """    if c then pcall(function() c:SetImagePath(note or "x.png", 0) end) end"""),
+    ("a Dwarf list row's button left red", U,
+     """ICUI.PLATE_BUTTONS = {ic_card_button = true, ic_plot_go = true, ic_row_e = true,""",
+     """ICUI.PLATE_BUTTONS = {ic_card_button = true, ic_plot_go = true,"""),
+    ("every red caption greyed as if a button", U,
+     """    return ICUI.PLATE_BUTTONS[id] or string.match(id, "^ic_lb_win_%d+$") ~= nil""",
+     """    return true or string.match(id, "^ic_lb_win_%d+$") ~= nil"""),
     ("a failed errand's line naming no errand", U,
-     """        local errand = not e.key or IC.plot_by_key(e.key)""",
+     """        local errand = not e.key or ICUI.plot_of(e.key)""",
      """        local errand = not e.key"""),
     ("a failed errand's notice that somebody knows", U,
      """                ICUI.notice = "It did not work. The influence is spent."
@@ -4258,8 +4456,8 @@ end"""),
      """            "He has not the influence for that seat - %d short.","""),
     ("Provoke promising a count with secession off", U,
      """        lines[2] = IC.TUNE.secession == false and plot.effect_no_secession
-                   or plot.effect""",
-     """        lines[2] = plot.effect"""),
+                   or ICUI.plot_effect(plot, faction)""",
+     """        lines[2] = ICUI.plot_effect(plot, faction)"""),
     ("a lapsed demand's reason never written", P,
      """        IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)""",
      """        IC.log(faction_key, "demand_void", d.slug, d.key, 0)"""),
@@ -4291,7 +4489,7 @@ end"""),
      """            .. "share of the court.\"""",
      """            .. "share of the court, 5% of it.\""""),
     ("risings left out of the rotation", P,
-     """    for i = 1, #IC.REBEL_POOL do candidates[#candidates + 1] = IC.REBEL_POOL[i] end""",
+     """    for i = 1, #R.REBEL_POOL do candidates[#candidates + 1] = R.REBEL_POOL[i] end""",
      """"""),
     ("a placated mark kept from an earlier turn", P,
      """    p.placated = (house and move and (house.loyalty or 0) > move.line) or nil""",
@@ -4329,15 +4527,15 @@ end"""),
      """    cm:callback(function() ICUI.show_standing() end, 0)"""),
     # ---- 2026-09-29: the full sweep ------------------------------------------
     ("a split leaving its men's seats' weight on the Crown", M,
-     """            crown.weight = math.max(1, crown.weight - IC.office_weight(office_slug, IC.CROWN))
+     """            crown.weight = math.max(1, crown.weight - IC.office_weight(office_slug, IC.CROWN, faction_key))
 """,
      """"""),
     ("a split giving the new party none of its men's seats' weight", M,
-     """            house.weight = house.weight + IC.office_weight(office_slug, slug)
+     """            house.weight = house.weight + IC.office_weight(office_slug, slug, faction_key)
 """,
      """"""),
     ("a party's end leaving its man his title", M,
-     """            cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i]))
+     """            cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i], faction_key))
 """,
      """"""),
     ("a release of nobody written to the record", M,
@@ -4352,7 +4550,7 @@ end"""),
     if not court.govs[province_key] then return false end
 """),
     ("an AI court's rolled birthplace left on its men", M,
-     """            cm:force_remove_trait(cm:char_lookup_str(man), "derpy_ic_house_" .. had)
+     """            cm:force_remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
 """,
      """"""),
     ("a party paying for its move before its odds are read", P,
@@ -4406,10 +4604,8 @@ end"""),
      """"""),
     ("a turn ending on a band it does not wear", M,
      """    IC.apply_control_bundle(faction_key)
-    IC.save(faction_key)
-    return warned""",
-     """    IC.save(faction_key)
-    return warned"""),
+    -- THE BOOK (plan 2026-10-04 phase 5), caught""",
+     """    -- THE BOOK (plan 2026-10-04 phase 5), caught"""),
     ("a rising soured by asking with an interface", M,
      """now = a:diplomatic_standing_with(other)""",
      """now = a:diplomatic_standing_with(b)"""),
@@ -4434,9 +4630,6 @@ end"""),
     ("a breaking party's card drawn with its business", U,
      """string.match(word, "^SECEDES")""",
      """(house.clock or 0) > 0"""),
-    ("the pager caption stopping short of the last page", U,
-     """(at >= ICUI.max_scroll(total, n)) and pages or math.floor(at / n) + 1""",
-     """math.floor(at / n) + 1"""),
     ("PLOTTING drawn with the parties switched off", U,
      """    elseif IC.TUNE.parties_act ~= false
             and house.loyalty""",
@@ -4497,8 +4690,9 @@ end"""),
      """    return ICUI.HELP_ICONS[name] or (move and move.icon) or nil""",
      """    return ICUI.HELP_ICONS[name] or nil"""),
     ("a help topic button with no picture", U,
-     """set_text(c, topic and (ICUI.help_fill("{@" .. tostring(topic.icon) .. "}", {}) .. topic.title) or "")""",
-     """set_text(c, topic and topic.title or "")"""),
+     """topic and (ICUI.help_fill("{@" .. tostring(topic.icon)
+                .. "}", {}) .. topic.title) or "")""",
+     """topic and topic.title or "")"""),
     ("a help heading with no picture", U,
      """    set_text(head, ICUI.help_fill("{@" .. tostring(ICUI.HELP[page].icon) .. "}", {})
                    .. ICUI.HELP[page].title)""",
@@ -4512,8 +4706,8 @@ end"""),
      """"""),
     # ---- 2026-09-29: the four leftovers -------------------------------------
     ("the court's roll asking a card for every origin", M,
-     """            if IC.stamp_origin(character, IC.origin_for(character), true) then""",
-     """            if IC.stamp_origin(character, IC.origin_for(character)) then"""),
+     """            if IC.stamp_origin(character, IC.origin_for(character, faction_key), true) then""",
+     """            if IC.stamp_origin(character, IC.origin_for(character, faction_key)) then"""),
     ("the court's roll asking a card for every background", M,
      """                       IC.background_for(character, faction_key, tally), true) then""",
      """                       IC.background_for(character, faction_key, tally)) then"""),
@@ -4524,14 +4718,14 @@ end"""),
      """        IC.stamp_bg(man, IC.background_for(man, faction_key, tally), true)""",
      """        IC.stamp_bg(man, IC.background_for(man, faction_key, tally))"""),
     ("an origin stamped loud whoever asked for quiet", M,
-     """                       "derpy_ic_house_" .. slug, not quiet)""",
-     """                       "derpy_ic_house_" .. slug, true)"""),
+     """                       IC.origin_trait(slug), not quiet)""",
+     """                       IC.origin_trait(slug), true)"""),
     ("a background stamped loud whoever asked for quiet", M,
-     """                       "derpy_ic_bg_" .. slug, not quiet)""",
-     """                       "derpy_ic_bg_" .. slug, true)"""),
+     """                       IC.bg_trait(slug), not quiet)""",
+     """                       IC.bg_trait(slug), true)"""),
     ("a new recruit's origin given in silence", M,
-     """                       "derpy_ic_house_" .. slug, not quiet)""",
-     """                       "derpy_ic_house_" .. slug, false)"""),
+     """                       IC.origin_trait(slug), not quiet)""",
+     """                       IC.origin_trait(slug), false)"""),
     ("a gift handing back no count of what it gave", M,
      """    return true, nil, gained
 end""",
@@ -4640,8 +4834,14 @@ end"""),
      """               or (plot.target and (plot_key .. ":" .. tostring(target)))""",
      """               or (plot.target and plot_key)"""),
     ("a mission's success logged without its place", M,
-     """    IC.log(faction_key, plot_key, slug, plot.target and target or against, cost)""",
-     """    IC.log(faction_key, plot_key, slug, against, cost)"""),
+     """           plot.target and target or against, cost)""",
+     """           against, cost)"""),
+    ("grudge: the weregild logged as the man sent's payment", M,
+     """    IC.log(faction_key, plot_key, plot.gold and IC.CROWN or slug,""",
+     """    IC.log(faction_key, plot_key, slug,"""),
+    ("grudge: a last-turn dismissal writes a grudge", M,
+     """        if not ending then IC.grudge_write(faction_key, slug, "dismiss") end""",
+     """        IC.grudge_write(faction_key, slug, "dismiss")"""),
     ("the diplomatic bonus the wrong way round", M,
      """        cm:apply_dilemma_diplomatic_bonus(faction_key, target, IC.TUNE.diplomats_bonus)""",
      """        cm:apply_dilemma_diplomatic_bonus(target, faction_key, IC.TUNE.diplomats_bonus)"""),
@@ -4754,10 +4954,10 @@ end"""),
      """    vars.levels_per_weight = nil"""),
     # THE GOVERNORS VIEW, PHASE 0 (plan 2026-09-30 Task 2).
     ("the Governors view leaves the throne room over the map", UM,
-     """    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ICUI.GM_BACKDROP, 0) end)""",
-     """    pcall(function() panel:SetImagePath(ICUI.GM_BACKDROP, 0) end)"""),
+     """    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ground, 0) end)""",
+     """    pcall(function() panel:SetImagePath(ground, 0) end)"""),
     ("another tab leaves the map showing through the court", UM,
-     """    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ICUI.GM_BACKDROP, 0) end)""",
+     """    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ground, 0) end)""",
      """    pcall(function() panel:SetImagePath(ICUI.MASK_NONE, 0) end)"""),
     ("the Governors view eats every click on the map", UM,
      """    panel:SetInteractive(not on)""",
@@ -4959,14 +5159,14 @@ end"""),
      """        local art = ICUI.GM_ROUND_ART[p == page and "selected" or "live"]""",
      """        local art = ICUI.GM_ROUND_ART["live"]"""),
     ("a toggle lit in one state only", UM,
-     """                tog:SetImagePath(art[2], ICUI.GM_TOG_ART[2])""",
-     """                tog:SetImagePath(ICUI.GM_ROUND_ART.live[2], ICUI.GM_TOG_ART[2])"""),
+     """                tog:SetImagePath(ICUI.themed(art[2]), ICUI.GM_TOG_ART[2])""",
+     """                tog:SetImagePath(ICUI.themed(ICUI.GM_ROUND_ART.live[2]), ICUI.GM_TOG_ART[2])"""),
     ("a chosen party's row not marked", UM,
      """                if (r.look or "live") == "live" and chosen(r, i) then r.look = "selected" end""",
      """                if false then r.look = "selected" end"""),
     ("a row's look set in one state only", UM,
-     """        row:SetImagePath(art[2], 1)""",
-     """        row:SetImagePath(ICUI.GM_ROW_ART.live[2], 1)"""),
+     """        row:SetImagePath(ICUI.themed(art[2]), 1)""",
+     """        row:SetImagePath(ICUI.themed(ICUI.GM_ROW_ART.live[2]), 1)"""),
     ("a spare row left showing", UM,
      """            show(row, r ~= nil)""",
      """            show(row, true)"""),
@@ -5034,9 +5234,11 @@ end"""),
      """    show(comp(ICUI.GM_LIST, panel), on)""",
      """    local _ = on"""),
     ("the scroll poll never started", UM,
-     """    cm:repeat_real_callback(function() pcall(ICUI.gm_scroll_poll) end,
-                            ICUI.GM_SCROLL_MS, "ic_gm_scroll")""",
-     ""),
+     """        pcall(ICUI.gm_scroll_poll)
+""", ""),
+    ("the lists' scroll poll never started", UM,
+     """        pcall(ICUI.list_scroll_poll)
+""", ""),
     # THE PICKER'S SORTS.
     ("the picker has no sorts", UM,
      """    if page == "picker" then return ICUI.GM_PICK_SORTS, "pick" end""",
@@ -5289,8 +5491,8 @@ end"""),
      """        local w = all > 0 and math.floor(bw * p[side] / all) or 0""",
      """        local w = all > 0 and math.floor(bw * p[side] / all) or 1"""),
     ("gov: a card wears CA's 72px picture, not the upscale", U,
-     """    if ICUI.GOV_ART[tostring(slug)] then return string.format(ICUI.GOV_ART_FILE, slug) end""",
-     """    if ICUI.GOV_ART[tostring(slug)] then return ICUI.LAW_ART_DIR .. ICUI.GOV_ART[slug] .. \".png\" end"""),
+     """        return string.format(ICUI.GOV_ART_FILE, tostring(slug) .. (own and ICUI.SUFFIX or \"\"))""",
+     """        return ICUI.LAW_ART_DIR .. (own or ICUI.GOV_ART)[tostring(slug)] .. \".png\""""),
     ("gov: a card's loyalty line spills a long name", U,
      """                        .. ICUI.cut_text(c, name, room))""",
      """                        .. name)"""),
@@ -5337,7 +5539,7 @@ end"""),
      """            local tip = (not g.may) and ICUI.reason_text(g.why, g.n) or \"\" """),
     ('gov: an override answering for every court', M,
      """    local court = faction_key and IC.state[faction_key]
-    return court and IC.GOVS[court.gov or \"\"] or nil""",
+    return court and R.GOVS[court.gov or \"\"] or nil""",
      """    for _, c in pairs(IC.state) do if IC.GOVS[c.gov or \"\"] then return IC.GOVS[c.gov] end end
     return nil"""),
     ('gov: a table knob scaled into IC.TUNE itself', M,
@@ -5350,7 +5552,7 @@ end"""),
      """    return IC.tune(faction_key, plot.cost) or 0""",
      """    return IC.TUNE[plot.cost] or 0"""),
     ("gov: a house's own start ignored", M,
-     """    if IC.START_GOV[faction_key] then return IC.START_GOV[faction_key] end
+     """    if R.START_GOV[faction_key] then return R.START_GOV[faction_key] end
     local best, best_share = nil, -1""",
      """    local best, best_share = nil, -1"""),
     ('gov: the start turn drifts too', M,
@@ -5360,7 +5562,7 @@ end"""),
     end
     if IC.gov_turn then"""),
     ('gov: a leader with no government builds pressure', M,
-     """    if not top or not IC.gov_for_party(top) then return nil, top, 0 end""",
+     """    if not top or not IC.gov_for_party(top, faction_key) then return nil, top, 0 end""",
      """    if not top then return nil, top, 0 end"""),
     ('gov: a leader with no government resets the pull', M,
      """    local want, top, step = IC.gov_pull(faction_key)
@@ -5386,7 +5588,7 @@ end"""),
      """                local spare = IC.standing(faction_key, cqi) - (bar[cqi] or 0)""",
      """                local spare = IC.standing(faction_key, cqi)"""),
     ("gov: the old government's party loses nothing", M,
-     """    for _, p in ipairs(from and IC.GOVS[from] and IC.GOVS[from].parties or {}) do
+     """    for _, p in ipairs(from and R.GOVS[from] and R.GOVS[from].parties or {}) do
         IC.move_loyalty(faction_key, p, loss)
     end""",
      """"""),
@@ -5418,7 +5620,7 @@ end"""),
      """    end
     if not IC.governments_on() then IC.apply_gov_bundle(faction_key) end"""),
     ('gov: an older save reads a government out of nothing', M,
-     """    court.gov = IC.GOVS[g[1] or \"\"] and g[1] or nil""",
+     """    court.gov = R.GOVS[g[1] or \"\"] and g[1] or nil""",
      """    court.gov = g[1] or \"conclave\""""),
     ('gov: the doctrine picker offers the current government', U,
      """        if g ~= court.gov then""",
@@ -5588,8 +5790,8 @@ end"""),
      """    if now - (court.law_rest or 0) < IC.TUNE.law_party_rest then return nil end""",
      """"""),
     ("law: a party proposes what it is against", M,
-     """                   and IC.law_stance(cat, opt, slug) == "aye" then""",
-     """                   and IC.law_stance(cat, opt, slug) ~= nil then"""),
+     """                   and IC.law_stance(cat, opt, slug, faction_key) == "aye" then""",
+     """                   and IC.law_stance(cat, opt, slug, faction_key) ~= nil then"""),
     ("law: a party pushes while well ahead", M,
      """            if t[side] - t[other] <= margin and IC.spend_party(faction_key, slug, price) then""",
      """            if IC.spend_party(faction_key, slug, price) then"""),
@@ -5648,6 +5850,138 @@ end"""),
 """,
      """    out.any = out.offices or out.court or out.petitions
 """),
+
+    # ---- race plumbing (plan 2026-10-04 phase 1) ---------------------------
+    # Each makes a Dwarf court run on Chaos Dwarf data, which no Chaos Dwarf
+    # check can tell from the truth.
+    ("race: IC.R never asking the faction its race", M,
+     '    local k = IC._race_cache[faction_key] or IC.race_key(faction_key)',
+     '    local k = IC._race_cache[faction_key]'),
+    ("race: a failed race lookup kept for the session", M,
+     '    if k then IC._race_cache[faction_key] = k end',
+     '    IC._race_cache[faction_key] = k or "chd"'),
+    ("race: the race's tune layer skipped", M,
+     '    local base = IC.tune_layer(IC.TUNE[key], race and race.tune and race.tune[key])',
+     '    local base = IC.TUNE[key]'),
+    ("race: a key written without its race's infix", M,
+     '    return "derpy_ic_" .. kind .. "_" .. (R or IC.RACES.chd).infix .. slug',
+     '    return "derpy_ic_" .. kind .. "_" .. slug'),
+    ("race: a race switched off still holding a court", M,
+     '    return r.switch == nil or IC.TUNE[r.switch] ~= false',
+     '    return true'),
+    ("race: a larger race not raising the seat count", M,
+     '    IC.MAX_SEATS = math.max(IC.MAX_SEATS or 0, r.MAX_SEATS)',
+     '    IC.MAX_SEATS = IC.MAX_SEATS or r.MAX_SEATS'),
+    ("race: the offices label counting the Chaos Dwarf tiers", U,
+     '        widths[#widths + 1] = tostring(R.TIER_SEATS[R.TIERS[i]])',
+     '        widths[#widths + 1] = tostring(IC.TIER_SEATS[IC.TIERS[i]])'),
+    ("race: a lookup by slug answering the Chaos Dwarfs for every court", M,
+     '    local R = IC.R(faction_key)\n    for i = 1, #R.OFFICES do\n        if R.OFFICES[i].slug == slug then return R.OFFICES[i] end',
+     '    local R = IC.RACES.chd\n    for i = 1, #R.OFFICES do\n        if R.OFFICES[i].slug == slug then return R.OFFICES[i] end'),
+    ("race: the panel drawing the Chaos Dwarf law board for any player", U,
+     '    local R = ICUI.race()\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]',
+     '    local R = IC.RACES.chd\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]'),
+    # ---- grudges inside the court (plan 2026-10-04 phase 4) -------------
+    ("grudge: the race guard dropped", M,
+     """    if IC.race_key(faction_key) ~= "dwf" or not IC.GRUDGE_WORDS[code or ""] then return false end""",
+     """    if not IC.GRUDGE_WORDS[code or ""] then return false end"""),
+    ("grudge: the cap removed", M,
+     """    if #book >= IC.TUNE.grudge_max then return false end""",
+     """"""),
+    ("grudge: the fade added", M,
+     """        for i, g in ipairs(IC.grudges(faction_key, slug)) do""",
+     """        for i, g in ipairs(IC.grudges(faction_key, slug)) do if cm:model():turn_number() - g.turn > 20 then break end"""),
+    ("grudge: the newest settled, not the oldest", M,
+     """    local g = table.remove(book, 1)""",
+     """    local g = table.remove(book)"""),
+    ("grudge: kinship on every race", M,
+     """    local dwarf = IC.race_key(faction_key) == "dwf\"""",
+     """    local dwarf = true"""),
+    ("grudge: the countdown read off IC.TUNE", M,
+     """                house.clock = IC.tune(faction_key, "secede_turns")""",
+     """                house.clock = IC.TUNE.secede_turns"""),
+    # ---- the Book of Grudges (plan 2026-10-04 phase 5) --------------------
+    ("book: a band fired every turn", M,
+     """        for i = had + 1, n do""",
+     """        for i = 1, n do"""),
+    ("book: a band reversed on a fall", M,
+     """        local n = had
+        while n < #bands and e.weight >= bands[n + 1] do n = n + 1 end
+        for i = had + 1, n do
+            cm:apply_dilemma_diplomatic_bonus(faction_key, e.key, penalty[i])
+            fired = fired + 1
+        end
+        if n > had then court.book[e.key] = n end""",
+     """        local n = 0
+        while n < #bands and e.weight >= bands[n + 1] do n = n + 1 end
+        for i = had + 1, n do
+            cm:apply_dilemma_diplomatic_bonus(faction_key, e.key, penalty[i])
+            fired = fired + 1
+        end
+        for i = n + 1, had do
+            cm:apply_dilemma_diplomatic_bonus(faction_key, e.key, -penalty[i])
+        end
+        court.book[e.key] = n"""),
+    ("book: band threshold off by one", M,
+     """        while n < #bands and e.weight >= bands[n + 1] do n = n + 1 end""",
+     """        while n < #bands and e.weight > bands[n + 1] do n = n + 1 end"""),
+    ("book: named threshold off by one", M,
+     """    return n > 0 and IC.TUNE.book_bands[n] >= IC.TUNE.book_named""",
+     """    return n > 0 and IC.TUNE.book_bands[n] > IC.TUNE.book_named"""),
+    ("book: deed on a fall", M,
+     """        if context:resource():key() ~= IC.GRUDGE_POINTS or context:amount() <= 0 then""",
+     """        if context:resource():key() ~= IC.GRUDGE_POINTS then"""),
+    ("book: a deed for one party", M,
+     """    if d.also then n = n + IC.add_renown(faction_key, d.also, IC.TUNE[d.tune], code) end""",
+     """"""),
+    ("book: the panel fills the turn's cache", M,
+     """    if fill and not (IC._book and IC._book.turn == now) then""",
+     """    if not (IC._book and IC._book.turn == now) then"""),
+    ("book: a Chaos Dwarf court reads the Book", M,
+     """    if not own or IC.race_key(faction_key) ~= "dwf" then return out end""",
+     """    if not own then return out end"""),
+    ("book: garrisons weighed", M,
+     """    local forces = other:military_force_list(true)""",
+     """    local forces = other:military_force_list()"""),
+    ("book: a treaty read off the live weight", M,
+     """    if not IC.in_book(faction_key, other_key) then return false end""",
+     """    if IC.book_weight(faction_key, other_key) < IC.TUNE.book_named then return false end"""),
+    ("book: another tab keeps the Book line", U,
+     """        show(comp("ic_book", panel), false)""",
+     """"""),
+    ("book: the tooltip remembers a faction never named", U,
+     """        if IC.in_book(faction, key) then""",
+     """        if true then"""),
+    ("book: the tooltip forgets who a treaty wrongs", U,
+     """    if #known == 0 then return tip end""",
+     """    do return tip end"""),
+    # ---- both races in one campaign (plan 2026-10-04 dwarfs phase 6) ---------
+    ("both races: the race cache keyed by nothing", _holder(_SIG_R), _SIG_R,
+     _SIG_R + "    IC._one_race = IC._one_race or IC._R_body(faction_key)\n"
+     "    return IC._one_race\nend\nfunction IC._R_body(faction_key)\n"),
+    ("both races: the race read off the player, not the faction in hand",
+     _holder(_SIG_R), _SIG_R,
+     _SIG_R + "    local human = cm:get_human_factions()\n"
+     "    return IC._R_body(human and human[1] or faction_key)\nend\n"
+     "function IC._R_body(faction_key)\n"),
+    ("both races: one grudge book for every court", _holder(_SIG_GRUDGES), _SIG_GRUDGES,
+     _SIG_GRUDGES + "    IC._first_book = IC._first_book or faction_key\n"
+     "    return IC._grudges_body(IC._first_book, slug)\nend\n"
+     "function IC._grudges_body(faction_key, slug)\n"),
+    ("both races: a grudge written into a Chaos Dwarf court", _holder(_SIG_WRITE), _SIG_WRITE,
+     _SIG_WRITE + _as_dwarf("IC._write_body, faction_key, slug, code")
+     + "    return out\nend\nfunction IC._write_body(faction_key, slug, code)\n"),
+    ("both races: the Book kept for every court", _holder(_SIG_TURN), _SIG_TURN,
+     _SIG_TURN + _as_dwarf("IC.book_tick, faction_key")
+     + "    return IC._turn_body(faction_key)\nend\nfunction IC._turn_body(faction_key)\n"),
+    ("both races: the Dwarf courts switch ignored", _holder(_SIG_HAS), _SIG_HAS,
+     _SIG_HAS + "    local was = IC.TUNE.dwarf_courts\n    IC.TUNE.dwarf_courts = true\n"
+     "    local ok, out = pcall(IC._has_court_body, faction)\n"
+     "    IC.TUNE.dwarf_courts = was\n    if not ok then error(out, 0) end\n"
+     "    return out\nend\nfunction IC._has_court_body(faction)\n"),
+    ("both races: a key built without its race", _holder(_SIG_KEY), _SIG_KEY,
+     _SIG_KEY + "    return IC._key_body(kind, slug, nil)\nend\n"
+     "function IC._key_body(kind, slug, faction_key)\n"),
 ]
 
 

@@ -81,6 +81,20 @@ local function make_unit_list(led, carried)
     }
 end
 
+-- A POOLED RESOURCE MANAGER over `pools` ({[key] = value}) (plan 2026-10-04
+-- phase 5). CA: resource(key) is "Null if not present" - and the null one here
+-- has NO value(), so a caller that forgets is_null_interface() errors instead
+-- of reading a zero.
+local function fake_prm(pools)
+    return {resource = function(_self, key)
+        local v = (pools or {})[key]
+        if v == nil then return {is_null_interface = function() return true end} end
+        return {is_null_interface = function() return false end,
+                key = function() return key end,
+                value = function() return v end}
+    end}
+end
+
 local function make_character(cqi, rank, party, province_key, unique, origin,
                              subtype)
     local c
@@ -129,6 +143,11 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
                 -- a rebellion out of somebody's walls.
                 is_armed_citizenry = function()
                     return c._citizenry == true
+                end,
+                -- CA'S GRUDGE POINTS ON THIS ARMY, off c._grudge, under CA's
+                -- own key TYPED HERE: a model reading the wrong pool reads nothing.
+                pooled_resource_manager = function()
+                    return fake_prm({wh3_dlc25_dwf_grudge_points_enemy_armies = c._grudge})
                 end,
                 -- unit_list IS ALSO WHAT heal_military_force's stub tells a
                 -- force from a character by: every script interface has
@@ -256,6 +275,9 @@ end
 
 local function make_faction(name, subculture, characters, provinces)
     local f
+    -- A FACTION RE-MADE IS ASKED ITS RACE AGAIN (plan 2026-10-04 phase 1): one
+    -- check makes F Bretonnian, and a cached Chaos Dwarf race must not outlive it.
+    if IC and IC._race_cache then IC._race_cache[name] = nil end
     f = {
         is_null_interface = function() return false end,
         name = function() return name end,
@@ -292,8 +314,10 @@ local function make_faction(name, subculture, characters, provinces)
         factions_met = function()
             local out = {}
             for _, key in ipairs(f._met or {}) do
-                out[#out + 1] = {is_null_interface = function() return false end,
-                                 name = function() return key end}
+                -- THE REAL STUB WHEN THERE IS ONE: CA's list holds whole faction
+                -- interfaces, and the Book walks their armies off it.
+                out[#out + 1] = factions[key] or {is_null_interface = function() return false end,
+                                                  name = function() return key end}
             end
             return {num_items = function() return #out end,
                     item_at = function(_, i) return out[i + 1] end}
@@ -303,18 +327,25 @@ local function make_faction(name, subculture, characters, provinces)
         -- in a live campaign on 2026-09-17 had 3 armies and 12 garrisons. A stub
         -- that answered armies only would let a caller that never checks
         -- is_armed_citizenry pass here and march a rebellion out of a wall.
-        military_force_list = function()
+        military_force_list = function(_self, skip_garrisons)
             local out = {}
             for _, c in ipairs(characters) do
-                if c._force == true then out[#out + 1] = c:military_force() end
+                if c._force == true and not (skip_garrisons and c._citizenry == true) then
+                    out[#out + 1] = c:military_force()
+                end
             end
-            if f._garrison_units then
+            if f._garrison_units and not skip_garrisons then
                 out[#out + 1] = {
                     is_null_interface = function() return false end,
                     cqi = function() return 0 end,
                     is_armed_citizenry = function() return true end,
                     unit_list = function()
                         return make_unit_list(nil, f._garrison_units)
+                    end,
+                    -- POINTS CA NEVER WRITES on a garrison, so a Book that
+                    -- reads one reads a number the game cannot have.
+                    pooled_resource_manager = function()
+                        return fake_prm({wh3_dlc25_dwf_grudge_points_enemy_armies = f._garrison_grudge})
                     end,
                 }
             end
@@ -434,6 +465,12 @@ local function make_faction(name, subculture, characters, provinces)
                         -- THE PROVINCE CAPITAL unless f._not_capital says otherwise.
                         is_province_capital = function()
                             return not (f._not_capital or {})[key]
+                        end,
+                        -- CA'S GRUDGE POINTS ON THIS SETTLEMENT, off
+                        -- f._grudge_regions[province]; nil is no pool at all.
+                        pooled_resource_manager = function()
+                            return fake_prm({wh3_dlc25_dwf_grudge_points_enemy_settlements =
+                                             (f._grudge_regions or {})[key]})
                         end,
                         settlement = function()
                             return {
@@ -1172,6 +1209,17 @@ IC.TUNE.grace_turns = 0
 IC_REAL_GOVERNMENTS_ON = IC.governments_on
 IC.governments_on = function() return IC_GOVS_ON == true end
 
+-- THE DWARF RACE (plan 2026-10-04 phase 2): after the model and before the
+-- parties, the order the game loads them in ("." < "_" and "d" < "p").
+do
+    local path = os.getenv("IC_DWARF_FILE")
+        or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua"
+    local dwarf_chunk, dwarf_err = loadfile(path)
+    assert(dwarf_chunk, "could not load " .. path .. ": " .. tostring(dwarf_err))
+    dwarf_chunk()
+    assert(IC.RACES and IC.RACES.dwf, "the Dwarf file must register race dwf")
+end
+
 local PARTIES_FILE = (arg and arg[3])
     or "Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua"
 local parties_chunk, parties_err = loadfile(PARTIES_FILE)
@@ -1190,7 +1238,8 @@ do
     -- the detailed_log setting says.
     local warn = IC.warn
     IC.warn = function(text)
-        if string.find(tostring(text), "parties' turn failed", 1, true) then
+        if string.find(tostring(text), "parties' turn failed", 1, true)
+           or string.find(tostring(text), "the Book failed", 1, true) then
             IC_PARTY_FAULTS[#IC_PARTY_FAULTS + 1] = tostring(text)
         end
         return warn(text)
@@ -1249,11 +1298,12 @@ end
 -- and Purge are cat "party" since 2026-09-24 and live on the court's action bar,
 -- so the grid is no longer all of IC.PLOTS - and a check that counted IC.PLOTS
 -- would call a correct grid two moves short.
-local function grid_plots()
+local function grid_plots(race)
     local declared, out = {}, {}
     for c = 1, #IC.PLOT_CATS do declared[IC.PLOT_CATS[c].key] = true end
     for i = 1, #IC.PLOTS do
-        if declared[IC.PLOTS[i].cat] then out[#out + 1] = IC.PLOTS[i] end
+        local p = IC.PLOTS[i]
+        if declared[p.cat] and IC.plot_for_race(p, race or "chd") then out[#out + 1] = p end
     end
     return out
 end
@@ -1462,7 +1512,7 @@ check("ambition bands define complete neutral-weighted marker data", function()
     for _, slug in ipairs(IC.AMBITION_ORDER) do
         local band = IC.AMBITION[slug]
         assert(band and band.factor > 0)
-        assert(band.trait == "derpy_ic_ambition_" .. slug)
+        assert(band.trait == nil and IC.ambition_trait(slug) == "derpy_ic_ambition_" .. slug)
         total = total + band.roll
     end
     assert(total == 100)
@@ -4664,6 +4714,8 @@ check("every panel, row and card cell has a layout offset", function()
     want["ic_gov_btn"] = true
     -- AND THE GLOW UNDER ITS PICTURE (2026-10-04).
     want["ic_gov_glow"] = true
+    -- AND THE BOOK OF GRUDGES' LINE under the Crown's box (plan 2026-10-04 phase 5).
+    want["ic_book"] = true
     -- AND THE ZIGGURAT ITS CARDS STAND ON: with no offset it would sit at the
     -- box's corner, a stepped shape under nothing.
     want["ic_zig_bg"] = true
@@ -5501,7 +5553,7 @@ end
 
 -- Build the panel exactly as ICUI.open would: the panel, its named children, six
 -- cards with their children, ten rows with theirs.
-local function build_fake_panel()
+local function build_fake_panel(race)
     local reg = {}
     local panel = fake_component(ICUI.PANEL)
     panel.w, panel.h = 1920, 1080
@@ -5514,6 +5566,11 @@ local function build_fake_panel()
         return c
     end
     for name in pairs(ICUI.PANEL_XY) do child(panel, name) end
+    -- A RACE'S OWN CELLS (plan 2026-10-04 phase 3), which the real panel file of that
+    -- race declares and the Chaos Dwarf one does not.
+    for name in pairs((race and ICUI.RACE_XY and ICUI.RACE_XY[race]) or {}) do
+        if not panel.children[name] then child(panel, name) end
+    end
     -- THE OFFICE CARD'S TWO CUT CELLS GET THEIR REAL WIDTH, same reason as the
     -- party card's leader line below and found the same way. ICUI.fit_cut reads
     -- Dimensions() to decide whether to cut, and at the fake tree's default 10px
@@ -5536,27 +5593,13 @@ local function build_fake_panel()
             end
         end
     end
-    for i = 1, #ICUI.PARTY_XY do
-        local card = child(panel, ICUI.PARTY .. "_" .. i)
-        for name in pairs(ICUI.PARTY_CHILD_XY) do
-            local c = child(card, name)
-            -- THE LEADER CELL HAS TO BE THE RIGHT WIDTH, same reason as the
-            -- blurb cells below: ICUI.fit_cut reads Dimensions() to decide
-            -- whether to cut, and at the fake tree's default 10px it cut every
-            -- name on every card to its first word. A fixture that makes every
-            -- string too long is not exercising the cut, it is faking it.
-            --
-            -- DERIVED FROM TWO NUMBERS THE PANEL ALREADY DECLARES rather than
-            -- typed: the crest's x IS the card's frame band, so the cell runs
-            -- from the leader's x to the band on the far side. A third copy of
-            -- 287 is a third thing to get wrong.
-            if name == "ic_party_leader" then
-                c.w = ICUI.PARTY_W - ICUI.PARTY_CHILD_XY.ic_party_leader[1]
-                      - ICUI.PARTY_CHILD_XY.ic_party_crest[1]
-            end
-        end
+    -- AS MANY AS THE RACE'S OWN GRID (plan 2026-10-04 phase 4): ICUI.open picks
+    -- it after this is built, and a Dwarf court's weregild makes seventeen.
+    local plots = #ICUI.PLOT_XY
+    if race and ICUI.PLOT_GRIDS and ICUI.PLOT_GRIDS[race] then
+        plots = math.max(plots, #ICUI.PLOT_GRIDS[race].xy)
     end
-    for i = 1, #ICUI.PLOT_XY do
+    for i = 1, plots do
         -- ITS OWN FILE NOW, derpy_ic_plot: a move needs three blurb line cells
         -- and an icon, and the office card had neither to spare.
         local card = child(panel, ICUI.PLOT .. "_" .. i)
@@ -5570,10 +5613,6 @@ local function build_fake_panel()
             c.w = ICUI.PLOT_INNER_W
         end
     end
-    for i = 1, ICUI.MAX_ROWS do
-        local row = child(panel, ICUI.ROW .. "_" .. i)
-        for name in pairs(ICUI.ROW_CHILD_XY) do child(row, name) end
-    end
     -- THE LAWS TAB'S TWO POOLS, every cell its file's width.
     for i = 1, #ICUI.LAW_XY do
         local card = child(panel, ICUI.LAW .. "_" .. i)
@@ -5586,14 +5625,80 @@ local function build_fake_panel()
     return reg, panel
 end
 
+-- A COMPONENT IS MADE WITH THE CHILDREN ITS .twui.xml DECLARES, each its file's
+-- size so ICUI.fit_cut has a width: a Governors row, a list row, a party card.
+-- AND A LIST with its reserved parts: list_clip > list_box, vslider > handle.
+-- list_box rides with list_clip, `dy` below it, as the engine docks it;
+-- gm_scroll_to and list_scroll_to move `dy` the way the wheel would. A holder's
+-- MoveTo carries its items, as the engine's does (measured in game 2026-10-02,
+-- docs/CUSTOM_UI.md): that one fact is the whole of the drawn-whole list, so a
+-- stub that left them behind could not test it. `paths` records each one's file.
+function host_cells(host, paths)
+    local make = host.CreateComponent
+    function host:CreateComponent(n, p)
+        make(self, n, p)
+        paths[n] = paths[n] or p
+        local c = self.children[n]
+        if not c or next(c.children) ~= nil then return end
+        if ICUI.PATH_GM_ROW and p == ICUI.path(ICUI.PATH_GM_ROW) then
+            for k, box in pairs(ICUI.GM_ROW_CHILD_XY) do
+                c:CreateComponent(k)
+                c.children[k].w, c.children[k].h = box[3], box[4]
+            end
+        elseif p == ICUI.path(ICUI.PATH_ROW) then
+            for k in pairs(ICUI.ROW_CHILD_XY) do c:CreateComponent(k) end
+        elseif p == ICUI.path(ICUI.PATH_PARTY) then
+            for k in pairs(ICUI.PARTY_CHILD_XY) do c:CreateComponent(k) end
+            -- THE LEADER CELL HAS TO BE THE RIGHT WIDTH: ICUI.fit_cut reads
+            -- Dimensions() to decide whether to cut, and at the fake tree's
+            -- default 10px it cut every name to its first word. Derived from the
+            -- crest's x, which IS the card's frame band.
+            c.children.ic_party_leader.w = ICUI.PARTY_W
+                - ICUI.PARTY_CHILD_XY.ic_party_leader[1] - ICUI.PARTY_CHILD_XY.ic_party_crest[1]
+        elseif ICUI.PATH_GM_LIST and p == ICUI.PATH_GM_LIST then
+            c:CreateComponent("list_clip")
+            c:CreateComponent("vslider")
+            local clip = c.children.list_clip
+            clip:CreateComponent("list_box")
+            c.children.vslider:CreateComponent("handle")
+            local box = clip.children.list_box
+            box.dy = 0
+            function box:Layout() self.laid = true end
+            local move = clip.MoveTo
+            function clip:MoveTo(x, y)
+                move(self, x, y)
+                box.x, box.y = x, y + box.dy
+            end
+            host_cells(clip, paths)
+            -- AND THE BOX, whose spacer rows the preview's race dump must trace
+            -- to derpy_ic_gm_sp.
+            host_cells(box, paths)
+        elseif n == ICUI.GM_HOLDER or n == ICUI.LIST_HOLDER then
+            local function shift(k, dx, dy)
+                for _, kid in ipairs(k.order) do
+                    kid.x, kid.y = kid.x + dx, kid.y + dy
+                    shift(kid, dx, dy)
+                end
+            end
+            function c:MoveTo(x, y)
+                local dx, dy = x - self.x, y - self.y
+                self.x, self.y = x, y
+                shift(self, dx, dy)
+                self.moves = (self.moves or 0) + 1
+            end
+            host_cells(c, paths)
+        end
+    end
+end
+
 -- Drives the REAL ICUI.open() and ICUI.close(). with_fake_panel below hands a
 -- ready-made tree to a draw function; this one starts with nothing and lets
 -- open() build it, which is the only way to see what open() itself does - such as
 -- whether it hides the campaign HUD, and whether a failure leaves it hidden.
-local function with_fake_root(fn, break_creation, screen)
+local function with_fake_root(fn, break_creation, screen, race)
     local saved_find, saved_is = find_uicomponent, is_uicomponent
     local saved_root, saved_human = core.get_ui_root, cm.get_human_factions
-    local _reg, panel = build_fake_panel()
+    local _reg, panel = build_fake_panel(race)
     local r = fake_component("root")
     r.w, r.h = 1920, 1080
     if screen then r.w, r.h = screen[1], screen[2] end
@@ -5622,7 +5727,7 @@ local function with_fake_root(fn, break_creation, screen)
             created = true
             -- THE FILE DECIDES THE SIZE the engine hands back: the compact copy
             -- is built at a 1600 box.
-            if _path == ICUI.PATH_PANEL .. "_compact" then
+            if string.find(_path, "_compact$") then
                 panel.w, panel.h = 1600, 900
             end
             r.children[name] = panel
@@ -5634,6 +5739,7 @@ local function with_fake_root(fn, break_creation, screen)
         paths[name] = _path
         return panel_create(self, name, _path)
     end
+    host_cells(panel, paths)
     core.get_ui_root = function() return r end
     find_uicomponent = function(parent, name)
         if name == "hud_campaign" then return hud end
@@ -5647,7 +5753,8 @@ local function with_fake_root(fn, break_creation, screen)
     end
     is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
     UIComponent = function(c) return c end
-    cm.get_human_factions = function() return {F} end
+    -- A RACE'S ROOT KEEPS THE CALLER'S PLAYER (DW.court sets a Dwarf one).
+    if not race then cm.get_human_factions = function() return {F} end end
     local ok, err = pcall(fn, hud, panel, {menu = menu, icons = icons,
                                            asleep = asleep, root = r,
                                            paths = paths})
@@ -5672,9 +5779,10 @@ local function with_fake_panel(fn)
     local saved_find, saved_is = find_uicomponent, is_uicomponent
     local saved_human = cm.get_human_factions
     local reg, panel = build_fake_panel()
+    host_cells(panel, {})
     find_uicomponent = function(parent, name)
         if type(parent) == "table" and parent.children then
-            return parent.children[name] or false
+            return fake_find(parent, name) or false
         end
         return reg[name] or false
     end
@@ -5707,7 +5815,7 @@ end
 -- makes in the holder at runtime - a pin, a face, a name plate and a loyalty
 -- plate per province, each its file's box, which ICUI.cut_text reads - and
 -- records each one's file.
-local function with_fake_govmap(fn, screen)
+local function with_fake_govmap(fn, screen, race)
     with_fake_root(function(hud, panel, extra)
         local holder = panel.children[ICUI.GM_PINS or "ic_gm_pins"]
         assert(holder, "the fake panel has no pins' holder: PANEL_XY lacks ic_gm_pins")
@@ -5725,62 +5833,6 @@ local function with_fake_govmap(fn, screen)
                 c.w, c.h = ICUI.GM_PIN_W, ICUI.GM_PIN_H
             end
         end
-        -- A COLUMN ROW IS MADE WITH ITS CHILDREN, as the row's .twui.xml
-        -- declares them, each its file's size so ICUI.fit_cut has a width. AND
-        -- THE LIST with its reserved parts: list_clip > list_box, vslider >
-        -- handle. list_box rides with list_clip, `dy` below it, as the engine
-        -- docks it; gm_scroll_to moves `dy` the way the wheel would.
-        local function hosts_cells(host)
-            local make = host.CreateComponent
-            function host:CreateComponent(n, p)
-                make(self, n, p)
-                extra.paths[n] = extra.paths[n] or p
-                local c = self.children[n]
-                if not c then return end
-                if ICUI.PATH_GM_ROW and p == ICUI.path(ICUI.PATH_GM_ROW)
-                   and next(c.children) == nil then
-                    for k, box in pairs(ICUI.GM_ROW_CHILD_XY) do
-                        c:CreateComponent(k)
-                        c.children[k].w, c.children[k].h = box[3], box[4]
-                    end
-                elseif ICUI.PATH_GM_LIST and p == ICUI.PATH_GM_LIST
-                       and next(c.children) == nil then
-                    c:CreateComponent("list_clip")
-                    c:CreateComponent("vslider")
-                    local clip = c.children.list_clip
-                    clip:CreateComponent("list_box")
-                    c.children.vslider:CreateComponent("handle")
-                    local box = clip.children.list_box
-                    box.dy = 0
-                    function box:Layout() self.laid = true end
-                    local move = clip.MoveTo
-                    function clip:MoveTo(x, y)
-                        move(self, x, y)
-                        box.x, box.y = x, y + box.dy
-                    end
-                    hosts_cells(clip)
-                elseif ICUI.GM_HOLDER and n == ICUI.GM_HOLDER and next(c.children) == nil then
-                    -- THE HOLDER'S MoveTo CARRIES ITS CARDS, as the engine's
-                    -- does (measured in game 2026-10-02, docs/CUSTOM_UI.md):
-                    -- that one fact is the whole of the drawn-whole list, so a
-                    -- stub that left the cards behind could not test it.
-                    local function shift(k, dx, dy)
-                        for _, kid in ipairs(k.order) do
-                            kid.x, kid.y = kid.x + dx, kid.y + dy
-                            shift(kid, dx, dy)
-                        end
-                    end
-                    function c:MoveTo(x, y)
-                        local dx, dy = x - self.x, y - self.y
-                        self.x, self.y = x, y
-                        shift(self, dx, dy)
-                        self.moves = (self.moves or 0) + 1
-                    end
-                    hosts_cells(c)
-                end
-            end
-        end
-        hosts_cells(panel)
         -- MAP ORDER ON THE PROVINCES PAGE: these checks name rows by position, and
         -- the sort and the page are session state an earlier check may have moved.
         ICUI.sort.govs, ICUI.sort_desc.govs = 1, false
@@ -5790,7 +5842,7 @@ local function with_fake_govmap(fn, screen)
         ICUI.gm_was_on = false
         ICUI.register()
         fn(hud, panel, extra, holder)
-    end, nil, screen)
+    end, nil, screen, race)
 end
 
 -- THE i-th PIN AND FACE the Governors view made, or nil.
@@ -5847,7 +5899,7 @@ end
 local function drawn_party(panel, k)
     local seen = 0
     for i = 1, ICUI.PARTY_SLOTS do
-        local card = panel.children[ICUI.PARTY .. "_" .. i]
+        local card = fake_find(panel, ICUI.PARTY .. "_" .. i)
         if card and card.visible then
             seen = seen + 1
             if seen == (k or 1) then return card end
@@ -5859,7 +5911,7 @@ end
 local function visible_parties(panel)
     local n = 0
     for i = 1, ICUI.PARTY_SLOTS do
-        local card = panel.children[ICUI.PARTY .. "_" .. i]
+        local card = fake_find(panel, ICUI.PARTY .. "_" .. i)
         if card and card.visible then n = n + 1 end
     end
     return n
@@ -5871,7 +5923,7 @@ end
 local function drawn_row(panel, k)
     local seen = 0
     for i = 1, ICUI.MAX_ROWS do
-        local row = panel.children[ICUI.ROW .. "_" .. i]
+        local row = fake_find(panel, ICUI.ROW .. "_" .. i)
         if row and row.visible then
             seen = seen + 1
             if seen == (k or 1) then return row end
@@ -5883,7 +5935,7 @@ end
 local function visible_rows(panel)
     local n = 0
     for i = 1, ICUI.MAX_ROWS do
-        local row = panel.children[ICUI.ROW .. "_" .. i]
+        local row = fake_find(panel, ICUI.ROW .. "_" .. i)
         if row and row.visible then n = n + 1 end
     end
     return n
@@ -6146,7 +6198,7 @@ check("the Crown is led by the man on the throne, and the block and the card agr
             if ICUI.court_keys[i] == IC.CROWN then which = i end
         end
         assert(which, "the Crown has no card on the court tab")
-        local card = panel.children[ICUI.PARTY .. "_" .. which]
+        local card = fake_find(panel, ICUI.PARTY .. "_" .. which)
         assert(card.children.ic_party_leader.text
                    == panel.children.ic_leader_name.text,
             "the Crown's card says " .. card.children.ic_party_leader.text
@@ -6217,7 +6269,7 @@ check("a party card carries two traits of its own and one of its leader's", func
         for i = 1, #(ICUI.court_keys or {}) do
             if ICUI.court_keys[i] == "forge" then which = i end
         end
-        local card = panel.children[ICUI.PARTY .. "_" .. which]
+        local card = fake_find(panel, ICUI.PARTY .. "_" .. which)
         local traits = IC.party_traits(F, "forge")
         assert(#traits == 2, "IC.party_traits handed back " .. #traits
             .. " of the party's two")
@@ -6306,15 +6358,15 @@ check("a card click chooses the party, and a second click opens its members", fu
         ICUI.refresh()
         local crown_at, rival_at = nil, nil
         for i = 1, #(ICUI.court_keys or {}) do
-            local card = panel.children[ICUI.PARTY .. "_" .. i]
+            local card = fake_find(panel, ICUI.PARTY .. "_" .. i)
             -- THE MOOD IS A READING NOW: a word with no control of its own.
             assert(plain(card.children.ic_party_state.text) ~= "",
                 "card " .. i .. " shows no mood at all")
             if ICUI.court_keys[i] == IC.CROWN then crown_at = i else rival_at = i end
         end
         assert(crown_at and rival_at, "the court has no Crown card or no rival card")
-        local rival_card = panel.children[ICUI.PARTY .. "_" .. rival_at]
-        local crown_card = panel.children[ICUI.PARTY .. "_" .. crown_at]
+        local rival_card = fake_find(panel, ICUI.PARTY .. "_" .. rival_at)
+        local crown_card = fake_find(panel, ICUI.PARTY .. "_" .. crown_at)
         local function frame(card) return card.images[ICUI.PARTY_SEL_INDEX] end
 
         -- THROUGH THE LISTENER, by the card's own id: the route the engine takes.
@@ -6350,7 +6402,7 @@ check("a card click chooses the party, and a second click opens its members", fu
         local function roster_of(slug)
             local names = 0
             for i = 1, ICUI.MAX_ROWS do
-                local row = panel.children[ICUI.ROW .. "_" .. i]
+                local row = fake_find(panel, ICUI.ROW .. "_" .. i)
                 if row and row.visible and row.children.ic_row_a.text ~= "" then
                     names = names + 1
                     assert(row.children.ic_row_b.text == ICUI.house_name(slug, F),
@@ -6413,9 +6465,9 @@ check("a card click chooses the party, and a second click opens its members", fu
     ICUI.pick = nil
 end)
 
-check("a court bigger than the grid pages instead of hiding parties", function()
-    -- The grid holds ten and a court can hold more: nine named interests plus a
-    -- seat for every faction confederated in. A tab that simply stopped at ten
+check("a court bigger than the grid scrolls instead of hiding parties", function()
+    -- The grid shows six and a court can hold more: nine named interests plus a
+    -- seat for every faction confederated in. A tab that simply stopped at six
     -- would hide a party the player is about to lose a province to.
     IC.state = {}
     factions = {}
@@ -6453,63 +6505,49 @@ check("a court bigger than the grid pages instead of hiding parties", function()
         .. total .. " into " .. ICUI.PARTY_SLOTS .. " slots")
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
-        local first = visible_parties(panel)
-        assert(first == math.min(total, ICUI.PARTY_SLOTS),
-            "the first page drew " .. first .. " of " .. total)
-        -- THE PAGE SIZE IS THE GRID, not the row pool. rows_shown answers for
-        -- both and a pager still measuring the pool would step in sevens.
-        assert(ICUI.rows_shown("court") == ICUI.PARTY_SLOTS,
-            "the court's page is " .. ICUI.rows_shown("court")
-            .. " and the grid holds " .. ICUI.PARTY_SLOTS)
-        -- THE GRID MUST HOLD A FULL STARTING COURT WITHOUT PAGING. A
-        -- confederate is an event and may page; the court you are dealt at
-        -- turn one may not, because a player who has to page to meet their own
-        -- rivals is reading a list rather than looking at a court.
-        --
-        -- NOT #IC.PARTIES. That said nine, and a nine-interest court cannot
-        -- exist: IC.roll_court seats the Crown plus at most TUNE.rivals_max
-        -- rivals and no other call ever adds a non-confederate house, so five
-        -- is the ceiling. Asserting nine was harmless while the grid held ten
-        -- and became the one thing refusing a correct layout at six - a check
-        -- guarding a state the model cannot reach.
+        -- EVERY PARTY HAS A CARD, made once in the list's holder - the list the
+        -- scrollbar moves (author, 2026-10-05: "use the scrollbar implemented by
+        -- zharr exchange or the derpy great guilds").
+        local holder = fake_find(panel, ICUI.LIST_HOLDER)
+        assert(holder, "the court drew its cards in no list")
+        -- BY A NUMBER THAT DIFFERS PER PARTY, not by the name: most names in
+        -- this fixture begin with the same word.
+        local seen = {}
+        for i = 1, total do
+            local card = fake_find(holder, ICUI.PARTY .. "_" .. i)
+            assert(card and card.visible, "party " .. i .. " of " .. total .. " has no card")
+            local nums = card.children.ic_party_nums.text
+            assert(not seen[nums], "two cards read " .. nums)
+            seen[nums] = true
+        end
+        -- ONE EMPTY ROW PER LINE OF THE GRID, which is what the engine scrolls,
+        -- and the bar shows because the list is longer than its window.
+        local list = fake_find(panel, ICUI.LIST)
+        local box = list.children.list_clip.children.list_box
+        assert(#box.order == math.ceil(total / ICUI.PARTY_COLS),
+            #box.order .. " list rows for " .. total .. " cards in "
+            .. ICUI.PARTY_COLS .. " columns")
+        assert(list.children.vslider.visible,
+            "a court of " .. total .. " in a window of " .. ICUI.PARTY_SLOTS
+            .. " shows no scrollbar")
+        -- THE GRID MUST HOLD A FULL STARTING COURT WITHOUT SCROLLING. A
+        -- confederate is an event and may scroll; the court you are dealt at
+        -- turn one may not. IC.roll_court seats the Crown plus at most
+        -- TUNE.rivals_max rivals.
         local most = 1 + IC.TUNE.rivals_max
         assert(ICUI.PARTY_SLOTS >= most,
             "the model can seat " .. most .. " parties at a campaign start and "
             .. "the grid holds " .. ICUI.PARTY_SLOTS)
-        if total > ICUI.PARTY_SLOTS then
-            assert(ICUI.pages(total, "court") > 1,
-                "a court of " .. total .. " fits one page of "
-                .. ICUI.PARTY_SLOTS)
-            -- BY A NUMBER THAT DIFFERS PER PARTY, not by the name. The name
-            -- cell holds the FIRST LINE of a split name, and in this fixture
-            -- most of them begin with the same word - so comparing names would
-            -- compare "The" with "The" and pass on a grid that never moved.
-            local slot1 = panel.children[ICUI.PARTY .. "_1"]
-            local page1 = slot1.children.ic_party_nums.text
-            ICUI.scroll_by(ICUI.rows_shown("court"))
-            ICUI.refresh()
-            local drew = 0
-            for i = 1, ICUI.PARTY_SLOTS do
-                local card = panel.children[ICUI.PARTY .. "_" .. i]
-                if card and card.visible then drew = drew + 1 end
-            end
-            assert(drew > 0, "the second page drew nothing")
-            assert(slot1.children.ic_party_nums.text ~= page1,
-                "the second page opens on the same party as the first, so the "
-                .. "offset is not reaching the draw")
-        end
     end)
-    ICUI.scroll.court = 0
 end)
 
-check("the action bar sits centred under the grid, and steps aside for the pager",
+check("the action bar sits centred under the grid, whatever the court's size",
       function()
-    -- "why is the three buttons not center aligned?" (author, 2026-09-24). The
-    -- bar hugged the grid's left edge to leave room for a pager that shows only
-    -- when the court outgrows the grid. Measured off the DRAWN positions, so a
-    -- draw_actions that never moves the bar fails whatever the tables say.
+    -- "why is the three buttons not center aligned?" (author, 2026-09-24).
+    -- Measured off the DRAWN positions, so a draw_actions that never moves the
+    -- bar fails whatever the tables say. There is no pager to step aside for:
+    -- the cards scroll.
     local function seat(slugs)
         IC.state = {}
         factions = {}
@@ -6520,80 +6558,41 @@ check("the action bar sits centred under the grid, and steps aside for the pager
     end
     ICUI.pick = nil
     ICUI.view = "court"
-    ICUI.scroll.court = 0
     with_fake_panel(function(panel)
-        local px, py = panel:Position()
+        local px = panel:Position()
         local col = ICUI.PANEL_XY.ic_col_right
         local lo, hi = px + col[1], px + col[1] + col[3]
-        -- THE PAGER'S OWN HOME: layout() places it once when the panel is
-        -- built, and the fake tree never runs layout().
-        local pager_x = px + ICUI.PANEL_XY.ic_page_prev[1]
         local c = panel.children
-        local function centred(why)
+        for _, slugs in ipairs({{IC.CROWN, "forge"}, IC.PARTIES}) do
+            local n = seat(slugs)
+            ICUI.sel = "forge"
+            ICUI.refresh()
+            assert(c.ic_act_provoke.visible, "a chosen rival draws no bar")
             local left = c.ic_act_provoke.x - lo
             local right = hi - (c.ic_act_purge.x + c.ic_act_purge.w)
             assert(math.abs(left - right) <= 1,
-                why .. ": the bar leaves " .. left .. "px on its left and "
+                "a court of " .. n .. ": the bar leaves " .. left .. "px on its left and "
                 .. right .. "px on its right")
+            -- AND UNDER THE LIST'S WINDOW, never over a card.
+            local clip = fake_find(panel, ICUI.LIST).children.list_clip
+            for _, key in ipairs(ICUI.ACT_KEYS) do
+                assert(c[key].y >= clip.y + clip.h,
+                    key .. " at y " .. c[key].y .. " lies over the list, which ends at "
+                    .. (clip.y + clip.h))
+            end
+            -- AND THE HINT ACROSS THE WHOLE GRID, centred text in a centred cell.
+            ICUI.sel = nil
+            ICUI.refresh()
+            assert(c.ic_act_hint.x == lo and c.ic_act_hint.x + c.ic_act_hint.w == hi,
+                "a court of " .. n .. ": the hint spans " .. c.ic_act_hint.x .. ".."
+                .. (c.ic_act_hint.x + c.ic_act_hint.w) .. " and the grid "
+                .. lo .. ".." .. hi)
+            for _, name in ipairs({"ic_page_prev", "ic_page_lbl", "ic_page_next"}) do
+                assert(not c[name].visible, "a court of " .. n .. " draws " .. name)
+            end
         end
-
-        -- A COURT THAT FITS: no pager, and the bar in the middle.
-        assert(seat({IC.CROWN, "forge"}) <= ICUI.PARTY_SLOTS, "the small court pages")
-        ICUI.sel = "forge"
-        ICUI.refresh()
-        assert(not c.ic_page_next.visible, "a court of two draws a pager")
-        assert(c.ic_act_provoke.visible, "a chosen rival draws no bar")
-        centred("with no pager")
-        -- AND THE HINT ACROSS THE WHOLE GRID, centred text in a centred cell.
-        ICUI.sel = nil
-        ICUI.refresh()
-        assert(c.ic_act_hint.x == lo and c.ic_act_hint.x + c.ic_act_hint.w == hi,
-            "with no pager the hint spans " .. c.ic_act_hint.x .. ".."
-            .. (c.ic_act_hint.x + c.ic_act_hint.w) .. " and the grid "
-            .. lo .. ".." .. hi)
-
-        -- A COURT THAT PAGES: the bar moves into the left column, under the
-        -- Crown's box, and clears the pager. Four buttons and the pager do not
-        -- fit one row of the grid's column.
-        local left = ICUI.PANEL_XY.ic_col_left
-        local llo, lhi = px + left[1], px + left[1] + left[3]
-        local box = ICUI.PANEL_XY.ic_crown_box
-        local n = seat(IC.PARTIES)
-        assert(n > ICUI.PARTY_SLOTS,
-            "the fixture seated " .. n .. " and the grid holds " .. ICUI.PARTY_SLOTS)
-        ICUI.sel = nil
-        ICUI.refresh()
-        assert(c.ic_page_prev.visible, "a court of " .. n .. " draws no pager")
-        assert(c.ic_act_hint.x + c.ic_act_hint.w < pager_x,
-            "the hint runs to " .. (c.ic_act_hint.x + c.ic_act_hint.w)
-            .. " and the pager starts at " .. pager_x)
-        ICUI.sel = "forge"
-        ICUI.refresh()
-        assert(c.ic_act_purge.visible, "a chosen rival on a paged court draws no bar")
-        assert(c.ic_act_purge.x + c.ic_act_purge.w < pager_x,
-            "PURGE runs to " .. (c.ic_act_purge.x + c.ic_act_purge.w)
-            .. " and the pager starts at " .. pager_x)
-        local pl = c.ic_act_provoke.x - llo
-        local pr = lhi - (c.ic_act_purge.x + c.ic_act_purge.w)
-        assert(pl >= 0 and pr >= 0 and math.abs(pl - pr) <= 1,
-            "with the pager up the bar leaves " .. pl .. "px and " .. pr
-            .. "px either side of the Crown's box")
-        for _, key in ipairs(ICUI.ACT_KEYS) do
-            assert(c[key].y >= py + box[2] + box[4],
-                key .. " is drawn at y " .. c[key].y .. ", inside the Crown's box")
-        end
-
-        -- AND BACK: a court that shrinks under the bar puts it in the middle
-        -- again. A draw that only ever moved it one way passes both halves above.
-        seat({IC.CROWN, "forge"})
-        ICUI.scroll.court = 0
-        ICUI.sel = "forge"
-        ICUI.refresh()
-        assert(not c.ic_page_next.visible, "the shrunk court still pages")
-        centred("after the court shrank")
     end)
     ICUI.sel = nil
-    ICUI.scroll.court = 0
 end)
 
 check("a title plate hugs its words, centred in its cell; the banner keeps its corner", function()
@@ -7150,120 +7149,138 @@ check("clicking a tab reaches the view, not just calling refresh", function()
     end)
 end)
 
-check("the scroll window never strands the list on blanks", function()
-    -- max_scroll is the whole safety property: offset past this and the pool
-    -- draws nothing while the scrollbar still says there is more.
-    assert(ICUI.max_scroll(10, 15) == 0, "a list shorter than the pool cannot scroll")
-    assert(ICUI.max_scroll(15, 15) == 0, "an exactly-full list cannot scroll")
-    assert(ICUI.max_scroll(16, 15) == 1, "one over the pool scrolls by one")
-    assert(ICUI.max_scroll(40, 15) == 25, "got " .. ICUI.max_scroll(40, 15))
-    assert(ICUI.max_scroll(0, 15) == 0, "an empty list cannot scroll")
-end)
-
-check("no view pays for the dial, and the court is not a list at all", function()
-    -- THIS USED TO BE ARITHMETIC ABOUT THE ROW POOL. The pie was an opaque band
-    -- across the top of the panel, the pool ran underneath it, and the court
-    -- started partway down to skip the rows that would have been behind it.
-    -- The dial is in the left column now and the court draws no rows at all, so
-    -- the skipping and the constant that measured it are both gone and the rule
-    -- they protected got simpler: NOBODY pays for the dial.
-    for _, view in ipairs({"court", "govs", "log", "intrigue", "pick", "offices"}) do
-        assert(ICUI.first_row(view) == 1,
-            view .. " must start at the top of the pool")
-    end
-    for _, view in ipairs({"govs", "log", "pick", "offices"}) do
-        assert(ICUI.rows_shown(view) == ICUI.MAX_ROWS,
-            view .. " must get the whole pool: " .. ICUI.rows_shown(view))
-    end
-    -- AND INTRIGUE PAGES BY ITS WARNING BAND, not by the pool. The moves became
-    -- cards; the rows that are left are the clocks and the snubs, and a pager
-    -- measuring twelve would scroll a band of three by twelve and show nothing.
-    -- It is the same exception the court tab already is, for the same reason.
-    assert(ICUI.rows_shown("intrigue") == 0,
-        "intrigue draws " .. ICUI.rows_shown("intrigue")
-        .. " rows, and its moves are cards with no band above them")
-    -- AND THE COURT PAGES BY CARDS, not by rows. Its page size is the grid,
-    -- which is what stops scroll_by clamping a card grid against a row pool -
-    -- the two are different numbers and were the same one once.
-    assert(ICUI.rows_shown("court") == ICUI.PARTY_SLOTS,
-        "the court pages by " .. ICUI.rows_shown("court")
-        .. " and its grid holds " .. ICUI.PARTY_SLOTS)
-    -- THE POOL ITSELF STARTS WHERE IT ALWAYS DID, above nothing. If the dial
-    -- ever came back across the top this is the assertion that would fail, and
-    -- it is cheaper to keep than to rediscover.
+check("no view pays for the dial", function()
+    -- THE ROWS START WHERE THEY ALWAYS DID, above nothing. If the dial ever came
+    -- back across the top this is the assertion that would fail, and it is
+    -- cheaper to keep than to rediscover.
     assert(ICUI.ROWS_Y < ICUI.DIAL_CY,
-        "the row pool starts at " .. ICUI.ROWS_Y .. ", below the pie's baseline "
-        .. "at " .. ICUI.DIAL_CY .. " - the pool is paying for a dial again")
+        "the row list starts at " .. ICUI.ROWS_Y .. ", below the pie's baseline "
+        .. "at " .. ICUI.DIAL_CY .. " - the list is paying for a dial again")
 end)
 
-check("the pager counts pages and hides when the list fits on one", function()
-    -- The caption and the buttons have to agree: a caption that says page 2 while
-    -- the list did not move reads as a control that is lying.
-    assert(ICUI.pages(0) == 1, "an empty list is one page")
-    assert(ICUI.pages(ICUI.MAX_ROWS) == 1, "exactly full is still one page")
-    assert(ICUI.pages(ICUI.MAX_ROWS + 1) == 2, "one over spills to a second page")
-    assert(ICUI.pages(ICUI.MAX_ROWS * 3) == 3, "three screenfuls are three pages")
+-- A ROW LIST OF `n` LINES drawn through the real fill_rows, on the fake panel.
+local function long_rows(n)
+    local lines = {}
+    for i = 1, n do lines[i] = {"line " .. i, "", "", "", ""} end
+    return lines
+end
+
+check("a long list scrolls: every row made once, the bar only when it overflows", function()
+    -- (author, 2026-10-05: "use the scrollbar implemented by zharr exchange or the
+    -- derpy great guilds"). The pager is gone; every line has its own row in the
+    -- list's holder, list_box one empty row per line, and the bar shows only when
+    -- the lines outrun the window.
     IC.state = {}
     factions = {}
     make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
     with_fake_panel(function(panel)
-        local lines = {}
-        for i = 1, ICUI.MAX_ROWS * 2 + 1 do lines[i] = {tostring(i), "", "", "", ""} end
-        ICUI.view = "govs"
-        ICUI.scroll.govs = 0
-        ICUI.fill_rows(panel, lines, "govs")
-        local lbl = panel.children.ic_page_lbl
-        assert(lbl.visible, "a list of three pages must show the pager")
-        assert(lbl.text == "Page 1 of 3", "got " .. tostring(lbl.text))
-        ICUI.scroll.govs = ICUI.MAX_ROWS
-        ICUI.fill_rows(panel, lines, "govs")
-        assert(lbl.text == "Page 2 of 3",
-            "one page along the caption must follow, got " .. tostring(lbl.text))
-        -- AND THE LAST PAGE, which the clamp stops short of a whole page
-        -- boundary: the caption read 2 of 3 at the end (sweep 2026-09-29).
-        assert(ICUI.scroll_by(#lines), "Next at page 2 of 3 moved nothing")
-        ICUI.fill_rows(panel, lines, "govs")
-        assert(lbl.text == "Page 3 of 3",
-            "at the end of the list the caption reads " .. tostring(lbl.text))
-        -- and it hides itself entirely when there is nothing to page through
-        ICUI.scroll.govs = 0
-        ICUI.fill_rows(panel, {{"only", "", "", "", ""}}, "govs")
-        assert(not lbl.visible, "one page must draw no pager at all")
-        assert(not panel.children.ic_page_next.visible, "nor a NEXT button")
+        ICUI.view = "log"
+        local n = ICUI.MAX_ROWS * 2 + 1
+        ICUI.fill_rows(panel, long_rows(n), "log")
+        local list = fake_find(panel, ICUI.LIST)
+        assert(list, "a list of " .. n .. " lines made no list")
+        local clip = list.children.list_clip
+        local holder = clip.children[ICUI.LIST_HOLDER]
+        assert(holder, "the list has no holder")
+        for i = 1, n do
+            local row = fake_find(holder, ICUI.ROW .. "_" .. i)
+            assert(row and row.visible, "line " .. i .. " of " .. n .. " has no row")
+            assert(row.children.ic_row_a.text == "line " .. i,
+                "row " .. i .. " reads " .. tostring(row.children.ic_row_a.text))
+            -- AT ITS OWN INDEX, once, under the holder's top.
+            assert(row.y == holder.y + (i - 1) * ICUI.ROW_PITCH,
+                "row " .. i .. " is at " .. row.y .. ", not on the pitch")
+        end
+        assert(#clip.children.list_box.order == n,
+            #clip.children.list_box.order .. " list rows for " .. n .. " lines")
+        assert(list.children.vslider.visible, n .. " lines show no scrollbar")
+        -- THE WINDOW ENDS AT THE LAST VISIBLE ROW'S FOOT.
+        assert(clip.h == (ICUI.MAX_ROWS - 1) * ICUI.ROW_PITCH + ICUI.ROW_H,
+            "the window is " .. clip.h .. " tall")
+        -- AND A LIST THAT FITS SHOWS NO BAR.
+        ICUI.fill_rows(panel, long_rows(1), "log")
+        list = fake_find(panel, ICUI.LIST)
+        assert(not list.children.vslider.visible, "one line shows a scrollbar")
+        assert(not fake_find(panel, ICUI.ROW .. "_2"), "one line kept a second row")
     end)
 end)
 
-check("a shrinking list pulls the window back up", function()
-    -- A province lost or a house seceding shortens the list under a parked
-    -- offset. Without the clamp the panel shows a screen of blanks and the player
-    -- has no way to know the list is not empty.
+check("the rows follow the list as the engine scrolls it", function()
+    -- THE WHOLE TRICK: the engine moves list_box and raises no event; the poll
+    -- puts the holder where list_box is, and the holder carries every row.
     IC.state = {}
-    ICUI.scroll.govs = 20
-    local at = ICUI.clamp_scroll("govs", 3)
-    assert(at == 0, "clamped to " .. at .. ", expected 0")
-    assert(ICUI.scroll.govs == 0, "the clamp must be stored, not just returned")
+    factions = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    with_fake_panel(function(panel)
+        ICUI.view = "log"
+        ICUI.fill_rows(panel, long_rows(30), "log")
+        local clip = fake_find(panel, ICUI.LIST).children.list_clip
+        local box, holder = clip.children.list_box, clip.children[ICUI.LIST_HOLDER]
+        local row5 = fake_find(holder, ICUI.ROW .. "_5")
+        local y5 = row5.y
+        box.y = box.y - 4 * ICUI.ROW_PITCH
+        -- THE REGISTERED POLL, as the engine's real-time clock runs it.
+        if not cm.repeats.ic_gm_scroll then ICUI.register() end
+        cm.repeats.ic_gm_scroll.fn()
+        assert(holder.y == box.y, "the holder is at " .. holder.y .. ", the list at " .. box.y)
+        assert(row5.y == y5 - 4 * ICUI.ROW_PITCH,
+            "row 5 did not move with its holder: " .. row5.y .. " from " .. y5)
+        -- AND A REDRAW OF THE SAME LIST KEEPS THE PLACE: it is the same list.
+        ICUI.fill_rows(panel, long_rows(30), "log")
+        assert(row5.y == y5 - 4 * ICUI.ROW_PITCH, "a redraw scrolled the list back to its top")
+    end)
 end)
 
-check("each view scrolls independently", function()
+check("a list that changes length starts again at the top", function()
+    -- A petition answered or a province lost shortens the list: it is made again,
+    -- at the top, not left scrolled past its end.
     IC.state = {}
-    ICUI.scroll.court = 0
-    ICUI.scroll.govs = 0
-    ICUI.view = "govs"
-    ICUI.line_count = 40
-    assert(ICUI.scroll_by(3), "scrolling a long list must move")
-    assert(ICUI.scroll.govs == 3, "got " .. ICUI.scroll.govs)
-    assert(ICUI.scroll.court == 0,
-        "scrolling governors must not move the court list")
-    -- And it must stop at the end rather than running off.
-    ICUI.scroll_by(1000)
-    assert(ICUI.scroll.govs == ICUI.max_scroll(40, ICUI.MAX_ROWS),
-        "got " .. ICUI.scroll.govs)
-    assert(not ICUI.scroll_by(5), "already at the end: nothing moved, so no redraw")
+    factions = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    with_fake_panel(function(panel)
+        ICUI.view = "log"
+        ICUI.fill_rows(panel, long_rows(30), "log")
+        local clip = fake_find(panel, ICUI.LIST).children.list_clip
+        clip.children.list_box.y = clip.children.list_box.y - 10 * ICUI.ROW_PITCH
+        -- THE REGISTERED POLL, as the engine's real-time clock runs it.
+        if not cm.repeats.ic_gm_scroll then ICUI.register() end
+        cm.repeats.ic_gm_scroll.fn()
+        ICUI.fill_rows(panel, long_rows(3), "log")
+        clip = fake_find(panel, ICUI.LIST).children.list_clip
+        local holder = clip.children[ICUI.LIST_HOLDER]
+        assert(holder.y == clip.y, "the shorter list opened scrolled, at " .. holder.y)
+        assert(fake_find(holder, ICUI.ROW .. "_3"), "the shorter list has no third row")
+        assert(not fake_find(panel, ICUI.ROW .. "_4"), "the shorter list kept a fourth row")
+        -- AND ICUI.list_rescroll MAKES IT AGAIN at the same length.
+        local was = holder
+        ICUI.list_rescroll("log")
+        ICUI.fill_rows(panel, long_rows(3), "log")
+        assert(fake_find(panel, ICUI.LIST_HOLDER) ~= was, "a rescroll kept the old list")
+    end)
+end)
+
+check("a list belongs to its view: a view that draws none drops it", function()
+    IC.state = {}
+    factions = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    with_fake_panel(function(panel)
+        ICUI.pick = nil
+        ICUI.view = "log"
+        ICUI.refresh()
+        ICUI.fill_rows(panel, long_rows(30), "log")
+        assert(fake_find(panel, ICUI.LIST), "the log made no list")
+        ICUI.view = "intrigue"
+        ICUI.refresh()
+        assert(not fake_find(panel, ICUI.LIST), "the log's list outlived its view")
+        assert(not fake_find(panel, ICUI.ROW .. "_1"), "a log row outlived its view")
+    end)
 end)
 
 check("the panel walks UP to the row, and reads its index", function()
     with_fake_panel(function(panel)
-        local row = panel.children[ICUI.ROW .. "_4"]
+        ICUI.fill_rows(panel, long_rows(5), "log")
+        local row = fake_find(panel, ICUI.ROW .. "_4")
         local cell = row.children.ic_row_e
         local i = ICUI.clicked_index({component = cell})
         assert(i == 4, "clicked_index gave " .. tostring(i) .. ", expected 4")
@@ -7287,8 +7304,8 @@ check("a row with nothing to click draws no button", function()
             {"-", "The court has no record yet.", "", "", ""},
             {"12", "A house takes a seat", "", "", "Plot"},
         }, "log")
-        local quiet = panel.children[ICUI.ROW .. "_1"].children.ic_row_e
-        local live = panel.children[ICUI.ROW .. "_2"].children.ic_row_e
+        local quiet = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_e
+        local live = fake_find(panel, ICUI.ROW .. "_2").children.ic_row_e
         assert(quiet.visible == false,
             "a row with nothing to click still drew its button")
         assert(live.visible ~= false,
@@ -7362,14 +7379,13 @@ check("the governors picker offers nobody to hire", function()
     IC.add_house(F, "crown")
     endow(F)
     ICUI.pick = {kind = "gov", key = "prov_a"}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         -- COUNT THE ROWS, do not look for the word HIRE: a stray row reads
         -- whatever its refusal says, and an assertion about a label misses it.
         local rows = 0
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and row.children.ic_row_a.text ~= "" then
                 rows = rows + 1
                 assert(plain(row.children.ic_row_e.text) ~= "Hire",
@@ -7398,14 +7414,13 @@ function()
     -- refresh() reads ICUI.pick to decide it is drawing a picker at all.
     ICUI.pick = {kind = "gov", key = "prov_a"}
     with_fake_panel(function(panel)
-        ICUI.scroll.pick = 0
         ICUI.refresh()
         -- BY ROW, NOT BY NAME. Both stub characters render as "Unnamed", so a
         -- table keyed on the name collapses the pair into one entry and the
         -- rival disappears from the evidence.
         local actions = {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and row.children.ic_row_a.text ~= "" then
                 actions[#actions + 1] = plain(row.children.ic_row_e.text)
             end
@@ -7433,44 +7448,37 @@ function()
     ICUI.pick = nil
 end)
 
-check("a picker click resolves through the SCROLL OFFSET, not the raw row", function()
-    -- This is the trap: a row index is a WINDOW index. Forget to add the offset
-    -- and the panel appoints the wrong man, silently, and only once the list has
-    -- been scrolled - so it looks correct in every short-list test.
+check("a picker click on row N is candidate N, however far down the list", function()
+    -- Every candidate has its own row in a list that scrolls, so a row's index IS
+    -- the candidate's: there is no window offset to add, and adding one would
+    -- appoint the wrong man only once the list had been scrolled.
     IC.state = {}
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
     ICUI.pick_rows = {}
     for i = 1, 40 do ICUI.pick_rows[i] = 1000 + i end
-    ICUI.scroll.pick = 0
     local picked = nil
     local saved_appoint = IC.appoint
     IC.appoint = function(_f, _slug, cqi) picked = cqi return true end
-
-    local row3 = {component = {}}
     local saved_idx = ICUI.clicked_index
-    ICUI.clicked_index = function() return 3 end
-
-    ICUI.on_pick_click(row3, F)
-    assert(picked == 1003, "unscrolled row 3 is candidate 3, got " .. tostring(picked))
-
-    ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-    ICUI.scroll.pick = 10
-    picked = nil
-    ICUI.on_pick_click(row3, F)
-    assert(picked == 1013,
-        "scrolled down 10, row 3 must be candidate 13, got " .. tostring(picked))
-
+    local ok, err = pcall(function()
+        for _, n in ipairs({3, 13, 40}) do
+            ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
+            ICUI.clicked_index = function() return n end
+            picked = nil
+            ICUI.on_pick_click({component = {}}, F)
+            assert(picked == 1000 + n, "row " .. n .. " picked " .. tostring(picked))
+        end
+    end)
     ICUI.clicked_index = saved_idx
     IC.appoint = saved_appoint
     ICUI.pick = nil
-    ICUI.scroll.pick = 0
+    if not ok then error(err, 0) end
 end)
 
 check("an unpickable candidate is inert rather than wrong", function()
     IC.state = {}
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
     ICUI.pick_rows = {}          -- nobody is eligible
-    ICUI.scroll.pick = 0
     local called = false
     local saved_appoint = IC.appoint
     IC.appoint = function() called = true return true end
@@ -7482,31 +7490,6 @@ check("an unpickable candidate is inert rather than wrong", function()
     ICUI.clicked_index = saved_idx
     IC.appoint = saved_appoint
     ICUI.pick = nil
-end)
-
-check("the row pool really windows the list", function()
-    -- fill_rows must DRAW lines[i + offset], not lines[i]. Reading the text back
-    -- off the rows is the only way to tell: an unwindowed pool still shows the
-    -- right NUMBER of rows, so every count-based check passes.
-    IC.state = {}
-    with_fake_panel(function(panel)
-        local lines = {}
-        for i = 1, 40 do lines[i] = {"line " .. i, "", "", "", ""} end
-        ICUI.scroll.govs = 0
-        ICUI.fill_rows(panel, lines, "govs")
-        local first = panel.children[ICUI.ROW .. "_1"].children.ic_row_a.text
-        assert(first == "line 1", "top of an unscrolled list, got " .. first)
-
-        ICUI.scroll.govs = 7
-        ICUI.fill_rows(panel, lines, "govs")
-        first = panel.children[ICUI.ROW .. "_1"].children.ic_row_a.text
-        assert(first == "line 8",
-            "scrolled down 7, row 1 must be line 8, got " .. first)
-        local last = panel.children[ICUI.ROW .. "_" .. ICUI.MAX_ROWS]
-            .children.ic_row_a.text
-        assert(last == "line " .. (7 + ICUI.MAX_ROWS), "bottom row, got " .. last)
-        ICUI.scroll.govs = 0
-    end)
 end)
 
 check("an old save gains the player's own house", function()
@@ -7548,13 +7531,12 @@ function()
     IC.court(F).standing[51] = need - 40
     IC.court(F).standing[52] = need
     ICUI.pick = {kind = "office", key = top_slug}
-    ICUI.scroll.pick = 0
     ICUI.notice = nil
     with_fake_panel(function(panel)
         ICUI.refresh()
         local short_row, choose_row
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and row.children.ic_row_a.text ~= "" then
                 local action = plain(row.children.ic_row_e.text)
                 if action == "Choose" then choose_row = i end
@@ -7593,10 +7575,9 @@ check("the picker shows every candidate's standing", function()
     IC.add_house(F, "crown")
     IC.court(F).standing[61] = 137
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row and row.visible, "the only candidate must be on screen")
         assert(string.find(row.children.ic_row_d.text, "137"),
             "his standing is not on the row: " .. row.children.ic_row_d.text)
@@ -7619,10 +7600,9 @@ function()
     endow(F)
 
     ICUI.pick = {kind = "office", key = top}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row and row.visible, "the only candidate must be on screen")
         assert(plain(row.children.ic_row_e.text)
                == string.format("Rank %d", high),
@@ -7634,10 +7614,9 @@ function()
 
     -- AND THE SAME MAN, AT THE BASE SEAT, is offered.
     ICUI.pick = {kind = "office", key = base}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(plain(row.children.ic_row_e.text)
                ~= string.format("Rank %d", low),
             "the base row refuses a man who is exactly on its bar")
@@ -7655,7 +7634,6 @@ check("a refused pick explains itself and keeps the picker open", function()
     IC.state = {}
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
     ICUI.pick_rows = {[1] = 4242}
-    ICUI.scroll.pick = 0
     ICUI.notice = nil
     local saved_appoint = IC.appoint
     local saved_idx = ICUI.clicked_index
@@ -7680,11 +7658,11 @@ end)
 check("closing the panel drops the picker", function()
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
     ICUI.notice = "something"
-    ICUI.scroll.pick = 5
     ICUI.close()
     assert(ICUI.pick == nil, "a closed panel must not reopen mid-question")
     assert(ICUI.notice == nil, "and must not reopen with a stale notice")
-    assert(ICUI.scroll.pick == 0, "and must not reopen scrolled")
+    -- AND NO LIST SURVIVES IT: the panel's list went with the panel.
+    assert(ICUI.list_key == nil, "a closed panel still has a list to follow")
 end)
 
 check("the player's own house never secedes from itself", function()
@@ -7783,7 +7761,6 @@ check("the rank bar is an office rule, not a governor rule", function()
         local found = false
         with_fake_panel(function(panel)
             ICUI.pick = {kind = kind, key = key}
-            ICUI.scroll.pick = 0
             ICUI.refresh()
             for _, cqi in pairs(ICUI.pick_rows) do
                 if cqi == 45 then found = true end
@@ -7822,7 +7799,7 @@ check("a draw that throws puts the error ON SCREEN", function()
         assert(string.find(alert.text, "Panel error in log:", 1, true),
             "and say which view, got: " .. alert.text)
         -- And the stale list must be gone, not left wearing the new headers.
-        local first = panel.children[ICUI.ROW .. "_1"].children.ic_row_a.text
+        local first = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_a.text
         assert(string.find(first, "failed to draw", 1, true),
             "the list must say it failed, got: " .. first)
     end)
@@ -7848,7 +7825,6 @@ function()
     court.houses["road"].weight = 1
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
         local slots = ICUI.dial_slots(F, court)
         local narrow, wide = 0, 0
@@ -7958,9 +7934,9 @@ function()
         -- court's list began under it; the dial is in a column now and every
         -- view starts at the top of the pool. Asking is still the right shape:
         -- the day one view pays for something above it again, this reads it.
-        local at = ICUI.first_row("court")
-        local r1 = panel.children[ICUI.ROW .. "_" .. at].children.ic_row_port
-        local r2 = panel.children[ICUI.ROW .. "_" .. (at + 1)].children.ic_row_port
+        local at = 1
+        local r1 = fake_find(panel, ICUI.ROW .. "_" .. at).children.ic_row_port
+        local r2 = fake_find(panel, ICUI.ROW .. "_" .. (at + 1)).children.ic_row_port
         assert(r1.visible, "a row with an icon must show its crest")
         assert(not r2.visible,
             "a row with no icon must HIDE the cell - leaving it shows the "
@@ -8152,11 +8128,10 @@ check("the office picker offers the court's own men and no one to hire", functio
     IC.add_house(F, "crown")
     endow(F)
     ICUI.pick = {kind = "office", key = BOTTOM_SEAT}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible then
                 assert(plain(row.children.ic_row_e.text or "") ~= "Hire",
                     "row " .. i .. " still offers to hire")
@@ -8199,7 +8174,7 @@ function()
     with_fake_panel(function(panel)
         ICUI.fill_rows(panel, {{"a", "", "", "", "", icon = MASKED_FACE,
                                 icon_kind = "porthole", plate = IC.CROWN}}, "pick")
-        local port = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local port = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(port.images[ICUI.MASK_INDEX]
                == "ui/portraits/portholes/no_culture/"
                   .. "chd_overseer_campaign_01_0_mask1.png",
@@ -8255,7 +8230,6 @@ check("a party card draws its leader's face and its own crest", function()
     IC_TEST_PORTRAITS = {["3"] = "ui/portraits/portholes/chd/overseer.png"}
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
         -- THE PARTY THE ONE CHARACTER BELONGS TO, found off the keys the draw
         -- recorded. Picking a slot and hoping would pass on the crown's card,
@@ -8265,7 +8239,7 @@ check("a party card draws its leader's face and its own crest", function()
             if ICUI.court_keys[i] == "legion" then which = i end
         end
         assert(which, "the court view recorded no keys for its cards")
-        local card = panel.children[ICUI.PARTY .. "_" .. which]
+        local card = fake_find(panel, ICUI.PARTY .. "_" .. which)
         assert(card and card.visible, "the legion's card was not drawn")
         assert(face_of(card.children.ic_party_port)
                    == "ui/portraits/portholes/chd/overseer.png",
@@ -8339,13 +8313,13 @@ check("a line's house crest reaches the row, and no line hides it", function()
         -- partway down it, so the line drawn for "pick" and the line drawn for
         -- "court" land in different rows of it.
         local function crest_cell(view)
-            local row = panel.children[ICUI.ROW .. "_" .. ICUI.first_row(view)]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. 1)
             return row and row.children.ic_row_crest
         end
-        assert(crest_cell("pick"), "the row has no ic_row_crest cell at all")
         ICUI.fill_rows(panel, {{"a", "b", "c", "d", "e",
                                 crest = "ui/flags/khorakk/mon_64.png"}}, "pick")
         local cell = crest_cell("pick")
+        assert(cell, "the row has no ic_row_crest cell at all")
         assert(cell.visible == true, "a line with a crest must show the cell")
         assert(cell.image == "ui/flags/khorakk/mon_64.png",
             "the cell drew " .. tostring(cell.image))
@@ -8370,7 +8344,7 @@ check("a portrait with no mask leaves the layer transparent", function()
     with_fake_panel(function(panel)
         ICUI.fill_rows(panel, {{"a", "", "", "", "", icon = BARE_FACE,
                                 icon_kind = "porthole", plate = "legion"}}, "pick")
-        local port = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local port = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(port.images[ICUI.MASK_INDEX] == ICUI.MASK_NONE,
             "an unmasked portrait was given " .. tostring(port.images[ICUI.MASK_INDEX]))
     end)
@@ -8387,7 +8361,7 @@ check("a cell that fell back to a crest carries no mask", function()
                                 icon_kind = "crest", plate = "legion"}}, "court")
         -- THE COURT'S OWN FIRST ROW: the pool starts above the pie and the
         -- court view starts below it.
-        local port = panel.children[ICUI.ROW .. "_" .. ICUI.first_row("court")]
+        local port = fake_find(panel, ICUI.ROW .. "_" .. 1)
             .children.ic_row_port
         assert(port.images[ICUI.PLATE_INDEX] == ICUI.plate_path("legion"),
             "the plate behind a crest should still be the house's")
@@ -8406,7 +8380,7 @@ check("a recycled row drops the last man's mask", function()
     with_fake_panel(function(panel)
         ICUI.fill_rows(panel, {{"a", "", "", "", "", icon = MASKED_FACE,
                                 icon_kind = "porthole", plate = IC.CROWN}}, "pick")
-        local port = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local port = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(port.images[ICUI.MASK_INDEX] ~= ICUI.MASK_NONE,
             "the fixture did not take")
         ICUI.fill_rows(panel, {{"b", "", "", "", "", icon = BARE_FACE,
@@ -8573,13 +8547,12 @@ function()
     local want = {[61] = {"General", "9"}, [62] = {"Lord", "40"},
                   [63] = {"Hero", "12"}}
     with_fake_panel(function(panel)
-        ICUI.scroll.pick = 0
         -- ROSTER ORDER FIRST, so the cells are read before any sort moves them.
         ICUI.sort.pick = 1
         ICUI.refresh()
         local seen = {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible then
                 seen[row.children.ic_row_a.text] = row.children.ic_row_c.text
             end
@@ -8605,7 +8578,7 @@ function()
         ICUI.sort.pick = col
         ICUI.sort_desc.pick = false
         ICUI.refresh()
-        local top = panel.children[ICUI.ROW .. "_1"]
+        local top = fake_find(panel, ICUI.ROW .. "_1")
         assert(top.children.ic_row_c.text == "40",
             "the rank sort leads with " .. top.children.ic_row_c.text
             .. ", not the highest rank")
@@ -8625,7 +8598,7 @@ function()
         ICUI.refresh()
         local order = {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible then
                 order[#order + 1] = row.children.ic_row_a.text
             end
@@ -8670,10 +8643,9 @@ function()
     endow(F)
     ICUI.pick = {kind = "office", key = IC.OFFICES[#IC.OFFICES].slug}
     with_fake_panel(function(panel)
-        ICUI.scroll.pick = 0
         ICUI.sort.pick = 1
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         local name = row.children.ic_row_a.text
         for _, word in pairs(ICUI.KIND_NAME) do
             assert(not string.find(name, "^" .. word .. " "),
@@ -8855,7 +8827,7 @@ check("a recycled row does not keep the last man's colours", function()
         ICUI.fill_rows(panel, {{"a", "", "", "", "", plate = "legion"}}, "court")
         -- THE COURT'S OWN FIRST ROW, which is not the pool's: the pie sits
         -- above the rows the court view draws.
-        local row = panel.children[ICUI.ROW .. "_" .. ICUI.first_row("court")]
+        local row = fake_find(panel, ICUI.ROW .. "_" .. 1)
         assert(row.children.ic_row_port.images[ICUI.PLATE_INDEX]
             == ICUI.plate_path("legion"), "the fixture did not take")
         ICUI.fill_rows(panel, {{"b", "", "", "", ""}}, "court")
@@ -8897,7 +8869,7 @@ check("the record tab draws the record, not whatever ran last", function()
     with_fake_panel(function(panel)
         ICUI.view = "log"
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         local text = row.children.ic_row_b.text
         assert(text and text ~= "", "the record tab drew an empty list")
         assert(string.find(text, "takes", 1, true),
@@ -8975,7 +8947,8 @@ end)
 
 check("set_row_icon refuses the empty string outright", function()
     with_fake_panel(function(panel)
-        local row = panel.children[ICUI.ROW .. "_1"]
+        ICUI.fill_rows(panel, long_rows(1), "log")
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         local cell = row.children.ic_row_port
         cell.image = "ui/flags/old/mon_64.png"
         ICUI.set_row_icon(row, "")
@@ -9003,9 +8976,8 @@ check("the appointment list shows faces - that is the whole point of it", functi
     IC_TEST_PORTRAITS = {["11"] = "ui/portraits/portholes/chd/zhaak.png"}
     with_fake_panel(function(panel)
         ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-        ICUI.scroll.pick = 0
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row.visible, "the only candidate must be on screen")
         assert(face_of(row.children.ic_row_port) == "ui/portraits/portholes/chd/zhaak.png",
             "the candidate's own face, got "
@@ -9079,7 +9051,6 @@ check("a taller row still centres its text and its face", function()
     IC.add_house(F, "temple")
     with_fake_panel(function(panel)
         ICUI.view = "log"
-        ICUI.scroll.log = 0
         ICUI.refresh()
         local row = drawn_row(panel)
         assert(row and row.visible, "the record must draw at least one line")
@@ -9111,9 +9082,8 @@ check("a face makes the cell landscape, a crest makes it square", function()
     IC_TEST_PORTRAITS = {["31"] = "ui/portraits/portholes/chd/zhaak.png"}
     with_fake_panel(function(panel)
         ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-        ICUI.scroll.pick = 0
         ICUI.refresh()
-        local cell = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local cell = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(cell.w == ICUI.PORT_W and cell.h == ICUI.PORT_H,
             "a face needs the landscape box, got "
             .. tostring(cell.w) .. "x" .. tostring(cell.h))
@@ -9124,9 +9094,8 @@ check("a face makes the cell landscape, a crest makes it square", function()
     IC_TEST_PORTRAITS = {}
     with_fake_panel(function(panel)
         ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-        ICUI.scroll.pick = 0
         ICUI.refresh()
-        local cell = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local cell = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(cell.w == ICUI.CREST_W and cell.h == ICUI.CREST_H,
             "a crest needs the square box, got "
             .. tostring(cell.w) .. "x" .. tostring(cell.h))
@@ -9146,11 +9115,10 @@ check("the Court tab never stretches a crest", function()
     end
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
         local n = 0
         for i = 1, ICUI.PARTY_SLOTS do
-            local card = panel.children[ICUI.PARTY .. "_" .. i]
+            local card = fake_find(panel, ICUI.PARTY .. "_" .. i)
             if card and card.visible then
                 local cell = card.children.ic_party_crest
                 assert(cell.visible, "card " .. i .. " drew no crest")
@@ -9191,14 +9159,12 @@ check("no standing bar segment survives leaving the court view", function()
     for i = 1, #IC.PARTIES do IC.add_house(F, IC.PARTIES[i]) end
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
         assert(visible_bars(panel) == #IC.PARTIES,
             "the court must draw one segment per house: got "
             .. visible_bars(panel) .. " of " .. #IC.PARTIES)
         for _, v in ipairs({"offices", "govs", "intrigue"}) do
             ICUI.view = v
-            ICUI.scroll[v] = 0
             ICUI.refresh()
             assert(visible_bars(panel) == 0,
                 v .. " still shows " .. visible_bars(panel) .. " bar segment(s)")
@@ -9214,11 +9180,10 @@ check("no standing bar segment survives leaving the court view", function()
     end)
 end)
 
-check("the scroll arrows move the list that is actually on screen", function()
+check("the picker's list is its own, over the tab lit behind it", function()
     -- The picker is MODAL: it owns the list while a tab stays lit behind it. The
-    -- draw read ICUI.scroll.pick and the arrows wrote ICUI.scroll[that tab], so
-    -- the scrollbar was dead in the one list long enough to need it, with no
-    -- error anywhere. Drive the real listener, not scroll_by directly.
+    -- pager once read the picker's offset and wrote the tab's, and the one list
+    -- long enough to need it was dead. The list is keyed to the view on screen.
     IC.state = {}
     factions = {}
     local chars = {}
@@ -9226,28 +9191,21 @@ check("the scroll arrows move the list that is actually on screen", function()
     make_faction(F, IC.CHD_SUBCULTURE, chars, {})
     IC.add_house(F, "temple")
     endow(F)
-    ICUI.register()
-    local click = core.listeners["ic_click"]
     with_fake_panel(function(panel)
         ICUI.view = "offices"          -- the tab lit BEHIND the picker
         ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
-        ICUI.scroll.pick = 0
-        ICUI.scroll.offices = 0
         ICUI.refresh()
-        assert(ICUI.line_count > ICUI.MAX_ROWS,
-            "this check is vacuous unless the picker list scrolls: "
-            .. ICUI.line_count .. " lines, " .. ICUI.MAX_ROWS .. " rows")
-
-        click({string = "ic_page_next", component = {}})
-        assert(ICUI.scroll.pick == ICUI.MAX_ROWS,
-            "NEXT must page the PICKER by a whole screenful, got pick="
-            .. ICUI.scroll.pick)
-        assert((ICUI.scroll.offices or 0) == 0,
-            "it must not move the tab behind it, got offices="
-            .. tostring(ICUI.scroll.offices))
-
-        click({string = "ic_page_prev", component = {}})
-        assert(ICUI.scroll.pick == 0, "PREVIOUS returns it, got " .. ICUI.scroll.pick)
+        local holder = fake_find(panel, ICUI.LIST_HOLDER)
+        assert(holder, "the picker made no list")
+        local n = 0
+        while fake_find(holder, ICUI.ROW .. "_" .. (n + 1)) do n = n + 1 end
+        assert(n > ICUI.MAX_ROWS,
+            "this check is vacuous unless the picker's list outruns its window: "
+            .. n .. " rows")
+        assert(string.find(ICUI.list_key or "", "^pick|"),
+            "the list is keyed to " .. tostring(ICUI.list_key) .. ", not the picker")
+        assert(fake_find(panel, ICUI.LIST).children.vslider.visible,
+            "the picker's long list shows no scrollbar")
         ICUI.pick = nil
     end)
 end)
@@ -9459,7 +9417,9 @@ check("the content offset centres the court on a larger screen", function()
         -- and it must reach the deeper trees too, not just the top level
         local card = panel.children[ICUI.CARD .. "_1"]
         assert(card.x >= 320, "the cards did not move with the offset")
-        local row = panel.children[ICUI.ROW .. "_1"]
+        -- A ROW IS MADE BY ITS LIST, from the offset in force when it is made.
+        ICUI.fill_rows(panel, long_rows(1), "log")
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row.x >= 320, "the rows did not move with the offset")
         ICUI.OX, ICUI.OY = 0, 0
     end)
@@ -9692,7 +9652,11 @@ local function unsized_cells(panel)
     local out = {}
     local function walk(c, prefix)
         for _, k in ipairs(c.order) do
-            if not k.resized then out[#out + 1] = prefix .. k.name end
+            -- list_box AND handle ARE THE ENGINE'S (docs/CUSTOM_UI.md): a resize
+            -- of either fights the list it scrolls.
+            if not k.resized and k.name ~= "list_box" and k.name ~= "handle" then
+                out[#out + 1] = prefix .. k.name
+            end
             walk(k, prefix .. k.name .. ">")
         end
     end
@@ -9711,10 +9675,11 @@ check("a 1600x900 screen opens the compact panel and sizes every cell", function
             -- CLOSED EVEN ON A FAILURE: an open panel holds the event feed,
             -- and every later check that waits for a card would fail too.
             local ok, err = pcall(function()
+                -- A ROW IS MADE BY ITS LIST, when a view draws one.
+                ICUI.fill_rows(panel, long_rows(1), "log")
                 for _, pair in ipairs({{ICUI.PANEL, ICUI.PATH_PANEL},
                                        {ICUI.ROW .. "_1", ICUI.PATH_ROW},
                                        {ICUI.CARD .. "_1", ICUI.PATH_CARD},
-                                       {ICUI.PARTY .. "_1", ICUI.PATH_PARTY},
                                        {ICUI.PLOT .. "_1", ICUI.PATH_PLOT},
                                        {ICUI.LAW .. "_1", ICUI.PATH_LAW},
                                        {ICUI.LAWBLOCK .. "_1", ICUI.PATH_LAWBLOCK}}) do
@@ -9905,9 +9870,8 @@ check("both halves of an appointment draw the character's porthole", function()
     IC.dismiss(F, IC.OFFICES[1].slug)
     ICUI.pick = {kind = "office", key = IC.OFFICES[1].slug}
     with_fake_panel(function(panel)
-        ICUI.scroll.pick = 0
         ICUI.refresh()
-        local cell = panel.children[ICUI.ROW .. "_1"].children.ic_row_port
+        local cell = fake_find(panel, ICUI.ROW .. "_1").children.ic_row_port
         assert(face_of(cell) == "ui/portraits/portholes/chd/51.png",
             "the picker row must draw the PORTHOLE, got " .. tostring(face_of(cell)))
         assert(cell.w == ICUI.PORT_W and cell.h == ICUI.PORT_H,
@@ -9936,7 +9900,6 @@ check("a bar segment says whose it is", function()
     end
     with_fake_panel(function(panel)
         ICUI.view = "court"
-        ICUI.scroll.court = 0
         ICUI.refresh()
         local labelled = 0
         for i = 1, ICUI.MAX_HOUSES do
@@ -11503,7 +11466,9 @@ local function with_char_panel(opts, fn)
                          SetInteractive = function(self, on)
                              IC_NEED_BOOL("SetInteractive", on)
                              self.interactive = on
-                         end}
+                         end,
+                         images = {},
+                         SetImagePath = function(self, p, i) self.images[i or 0] = p end}
             end
         end,
     }
@@ -11556,9 +11521,20 @@ check("the plate shows the selected courtier's exact standing", function()
         -- Created on the ui root, it is a SIBLING of CA's panel and would be
         -- painted straight over without this.
         assert(plate.topmost, "the plate was not registered topmost")
+        assert(plate.images[0] == nil, "a Chaos Dwarf plate was repainted " .. tostring(plate.images[0]))
     end)
+    -- A RACE WITH ITS OWN NOTE PLATE wears it (phase 3 final review: the
+    -- Hell-Forge plate on a Dwarf lord's character panel).
+    local saved_race = ICUI.race
+    ICUI.race = function() return setmetatable({art = {note = "race_note.png"}}, {__index = IC.RACES[IC.RACE_ORDER[1]]}) end
+    local ok, err = pcall(with_char_panel, {ax = 700, ay = 400}, function(get)
+        assert(ICUI.show_standing(), "the plate refused to draw")
+        assert(get().images[0] == "race_note.png", "the race's plate is " .. tostring(get().images[0]))
+    end)
+    ICUI.race = saved_race
     cm.get_human_factions = saved
     ICUI.selected_cqi = nil
+    assert(ok, err)
 end)
 
 check("the ambition tip uses the generated trait name and model arithmetic", function()
@@ -12438,7 +12414,6 @@ function()
     with_fake_panel(function(panel)
         ICUI.view = "intrigue"
         ICUI.pick = nil
-        ICUI.scroll.intrigue = 0
         ICUI.refresh()
         -- ONE CARD PER MOVE NOW, not one row. Every assertion below is the one
         -- this check always made; what changed is which cell it reads, and that
@@ -12556,7 +12531,6 @@ check("the victim list offers every rival and refuses your own bloc", function()
     local function wired(plot_key)
         local out = {}
         ICUI.pick = {kind = "plot_target", plot = plot_key}
-        ICUI.scroll.pick = 0
         with_fake_panel(function(panel)
             ICUI.refresh()
             for _, cqi in pairs(ICUI.pick_rows) do out[cqi] = true end
@@ -12634,11 +12608,10 @@ check("no view draws one column on top of another", function()
         for _, view in pairs(ICUI.TAB_VIEW) do
             ICUI.view = view
             ICUI.pick = nil
-            ICUI.scroll[view] = 0
             ICUI.refresh()
             pairs_seen[view] = pairs_seen[view] or 0
             for i = 1, ICUI.MAX_ROWS do
-                local row = panel.children[ICUI.ROW .. "_" .. i]
+                local row = fake_find(panel, ICUI.ROW .. "_" .. i)
                 if row and row.visible then
                     local boxes = {}
                     for j = 1, #ICUI.ROW_KEYS do
@@ -12761,7 +12734,6 @@ function()
     with_fake_panel(function(panel)
         ICUI.view = "intrigue"
         ICUI.pick = nil
-        ICUI.scroll.intrigue = 0
         ICUI.refresh()
         -- THE LAST MOVE ON SCREEN, not the first. The first card is IC.PLOTS[1],
         -- so a handler that opened IC.PLOTS[1] no matter what was clicked would
@@ -12853,7 +12825,6 @@ function()
         ICUI.plot_keys = {{plot = IC.PLOTS[1].key},
                           {plot = IC.PLOTS[2].key},
                           {plot = IC.PLOTS[3].key}}
-        ICUI.scroll.intrigue = 2
         ICUI.clicked_index = function() return 1 end
         ICUI.on_plot_click({})
         assert(ICUI.pick and ICUI.pick.kind == "plot_target",
@@ -12861,7 +12832,6 @@ function()
         assert(ICUI.pick.plot == IC.PLOTS[1].key,
             "card 1 at a scroll of 2 opened " .. tostring(ICUI.pick.plot)
             .. ", not the move the card itself carries")
-        ICUI.scroll.intrigue = 0
         ICUI.clicked_index = saved_idx
     end)
     cm.get_human_factions = saved
@@ -12885,7 +12855,6 @@ check("the plot picker prices every man by the plot, not by a seat", function()
     local saved = cm.get_human_factions
     cm.get_human_factions = function() return {F} end
     ICUI.pick = {kind = "plot", plot = "bribe", key = "436"}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         -- BY MAN, NOT BY COUNT. Counting the CHOOSEs and SHORTs across the
@@ -12895,7 +12864,7 @@ check("the plot picker prices every man by the plot, not by a seat", function()
         -- rest of the list to the checks that own it.
         local actions = {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and row.children.ic_row_a.text ~= "" then
                 actions[#actions + 1] = plain(row.children.ic_row_e.text)
             end
@@ -12978,12 +12947,11 @@ function()
     local saved = cm.get_human_factions
     cm.get_human_factions = function() return {F} end
     ICUI.pick = {kind = "plot", plot = "bribe", key = "481"}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         local drawn, raw = {}, {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible then
                 raw[i] = row.children.ic_row_e.text
                 drawn[i] = plain(raw[i])
@@ -13040,7 +13008,6 @@ function()
     local mine_p = plain(ICUI.house_name("crown", F))
     local theirs_p = plain(ICUI.house_name("legion", F))
     ICUI.pick = {kind = "plot_target", plot = "oath"}
-    ICUI.scroll.pick = 0
     -- ONE PANEL FOR ALL THREE, as in game: the row pool is recycled, so a row
     -- that turns choosable must lose the refusal it carried a moment ago.
     with_fake_panel(function(panel)
@@ -13048,7 +13015,7 @@ function()
             ICUI.refresh()
             local by, tips = {}, {}
             for i = 1, ICUI.MAX_ROWS do
-                local row = panel.children[ICUI.ROW .. "_" .. i]
+                local row = fake_find(panel, ICUI.ROW .. "_" .. i)
                 if row and row.visible then
                     local k = plain(row.children.ic_row_b.text)
                     by[k] = plain(row.children.ic_row_e.text)
@@ -13096,10 +13063,9 @@ check("a seated officer can still be the one who plots", function()
     local saved = cm.get_human_factions
     cm.get_human_factions = function() return {F} end
     ICUI.pick = {kind = "plot", plot = "bribe", key = "438"}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row and row.visible, "the officer must be on screen")
         -- CHOOSE AND HIS ODDS. BUSY is about taking a second post; it has
         -- never been about plotting, and the officer is exactly the man a
@@ -16680,7 +16646,6 @@ check("every price the panel quotes carries the loyalty icon", function()
     -- THE TITLE AND THE ROW, which are the two places a price is quoted while
     -- the player is deciding. The card is covered where the card is checked.
     ICUI.pick = {kind = "office", key = seat}
-    ICUI.scroll.pick = 0
     local title = ICUI.pick_title()
     assert(string.find(title, ICUI.cost(need), 1, true),
         "the picker title quotes an unmarked price: " .. title)
@@ -16692,7 +16657,7 @@ check("every price the panel quotes carries the loyalty icon", function()
         -- a hire and not the candidate this check is about.
         local action
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and row.children.ic_row_a.text ~= ""
                     and string.sub(plain(row.children.ic_row_e.text), 1, 5)
                         == "Short" then
@@ -17211,7 +17176,6 @@ check("a plot nobody can pay for is priced in red", function()
     cm.get_human_factions = function() return {F} end
     ICUI.view = "intrigue"
     ICUI.pick = nil
-    ICUI.scroll.intrigue = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         local reds = 0
@@ -17284,7 +17248,6 @@ check("a move with nobody to aim at goes straight to the actor", function()
     cm.get_human_factions = function() return {F} end
     ICUI.view = "intrigue"
     ICUI.pick = nil
-    ICUI.scroll.intrigue = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         local row
@@ -17612,7 +17575,6 @@ check("every move is on screen at once, and none of them scrolls", function()
     cm.get_human_factions = function() return {F} end
     ICUI.view = "intrigue"
     ICUI.pick = nil
-    ICUI.scroll.intrigue = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         local drawn = 0
@@ -17630,14 +17592,9 @@ check("every move is on screen at once, and none of them scrolls", function()
         for _, plot in ipairs(grid_plots()) do
             assert(wired[plot.key], plot.key .. " is on the list and wired to nothing")
         end
-        -- AND THE WARNING BAND IS WHAT THE PAGER MEASURES NOW. line_count is
-        -- the warnings alone; if a move ever leaked back into it, the pager
-        -- would page the band by moves that are not in it.
-        -- AND NOTHING LEAKED BACK INTO THE ROW POOL. line_count is what the
-        -- pager measures; a move in it would page a band that is not there.
-        assert(ICUI.line_count == 0,
-            "the row list recorded " .. ICUI.line_count
-            .. " lines on a tab that draws none")
+        -- AND NOTHING LEAKED BACK INTO A ROW LIST: the moves are cards.
+        assert(not fake_find(panel, ICUI.LIST),
+            "the intrigue tab made a row list, on a tab that draws none")
     end)
     cm.get_human_factions = saved
     ICUI.view = "court"
@@ -17709,7 +17666,6 @@ function()
     cm.get_human_factions = function() return {F} end
     ICUI.view = "intrigue"
     ICUI.pick = nil
-    ICUI.scroll.intrigue = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
         local seen = 0
@@ -17946,6 +17902,7 @@ check("every move has one place to be clicked, and no column is empty", function
     end
     local in_grid = {}
     for _, plot in ipairs(grid_plots()) do in_grid[plot.key] = true end
+    for _, plot in ipairs(grid_plots("dwf")) do in_grid[plot.key] = true end
     for i = 1, #IC.PLOTS do
         local key = IC.PLOTS[i].key
         assert(in_grid[key] or on_bar[key],
@@ -17968,9 +17925,11 @@ check("every move has odds, a picture and a sentence", function()
     for i = 1, #IC.PLOTS do
         local plot = IC.PLOTS[i]
         local base = IC.TUNE["plot_chance_" .. plot.key]
-        assert(type(base) == "number",
+        -- A SURE MOVE (the weregild) never rolls, and says so with `sure`;
+        -- any other move without odds is the bug this guards.
+        assert(plot.sure or type(base) == "number",
             plot.key .. " has no plot_chance_ entry, so it can never miss")
-        assert(base > 0 and base <= 100,
+        assert(plot.sure or (base > 0 and base <= 100),
             plot.key .. " rolls against " .. tostring(base))
         assert(type(plot.icon) == "string"
                and string.sub(plot.icon, 1, 3) == "ui/"
@@ -18280,42 +18239,6 @@ local function seat_a_sortable_court(cqi)
     return seated
 end
 
-check("the court's pager is clamped to the court it is paging", function()
-    -- THE OFFSET OUTLIVES THE COURT. ICUI.scroll is session state and nothing
-    -- resets it when a house secedes or a confederate is absorbed, so the number
-    -- left over from a twelve-party court is still there when six parties are
-    -- drawn. Unclamped it indexes past the end, every slot reads nil, and the
-    -- tab draws an empty grid over a court that has parties in it - with no
-    -- error, because reading past the end of a Lua table is not one.
-    local seated = seat_a_sortable_court(2414)
-    local saved_human = cm.get_human_factions
-    cm.get_human_factions = function() return {F} end
-    ICUI.pick = nil
-    ICUI.view = "court"
-
-    with_fake_panel(function(panel)
-        -- FAR past the end, not one past it: an off-by-one would be clamped by
-        -- a max that happened to be right for the wrong reason.
-        ICUI.scroll.court = #seated + 50
-        ICUI.refresh()
-        assert(ICUI.scroll.court <= #seated,
-            "the court is paged to " .. tostring(ICUI.scroll.court)
-            .. " on a court of " .. #seated)
-        -- AND A CARD ACTUALLY DREW. The clamp is only worth having because of
-        -- what it puts back on screen, so that is what is measured rather than
-        -- the number on its own.
-        local drawn = 0
-        for i = 1, ICUI.PARTY_SLOTS do
-            local card = panel.children[ICUI.PARTY .. "_" .. i]
-            if card and card.visible then drawn = drawn + 1 end
-        end
-        assert(drawn > 0,
-            "a court of " .. #seated .. " parties drew no cards at all")
-    end)
-
-    ICUI.scroll.court = 0
-    cm.get_human_factions = saved_human
-end)
 
 check("each column's arrow sorts its own column, and only where there is "
       .. "something to sort", function()
@@ -18365,13 +18288,12 @@ check("each column's arrow sorts its own column, and only where there is "
         local rank_col = 3
         local rank_index = ICUI.sort_for_column("pick", rank_col)
         assert(rank_index, "column 3 sorts nothing on the picker")
-        -- PAGED AWAY FROM THE TOP FIRST. The page offset addresses a POSITION,
-        -- and after a re-sort position N is a different man, so a player left on
-        -- page two would be looking at a page he never asked for.
-        ICUI.scroll.pick = 3
+        -- AND THE LIST STARTS AGAIN AT THE TOP: after a re-sort the row under
+        -- the bar is a different man.
+        local gen = ICUI.list_gens.pick or 0
         click({string = "ic_hsort_c", component = {}})
-        assert(ICUI.scroll.pick == 0,
-            "the picker is still paged to " .. tostring(ICUI.scroll.pick))
+        assert((ICUI.list_gens.pick or 0) > gen,
+            "a re-sort left the picker's list where it was scrolled")
         assert(ICUI.sort.pick == rank_index and not ICUI.sort_desc.pick,
             "one click on RANK gave sort=" .. tostring(ICUI.sort.pick)
             .. " desc=" .. tostring(ICUI.sort_desc.pick))
@@ -18478,7 +18400,6 @@ function()
         -- A SEAT NOBODY IS IN, so every man on the list is a live candidate and
         -- the AVAILABLE sort has both kinds of row to separate.
         ICUI.pick = {kind = "office", key = IC.OFFICES[#IC.OFFICES].slug}
-        ICUI.scroll.pick = 0
         ICUI.refresh()
 
         -- THE DEFAULT SETTING IS THE ORDER IC.candidates HANDED OVER. It is
@@ -18563,7 +18484,6 @@ function()
 
     cm.get_human_factions = saved_human
     ICUI.sort = {pick = 1, court = 1}
-    ICUI.scroll.pick = 0
     ICUI.view = "court"
 end)
 
@@ -18600,7 +18520,6 @@ check("the AVAILABLE order puts the men you can appoint above the men you "
     with_fake_panel(function(panel)
         ICUI.view = "offices"
         ICUI.pick = {kind = "office", key = seat}
-        ICUI.scroll.pick = 0
         ICUI.refresh()
         local ready_before = 0
         for i = 1, 6 do
@@ -18657,7 +18576,6 @@ check("the AVAILABLE order puts the men you can appoint above the men you "
 
     cm.get_human_factions = saved_human
     ICUI.sort = {pick = 1, court = 1}
-    ICUI.scroll.pick = 0
     ICUI.pick = nil
     ICUI.view = "court"
 end)
@@ -20368,7 +20286,7 @@ end)
 
 -- ONE PETITION ROW BY INDEX: what its two buttons read.
 local function petition_row(panel, i)
-    local row = panel.children[ICUI.ROW .. "_" .. i]
+    local row = fake_find(panel, ICUI.ROW .. "_" .. i)
     assert(row and row.visible, "petition row " .. i .. " is not drawn")
     return row, plain(row.children.ic_row_e.text), plain(row.children.ic_row_f.text)
 end
@@ -20389,7 +20307,6 @@ check("the Petitions tab lists an open offer, and ACCEPT takes it", function()
     ICUI.pick = nil
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         local row, yes, no = petition_row(panel, 1)
         assert(yes == "Accept" and no == "Refuse",
@@ -20413,10 +20330,10 @@ check("the Petitions tab lists an open offer, and ACCEPT takes it", function()
         ICUI.refresh()
         local _row, left = petition_row(panel, 1)
         assert(left == "", "an empty list still offers " .. left)
-        assert(string.find(panel.children[ICUI.ROW .. "_1"].children.ic_row_b.text,
+        assert(string.find(fake_find(panel, ICUI.ROW .. "_1").children.ic_row_b.text,
                            "No party is asking", 1, true),
             "an empty petitions list reads "
-            .. panel.children[ICUI.ROW .. "_1"].children.ic_row_b.text)
+            .. fake_find(panel, ICUI.ROW .. "_1").children.ic_row_b.text)
     end)
     ICUI.view = "court"
     cm.get_human_factions = function() return {} end
@@ -20446,7 +20363,6 @@ check("REFUSE clears an offer without paying, end to end", function()
     IC.agenda(F).offers.forge = {kind = "gold", n = 3030, ends = 13}
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         answer_petition(1, "ic_row_f")
     end)
@@ -20459,7 +20375,7 @@ check("REFUSE clears an offer without paying, end to end", function()
         ICUI.view = "govs"
         ICUI.refresh()
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             assert(not (row and row.visible and row.children.ic_row_f.visible),
                 "the governors tab draws REFUSE on row " .. i)
         end
@@ -20484,7 +20400,6 @@ check("a demand leads the petitions, and ACCEPT seats the man it names", functio
     local legion = IC.court(F).houses["legion"]
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         local row1 = petition_row(panel, 1)
         local row2 = petition_row(panel, 2)
@@ -20524,7 +20439,6 @@ check("REFUSE on a demand costs what the section label says", function()
     local before = house.loyalty
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         -- THE TERMS ARE ON THE LABEL, once, not on every row.
         assert(string.find(panel.children.ic_lbl_section.text or "",
@@ -20556,7 +20470,6 @@ check("a demand for a man already in a post is drawn red, and says why", functio
                            was = 0, ends = 15}
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         local row = petition_row(panel, 1)
         assert(is_red(row.children.ic_row_e.text),
@@ -20580,7 +20493,6 @@ check("a refused offer draws its reason", function()
            "a lapsed offer was not refused: " .. tostring(ok) .. " " .. tostring(why))
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         answer_petition(1, "ic_row_e")
     end)
@@ -20717,9 +20629,8 @@ check("the offer row says what it is and fits its column", function()
         IC.agenda(F).offers.forge = case.o
         with_fake_panel(function(panel)
             ICUI.view = "petitions"
-            ICUI.scroll.petitions = 0
             ICUI.refresh()
-            local text = plain(panel.children[ICUI.ROW .. "_1"].children.ic_row_b.text)
+            local text = plain(fake_find(panel, ICUI.ROW .. "_1").children.ic_row_b.text)
             assert(string.find(ICUI.section_text("petitions"),
                                tostring(IC.TUNE.party_offer_envy), 1, true),
                    "the section label does not name what an offer costs")
@@ -20741,9 +20652,8 @@ check("the offer row says what it is and fits its column", function()
                            was = 0, ends = 22}
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         local text = plain(row.children.ic_row_b.text)
         assert(string.find(text, "Southlands World's Edge Mountains", 1, true)
                and string.find(text, "12 turns", 1, true),
@@ -21443,7 +21353,7 @@ end)
 -- THE NINE A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
 -- IC.LIVE_TUNE, so a key dropped from that list fails a check.
 local LIVE = {"parties_act", "secession", "pressure", "crown_split", "all_cards",
-              "detailed_log", "governments", "gov_drift", "deeds", "laws"}
+              "detailed_log", "governments", "gov_drift", "deeds", "laws", "dwarf_courts"}
 
 check("mid-campaign the live switches follow MCT and the rest of the save stays frozen", function()
     -- A SAVE FROZEN ON THE DEFAULTS, loaded by a player who has since turned
@@ -21969,7 +21879,6 @@ check("each of the court panel's clicks sends in multiplayer and waits for its t
             ICUI.view = "petitions"
             ICUI.petition_rows = {[1] = kind == "demand" and {kind = "demand"}
                                          or {kind = "offer", slug = "legion"}}
-            ICUI.scroll.petitions = 0
             ICUI.on_petition_click(ctx, yes)
         end
     end
@@ -21977,7 +21886,6 @@ check("each of the court panel's clicks sends in multiplayer and waits for its t
         return function()
             ICUI.pick = p
             ICUI.pick_rows = {[1] = row}
-            ICUI.scroll.pick = 0
             ICUI.on_pick_click(ctx, F)
         end
     end
@@ -22046,7 +21954,6 @@ check("in multiplayer a picker waits for the answer and closes when it comes", f
     local office = IC.OFFICES[1].slug
     ICUI.pick = {kind = "office", key = office}
     ICUI.pick_rows = {[1] = 501}
-    ICUI.scroll.pick = 0
     ICUI.notice = nil
     local saved_idx, saved_refresh = ICUI.clicked_index, ICUI.refresh
     local refreshed = 0
@@ -22144,7 +22051,6 @@ check("in multiplayer a second click before the answer sends nothing", function(
     ICUI.refresh = function() end
     ICUI.pick = {kind = "office", key = office}
     ICUI.pick_rows = {[1] = 501, [2] = 502}
-    ICUI.scroll.pick = 0
     local ok, err = pcall(with_mp, F, function(sent)
         ICUI.on_pick_click({component = {}}, F)
         row = 2
@@ -22168,12 +22074,13 @@ check("in multiplayer a second click before the answer sends nothing", function(
     if not ok then error(err, 0) end
 end)
 
-check("a player who is not a Chaos Dwarf gets no court button and no panel", function()
-    -- A MIXED CAMPAIGN: this machine's player is a Dwarf beside a Chaos Dwarf
-    -- host. The court is the Chaos Dwarfs'; opened for a Dwarf it was an empty
-    -- one that still hired Chaos Dwarf officers into his faction.
-    local DWARF = "wh_main_dwf_dwarfs"
-    make_faction(DWARF, "wh_main_sc_dwf_dwarfs", {}, {})
+check("a player whose race holds no court gets no court button and no panel", function()
+    -- A MIXED CAMPAIGN: this machine's player is beside a Chaos Dwarf host but
+    -- of a race with no court (phase 2 gave the Dwarfs one; the Empire has
+    -- none). Opened for him it was an empty court that still hired Chaos Dwarf
+    -- officers into his faction. DWARF names that player.
+    local DWARF = "wh_main_emp_empire"
+    make_faction(DWARF, "wh_main_sc_emp_empire", {}, {})
     make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     cm.get_human_factions = function() return {F, DWARF} end
     local created = {}
@@ -22417,10 +22324,9 @@ check("a man whose term ended waits three turns for that seat, and comes back un
     -- AND THE PICKER SAYS SO BEFORE THE CLICK.
     ended(1)
     ICUI.pick = {kind = "office", key = "forge"}
-    ICUI.scroll.pick = 0
     with_fake_panel(function(panel)
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(row and row.visible, "the only candidate must be on screen")
         assert(plain(row.children.ic_row_e.text)
                == string.format("Wait %d", IC.TUNE.renew_wait),
@@ -22715,13 +22621,12 @@ check("a house roster finds a man on the map, and offers nothing for one who is 
     IC.add_house(F, "crown")
     IC.add_house(F, "forge")
     ICUI.pick = {kind = "house", slug = "forge"}
-    ICUI.scroll.pick = 0
     local labels = {}
     with_fake_panel(function(panel)
         ICUI.refresh()
         for i = 1, 3 do
             local cqi = ICUI.pick_rows[i]
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             labels[#labels + 1] = plain(row.children.ic_row_e.text) .. "=" .. tostring(cqi)
         end
     end)
@@ -23179,7 +23084,7 @@ check("a feud is on the Petitions tab, one row per side, and the click sends arb
         ICUI.refresh()
         local rows = {}
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible and ICUI.petition_rows[i]
                     and ICUI.petition_rows[i].kind == "feud" then
                 rows[#rows + 1] = i
@@ -23208,7 +23113,6 @@ check("a feud is on the Petitions tab, one row per side, and the click sends arb
         -- THE SAME FAKE CLICK the transport check uses: the row index stubbed.
         local saved_idx = ICUI.clicked_index
         ICUI.clicked_index = function() return rows[1] end
-        ICUI.scroll.petitions = 0
         ICUI.on_petition_click({component = {}}, true)
         ICUI.clicked_index = saved_idx
     end)
@@ -23374,7 +23278,7 @@ check("the Log tab draws news with the other faction's name", function()
         ICUI.refresh()
         local found = false
         for i = 1, ICUI.MAX_ROWS do
-            local row = panel.children[ICUI.ROW .. "_" .. i]
+            local row = fake_find(panel, ICUI.ROW .. "_" .. i)
             if row and row.visible then
                 local text = plain(row.children.ic_row_b.text or "")
                 if string.find(text, "Circle of the Tithe broke away", 1, true) then
@@ -24260,7 +24164,6 @@ check("a granted demand, an accepted offer, a settled feud and a gift each say s
                     if p.kind == "demand" then at = i end
                 end
                 assert(at, "the Petitions view drew no demand row")
-                ICUI.scroll.petitions = 0
                 ICUI.clicked_index = function() return at end
                 ICUI.on_petition_click({component = {}}, true)
             end)
@@ -24791,10 +24694,10 @@ function()
         -- NOTHING OF THE COURT OR THE LISTS UNDER IT.
         assert(not c.ic_dial_box.visible, "the dial draws under the help page")
         for i = 1, ICUI.PARTY_SLOTS do
-            assert(not c[ICUI.PARTY .. "_" .. i].visible, "a party card draws under the help page")
+            assert(not (fake_find(panel, ICUI.PARTY .. "_" .. i) or {}).visible, "a party card draws under the help page")
         end
         for i = 1, ICUI.MAX_ROWS do
-            assert(not c[ICUI.ROW .. "_" .. i].visible, "list row " .. i .. " draws under the help page")
+            assert(not (fake_find(panel, ICUI.ROW .. "_" .. i) or {}).visible, "list row " .. i .. " draws under the help page")
         end
         assert(not c.ic_page_next.visible, "the pager draws on the help page")
         ICUI.view = "court"
@@ -25024,7 +24927,9 @@ function()
                 SetTextHAlign = function(self, a) self.align = a end,
                 SetTextXOffset = function(self, l, r) self.pad_l, self.pad_r = l, r end,
                 SetVisible = function(self, on)
-                    IC_NEED_BOOL("SetVisible", on); self.visible = on end}
+                    IC_NEED_BOOL("SetVisible", on); self.visible = on end,
+                images = {},
+                SetImagePath = function(self, p, i) self.images[i or 0] = p end}
     end
     local stack = {kids = {}, Id = function() return "stack_incentives" end,
                    sx = 245, sy = 1020, sw = 71, sh = 62,
@@ -25078,6 +24983,7 @@ function()
         assert(string.find(n.text, "[[img:ui/skins/default/icon_governor.png]]", 1, true) == 1,
             "the note does not lead with CA's governor icon: " .. n.text)
         assert(n.h == 30, "the note is " .. n.h .. "px tall, not its plate's 30")
+        assert(n.images[0] == nil, "a Chaos Dwarf note was repainted " .. tostring(n.images[0]))
         -- AGAINST THE FRAME, centred on the stack. button_edicts_frame.png's
         -- art ends at x 69 of its 71 (author, 2026-09-28: "make it closer to
         -- the edict buttons").
@@ -25123,6 +25029,16 @@ function()
         stack.kids = {}
         ICUI.apply_edict_lock(region)
         assert(note() and note().visible == true, "the note was not made again")
+        -- A RACE WITH ITS OWN NOTE PLATE wears it (phase 3 final review: the
+        -- Hell-Forge plate beside a Dwarf campaign's edicts).
+        local saved_race = ICUI.race
+        ICUI.race = function() return setmetatable({art = {note = "race_note.png"}}, {__index = IC.RACES[IC.RACE_ORDER[1]]}) end
+        stack.kids = {}
+        local ok2, err2 = pcall(ICUI.apply_edict_lock, region)
+        ICUI.race = saved_race
+        assert(ok2, err2)
+        assert(note() and note().images[0] == "race_note.png",
+            "the race's note plate is " .. tostring(note() and note().images[0]))
     end)
     find_uicomponent, core.get_ui_root, cm.get_human_factions, is_uicomponent =
         saved_find, saved_root, saved_human, saved_is
@@ -26107,12 +26023,11 @@ check("the plot picker warns a man that paying will cost him his seat", function
         "a man with no seat was told he would lose " .. tostring(IC.plot_costs_seat(F, "rumour", 440)))
     as_player(function()
         ICUI.pick = {kind = "plot", plot = "rumour", key = "439"}
-        ICUI.scroll.pick = 0
         with_fake_panel(function(panel)
             ICUI.refresh()
             local warned, safe
             for i = 1, ICUI.MAX_ROWS do
-                local row = panel.children[ICUI.ROW .. "_" .. i]
+                local row = fake_find(panel, ICUI.ROW .. "_" .. i)
                 if row and row.visible then
                     local d = plain(row.children.ic_row_d.text or "")
                     if d:find("^" .. (bar + cost - 1) .. " influence") then warned = row end
@@ -26393,7 +26308,7 @@ check("a demand whose post went to someone else offers no Accept that refuses it
         ICUI.view = "petitions"
         ICUI.pick = nil
         ICUI.refresh()
-        local row = panel.children[ICUI.ROW .. "_1"]
+        local row = fake_find(panel, ICUI.ROW .. "_1")
         assert(is_red(row.children.ic_row_e.text), "Accept on a lost demand reads "
             .. tostring(row.children.ic_row_e.text))
         assert(row.children.ic_row_e.tooltip == ICUI.reason_text("taken"),
@@ -26917,7 +26832,7 @@ check("the Record, the notice, a petition, a move's tooltip and the character pl
         ICUI.refresh()
         local found = false
         for i = 1, ICUI.MAX_ROWS do
-            local r = panel.children[ICUI.ROW .. "_" .. i]
+            local r = fake_find(panel, ICUI.ROW .. "_" .. i)
             local b = r and r.children.ic_row_b
             if b and string.find(b.text or "", inf .. "40 influence", 1, true) then found = true end
         end
@@ -27090,7 +27005,7 @@ check("a plot that lands bursts over its target's card after the redraw", functi
         after.children[ICUI.BURST] = nil
         ICUI.ANSWERS.plot("errand_x|99|", true, "landed")
         for i = 1, ICUI.PARTY_SLOTS do
-            local card = panel.children[ICUI.PARTY .. "_" .. i]
+            local card = fake_find(panel, ICUI.PARTY .. "_" .. i)
             assert(not (card and card.children[ICUI.BURST]), "an errand burst a party card")
         end
         -- AND A PURGE THAT LANDED: the target's party is gone, so his man reads
@@ -27378,7 +27293,7 @@ end)
 local function picker_rows(panel)
     local out = {}
     for i = 1, ICUI.MAX_ROWS do
-        local row = panel.children[ICUI.ROW .. "_" .. i]
+        local row = fake_find(panel, ICUI.ROW .. "_" .. i)
         if row and row.visible and row.children.ic_row_a.text ~= "" then
             out[#out + 1] = {a = plain(row.children.ic_row_a.text),
                              d = plain(row.children.ic_row_d.text),
@@ -28052,6 +27967,29 @@ function()
     end)
 end)
 
+check("a governor chosen on the map draws no row list over it", function()
+    -- The pick is the picker's, but on the map the Governors column lists the
+    -- men; a row list made by draw_picker would lie over the map past row twelve,
+    -- its bar with it.
+    IC.state = {}
+    local chars = {}
+    for i = 1, 20 do chars[i] = make_character(700 + i, ANY_SEAT, "legion", nil) end
+    make_faction(F, IC.CHD_SUBCULTURE, chars, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel)
+        ICUI.view = "govs"
+        ICUI.pick = nil
+        ICUI.open()
+        ICUI.pick = {kind = "gov", key = "prov_a"}
+        ICUI.refresh()
+        assert(not fake_find(panel, ICUI.LIST), "a row list lies over the map")
+        assert(not (fake_find(panel, ICUI.ROW .. "_13") or {}).visible, "row 13 shows over the map")
+        ICUI.pick = nil
+        ICUI.close(true)
+    end)
+end)
+
 check("the Governors view hides the court's list, its headers and its pager", function()
     IC.state = {}
     make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
@@ -28061,15 +27999,73 @@ check("the Governors view hides the court's list, its headers and its pager", fu
         ICUI.view = "log"
         ICUI.pick = nil
         ICUI.open()
-        assert(panel.children[ICUI.ROW .. "_1"].visible, "the fixture's Record drew no row, so this check watches nothing")
+        assert(fake_find(panel, ICUI.ROW .. "_1").visible, "the fixture's Record drew no row, so this check watches nothing")
         map_click("ic_tab_govs")
         for i = 1, ICUI.MAX_ROWS do
-            assert(not panel.children[ICUI.ROW .. "_" .. i].visible, "row " .. i .. " of the last tab's list shows over the map")
+            assert(not (fake_find(panel, ICUI.ROW .. "_" .. i) or {}).visible, "row " .. i .. " of the last tab's list shows over the map")
         end
         for _, keys in ipairs({ICUI.HDR_KEYS, ICUI.HSORT_KEYS, {"ic_page_prev", "ic_page_lbl", "ic_page_next"}}) do
             for _, name in ipairs(keys) do
                 assert(not panel.children[name].visible, name .. " shows over the map")
             end
+        end
+    end)
+end)
+
+-- THE LIST THAT COULD NOT BE MADE (phase 6 mutation run, 2026-10-06). With a
+-- scrolling list, list_drop destroys the rows with it, so the help page's and the
+-- Governors view's own row hides look redundant and two mutants survived. They
+-- are not: when the list cannot be created, fill_rows draws one window of rows
+-- straight into the panel (ICUI.list_items' fallback), list_drop has nothing to
+-- destroy, and only those hides take the last tab's rows off the screen.
+local function refuse_list(panel)
+    local make = panel.CreateComponent
+    panel.CreateComponent = function(self, n, p)
+        if n == ICUI.LIST then return end
+        return make(self, n, p)
+    end
+end
+
+check("with no scrolling list, the help page hides the rows the last tab drew into the panel",
+function()
+    IC.state = {}
+    IC.add_house(F, "legion")
+    ICUI.register()
+    with_fake_panel(function(panel)
+        refuse_list(panel)
+        ICUI.pick = nil
+        ICUI.view = "log"
+        ICUI.refresh()
+        assert(not panel.children[ICUI.LIST], "the list was made, so this check watches nothing")
+        assert((panel.children[ICUI.ROW .. "_1"] or {}).visible,
+            "the Record drew no row into the panel, so this check watches nothing")
+        core.listeners["ic_click"]({string = "ic_help"})
+        assert(ICUI.view == "help", "the help tab did not open")
+        for i = 1, ICUI.MAX_ROWS do
+            assert(not (panel.children[ICUI.ROW .. "_" .. i] or {}).visible,
+                "row " .. i .. " of the Record shows under the help page")
+        end
+    end)
+end)
+
+check("with no scrolling list, the Governors view hides the rows the last tab drew into the panel",
+function()
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_a"})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "legion")
+    with_fake_govmap(function(hud, panel, extra, holder)
+        refuse_list(panel)
+        ICUI.view = "log"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(not fake_find(panel, ICUI.LIST), "the list was made, so this check watches nothing")
+        assert((fake_find(panel, ICUI.ROW .. "_1") or {}).visible,
+            "the Record drew no row into the panel, so this check watches nothing")
+        map_click("ic_tab_govs")
+        for i = 1, ICUI.MAX_ROWS do
+            assert(not (fake_find(panel, ICUI.ROW .. "_" .. i) or {}).visible,
+                "row " .. i .. " of the Record shows over the map")
         end
     end)
 end)
@@ -29099,7 +29095,7 @@ check("a pin opens the governor picker in the column, over the map, with the cou
         assert((panel.children.ic_lbl_section.text or ""):find("Choose who governs prov_a", 1, true),
             "the section line reads " .. tostring(panel.children.ic_lbl_section.text))
         -- NOT THE COURT'S FULL-SCREEN LIST.
-        assert(not panel.children[ICUI.ROW .. "_1"].visible, "the court's own picker shows over the map")
+        assert(not (fake_find(panel, ICUI.ROW .. "_1") or {}).visible, "the court's own picker shows over the map")
         -- THE PROVINCE BEING CHOSEN FOR is ringed on the map.
         assert(gm_pin(holder, 1).images[ICUI.GP_OUTLINE] == ICUI.MK_RING_OUTLINE, "the province being chosen for is not ringed")
         -- A FREE MAN: his face, his party, his rank and influence.
@@ -30541,7 +30537,7 @@ check("governments: Change Doctrine opens five government cards and a card's but
         assert(string.find(plain(c.ic_gc_now.text), string.upper(ICUI.gov_name("convoy")), 1, true),
             "the title does not name the government in force: " .. tostring(c.ic_gc_now.text))
         -- NO LIST UNDER THE CARDS, and no header strip over them.
-        assert(not c[ICUI.ROW .. "_1"].visible, "a picker row shows under the cards")
+        assert(not (fake_find(panel, ICUI.ROW .. "_1") or {}).visible, "a picker row shows under the cards")
         assert(c.ic_hdr_a.visible == false, "the header strip shows over the cards")
         map_click("ic_gc_btn_" .. legion)
     end)
@@ -30612,6 +30608,10 @@ check("governments: a card the court cannot afford says so in red, and its butto
         assert(i, "the Legion is not on offer")
         assert(is_red(panel.children["ic_gc_btn_" .. i].text),
             "an unaffordable card's button is not red: " .. tostring(panel.children["ic_gc_btn_" .. i].text))
+        -- AND BY HOW MUCH, as every other "Short" button in the panel says it.
+        local _, _, short = IC.can_force_gov(F, "legion")
+        assert(string.find(panel.children["ic_gc_btn_" .. i].text, "Short " .. ICUI.cost(short), 1, true),
+            "the button does not say how far short: " .. tostring(panel.children["ic_gc_btn_" .. i].text))
         -- NOTHING SENT, not merely nothing changed: the model would refuse it
         -- too, so only the send itself shows the button doing something.
         local sent, saved_send = {}, ICUI.send
@@ -30631,7 +30631,6 @@ check("governments: a waiting choice is a petition, and Hold refuses it", functi
     court.gov_ask = {gov = "forge", ends = turn + 2, party = "forge"}
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
         assert(ICUI.petition_rows[1] and ICUI.petition_rows[1].kind == "gov",
             "the choice is not the first petition")
@@ -30720,7 +30719,6 @@ check("governments: a choice with no party asking says so", function()
     court.gov_ask = {gov = "conclave", ends = turn + 2}
     with_fake_panel(function(panel)
         ICUI.view = "petitions"
-        ICUI.scroll.petitions = 0
         ICUI.refresh()
     end)
     local text = ICUI.intrigue_text({turn = 1, kind = "doctrine_ask", key = "conclave", n = 6})
@@ -31666,6 +31664,2198 @@ check("laws: the board draws CA's 72px paintings, one per law, not the 24px bund
     gov_done()
 end)
 
+-- ---------------------------------------------------------------------------
+-- RACE PLUMBING (plan 2026-10-04 phase 1). TST_F's race is the one phase 2's
+-- Dwarf file will register, in miniature: the Chaos Dwarf tables under another
+-- subculture and infix, the offices re-tiered 2/4/4/4 (the Warden of the Roads
+-- up to II and the Muster up to III, as the Dwarf hall seats them), its own
+-- origins, backgrounds, legend and name words, and the Labour laws renamed
+-- Craft. A site still reading IC.X answers this court with a Chaos Dwarf tier,
+-- slug or key, and the checks below see it.
+-- ---------------------------------------------------------------------------
+local TST_F = "tst_karak"
+
+local function test_race()
+    local chd = IC.RACES.chd
+    local t = {key = "tst", subculture = "tst_sc", infix = "tst_",
+               tune = {secede_turns = {mul = 1.5}}, layout = "grid", art = {}}
+    for _, k in ipairs(IC.RACE_FIELDS) do t[k] = chd[k] end
+    local tier = {priest = 1, forge = 1, ledger = 2, warden = 2, hand = 2, roads = 2,
+                  chains = 3, pits = 3, quarry = 3, muster = 3,
+                  kilns = 4, fields = 4, scribes = 4, banners = 4}
+    local order = {"priest", "forge", "ledger", "warden", "hand", "roads", "chains",
+                   "pits", "quarry", "muster", "kilns", "fields", "scribes", "banners"}
+    t.OFFICES = {}
+    for _, slug in ipairs(order) do
+        for _, o in ipairs(chd.OFFICES) do
+            if o.slug == slug then
+                t.OFFICES[#t.OFFICES + 1] = {slug = slug, affinity = o.affinity, tier = tier[slug]}
+            end
+        end
+    end
+    t.ORIGINS = {{slug = "tkarak", faction = TST_F}, {slug = "thold"}}
+    t.BACKGROUNDS = {}
+    for party, list in pairs(chd.BACKGROUNDS) do
+        t.BACKGROUNDS[party] = {}
+        for i, bg in ipairs(list) do t.BACKGROUNDS[party][i] = "t" .. bg end
+    end
+    t.NAME_HEADS = {"Kin"}
+    t.NAME_TAILS = {}
+    for party, tails in pairs(chd.NAME_TAILS) do t.NAME_TAILS[party] = tails end
+    t.NAME_TAILS.temple = {"the Test Hall"}
+    t.LEGEND_SUBTYPES = {tst_legend = true}
+    t.LAW_ORDER = {"craft", "tribute", "worship", "war"}
+    t.LAWS = {craft = chd.LAWS.labour, tribute = chd.LAWS.tribute,
+              worship = chd.LAWS.worship, war = chd.LAWS.war}
+    t.START_GOV = {[TST_F] = "forge"}
+    return t
+end
+
+-- REGISTERED FOR ONE CHECK, and taken out again whatever the check did.
+local function with_test_race(fn, race)
+    local saved_max = IC.MAX_SEATS
+    local t = race or test_race()
+    IC.register_race(t)
+    local ok, err = pcall(fn, t)
+    IC.RACES[t.key] = nil
+    for i = #IC.RACE_ORDER, 1, -1 do
+        if IC.RACE_ORDER[i] == t.key then table.remove(IC.RACE_ORDER, i) end
+    end
+    IC.MAX_SEATS = saved_max
+    IC._race_cache = {}
+    if not ok then error(err, 0) end
+end
+
+check("race plumbing: the Chaos Dwarf race is registered over the existing tables", function()
+    local chd = IC.RACES.chd
+    assert(chd and IC.RACE_ORDER[1] == "chd", "the Chaos Dwarfs are not the first race")
+    assert(chd.subculture == IC.CHD_SUBCULTURE and chd.infix == "" and chd.layout == "ziggurat",
+        "the Chaos Dwarf race's own fields are wrong")
+    -- THE SAME TABLES, not copies: a copy would let a harness edit of IC.X miss
+    -- the race, and the references here would be testing a twin.
+    for _, k in ipairs(IC.RACE_FIELDS) do
+        assert(chd[k] == IC[k], k .. " on the race is not IC." .. k)
+    end
+    assert(IC.TIERS == chd.TIERS and IC.TIER_SEATS == chd.TIER_SEATS
+           and IC.PARTY_OF_BG == chd.PARTY_OF_BG, "the old names are not the race's tables")
+    local widths = {}
+    for _, t in ipairs(chd.TIERS) do widths[#widths + 1] = chd.TIER_SEATS[t] end
+    assert(table.concat(widths, "/") == "2/3/4/5", "the ziggurat is " .. table.concat(widths, "/"))
+    assert(chd.PARTY_OF_BG.ashpriest == "temple", "a background maps to " .. tostring(chd.PARTY_OF_BG.ashpriest))
+    assert(IC.MAX_SEATS == chd.MAX_SEATS, "the seat count is not the Chaos Dwarfs'")
+end)
+
+check("race plumbing: a faction's race comes from its subculture, and only a found one is kept", function()
+    with_test_race(function(T)
+        factions = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        make_faction(TST_F, T.subculture, {}, {})
+        local brt = make_faction("wh_main_brt_bretonnia", "wh_main_sc_brt_bretonnia", {}, {})
+        assert(IC.R(F) == IC.RACES.chd and IC.R(TST_F) == T, "IC.R answered the wrong race")
+        assert(IC.race_key(F) == "chd" and IC.race_key(TST_F) == "tst"
+               and IC.race_key("wh_main_brt_bretonnia") == nil, "race_key is wrong")
+        assert(IC.R(nil) == IC.RACES.chd and IC.R("wh_main_brt_bretonnia") == IC.RACES.chd,
+            "a faction with no race is not answered as the Chaos Dwarfs")
+        local tst = cm:get_faction(TST_F)
+        assert(IC.has_court(tst) and not IC.is_chd(tst), "the second race holds no court, or is Chaos Dwarf")
+        assert(IC.is_chd(cm:get_faction(F)) and not IC.has_court(brt), "is_chd or has_court is wrong")
+        -- A RACE SWITCHED OFF holds no court.
+        T.switch, IC.TUNE.tst_courts = "tst_courts", false
+        local on = IC.has_court(tst)
+        T.switch, IC.TUNE.tst_courts = nil, nil
+        assert(not on, "a race switched off still holds a court")
+        -- A LOOKUP THAT FAILS IS NOT KEPT: before the world exists cm:get_faction
+        -- errors, and a court that cached the fallback then would run on it.
+        IC._race_cache = {}
+        local real = cm.get_faction
+        cm.get_faction = function() error("no world yet") end
+        local early = IC.R(TST_F)
+        cm.get_faction = real
+        assert(early == IC.RACES.chd, "a failed lookup answered " .. tostring(early and early.key))
+        assert(IC.R(TST_F) == T, "the failed lookup was kept")
+        -- AND A FACTION RE-MADE AS ANOTHER RACE is asked again.
+        make_faction(TST_F, IC.CHD_SUBCULTURE, {}, {})
+        assert(IC.R(TST_F) == IC.RACES.chd, "a cached race outlived its faction")
+    end)
+end)
+
+check("race plumbing: a second race derives its own tiers and the seat count sizes for the larger", function()
+    with_test_race(function(T)
+        local widths = {}
+        for _, t in ipairs(T.TIERS) do widths[#widths + 1] = T.TIER_SEATS[t] end
+        assert(table.concat(widths, "/") == "2/4/4/4", "the hall's tiers are " .. table.concat(widths, "/"))
+        assert(T.PARTY_OF_BG.tashpriest == "temple" and T.PARTY_OF_BG.ashpriest == nil,
+            "the second race maps the first race's backgrounds")
+        assert(T.MAX_SEATS == #T.PARTIES + 1, "the second race seats " .. tostring(T.MAX_SEATS))
+        assert(IC.MAX_SEATS == IC.RACES.chd.MAX_SEATS, "a smaller race moved the seat count")
+    end)
+    -- A LARGER RACE RAISES IT: the panel makes one dial seat per IC.MAX_SEATS at load.
+    local big = test_race()
+    big.key, big.subculture = "big", "big_sc"
+    big.ORIGINS = {}
+    for i = 1, IC.RACES.chd.MAX_SEATS do big.ORIGINS[i] = {slug = "b" .. i, faction = "big_" .. i} end
+    with_test_race(function(B)
+        assert(B.MAX_SEATS > IC.RACES.chd.MAX_SEATS and IC.MAX_SEATS == B.MAX_SEATS,
+            "the seat count is " .. tostring(IC.MAX_SEATS) .. " beside a race of " .. tostring(B.MAX_SEATS))
+    end, big)
+    assert(IC.MAX_SEATS == IC.RACES.chd.MAX_SEATS, "the larger race's count outlived it")
+    -- EVERY REGISTERED RACE FITS THE DIAL THE PANEL MADE AT LOAD.
+    for _, k in ipairs(IC.RACE_ORDER) do
+        assert(ICUI.MAX_HOUSES >= IC.RACES[k].MAX_SEATS, k .. " has more seats than the dial")
+    end
+end)
+
+check("race plumbing: IC.tune layers the race under the government", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        make_faction(TST_F, T.subculture, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local base = IC.TUNE.secede_turns
+        assert(IC.tune(TST_F, "secede_turns") == math.floor(base * 1.5 + 0.5),
+            "the race's x1.5 gave " .. tostring(IC.tune(TST_F, "secede_turns")))
+        assert(IC.tune(F, "secede_turns") == base, "the Chaos Dwarfs took the other race's layer")
+        assert(IC.TUNE.secede_turns == base, "the layer wrote into IC.TUNE")
+        -- UNDER THE GOVERNMENT: the Conclave's {mul = 0.6} scales the race's
+        -- value, and its renew_wait = 1 replaces the race's.
+        T.tune.term_turns = {mul = 2}
+        T.tune.renew_wait = 9
+        IC_GOVS_ON = true
+        IC.add_house(TST_F, IC.CROWN)
+        IC.court(TST_F).gov = "conclave"
+        local term, wait = IC.tune(TST_F, "term_turns"), IC.tune(TST_F, "renew_wait")
+        IC_GOVS_ON = nil
+        local want = math.floor(math.floor(IC.TUNE.term_turns * 2 + 0.5) * 0.6 + 0.5)
+        assert(term == want, "race then government gave " .. tostring(term) .. ", not " .. want)
+        assert(wait == 1, "the government's number did not replace the race's: " .. tostring(wait))
+    end)
+end)
+
+check("race plumbing: every key the court writes carries its race's infix", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        make_faction(TST_F, T.subculture, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        -- THE CHAOS DWARF KEYS ARE TODAY'S, byte for byte: saves and loc name them.
+        assert(IC.office_bundle("priest", F) == "derpy_ic_office_priest"
+               and IC.vacancy_bundle("priest", F) == "derpy_ic_vacant_priest"
+               and IC.office_trait("priest", F) == "derpy_ic_title_priest"
+               and IC.gov_bundle("forge", F) == "derpy_ic_doctrine_forge"
+               and IC.law_bundle("labour", "lash", F) == "derpy_ic_law_labour_lash"
+               and IC.gov_bundle_house("forge", F) == "derpy_ic_gov_house_forge"
+               and IC.control_bundle("grip", F) == "derpy_ic_control_grip"
+               and IC.bg_trait("ashpriest") == "derpy_ic_bg_ashpriest"
+               and IC.origin_trait("khorakk") == "derpy_ic_house_khorakk",
+            "a Chaos Dwarf key moved")
+        assert(IC.office_bundle("priest", TST_F) == "derpy_ic_office_tst_priest"
+               and IC.vacancy_bundle("priest", TST_F) == "derpy_ic_vacant_tst_priest"
+               and IC.office_trait("priest", TST_F) == "derpy_ic_title_tst_priest"
+               and IC.gov_bundle("forge", TST_F) == "derpy_ic_doctrine_tst_forge"
+               and IC.law_bundle("craft", "lash", TST_F) == "derpy_ic_law_tst_craft_lash"
+               and IC.gov_bundle_house("forge", TST_F) == "derpy_ic_gov_house_tst_forge"
+               and IC.control_bundle("grip", TST_F) == "derpy_ic_control_tst_grip"
+               and IC.bg_trait("tashpriest") == "derpy_ic_bg_tst_tashpriest"
+               and IC.origin_trait("tkarak") == "derpy_ic_house_tst_tkarak",
+            "a key of the second race has no infix")
+        -- THE MEMBER TRAITS are the race's own, off its own tails.
+        IC.add_house(TST_F, IC.CROWN)
+        local keys = {}
+        for _, k in ipairs(IC.member_trait_keys(TST_F)) do keys[k] = true end
+        assert(keys[IC.member_trait(TST_F, IC.CROWN)] and keys["derpy_ic_member_tst_crown"],
+            "the second race's member keys are not its own")
+        assert(keys["derpy_ic_member_tst_temple_1"] and not keys["derpy_ic_member_tst_temple_2"]
+               and not keys["derpy_ic_member_crown"], "the member keys came off the Chaos Dwarf tails")
+        -- A MAN WEARING THE SECOND RACE'S TRAITS IS READ BACK AS ITS.
+        local man = make_character(9201, ANY_SEAT, nil, nil)
+        man._traits["derpy_ic_bg_tst_tashpriest"] = true
+        man._traits["derpy_ic_house_tst_tkarak"] = true
+        local bg, R = IC.bg_of_character(man)
+        assert(bg == "tashpriest" and R == T, "the background read back as " .. tostring(bg))
+        assert(IC.origin_of_character(man) == "tkarak", "the origin read back wrong")
+        assert(IC.house_of_character(man) == "temple", "the man's party is " .. tostring(IC.house_of_character(man)))
+    end)
+end)
+
+check("race plumbing: standing, ambition and governor keys carry the race's infix", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        local man = make_character(9211, ANY_SEAT, nil, nil)
+        make_faction(TST_F, T.subculture, {man}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        assert(IC.standing_trait(2, F) == "derpy_ic_standing_2"
+               and IC.ambition_trait("steady", F) == "derpy_ic_ambition_steady"
+               and IC.gov_bundle_base(F) == "derpy_ic_gov_base",
+            "a Chaos Dwarf standing, ambition or governor key moved")
+        assert(IC.standing_trait(2, TST_F) == "derpy_ic_standing_tst_2"
+               and IC.ambition_trait("steady", TST_F) == "derpy_ic_ambition_tst_steady"
+               and IC.gov_bundle_base(TST_F) == "derpy_ic_gov_tst_base",
+            "a standing, ambition or governor key of the second race has no infix")
+        -- THE STAMPERS WEAR THEM: a man of the second race gets its keys.
+        IC.stamp_standing(TST_F, man)
+        assert(man:has_trait("derpy_ic_standing_tst_0") and not man:has_trait("derpy_ic_standing_0"),
+            "the standing band worn is not the race's")
+        IC.stamp_ambition(TST_F, man)
+        local worn = 0
+        for _, slug in ipairs(IC.AMBITION_ORDER) do
+            assert(not man:has_trait("derpy_ic_ambition_" .. slug), "a Chaos Dwarf ambition trait was worn")
+            if man:has_trait("derpy_ic_ambition_tst_" .. slug) then worn = worn + 1 end
+        end
+        assert(worn == 1, "the man wears " .. worn .. " of the race's ambition traits")
+    end)
+end)
+
+check("race plumbing: troops offered come off the race's own table", function()
+    with_test_race(function(T)
+        factions = {}
+        make_faction(TST_F, T.subculture, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        T.PARTY_TROOPS = {temple = "tst_unit_temple"}
+        T.TROOPS_DEFAULT = "tst_unit_default"
+        assert(IC.troop_key("temple", TST_F) == "tst_unit_temple"
+               and IC.troop_key("nobody", TST_F) == "tst_unit_default",
+            "the second race was offered " .. tostring(IC.troop_key("temple", TST_F)))
+        assert(IC.troop_key("temple", F) == "wh3_dlc23_chd_inf_infernal_guard_fireglaives"
+               and IC.troop_key("nobody", F) == "wh3_dlc23_chd_inf_chaos_dwarf_warriors",
+            "a Chaos Dwarf offer moved")
+    end)
+end)
+
+-- EACH RACE KEEPS ITS OWN ROUND (phase 2 final review): a shared round let the
+-- fourteen Dwarf holds stretch every Chaos Dwarf AI court's turn about 3.5x.
+check("race plumbing: a Chaos Dwarf court's AI round is its own race's, another race on or off", function()
+    with_test_race(function(T)
+        factions = {}
+        local saved_humans, keep = cm.get_human_factions, IC.TUNE.ai_party_courts
+        cm.get_human_factions = function() return {"wh3_dlc23_chd_conclave"} end
+        IC.TUNE.ai_party_courts = 1
+        local ai = {}
+        for i = 1, #IC.ORIGINS do
+            local key = IC.ORIGINS[i].faction
+            if key and key ~= "wh3_dlc23_chd_conclave" then
+                ai[#ai + 1] = key
+                make_faction(key, IC.CHD_SUBCULTURE, {}, {})
+            end
+        end
+        make_faction(TST_F, T.subculture, {}, {})
+        -- THE ROUND'S LENGTH is the candidate count, with one court a turn.
+        local function period()
+            local first
+            for t = 1, 400 do
+                turn = t
+                if IC.party_turn_due(ai[1]) then
+                    if first then return t - first end
+                    first = t
+                end
+            end
+        end
+        local on = period()
+        T.switch, IC.TUNE.tst_courts = "tst_courts", false
+        local off = period()
+        T.switch, IC.TUNE.tst_courts = nil, nil
+        -- THE CHAOS DWARFS ALONE: every other race out of the order for one count.
+        local order = IC.RACE_ORDER
+        IC.RACE_ORDER = {"chd"}
+        local alone = period()
+        IC.RACE_ORDER = order
+        cm.get_human_factions, IC.TUNE.ai_party_courts = saved_humans, keep
+        assert(on == alone, "with another race on, the round is " .. tostring(on)
+            .. ", not the Chaos Dwarfs' " .. tostring(alone))
+        assert(off == alone, "with another race off, the round is " .. tostring(off)
+            .. ", not the Chaos Dwarfs' " .. tostring(alone))
+    end)
+end)
+
+check("race plumbing: a race missing a required field is refused at registration", function()
+    local drops = {"key", "subculture", "infix", "tune", "OFFICES", "PARTY_TROOPS", "TROOPS_DEFAULT"}
+    local before = table.concat(IC.RACE_ORDER, ",")
+    for _, field in ipairs(drops) do
+        local t = test_race()
+        t[field] = nil
+        local ok, err = pcall(IC.register_race, t)
+        IC.RACES.tst = nil
+        assert(not ok, "a race with no " .. field .. " was registered")
+        assert(string.find(tostring(err), field, 1, true), "the refusal does not name " .. field .. ": " .. tostring(err))
+    end
+    assert(table.concat(IC.RACE_ORDER, ",") == before, "a refused race joined the order")
+end)
+
+-- EVERY CALL OF A KEYED HELPER NAMES THE FACTION (plan 2026-10-04 phase 1).
+-- Left off, the helper answers the Chaos Dwarfs for any court: the one failure
+-- no Chaos Dwarf check can see. RACE_ARITY[name] is the argument count with the
+-- faction. A call split over two lines is not matched; none is today.
+local RACE_ARITY = {
+    key = 3, rkey = 3, office_bundle = 2, vacancy_bundle = 2, office_trait = 2,
+    gov_bundle = 2, law_bundle = 3, gov_bundle_house = 2, control_bundle = 2,
+    office_title_key = 2, member_trait_keys = 1,
+    office_by_slug = 2, law_opt = 3, law_stance = 4, is_party = 2, rolled_name = 4,
+    gov_for_party = 2, office_influence = 2, office_rank = 2, office_weight = 3,
+    recruit_influence = 2, rebel_draw = 2, roll_origin = 1, origin_for = 2,
+    chd_factions = 1,
+    standing_trait = 2, ambition_trait = 2, gov_bundle_base = 1, troop_key = 2,
+}
+
+-- THE ARGUMENTS IN A "(...)" %b() HANDED BACK, counted at depth one.
+local function top_level_args(inner)
+    local depth, n, seen = 0, 0, false
+    for i = 1, #inner do
+        local c = string.sub(inner, i, i)
+        if c == "(" or c == "{" then
+            depth = depth + 1
+        elseif c == ")" or c == "}" then
+            depth = depth - 1
+        elseif c == "," and depth == 1 then
+            n = n + 1
+        elseif depth >= 1 and not string.find(c, "%s") then
+            seen = true
+        end
+    end
+    return seen and n + 1 or 0
+end
+
+check("race plumbing: every call of a keyed helper names the faction", function()
+    local dir = "Modding Files/pack/script/campaign/mod/"
+    local bad = {}
+    for _, file in ipairs({"zzz_derpy_iron_court.lua", "zzz_derpy_iron_court_parties.lua",
+                           "zzz_derpy_iron_court_ui.lua", "zzz_derpy_iron_court_ui_map.lua"}) do
+        local n = 0
+        for line in io.lines(dir .. file) do
+            n = n + 1
+            local code = string.gsub(line, "%-%-.*$", "")
+            if not string.find(code, "^%s*function ") then
+                for name, want in pairs(RACE_ARITY) do
+                    for inner in string.gmatch(code, "IC%." .. name .. "(%b())") do
+                        if top_level_args(inner) ~= want then
+                            bad[#bad + 1] = file .. ":" .. n .. ": " .. string.match(line, "^%s*(.-)%s*$")
+                        end
+                    end
+                end
+            end
+        end
+    end
+    assert(#bad == 0, #bad .. " call(s) leave the faction off:\n  " .. table.concat(bad, "\n  "))
+end)
+
+check("race plumbing: a lookup by slug answers the faction's own race", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        make_faction(TST_F, T.subculture, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        -- THE SAME SLUG, ANOTHER TIER: the Warden of the Roads sits on II in the
+        -- hall and on III on the ziggurat.
+        assert(IC.office_by_slug("roads", TST_F).tier == 2 and IC.office_by_slug("roads", F).tier == 3,
+            "office_by_slug read one race for both")
+        assert(IC.office_influence("roads", TST_F) == IC.tier_influence(2)
+               and IC.office_rank("roads", TST_F) == IC.tier_rank(2)
+               and IC.office_influence("roads", F) == IC.tier_influence(3),
+            "a seat's bar is not its race's tier")
+        assert(IC.law_opt("craft", "lash", TST_F) and not IC.law_opt("craft", "lash", F)
+               and IC.law_opt("labour", "lash", F), "law_opt read one race for both")
+        assert(IC.law_stance("craft", "lash", "chain", TST_F) == "aye", "law_stance missed the race")
+        assert(IC.is_party("temple", TST_F) and not IC.is_party("tkarak", TST_F), "is_party is wrong")
+        assert(IC.gov_for_party("forge", TST_F) == "forge", "gov_for_party is wrong")
+        assert(IC.rolled_name("temple", 1, 1, TST_F) == "Kin of the Test Hall",
+            "the name was rolled off " .. tostring(IC.rolled_name("temple", 1, 1, TST_F)))
+        assert(IC.roll_origin(TST_F) == "thold", "the second race rolled a birthplace not its own")
+        -- ASKED OF EVERY RACE: an origin slug names its faction, a subtype its legend.
+        assert(IC.faction_for_origin("tkarak") == TST_F and IC.origin_for_faction(TST_F) == "tkarak"
+               and IC.faction_for_origin("khorakk") == "cr_chd_house_of_khorakk",
+            "an origin was not found across the races")
+        assert(IC.is_legend(make_character(9202, ANY_SEAT, nil, nil, nil, nil, "tst_legend"))
+               and IC.is_legend(make_character(9203, ANY_SEAT, nil, nil, nil, nil, "derpy_warrhak")),
+            "a legend of one race was not known")
+    end)
+end)
+
+-- EVERY READ OF A RACE TABLE GOES THROUGH THE FACTION'S RACE (plan 2026-10-04
+-- phase 1). A site left on IC.X is identical for every Chaos Dwarf court, so no
+-- behaviour check of this phase can see it; a Dwarf court would run on it.
+-- A file joins RACE_SCAN_FILES when its sites are converted (Tasks 6-8).
+-- RACE_SCAN_ALLOW: the trimmed line, and why it may read the Chaos Dwarf table.
+local RACE_SCAN_FILES = {"zzz_derpy_iron_court.lua", "zzz_derpy_iron_court_parties.lua",
+                         "zzz_derpy_iron_court_ui.lua", "zzz_derpy_iron_court_ui_map.lua"}
+local RACE_SCAN_ALLOW = {
+    ["for row = 1, #IC.TIERS do"] =
+        "the ziggurat grid at load; phase 3 sets ICUI.BASE.CARD_XY from the race",
+    ["local n = IC.TIER_SEATS[IC.TIERS[row]]"] = "the same loop",
+}
+
+check("race plumbing: no site reads a race table off IC", function()
+    local names = {"TIERS", "TIER_SEATS", "PARTY_OF_BG"}
+    for _, k in ipairs(IC.RACE_FIELDS) do names[#names + 1] = k end
+    local dir = "Modding Files/pack/script/campaign/mod/"
+    local bad = {}
+    local allowed_hits = {}
+    for _, file in ipairs(RACE_SCAN_FILES) do
+        local n = 0
+        for line in io.lines(dir .. file) do
+            n = n + 1
+            local code = string.gsub(line, "%-%-.*$", "")
+            local text = string.match(code, "^%s*(.-)%s*$")
+            -- A TABLE'S OWN DEFINITION, at column 0, is where it lives.
+            local defines = string.find(line, "^IC%.[%u_]+ = [{\"]")
+            -- AN ALLOWED LINE IS EXEMPT ONLY BYTE FOR BYTE (the lookup is the whole
+            -- trimmed line), so an edit that adds a second read to it falls out of
+            -- the allow-list and is scanned like any other line.
+            if RACE_SCAN_ALLOW[text] then allowed_hits[text] = (allowed_hits[text] or 0) + 1 end
+            if text ~= "" and not defines and not RACE_SCAN_ALLOW[text] then
+                for _, k in ipairs(names) do
+                    if string.find(code .. " ", "IC%." .. k .. "[^%w_]") then
+                        bad[#bad + 1] = file .. ":" .. n .. ": " .. text
+                        break
+                    end
+                end
+            end
+        end
+    end
+    assert(#bad == 0, #bad .. " site(s) read a race table off IC:\n  " .. table.concat(bad, "\n  "))
+    -- A STALE ALLOW ENTRY is an exemption nobody uses: it would pass a line
+    -- that later came back. A SECOND COPY of an allowed line is a new site the
+    -- entry was never written for.
+    for key in pairs(RACE_SCAN_ALLOW) do
+        assert(allowed_hits[key], "stale RACE_SCAN_ALLOW entry, no scanned line matches: " .. key)
+        assert(allowed_hits[key] == 1, "RACE_SCAN_ALLOW entry matches " .. allowed_hits[key] .. " lines: " .. key)
+    end
+end)
+
+check("race plumbing: a court of another race runs on its own tables and keys", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        local saved_humans = cm.get_human_factions
+        cm.get_human_factions = function() return {TST_F} end
+        local ok, err = pcall(function()
+            make_faction(TST_F, T.subculture, {}, {})
+            IC.roll_court(TST_F)
+            -- A SEAT FILLED WEARS THE RACE'S OWN BUNDLE.
+            applied["derpy_ic_office_priest"] = nil
+            IC.court(TST_F).offices.priest = 9301
+            IC.apply_office_bundles(TST_F)
+            assert(applied["derpy_ic_office_tst_priest"] == 1, "the seat wears no race bundle")
+            assert(applied["derpy_ic_office_priest"] == nil, "the seat wears the Chaos Dwarf bundle")
+            -- LAWS, BY THE RACE'S OWN CATEGORIES, through the save.
+            IC.court(TST_F).laws.craft = "lash"
+            IC.apply_law_bundles(TST_F)
+            assert(applied["derpy_ic_law_tst_craft_lash"] == 1, "the law in force wears no race bundle")
+            local packed = IC.pack(TST_F)
+            IC.state[TST_F] = nil
+            IC.unpack(TST_F, packed)
+            assert(IC.court(TST_F).laws.craft == "lash", "the race's law did not survive the save")
+            assert(IC.start_gov(TST_F) == "forge", "the race's start government was not read")
+        end)
+        cm.get_human_factions = saved_humans
+        if not ok then error(err, 0) end
+    end)
+end)
+
+check("race plumbing: the panel reads the player's race", function()
+    with_test_race(function(T)
+        IC.state = {}
+        factions = {}
+        make_faction(TST_F, T.subculture, {}, {})
+        local saved_local, saved_humans = cm.get_local_faction_name, cm.get_human_factions
+        cm.get_local_faction_name = function() return TST_F end
+        cm.get_human_factions = function() return {TST_F} end
+        local ok, err = pcall(function()
+            assert(ICUI.race() == T, "ICUI.race() is not the player's race")
+            local text = ICUI.section_text("offices")
+            assert(string.find(text, "(2/4/4/4)", 1, true), "the offices label reads " .. text)
+            assert(ICUI.law_at(1) == "craft", "the board's first category is " .. tostring(ICUI.law_at(1)))
+            assert(ICUI.law_default(TST_F)[1] == "craft", "the board opens on " .. tostring(ICUI.law_default(TST_F)[1]))
+        end)
+        cm.get_local_faction_name, cm.get_human_factions = saved_local, saved_humans
+        if not ok then error(err, 0) end
+    end)
+end)
+
+-- THE DWARF CONTENT (plan 2026-10-04 phase 2). ONE block, so the main chunk's
+-- local count does not move. D is Karak Kadrin (Ungrim), the spec's demo court.
+do
+    local D = "wh_main_dwf_karak_kadrin"
+    local DWF_SUB = "wh_main_sc_dwf_dwarfs"
+    local RF = {chd = F, dwf = D}
+    local SUB = {chd = IC.CHD_SUBCULTURE, dwf = DWF_SUB}
+    local function fresh()
+        IC._race_cache = {}
+        IC.state = {}
+        factions = {}
+        applied = {}
+    end
+    -- PLAYER TEXT ONLY: a string with a capital or a space. A slot slug the two
+    -- races share ("convoy", "hellforge") is a key and is never drawn.
+    local BANNED = {"hashut", "zharr", "hell%-?forge", "slave", "labourer", "hobgoblin",
+                    "convoy", "ziggurat", "daemon", "chaos dwarf", "guild"}
+    local function player_strings(t, path, out, seen)
+        if seen[t] then return out end
+        seen[t] = true
+        for k, v in pairs(t) do
+            local here = path .. "." .. tostring(k)
+            if type(v) == "table" then
+                player_strings(v, here, out, seen)
+            elseif type(v) == "string" and (string.find(v, "%u") or string.find(v, " ")) then
+                out[#out + 1] = {here, v}
+            end
+        end
+        return out
+    end
+
+    check("dwarfs: the race is registered second and answers for a Dwarf faction", function()
+        fresh()
+        assert(#IC.RACE_ORDER == 2 and IC.RACE_ORDER[1] == "chd" and IC.RACE_ORDER[2] == "dwf",
+            "the race order is " .. table.concat(IC.RACE_ORDER, ","))
+        local R = IC.RACES.dwf
+        assert(R.key == "dwf" and R.subculture == DWF_SUB and R.infix == "dwf_",
+            "the Dwarf race's identity is wrong")
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        assert(IC.race_key(D) == "dwf", "Karak Kadrin is race " .. tostring(IC.race_key(D)))
+        assert(IC.R(D) == R, "IC.R does not answer the Dwarf race for Karak Kadrin")
+        assert(IC.key("office", "priest", D) == "derpy_ic_office_dwf_priest",
+            "a Dwarf key is " .. IC.key("office", "priest", D))
+        assert(IC.key("office", "priest", F) == "derpy_ic_office_priest",
+            "a Chaos Dwarf key moved: " .. IC.key("office", "priest", F))
+    end)
+
+    check("dwarfs: tiers are 2/4/4/4 and each office sits in its Great Hall cell", function()
+        local R = IC.RACES.dwf
+        local want = {
+            {"priest", "temple", 1, {1, 0}}, {"forge", "forge", 1, {3, 0}},
+            {"ledger", "ledger", 2, {0, 0}}, {"warden", "legion", 2, {4, 0}},
+            {"hand", "tower", 2, {1, 1}}, {"roads", "road", 2, {3, 1}},
+            {"chains", "chain", 3, {0, 1}}, {"pits", "chain", 3, {4, 1}},
+            {"quarry", "forge", 3, {1, 2}}, {"muster", "legion", 3, {3, 2}},
+            {"kilns", "hearth", 4, {0, 2}}, {"fields", "hearth", 4, {4, 2}},
+            {"scribes", "tower", 4, {1, 3}}, {"banners", "legion", 4, {3, 3}},
+        }
+        assert(#R.OFFICES == #want, #R.OFFICES .. " Dwarf offices")
+        for i, w in ipairs(want) do
+            local o = R.OFFICES[i]
+            assert(o.slug == w[1] and o.affinity == w[2] and o.tier == w[3],
+                "office " .. i .. " is " .. o.slug .. "/" .. o.affinity .. "/" .. o.tier)
+            local c = R.grid.cells[i]
+            assert(c[1] == w[4][1] and c[2] == w[4][2], o.slug .. " sits at " .. c[1] .. "," .. c[2])
+        end
+        assert(R.grid.cols == 5 and R.grid.rows == 4 and R.grid.throne[1] == 2
+               and R.grid.throne[2] == 0, "the Great Hall is not 5x4 with the throne at 2,0")
+        local seats = {2, 4, 4, 4}
+        for t = 1, 4 do
+            assert(R.TIER_SEATS[t] == seats[t], "tier " .. t .. " has " .. tostring(R.TIER_SEATS[t]))
+        end
+        local factions_n = 0
+        for _, o in ipairs(R.ORIGINS) do if o.faction then factions_n = factions_n + 1 end end
+        assert(factions_n == 14 and #R.ORIGINS == 18, factions_n .. " faction origins of " .. #R.ORIGINS)
+        assert(R.MAX_SEATS == #R.PARTIES + factions_n, "MAX_SEATS is " .. tostring(R.MAX_SEATS))
+        for _, p in ipairs(R.PARTIES) do
+            for _, bg in ipairs(R.BACKGROUNDS[p]) do
+                assert(R.PARTY_OF_BG[bg] == p, bg .. " does not seat its man in " .. p)
+            end
+        end
+    end)
+
+    check("dwarfs: a Dwarf party's name rolls from the Dwarf words and fits", function()
+        local R = IC.RACES.dwf
+        local heads = {}
+        for _, h in ipairs(R.NAME_HEADS) do
+            heads[h] = true
+            for w in string.gmatch(string.lower(h), "%a+") do
+                for party, tails in pairs(R.NAME_TAILS) do
+                    for _, tail in ipairs(tails) do
+                        for tw in string.gmatch(string.lower(tail), "%a+") do
+                            assert(tw ~= w, "the head " .. h .. " repeats a word of " .. party .. "'s " .. tail)
+                        end
+                    end
+                end
+            end
+        end
+        for party, tails in pairs(R.NAME_TAILS) do
+            for _, tail in ipairs(tails) do
+                assert(#tail <= 18, party .. "'s tail " .. tail .. " is " .. #tail .. " characters")
+                for _, h in ipairs(R.NAME_HEADS) do
+                    assert(#h + 4 + #tail <= 30, h .. " of " .. tail .. " is over 30 characters")
+                end
+            end
+        end
+        for _ = 1, 8 do
+            fresh()
+            make_faction(D, DWF_SUB, {}, {})
+            IC.roll_court(D)
+            assert(IC.court_rolled(D), "the Dwarf court did not roll")
+            for slug, house in pairs(IC.court(D).houses) do
+                if slug ~= "crown" and not house.confed then
+                    local name = IC.party_name(D, slug)
+                    local head, tail = string.match(tostring(name), "^(.-) of (.+)$")
+                    assert(head and heads[head], slug .. " is named " .. tostring(name))
+                    local known = false
+                    for _, t in ipairs(R.NAME_TAILS[slug]) do if t == tail then known = true end end
+                    assert(known, slug .. "'s tail " .. tostring(tail) .. " is not a Dwarf tail")
+                end
+            end
+        end
+    end)
+
+    check("dwarfs: governments keep their slot's rule but the Iron Law's, per court", function()
+        fresh()
+        IC_GOVS_ON = true
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local R = IC.RACES.dwf
+        local function same(a, b)
+            if type(a) ~= "table" or type(b) ~= "table" then return a == b end
+            for k, v in pairs(a) do if not same(v, b[k]) then return false end end
+            for k in pairs(b) do if a[k] == nil then return false end end
+            return true
+        end
+        assert(same(R.GOV_ORDER, IC.GOV_ORDER), "the Dwarf governments are not the six slots")
+        for _, g in ipairs(IC.GOV_ORDER) do
+            assert(same(R.GOVS[g].parties, IC.GOVS[g].parties), g .. " is backed by other parties")
+            if g ~= "chain" then
+                assert(same(R.GOVS[g].over, IC.GOVS[g].over), g .. " does not keep its slot's rule")
+            end
+        end
+        IC.court(D).gov = "chain"
+        IC.court(F).gov = "chain"
+        for _, key in ipairs({"plot_oath_cost", "plot_pledge_cost", "plot_patron_cost"}) do
+            local third = math.floor(IC.TUNE[key] * 0.67 + 0.5)
+            assert(IC.tune(D, key) == third, key .. " costs " .. tostring(IC.tune(D, key))
+                .. " under the Iron Law, not " .. third)
+            assert(IC.tune(F, key) == IC.TUNE[key], key .. " moved under the Slave-Lords")
+        end
+        assert(IC.tune(D, "plot_murder_cost") == IC.TUNE.plot_murder_cost,
+            "the Iron Law kept the Slave-Lords' murder discount")
+        assert(IC.tune(F, "plot_murder_cost") == math.floor(IC.TUNE.plot_murder_cost * 0.65 + 0.5),
+            "the Slave-Lords lost their murder discount")
+        IC_GOVS_ON = nil
+    end)
+
+    check("dwarfs: each Dwarf faction starts on its own government", function()
+        local want = {
+            wh_main_dwf_dwarfs = "priest", wh_main_dwf_karak_kadrin = "legion",
+            wh_main_dwf_karak_izor = "chain", wh3_main_dwf_the_ancestral_throng = "priest",
+            wh2_dlc17_dwf_thorek_ironbrow = "conclave", wh3_dlc25_dwf_malakai = "forge",
+            wh_main_dwf_barak_varr = "convoy", wh_main_dwf_zhufbar = "forge",
+            wh_main_dwf_kraka_drak = "conclave", wh3_main_dwf_karak_azorn = "conclave",
+            wh_main_dwf_karak_norn = "conclave", wh_main_dwf_karak_hirn = "conclave",
+            wh_main_dwf_karak_azul = "conclave", wh_main_dwf_karak_ziflin = "conclave",
+        }
+        for fk, g in pairs(want) do
+            fresh()
+            make_faction(fk, DWF_SUB, {}, {})
+            assert(IC.start_gov(fk) == g, fk .. " starts on " .. tostring(IC.start_gov(fk)))
+        end
+        fresh()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        assert(IC.start_gov(F) == "convoy", "Uzkulak no longer starts on the Convoy Concern")
+    end)
+
+    check("dwarfs: Dwarf laws keep each slot's votes and start on their first option", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        local R = IC.RACES.dwf
+        for _, cat in ipairs(IC.LAW_ORDER) do
+            assert(R.LAWS[cat], "the Dwarfs have no " .. cat .. " category")
+            assert(IC.law_in_force(D, cat) == R.LAWS[cat].order[1],
+                cat .. " starts on " .. tostring(IC.law_in_force(D, cat)))
+            for _, opt in ipairs(IC.LAWS[cat].order) do
+                local mine, slot = IC.law_opt(cat, opt, D), IC.LAWS[cat].opts[opt]
+                assert(mine == R.LAWS[cat].opts[opt], cat .. "." .. opt .. " is not the Dwarf option")
+                assert(table.concat(mine.pro or {}, ",") == table.concat(slot.pro or {}, ",")
+                       and table.concat(mine.con or {}, ",") == table.concat(slot.con or {}, ","),
+                    cat .. "." .. opt .. " changed its parties")
+            end
+        end
+    end)
+
+    check("dwarfs: no Chaos Dwarf word and no Guild in any Dwarf string", function()
+        for _, pair in ipairs(player_strings(IC.RACES.dwf, "dwf", {}, {})) do
+            local low = string.lower(pair[2])
+            for _, word in ipairs(BANNED) do
+                assert(not string.find(low, word), pair[1] .. " says " .. pair[2])
+            end
+        end
+    end)
+
+    check("dwarfs: deeds are battle and research, and a Chaos Dwarf deed moves nothing", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        cm.get_human_factions = function() return {D} end
+        IC.add_house(D, "crown")
+        assert(IC.deed(D, "hellforge") == 0 and IC.deed(D, "convoy") == 0
+               and IC.deed(D, "temple") == 0, "a Chaos Dwarf deed moved a Dwarf court")
+        assert(IC.deed(D, "battle") > 0 and IC.renown(D, "legion") > 0,
+            "a victory gave the Clan Warriors no renown")
+        assert(IC.deed(D, "research") > 0 and IC.renown(D, "tower") > 0,
+            "research gave the Runesmiths no renown")
+        cm.get_human_factions = function() return {} end
+    end)
+
+    -- THE FIXTURE SET, ONCE PER RACE (spec section 10): a player court of each
+    -- race rolls and wears its own race's keys.
+    for _, rk in ipairs(IC.RACE_ORDER) do
+        check("dwarfs: race " .. rk .. ": a player's court rolls whole and wears its race's keys", function()
+            local fk = RF[rk]
+            fresh()
+            saved["derpy_ic_" .. fk] = nil
+            cm.get_human_factions = function() return {fk} end
+            IC_GOVS_ON = true
+            local men = {}
+            for i = 1, 4 do men[i] = make_character(9700 + i, ANY_SEAT, nil, nil) end
+            local f = make_faction(fk, SUB[rk], men, {"prov_a"})
+            IC.register()
+            core.listeners["ic_turn"]({faction = function() return f end})
+            IC_GOVS_ON = nil
+            cm.get_human_factions = function() return {} end
+            local R = IC.R(fk)
+            assert(R == IC.RACES[rk], fk .. " resolved to race " .. tostring(R and R.key))
+            assert(IC.court_rolled(fk), "the " .. rk .. " court did not roll")
+            local allowed = {}
+            for _, p in ipairs(R.PARTIES) do allowed[p] = true end
+            for slug, house in pairs(IC.court(fk).houses) do
+                assert(allowed[slug] or house.confed, slug .. " is not a " .. rk .. " party")
+            end
+            -- A FILLED SEAT wears its race's office bundle; an empty one wears
+            -- nothing (vacancy bundles are retired, see "A SAVE THAT PREDATES").
+            -- A player's court seats nobody by itself: the player appoints one.
+            IC.appoint(fk, R.OFFICES[1].slug, 9701)
+            local filled = 0
+            for _, o in ipairs(R.OFFICES) do
+                if IC.court(fk).offices[o.slug] then
+                    filled = filled + 1
+                    assert(applied[IC.key("office", o.slug, fk)],
+                        "the " .. rk .. " court's " .. o.slug .. " wears no " .. IC.key("office", o.slug, fk))
+                end
+            end
+            assert(filled > 0, "the " .. rk .. " court seated nobody")
+            assert(applied[IC.key("doctrine", R.START_GOV[fk], fk)],
+                "the " .. rk .. " court does not wear its start government " .. R.START_GOV[fk])
+            for _, cat in ipairs(R.LAW_ORDER) do
+                local key = IC.key("law", cat .. "_" .. R.LAWS[cat].order[1], fk)
+                assert(applied[key], "the " .. rk .. " court does not wear " .. key)
+            end
+            local bands = 0
+            for _, b in ipairs(IC.CONTROL) do
+                if applied[IC.key("control", b.slug, fk)] then bands = bands + 1 end
+            end
+            assert(bands == 1, "the " .. rk .. " court wears " .. bands .. " control bands")
+        end)
+    end
+    check("dwarfs: a Dwarf rising is a Dwarf army under a Dwarf lord with a Dwarf mind", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local R = IC.RACES.dwf
+        assert(IC.rebel_general(D, nil).subtype == "wh_main_dwf_lord",
+            "a Dwarf rising is led by " .. IC.rebel_general(D, nil).subtype)
+        assert(IC.rebel_general(F, nil).subtype == IC.REBEL_LORD, "the Chaos Dwarf rebel lord moved")
+        assert(IC.rebel_lord(D) == R.REBEL_LORD and IC.rebel_lord(F) == IC.REBEL_LORD,
+            "IC.rebel_lord does not answer per race")
+        assert(IC.rebel_personality(D) == "wh3_combi_dwarf_endgame"
+               and IC.rebel_personality(F) == IC.REBEL_PERSONALITY,
+            "the rising's personality does not follow the race")
+        local ours = {}
+        for _, pool in pairs(R.REBEL_POOLS) do
+            for _, u in ipairs(pool) do ours[u[1]] = true end
+        end
+        local drawn = IC.rebel_draw(IC.TUNE.rebel_units, D)
+        assert(#drawn == IC.TUNE.rebel_units, "a Dwarf draft drew " .. #drawn .. " units")
+        for _, u in ipairs(drawn) do assert(ours[u], "a Dwarf rising drew " .. u) end
+        for _, u in ipairs(IC.rebel_draw(IC.TUNE.rebel_units)) do
+            assert(not ours[u], "a Chaos Dwarf rising drew the Dwarf unit " .. u)
+        end
+        for _, u in ipairs(IC.rebel_kit(D, nil)) do
+            assert(ours[u], "a Dwarf rising's kit was topped up with " .. u)
+        end
+    end)
+
+    check("dwarfs: a Dwarf party's new lord is a Dwarf lord, and its doctrine says its own name", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local lords = IC.store_lords(D)
+        assert(#lords == 2 and lords[1] == "wh_main_dwf_lord" and lords[2] == "wh_dlc06_dwf_runelord",
+            "a leaderless Dwarf party is given " .. table.concat(lords, ","))
+        assert(IC.store_lords(F) == IC.STORE_LORDS, "the Chaos Dwarf store lords moved")
+        assert(IC.doctrine_name(D) == "Masters of Steel and Stone",
+            "the Dwarf doctrine line reads " .. IC.doctrine_name(D))
+        assert(IC.doctrine_name(F) == "Military Doctrine", "the Chaos Dwarf doctrine line moved")
+    end)
+    check("dwarfs: every move and favour has its Dwarf name, and a Chaos Dwarf court keeps its own", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local R = IC.RACES.dwf
+        local listed = {}
+        for _, key in ipairs(R.PLOT_KEYS) do
+            listed[key] = true
+            assert(IC.plot_by_key(key), "PLOT_KEYS names " .. key .. ", which IC.PLOTS has not")
+            local name, blurb, effect = IC.plot_text(key, D)
+            -- A DWARF-ONLY MOVE (the weregild, phase 4) is worded in its own row.
+            local own = IC.plot_by_key(key).race == "dwf" and IC.plot_by_key(key) or R.PLOT_TEXT[key]
+            assert(own and name == own.name, key .. " has no Dwarf name")
+            assert(blurb and blurb ~= "" and effect and effect ~= "", key .. " has no Dwarf blurb or effect")
+            assert(IC.plot_text(key, F) == IC.plot_by_key(key).name, key .. "'s Chaos Dwarf name moved")
+        end
+        for key in pairs(R.PLOT_TEXT) do
+            assert(listed[key], "PLOT_TEXT words " .. key .. ", which PLOT_KEYS does not list")
+        end
+        local _n, _b, slayer = IC.plot_text("murder", D)
+        assert(string.find(slayer, "Slayer Oath", 1, true), "the murder slot says " .. slayer)
+        for _, fav in ipairs(IC.FAVOURS) do
+            local name, blurb = IC.favour_text(fav.key, D)
+            assert(name == R.FAVOUR_TEXT[fav.key].name and blurb == R.FAVOUR_TEXT[fav.key].blurb,
+                fav.key .. " has no Dwarf words")
+            assert(IC.favour_text(fav.key, F) == fav.name, fav.key .. "'s Chaos Dwarf name moved")
+        end
+    end)
+
+    check("dwarfs: the envoy's four Dwarf tasks are control, Oathgold, growth and recruitment", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local codes = {}
+        for _, t in ipairs(IC.envoy_tasks(D)) do
+            codes[#codes + 1] = t.code
+            assert(t.bundle == IC.key("envoy", t.code, D), t.code .. " applies " .. t.bundle)
+            assert(type(IC.TUNE[t.knob]) == "number", t.code .. "'s knob " .. t.knob .. " is not a setting")
+        end
+        assert(table.concat(codes, ",") == "ctl,oath,grow,rec", "the Dwarf tasks are " .. table.concat(codes, ","))
+        local p, task = IC.envoy_split("prov_a:oath", D)
+        assert(p == "prov_a" and task and task.bundle == "derpy_ic_envoy_dwf_oath", "prov_a:oath split wrong")
+        local _p, none = IC.envoy_split("prov_a:arm", D)
+        assert(none == nil, "a Dwarf envoy can still drive the armaments")
+        local _q, arm = IC.envoy_split("prov_a:arm")
+        assert(arm and arm.bundle == "derpy_ic_envoy_arm", "the Chaos Dwarf envoy lost its armaments task")
+        assert(IC.envoy_tasks(F) == IC.ENVOY_TASKS, "the Chaos Dwarf tasks moved")
+    end)
+
+    check("dwarfs: the feed reads Dwarf words where the Dwarfs have them", function()
+        fresh()
+        make_faction(D, DWF_SUB, {}, {})
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        shown = {}
+        IC.raise_feed(D, "gov_intro")
+        assert(shown[#shown].title == "event_feed_strings_text_derpy_ic_event_dwf_gov_intro_title",
+            "a Dwarf court's introduction reads " .. tostring(shown[#shown].title))
+        IC.raise_feed(D, "plot_ok")
+        assert(shown[#shown].title == "event_feed_strings_text_derpy_ic_event_plot_ok_title",
+            "a shared event took a Dwarf key: " .. tostring(shown[#shown].title))
+        IC.raise_feed(F, "gov_intro")
+        assert(shown[#shown].title == "event_feed_strings_text_derpy_ic_event_gov_intro_title",
+            "the Chaos Dwarf introduction moved")
+        IC.raise_feed_located(F, "realm_secede", 10, 20, D)
+        assert(shown[#shown].primary == "event_feed_strings_text_derpy_ic_event_dwf_realm_secede_primary",
+            "news of a Dwarf split reads " .. tostring(shown[#shown].primary))
+        assert(IC.party_drawn_key(D, "legion")
+               == "event_feed_strings_text_derpy_ic_event_party_drawn_dwf_legion", "party_drawn key")
+        assert(IC.party_drawn_key(F, "legion")
+               == "event_feed_strings_text_derpy_ic_event_party_drawn_legion", "the Chaos Dwarf party_drawn key moved")
+        assert(IC.move_result_key("bribe", true, D)
+               == "event_feed_strings_text_derpy_ic_move_dwf_bribe_ok", "the Dwarf move result key")
+        assert(IC.move_result_key("bribe", false, F)
+               == "event_feed_strings_text_derpy_ic_move_bribe_fail", "the Chaos Dwarf move result key moved")
+        assert(IC.move_result_key("bribe", true)
+               == "event_feed_strings_text_derpy_ic_move_bribe_ok", "the two-argument move result key moved")
+    end)
+    check("dwarfs: the Dwarf courts setting is registered, live and on by default", function()
+        assert(IC.TUNE.dwarf_courts == true, "dwarf_courts is " .. tostring(IC.TUNE.dwarf_courts))
+        assert(IC.TUNE_ORDER[#IC.TUNE_ORDER] == "dwarf_courts",
+            "dwarf_courts is not appended last to the save order")
+        local live = false
+        for _, k in ipairs(IC.LIVE_TUNE) do if k == "dwarf_courts" then live = true end end
+        assert(live, "dwarf_courts cannot be flipped in a running campaign")
+        assert(IC.RACES.dwf.switch == "dwarf_courts", "the Dwarf race names no switch")
+    end)
+
+    check("dwarfs: with Dwarf courts off a Dwarf court comes off the map whole and a Chaos Dwarf one runs", function()
+        fresh()
+        saved["derpy_ic_" .. D] = nil
+        cm.get_human_factions = function() return {D} end
+        IC_GOVS_ON = true
+        local f = make_faction(D, DWF_SUB, {make_character(9801, ANY_SEAT, nil, nil),
+                                            make_character(9802, ANY_SEAT, nil, nil)}, {"prov_a"})
+        local g = make_faction(F, IC.CHD_SUBCULTURE, {}, {"prov_b"})
+        IC.register()
+        core.listeners["ic_turn"]({faction = function() return f end})
+        local worn = 0
+        for key in pairs(applied) do
+            if string.find(key, "_dwf_", 1, true) then worn = worn + 1 end
+        end
+        assert(worn > 0, "the Dwarf court wore nothing with the setting on, so off proves nothing")
+        with_frozen({dwarf_courts = false}, function()
+            assert(not IC.has_court(f), "a Dwarf faction has a court with Dwarf courts off")
+            assert(IC.has_court(g), "a Chaos Dwarf faction lost its court to the Dwarf setting")
+            core.listeners["ic_turn"]({faction = function() return f end})
+            for key in pairs(applied) do
+                assert(not string.find(key, "_dwf_", 1, true), "still worn with Dwarf courts off: " .. key)
+            end
+            assert(saved["derpy_ic_" .. D] == "", "the switched-off Dwarf court is still in the save")
+        end)
+        IC_GOVS_ON = nil
+        cm.get_human_factions = function() return {} end
+    end)
+    -- ORIGIN AND BACKGROUND SLUGS ARE UNIQUE ACROSS RACES: IC.origin_trait and
+    -- IC.bg_trait look a slug up alone, first race first, so a shared slug puts
+    -- a Dwarf lord in the Chaos Dwarf trait (pre-flight B2).
+    check("dwarfs: no origin or background slug is shared by two races", function()
+        local seen = {}
+        for _, rk in ipairs(IC.RACE_ORDER) do
+            local R = IC.RACES[rk]
+            for _, o in ipairs(R.ORIGINS) do
+                local k = "origin " .. o.slug
+                assert(not seen[k], k .. " is both " .. tostring(seen[k]) .. "'s and " .. rk .. "'s")
+                seen[k] = rk
+            end
+            for _, list in pairs(R.BACKGROUNDS) do
+                for _, bg in ipairs(list) do
+                    local k = "background " .. bg
+                    assert(not seen[k] or seen[k] == rk,
+                        k .. " is both " .. tostring(seen[k]) .. "'s and " .. rk .. "'s")
+                    seen[k] = rk
+                end
+            end
+        end
+    end)
+    check("dwarfs: every key a Dwarf court wears is a Dwarf row the generator ships", function()
+        local function first_column(file)
+            local out = {}
+            local fh = assert(io.open("Modding Files/source/iron_court/" .. file, "r"),
+                "no " .. file .. " - run py tools\\gen_iron_court.py")
+            for line in fh:lines() do
+                local k = string.match(line, "^([^\t]+)")
+                if k then out[k] = true end
+            end
+            fh:close()
+            return out
+        end
+        local bundles = first_column("effect_bundles.tsv")
+        local traits = first_column("character_traits.tsv")
+        fresh()
+        traits_added = {}
+        saved["derpy_ic_" .. D] = nil
+        cm.get_human_factions = function() return {D} end
+        IC_GOVS_ON = true
+        local men = {}
+        for i = 1, 6 do men[i] = make_character(9600 + i, ANY_SEAT, nil, nil) end
+        local f = make_faction(D, DWF_SUB, men, {"prov_a"})
+        IC.register()
+        for _ = 1, 2 do core.listeners["ic_turn"]({faction = function() return f end}) end
+        IC_GOVS_ON = nil
+        cm.get_human_factions = function() return {} end
+        -- A PLAYER'S COURT SEATS NOBODY BY ITSELF (vacancy bundles are retired):
+        -- one appointment, so an office bundle is among what it wears. Made
+        -- once the faction is no longer the human, whose standing bar a new
+        -- man cannot clear.
+        local R = IC.RACES.dwf
+        local seat = R.OFFICES[#R.OFFICES].slug
+        assert(IC.appoint(D, seat, 9601), "the Dwarf court could not seat a man in " .. seat)
+        local worn = 0
+        for key in pairs(applied) do
+            if string.sub(key, 1, 9) == "derpy_ic_" then
+                worn = worn + 1
+                assert(string.find(key, "_dwf_", 1, true), "a Dwarf court wears the Chaos Dwarf bundle " .. key)
+                assert(bundles[key], "a Dwarf court wears " .. key .. ", which no effect_bundles row declares")
+            end
+        end
+        -- The government, every law in force, one control band and the office.
+        local least = 1 + #R.LAW_ORDER + 1 + 1
+        assert(applied[IC.key("office", seat, D)], "the appointed Dwarf office wears nothing")
+        assert(worn >= least, "a Dwarf court wore only " .. worn .. " court bundles, not " .. least)
+        local stamped = 0
+        for _, entry in ipairs(traits_added) do
+            local trait = string.match(entry, "=(.+)$")
+            if trait and string.sub(trait, 1, 9) == "derpy_ic_" then
+                stamped = stamped + 1
+                assert(string.find(trait, "_dwf_", 1, true), "a Dwarf lord was given the Chaos Dwarf trait " .. trait)
+                assert(traits[trait], "a Dwarf lord was given " .. trait .. ", which no character_traits row declares")
+            end
+        end
+        assert(stamped > 0, "no court trait was stamped on a Dwarf lord, so the trait half proves nothing")
+    end)
+end -- DWARF CONTENT (plan 2026-10-04 phase 2)
+-- THE DWARF COURT ON THE FAKE ROOT (plan 2026-10-04 phase 3). Karak Kadrin, Ungrim
+-- Ironfist on the throne. Every check here goes back to the Chaos Dwarf layout at
+-- 1920 whether it passes or not: ICUI.open of a Dwarf court rewrote ICUI.BASE and the
+-- scaled tables in place, and every later check expects the Chaos Dwarf ones.
+-- ONE LOCAL, a table: the main chunk is past 140 locals and Lua stops at 200.
+local DW = {KK = "wh_main_dwf_karak_kadrin"}
+function DW.court(leader)
+    IC.state = {}
+    IC._race_cache = {}
+    turn = IC.TUNE.grace_turns + 5
+    local king = make_character(9900, ANY_SEAT, IC.CROWN, nil)
+    king._forename, king._surname = "derpy_test_dwf_fore", "derpy_test_dwf_sur"
+    IC_TEST_LOC = IC_TEST_LOC or {}
+    IC_TEST_LOC.derpy_test_dwf_fore, IC_TEST_LOC.derpy_test_dwf_sur = "Ungrim", "Ironfist"
+    IC_TEST_LOC["factions_screen_name_" .. DW.KK] = "Karak Kadrin"
+    local f = make_faction(DW.KK, "wh_main_sc_dwf_dwarfs", {king}, {})
+    if leader then f._leader = king end
+    cm.get_human_factions = function() return {DW.KK} end
+    for _, slug in ipairs(IC.R(DW.KK).PARTIES) do IC.add_house(DW.KK, slug) end
+    return IC.court(DW.KK)
+end
+function DW.chd_again()
+    ICUI.use_race(IC.RACES.chd)
+    ICUI.apply_scale(1920)
+    ICUI.pick = nil
+    cm.get_human_factions = function() return {F} end
+    IC._race_cache = {}
+end
+function DW.check(name, fn)
+    check(name, function()
+        local ok, err = xpcall(fn, debug.traceback)
+        DW.chd_again()
+        if not ok then error(err, 0) end
+    end)
+end
+
+DW.check("a Dwarf court opens the Dwarf panel file, its seats on the hall grid", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel, extra)
+        ICUI.open()
+        assert(extra.paths[ICUI.PANEL] == ICUI.PATH_PANEL .. "_dwf",
+            "built from " .. tostring(extra.paths[ICUI.PANEL]))
+        -- THE SPEC'S PICTURE, not grid_xy's arithmetic again: Tier I's first seat is
+        -- cell (1, 0) and the throne is cell (2, 0).
+        local c1 = panel.children[ICUI.CARD .. "_1"]
+        assert(c1.x == 398 and c1.y == 192, "seat 1 at " .. c1.x .. "," .. c1.y)
+        local t = panel.children.ic_throne
+        assert(t.x == 778 and t.y == 192, "the throne at " .. t.x .. "," .. t.y)
+        local grid = ICUI.grid_xy(IC.R(DW.KK).grid)
+        for i = 1, #grid do
+            local c = panel.children[ICUI.CARD .. "_" .. i]
+            assert(c.x == grid[i][1] and c.y == grid[i][2], "seat " .. i .. " is off its cell")
+        end
+        assert(ICUI.TITLE_CAP == 150 and ICUI.HEADING_CAP == 44, "the Dwarf caps are not in force")
+        assert(ICUI.PANEL_XY.ic_title[3] == 1100, "the Dwarf title cell is not in force")
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court's pooled cards wear the knot frame baked to their size", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        -- THE PARTY CARDS ARE MADE BY THEIR LIST, when the court draws.
+        ICUI.view = "court"
+        ICUI.refresh()
+        for _, p in ipairs({{ICUI.CARD, "364x184"}, {ICUI.PARTY, "455x266"},
+                            {ICUI.PLOT, "364x176"}, {ICUI.LAW, "306x150"}}) do
+            local c = fake_find(panel, p[1] .. "_1")
+            local got = c and c.images and c.images[ICUI.CARD_FRAME_INDEX]
+            assert(got == "ui/derpy_ic/dwf_frame_" .. p[2] .. ".png",
+                p[1] .. " wears " .. tostring(got))
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court at 1600x900 opens the Dwarf compact file, frames named by their 1920 size", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel, extra)
+        ICUI.open()
+        assert(extra.paths[ICUI.PANEL] == ICUI.PATH_PANEL .. "_dwf_compact",
+            "built from " .. tostring(extra.paths[ICUI.PANEL]))
+        local c1 = panel.children[ICUI.CARD .. "_1"]
+        assert(c1.x == ICUI.sc(398) and c1.y == ICUI.sc(192), "seat 1 at " .. c1.x .. "," .. c1.y)
+        assert(c1.images[ICUI.CARD_FRAME_INDEX] == "ui/derpy_ic/dwf_frame_364x184.png",
+            "the compact card asked for " .. tostring(c1.images[ICUI.CARD_FRAME_INDEX]))
+        ICUI.close(true)
+    end, nil, {1600, 900}, "dwf")
+end)
+
+DW.check("a Chaos Dwarf court opened after a Dwarf court is the Chaos Dwarf court", function()
+    DW.court(true)
+    with_fake_root(function() ICUI.open() ICUI.close(true) end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel, extra)
+        ICUI.open()
+        assert(extra.paths[ICUI.PANEL] == ICUI.PATH_PANEL, "built from " .. tostring(extra.paths[ICUI.PANEL]))
+        assert(ICUI.PANEL_XY.ic_throne == nil and ICUI.BASE.PANEL_XY.ic_throne == nil,
+            "the throne's cell outlived the Dwarf court")
+        assert(ICUI.PANEL_XY.ic_title[3] == 600, "the title cell is " .. ICUI.PANEL_XY.ic_title[3])
+        assert(ICUI.TITLE_CAP == 111 and ICUI.HEADING_CAP == 34, "the Dwarf caps outlived it")
+        for i, xy in ipairs(ICUI.CHD_BASE.CARD_XY) do
+            assert(ICUI.CARD_XY[i][1] == xy[1] and ICUI.CARD_XY[i][2] == xy[2],
+                "card " .. i .. " is still on the hall grid")
+        end
+        local card = panel.children[ICUI.CARD .. "_1"]
+        assert(not (card.images and card.images[ICUI.CARD_FRAME_INDEX]), "a Chaos Dwarf card was re-skinned")
+        local tab = panel.children.ic_tab_court
+        assert(tab.images[0] == ICUI.TAB_PLATE[0].on or tab.images[0] == ICUI.TAB_PLATE[0].off,
+            "the Chaos Dwarf tab wears " .. tostring(tab.images[0]))
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's lit tab wears the gold ribbon in dark ink, the others the blue", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local lit, off = panel.children.ic_tab_offices, panel.children.ic_tab_court
+        assert(lit.images[0] == "ui/derpy_ic/dwf_tab_selected_240x32.png"
+               and lit.images[1] == "ui/derpy_ic/dwf_tab_selected_240x32.png",
+            "the lit tab wears " .. tostring(lit.images[0]) .. " / " .. tostring(lit.images[1]))
+        assert(lit.text == "[[col:black]]Offices[[/col]]", "the lit tab reads " .. lit.text)
+        assert(off.images[0] == "ui/derpy_ic/dwf_tab_active_240x32.png"
+               and off.images[1] == "ui/derpy_ic/dwf_tab_hover_240x32.png",
+            "an unlit tab wears " .. tostring(off.images[0]) .. " / " .. tostring(off.images[1]))
+        assert(off.text == "Court", "an unlit tab reads " .. off.text)
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court's opener shows the Book of Grudges, a Chaos Dwarf court's the Hashut glyph", function()
+    DW.court(true)
+    local b = fake_component("opener")
+    ICUI.skin_opener(b)
+    local imgs = b.images or {}
+    assert(imgs[2] == "ui/skins/default/icon_book_grudges.png"
+           and imgs[5] == "ui/skins/default/icon_book_grudges.png",
+        "the Dwarf opener wears " .. tostring(imgs[2]) .. " / " .. tostring(imgs[5]))
+    DW.chd_again()
+    local c = fake_component("opener")
+    ICUI.skin_opener(c)
+    assert(not (c.images and next(c.images)), "the Chaos Dwarf opener was re-skinned")
+end)
+
+DW.check("a Dwarf court draws on the Dwarf ground, and gets it back after the Governors view", function()
+    DW.court(true)
+    with_fake_govmap(function(hud, panel)
+        ICUI.view = "court"
+        ICUI.pick = nil
+        ICUI.open()
+        assert(panel.images[0] == "ui/derpy_ic/dwf_panel_bg.png",
+            "the Dwarf court draws on " .. tostring(panel.images[0]))
+        map_click("ic_tab_govs")
+        assert(panel.images[0] == ICUI.MASK_NONE, "the map view kept a ground")
+        map_click("ic_tab_court")
+        assert(panel.images[0] == "ui/derpy_ic/dwf_panel_bg.png",
+            "leaving the map put back " .. tostring(panel.images[0]))
+        ICUI.close(true)
+    end, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court's title, hall and throne name its faction and its king", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view = "offices"
+        ICUI.refresh()
+        local ch = panel.children
+        assert(ch.ic_title.text == "The Council of Karak Kadrin", "title: " .. ch.ic_title.text)
+        assert(ch.ic_off_title.text == "THE GREAT HALL", "hall: " .. ch.ic_off_title.text)
+        assert(ch.ic_throne_of.text == "THE THRONE OF", "prefix: " .. ch.ic_throne_of.text)
+        assert(ch.ic_throne_name.text == "Karak Kadrin", "throne: " .. ch.ic_throne_name.text)
+        assert(ch.ic_throne_leader.text == "Ungrim Ironfist", "king: " .. ch.ic_throne_leader.text)
+        assert(ch.ic_zig_bg.visible, "the hall is hidden on the offices tab")
+        for _, k in ipairs(ICUI.THRONE_KEYS) do
+            assert(ch[k].visible, k .. " is hidden on the offices tab")
+        end
+        ICUI.view = "court"
+        ICUI.refresh()
+        for _, k in ipairs(ICUI.THRONE_KEYS) do
+            assert(not ch[k].visible, k .. " shows on the court tab")
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court with no king says the throne stands empty", function()
+    DW.court(false)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view = "offices"
+        ICUI.refresh()
+        assert(panel.children.ic_throne_leader.text == "The throne stands empty",
+            "king: " .. panel.children.ic_throne_leader.text)
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Chaos Dwarf court after a Dwarf court keeps its own words", function()
+    DW.court(true)
+    with_fake_root(function() ICUI.open() ICUI.close(true) end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view = "offices"
+        ICUI.refresh()
+        assert(panel.children.ic_off_title.text == ICUI.OFFICES_TITLE,
+            "the ziggurat reads " .. panel.children.ic_off_title.text)
+        assert(not string.find(panel.children.ic_title.text, "Council", 1, true),
+            "the Chaos Dwarf title reads " .. panel.children.ic_title.text)
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's Help page names nothing of the Chaos Dwarfs", function()
+    DW.court(true)
+    local R = IC.R(DW.KK)
+    -- EVERY REPLACEMENT STILL FINDS ITS LINE: an edit to the shared text would
+    -- otherwise put the Chaos Dwarf words back on a Dwarf page with no check failing.
+    local base = {}
+    for _, t in ipairs(ICUI.HELP_BASE or {}) do
+        for _, l in ipairs(t.lines) do base[l] = true end
+    end
+    for old in pairs(R.HELP_SWAP or {}) do assert(base[old], "no help line reads: " .. old) end
+    -- READ OFF THE DRAWN PAGE, every topic, so a line added to the shared text
+    -- with a Chaos Dwarf word in it fails here too.
+    local CHD = {"Chaos Dwarf", "Hell%-Forge", "Hashut", "Zharr", "[Ss]lave", "Conclave",
+                 "at the forge", "[Pp]ledge", "Circuit", "Legion", "[Bb]ribe", "bullet_chd"}
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view = "help"
+        for page = 1, #ICUI.HELP do
+            ICUI.help_page = page
+            ICUI.refresh()
+            for _, key in ipairs(ICUI.HELP_LINE_KEYS) do
+                local c = panel.children[key]
+                local text = c and c.visible and c.text or ""
+                for _, w in ipairs(CHD) do
+                    assert(not string.find(text, w), "page " .. page .. " says " .. w .. ": " .. text)
+                end
+            end
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("a Dwarf court's moves wear their Dwarf names on every card, tip and title", function()
+    DW.court(true)
+    -- NAMES THE TWO RACES SHARE (Send Diplomats, the two favours) would pass with
+    -- the Chaos Dwarf words drawn, so they wear test names while this runs.
+    local R = IC.R(DW.KK)
+    local saved_p, saved_f = R.PLOT_TEXT, R.FAVOUR_TEXT
+    R.PLOT_TEXT = setmetatable({diplomats = {name = "Test Diplomats"}}, {__index = saved_p})
+    R.FAVOUR_TEXT = {gift = {name = "Test Gift"}, secure = {name = "Test Secure"}}
+    local ok, err = pcall(with_fake_root, function(hud, panel)
+        ICUI.open()
+        ICUI.view = "intrigue"
+        ICUI.refresh()
+        local drawn = 0
+        for i, plot in pairs(ICUI.plot_at) do
+            local card = fake_find(panel, ICUI.PLOT .. "_" .. i)
+            local name_cell = card and fake_find(card, "ic_plot_name")
+            if name_cell and name_cell.visible ~= false then
+                local name = IC.plot_text(plot.key, DW.KK)
+                assert(name_cell.text == name, plot.key .. "'s card reads " .. tostring(name_cell.text)
+                    .. ", not " .. name)
+                drawn = drawn + 1
+            end
+        end
+        assert(drawn > 0, "no move card drew")
+        -- THE BUTTON TIPS, the move labels and the picker titles say the same.
+        local slug = ICUI.court_slugs(DW.KK)[1]
+        for key, move in pairs(ICUI.ACT_MOVE) do
+            local want = move.plot and IC.plot_text(move.plot, DW.KK)
+                         or IC.favour_text(move.favour, DW.KK)
+            local tip = ICUI.act_tip(DW.KK, key, slug)
+            assert(string.find(tip, want, 1, true), key .. "'s tip reads " .. tip)
+        end
+        for _, plot in ipairs(IC.PLOTS) do
+            local want = IC.plot_text(plot.key, DW.KK)
+            assert(ICUI.plot_label(plot.key) == want, plot.key .. " labels as " .. ICUI.plot_label(plot.key))
+            ICUI.pick = {kind = "diplomats_faction", plot = plot.key}
+            assert(string.find(ICUI.pick_title(), want, 1, true), "the picker titles " .. ICUI.pick_title())
+        end
+        ICUI.pick = nil
+        -- AND THE RECORD, which names the move that came to nothing.
+        local line = ICUI.intrigue_text({kind = "plot_failed", key = "bribe", n = 5, house = "x"})
+        assert(string.find(line, IC.plot_text("bribe", DW.KK), 1, true), "the record reads " .. line)
+        line = ICUI.intrigue_text({kind = "plot_failed", key = "diplomats:" .. DW.KK, n = 5, house = "x"})
+        assert(string.find(line, IC.plot_text("diplomats", DW.KK), 1, true), "the record reads " .. line)
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    R.PLOT_TEXT, R.FAVOUR_TEXT = saved_p, saved_f
+    if not ok then error(err, 0) end
+end)
+
+DW.check("a Dwarf court's government cards wear Dwarf pictures, a Chaos Dwarf court's its own", function()
+    DW.court(true)
+    local R = IC.R(DW.KK)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for slug in pairs(R.GOVS) do
+            assert(ICUI.gov_art(slug) == string.format(ICUI.GOV_ART_FILE, slug .. "_dwf"),
+                slug .. "'s card draws " .. tostring(ICUI.gov_art(slug)))
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for slug in pairs(ICUI.GOV_ART) do
+            assert(ICUI.gov_art(slug) == string.format(ICUI.GOV_ART_FILE, slug),
+                "the Chaos Dwarf " .. slug .. " card draws " .. tostring(ICUI.gov_art(slug)))
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's law cards wear Dwarf paintings, a Chaos Dwarf court's its own", function()
+    DW.court(true)
+    local R = IC.R(DW.KK)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for _, cat in ipairs(R.LAW_ORDER) do
+            for _, opt in ipairs(R.LAWS[cat].order) do
+                local p = ICUI.law_icon(cat, opt)
+                assert(string.find(p, "/wh_main_dwf_", 1, true), cat .. "." .. opt .. " draws " .. p)
+            end
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for key, art in pairs(ICUI.LAW_ART) do
+            local cat, opt = string.match(key, "^(%w+)%.(%w+)$")
+            assert(ICUI.law_icon(cat, opt) == ICUI.LAW_ART_DIR .. art .. ".png",
+                "the Chaos Dwarf " .. key .. " card draws " .. ICUI.law_icon(cat, opt))
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's moves wear no Chaos Dwarf icon, on a card or on the Help page", function()
+    DW.court(true)
+    local CHD = {"dlc23", "chd", "hell_forge", "hashut", "zharr", "cathay"}
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for _, plot in ipairs(IC.PLOTS) do
+            for _, p in ipairs({ICUI.plot_of(plot.key, DW.KK).icon, ICUI.help_icon(plot.key)}) do
+                for _, w in ipairs(CHD) do
+                    assert(not string.find(p, w, 1, true), plot.key .. " draws " .. p)
+                end
+            end
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    -- AND THE CHAOS DWARF COURT KEEPS ITS OWN.
+    for _, plot in ipairs(IC.PLOTS) do
+        assert(ICUI.plot_of(plot.key, F).icon == plot.icon, plot.key .. "'s Chaos Dwarf icon moved")
+    end
+end)
+
+DW.check("a Dwarf court's buttons and chosen law wear the blue theme, a Chaos Dwarf court's its own", function()
+    DW.court(true)
+    local theme
+    -- THE THEME'S PLATE, lit or (refused, which a poor court's buttons are) grey.
+    local function blue(c, what)
+        assert(c, what .. " is not on the panel")
+        local ok = {[0] = {active = true, inactive = true}, [1] = {hover = true, inactive = true}}
+        for i = 0, 1 do
+            local st = string.match(tostring(c.images[i]), "^" .. string.gsub(theme, "%p", "%%%0")
+                                    .. "button_square_medium_text_(%a+)%.png$")
+            assert(st and ok[i][st], what .. "'s image " .. i .. " is " .. tostring(c.images[i]))
+        end
+    end
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        theme = ICUI.ART.theme
+        assert(theme and string.find(theme, "^ui/skins/wh3_main_theme_"), "the Dwarfs name no theme")
+        blue(fake_find(fake_find(panel, ICUI.PLOT .. "_1"), "ic_plot_go"), "a move card's Plot")
+        blue(fake_find(fake_find(panel, ICUI.CARD .. "_1"), "ic_card_button"), "an office card's button")
+        blue(fake_find(fake_find(panel, ICUI.LAWBLOCK .. "_1"), "ic_lb_win_1"), "a party block's Win")
+        -- A LIST'S ROW, built as a long Record or picker builds it: the offices
+        -- view draws no rows, so looking there tested nothing (phase 3 review).
+        ICUI.view = "log"
+        local lines = {}
+        for i = 1, 12 do lines[i] = {"row " .. i, "", "", "", "Choose"} end
+        ICUI.fill_rows(panel, lines, "log")
+        local row = fake_find(panel, "ic_row_e")
+        assert(row, "no list row was drawn")
+        blue(row, "a row's button")
+        -- A REFUSED ROW greys like every other plate button.
+        ICUI.set_text(row, ICUI.red("No"))
+        assert(row.images[0] == theme .. "button_square_medium_text_inactive.png",
+            "a refused row draws " .. tostring(row.images[0]))
+        ICUI.view, ICUI.law_cat = "laws", nil
+        ICUI.refresh()
+        local glow = false
+        for i = 1, #ICUI.LAW_XY do
+            local p = fake_find(panel, ICUI.LAW .. "_" .. i).images[ICUI.LAW_GLOW_INDEX]
+            if p and p ~= ICUI.MASK_NONE then
+                glow = true
+                assert(p == theme .. "dlc23_chd_hell_forge/button_square_extra_large_selected.png", "the chosen law glows " .. p)
+            end
+        end
+        assert(glow, "no law card is chosen")
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        local go = fake_find(fake_find(panel, ICUI.PLOT .. "_1"), "ic_plot_go")
+        assert(go.images[0] == nil, "the Chaos Dwarf Plot button was repainted " .. tostring(go.images[0]))
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's law cards mark a vote in Dwarf blue, a Chaos Dwarf court's in its own heat", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        local mark = ICUI.ART.mark
+        assert(mark and not string.find(mark, "chd", 1, true), "the Dwarfs name no mark: " .. tostring(mark))
+        ICUI.view, ICUI.law_cat = "laws", nil
+        ICUI.refresh()
+        for i = 1, #ICUI.LAW_XY do
+            local m = fake_find(fake_find(panel, ICUI.LAW .. "_" .. i), "ic_law_mark")
+            assert(m and m.images[0] == mark, "law card " .. i .. "'s mark is " .. tostring(m and m.images[0]))
+        end
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        ICUI.view, ICUI.law_cat = "laws", nil
+        ICUI.refresh()
+        local m = fake_find(fake_find(panel, ICUI.LAW .. "_1"), "ic_law_mark")
+        assert(m.images[0] == nil, "the Chaos Dwarf mark was repainted " .. tostring(m.images[0]))
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's envoy picker offers the Dwarf tasks, and its record and place lines name them", function()
+    DW.court(true)
+    local king = cm:get_faction(DW.KK)._leader
+    make_faction(DW.KK, "wh_main_sc_dwf_dwarfs", {king}, {"prov_a", "prov_b"})
+    cm:get_faction(DW.KK)._leader = king
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        assert(ICUI.player() == DW.KK, "the player is " .. tostring(ICUI.player()))
+        local province = IC.seats(DW.KK)[1]
+        assert(province, "the Dwarf court holds no province")
+        local bundle = IC.envoy_task("oath", DW.KK).bundle
+        prov_bundles = {[province] = {[bundle] = 3}}
+        -- THE PROVINCE LIST READS THE DWARF BUNDLES.
+        ICUI.pick = {kind = "envoy_province", plot = "envoy"}
+        local lines = ICUI.mission_rows(DW.KK)
+        assert(lines[1] and string.find(lines[1][4], "Oathgold 3", 1, true),
+            "the running column reads " .. tostring(lines[1] and lines[1][4]))
+        -- THE TASK LIST IS THE DWARFS' FOUR, every one but the running one open.
+        ICUI.pick = {kind = "envoy_task", plot = "envoy", province = province}
+        local keys
+        lines, keys = ICUI.mission_rows(DW.KK)
+        local want = {"ctl", "oath", "grow", "rec"}
+        assert(#lines == #want, #lines .. " tasks")
+        for i, code in ipairs(want) do
+            assert(lines[i][1] == IC.envoy_task(code, DW.KK).name, "task " .. i .. " is " .. lines[i][1])
+            if code ~= "oath" then
+                assert(keys[i] == province .. ":" .. code, code .. " is refused: " .. tostring(lines[i][5]))
+            end
+        end
+        -- THE RECORD AND THE MISSION'S PLACE NAME THE TASK.
+        local text = ICUI.intrigue_text({kind = "envoy", slug = IC.CROWN, key = province .. ":grow", n = 40})
+        assert(string.find(text, "growth", 1, true), "the record reads " .. text)
+        assert(ICUI.mission_place("envoy", province .. ":rec") == province .. ", Recruitment",
+            "the place reads " .. ICUI.mission_place("envoy", province .. ":rec"))
+        ICUI.pick = nil
+        prov_bundles = {}
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+end)
+
+DW.check("the Dwarfs name a note plate of their own for the readouts beside CA's panels", function()
+    local note = IC.R(DW.KK).art.note
+    assert(note and string.find(note, "^ui/derpy_ic/dwf_"), "the Dwarf note plate is " .. tostring(note))
+    assert(IC.R(F).art == nil or IC.R(F).art.note == nil, "the Chaos Dwarfs name a note plate")
+end)
+
+DW.check("a Dwarf court's scrollbar handles are blue, a Chaos Dwarf court's its own", function()
+    DW.court(true)
+    local function handles(panel)
+        local out = {}
+        local function walk(c)
+            for _, k in pairs(c.children or {}) do
+                if k.name == "handle" then out[#out + 1] = k end
+                walk(k)
+            end
+        end
+        walk(panel)
+        return out
+    end
+    with_fake_govmap(function(hud, panel)
+        ICUI.view, ICUI.pick = "govs", nil
+        ICUI.open()
+        local theme = ICUI.ART.theme
+        local hs = handles(panel)
+        assert(#hs == 1, #hs .. " scrollbar handles on the Governors view")
+        -- THE OTHER VIEWS' LIST, built as fill_rows builds it for a long Record.
+        ICUI.view = "log"
+        ICUI.list_build(panel, "row", 40)
+        local list = fake_find(panel, ICUI.LIST)
+        assert(list, "the other views' list was not made")
+        local h = fake_find(fake_find(list, "vslider"), "handle")
+        assert(h, "the other views' list has no handle")
+        hs[#hs + 1] = h
+        for _, h in ipairs(hs) do
+            for i = 0, 1 do
+                assert(string.sub(tostring(h.images[i]), 1, #theme) == theme,
+                    "a handle's image " .. i .. " is " .. tostring(h.images[i]))
+            end
+        end
+        ICUI.close(true)
+    end, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_govmap(function(hud, panel)
+        ICUI.view, ICUI.pick = "govs", nil
+        ICUI.open()
+        for _, h in ipairs(handles(panel)) do
+            assert(h.images[0] == nil, "the Chaos Dwarf handle was repainted " .. tostring(h.images[0]))
+        end
+        ICUI.close(true)
+    end, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a refused button on a Dwarf court goes grey and comes back blue, a Chaos Dwarf one keeps its plate", function()
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        local theme = ICUI.ART.theme
+        local grey, lit, hover = theme .. "button_square_medium_text_inactive.png",
+            theme .. "button_square_medium_text_active.png", theme .. "button_square_medium_text_hover.png"
+        local over = fake_find(panel, "ic_lv_over_1")
+        local go = fake_find(fake_find(panel, ICUI.PLOT .. "_1"), "ic_plot_go")
+        local gc = fake_find(panel, "ic_gc_btn_1")
+        for what, c in pairs({["Pass now"] = over, ["a move's Plot"] = go, ["a government card"] = gc}) do
+            ICUI.set_text(c, ICUI.red("No"))
+            assert(c.images[0] == grey and c.images[1] == grey, what .. " refused draws "
+                .. tostring(c.images[0]) .. " / " .. tostring(c.images[1]))
+            -- IN THE PLATE'S OWN CREAM, NO INK MARKUP (author, 2026-10-05: no black
+            -- text on dark UI). Measured on the drawn grey face, p5/p50/p95: black
+            -- 1.3/1.9/3.8:1, cream 14.9/10.2/5.2:1. The grey says it is refused.
+            assert(c.text == "No", what .. " refused reads " .. tostring(c.text))
+            ICUI.set_text(c, "Yes")
+            assert(c.images[0] == lit and c.images[1] == hover, what .. " allowed again draws "
+                .. tostring(c.images[0]) .. " / " .. tostring(c.images[1]))
+        end
+        -- A RED LINE THAT IS NOT A BUTTON keeps its art.
+        local title = fake_find(panel, "ic_lbl_section")
+        assert(title, "the section label is not on the panel")
+        local before = title.images[0]
+        ICUI.set_text(title, ICUI.red("warning"))
+        assert(title.images[0] == before, "a red caption was given a button plate")
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    gov_court({crown = 10, legion = 10})
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        local over = fake_find(panel, "ic_lv_over_1")
+        local before = over.images[0]
+        ICUI.set_text(over, ICUI.red("No"))
+        assert(over.images[0] == before, "the Chaos Dwarf Pass now changed plate: " .. tostring(over.images[0]))
+        ICUI.close(true)
+    end, nil, {1920, 1080})
+    gov_done()
+end)
+
+DW.check("a Dwarf court's Governors view wears no Chaos Dwarf art, a Chaos Dwarf court's its own", function()
+    DW.court(true)
+    local king = cm:get_faction(DW.KK)._leader
+    local g = make_character(9950, ANY_SEAT, IC.R(DW.KK).PARTIES[2], nil)
+    make_faction(DW.KK, "wh_main_sc_dwf_dwarfs", {king, g}, {"prov_a", "prov_b"})
+    cm:get_faction(DW.KK)._leader = king
+    IC.court(DW.KK).govs.prov_a = 9950
+    local CHD = {"chd", "dlc23", "hell_forge", "hashut", "zharr", "ziggurat"}
+    local function dwarf(p, what)
+        p = tostring(p)
+        local theme = ICUI.ART.theme
+        if string.sub(p, 1, #theme) == theme then return end
+        for _, w in ipairs(CHD) do
+            assert(not string.find(p, w, 1, true), what .. " draws " .. p)
+        end
+        assert(p ~= "nil", what .. " draws nothing")
+    end
+    with_fake_govmap(function(hud, panel, extra, holder)
+        ICUI.view, ICUI.pick = "govs", nil
+        ICUI.open()
+        local theme = ICUI.ART.theme
+        local row = gm_row(panel, 1)
+        assert(row and string.sub(tostring(row.images[0]), 1, #theme) == theme,
+            "a column row draws " .. tostring(row and row.images[0]))
+        for id in pairs(ICUI.GM_TOGS) do
+            local tog = fake_find(panel, id)
+            for _, i in ipairs(ICUI.GM_TOG_ART) do
+                assert(string.sub(tostring(tog.images[i]), 1, #theme) == theme,
+                    id .. "'s plate " .. i .. " is " .. tostring(tog.images[i]))
+            end
+        end
+        dwarf(ICUI.sort_arrow_path("govs", 1), "a sort arrow")
+        assert(string.sub(ICUI.sort_arrow_path("govs", 1), 1, #theme) == theme, "the sort arrow is CA's red")
+        dwarf(gm_pin(holder, 1).images[0], "a map pin")
+        dwarf(gm_name(holder, 1).images[0], "a pin's name plate")
+        dwarf(gm_loyal(holder, 1).images[0], "a pin's loyalty plate")
+        dwarf(ICUI.TRAIT_ICON, "the trait icon")
+        dwarf(ICUI.BAND_ICON, "the band icon")
+        ICUI.close(true)
+    end, {1920, 1080}, "dwf")
+    -- THE CHAOS DWARF COURT KEEPS ITS OWN, set back by use_race.
+    DW.chd_again()
+    assert(string.find(ICUI.TRAIT_ICON, "chd_", 1, true), "the Chaos Dwarf trait icon moved: " .. ICUI.TRAIT_ICON)
+    assert(string.find(ICUI.sort_arrow_path("govs", 1), "ui/skins/default/", 1, true),
+        "the Chaos Dwarf sort arrow moved")
+end)
+
+do -- GRUDGES INSIDE THE COURT (plan 2026-10-04 phase 4). One block, so its
+   -- helpers are not more of the main chunk's 200 locals.
+local D = "wh_main_dwf_karak_kadrin"
+
+-- A MAN OF THIS RACE'S PARTY. A Dwarf's trade is a Dwarf background, keyed
+-- with the race's infix (contract: IC.key), which make_character cannot stamp.
+local function court_man(race_key, cqi, party)
+    if race_key == "chd" then return make_character(cqi, ANY_SEAT, party) end
+    local c = make_character(cqi, ANY_SEAT, nil)
+    c._traits[IC.key("bg", IC.RACES.dwf.BACKGROUNDS[party][1], D)] = true
+    return c
+end
+
+-- THE CROWN (7001, who acts) AND THE CLAN WARRIORS (7002, who speaks for
+-- them, and 7003), on Karak Kadrin or on Uzkulak. An AI court on turn 34 with
+-- a full treasury, unless a check says otherwise.
+local function grudge_court(race_key)
+    IC.state, IC.agenda_state, IC._race_cache = {}, {}, {}
+    turn = 34
+    cm.get_human_factions = function() return {} end
+    local key = race_key == "dwf" and D or F
+    local men = {court_man(race_key, 7001, IC.CROWN), court_man(race_key, 7002, "legion"),
+                 court_man(race_key, 7003, "legion")}
+    local f = make_faction(key, IC.RACES[race_key].subculture, men, {"prov_a"})
+    f._gold = 100000
+    IC.add_house(key, IC.CROWN)
+    IC.add_house(key, "legion")
+    for _, cqi in ipairs({7001, 7002, 7003}) do IC.court(key).standing[cqi] = 5000 end
+    return key, f
+end
+
+-- EVERY ROLL LANDS: 1 beats every chance plot_chance can produce.
+local function landing(fn)
+    local roll = cm.random_number
+    cm.random_number = function() return 1 end
+    local ok, err = pcall(fn)
+    cm.random_number = roll
+    if not ok then error(err, 0) end
+end
+
+-- HOW MANY GRUDGE LINES THE BREAKDOWN DRAWS for a party, and what they sum to.
+local function grudge_lines(key, slug)
+    local n, sum = 0, 0
+    for _, t in ipairs(IC.loyalty_terms(key, slug)) do
+        if string.find(t.label, "^Grudge: ") then n, sum = n + 1, sum + t.n end
+    end
+    return n, sum
+end
+
+check("grudges: the race layer of IC.tune scales the two secession countdowns for Dwarfs only", function()
+    local k = grudge_court("dwf")
+    for _, key in ipairs({"secede_turns", "plot_provoke_clock"}) do
+        local want = math.floor(IC.TUNE[key] * 1.5 + 0.5)
+        assert(IC.tune(k, key) == want, key .. " is " .. tostring(IC.tune(k, key))
+            .. " on a Dwarf court, not " .. want)
+        assert(IC.tune(F, key) == IC.TUNE[key], key .. " was scaled on a Chaos Dwarf court")
+        assert(IC.tune(nil, key) == IC.TUNE[key], key .. " was scaled with no court named")
+    end
+    for _, key in ipairs({"secede_share", "secede_loyalty", "secede_break", "warn_turns"}) do
+        assert(IC.tune(k, key) == IC.TUNE[key], key .. " was scaled; only the countdowns are")
+    end
+    assert(IC.TUNE.secede_turns == IC.TUNE_DEFAULTS.secede_turns, "the race layer wrote into IC.TUNE")
+end)
+
+check("grudges: a Dwarf party's secession countdown runs half again as long, and the Insult says so", function()
+    local was = IC.TUNE.secede_turns
+    -- THE DEFAULT AND GENTLE'S 7: a scale, not a fixed number.
+    for _, base in ipairs({was, 7}) do
+        IC.TUNE.secede_turns = base
+        for _, rk in ipairs({"dwf", "chd"}) do
+            local k = grudge_court(rk)
+            IC.court(k).houses.legion.loyalty = 10
+            IC.tick_secession(k)
+            local want = rk == "dwf" and math.floor(base * 1.5 + 0.5) or base
+            local got = IC.court(k).houses.legion.clock
+            IC.TUNE.secede_turns = was
+            assert(got == want, rk .. " counted " .. tostring(got) .. " from " .. base .. ", not " .. want)
+            IC.TUNE.secede_turns = base
+        end
+    end
+    IC.TUNE.secede_turns = was
+    for _, rk in ipairs({"dwf", "chd"}) do
+        local k = grudge_court(rk)
+        landing(function() assert(IC.plot(k, "provoke", 7001, "7002")) end)
+        local want = rk == "dwf" and math.floor(IC.TUNE.plot_provoke_clock * 1.5 + 0.5)
+                     or IC.TUNE.plot_provoke_clock
+        assert(IC.court(k).houses.legion.clock == want, rk .. "'s Insult set "
+            .. tostring(IC.court(k).houses.legion.clock) .. ", not " .. want)
+    end
+    local text = ICUI.plot_effect(IC.plot_by_key("provoke"), D)
+    assert(string.find(text, "to " .. math.floor(IC.TUNE.plot_provoke_clock * 1.5 + 0.5) .. " turns", 1, true),
+        "a Dwarf court's Insult promises: " .. text)
+    text = ICUI.plot_effect(IC.plot_by_key("provoke"), F)
+    assert(string.find(text, "to " .. IC.TUNE.plot_provoke_clock .. " turns", 1, true),
+        "a Chaos Dwarf court's Provoke promises: " .. text)
+end)
+
+check("grudges: no secession countdown is read straight off IC.TUNE", function()
+    -- THE ONE WAY THE RACE LAYER SILENTLY DOES NOTHING: a read left on IC.TUNE.
+    -- IC.PLOTS' effect lines are built once at load from the base number and
+    -- ICUI.plot_effect rewords them per court, so that block is cut out first.
+    local dir = "Modding Files/pack/script/campaign/mod/"
+    for _, file in ipairs({"zzz_derpy_iron_court.lua", "zzz_derpy_iron_court_dwarf.lua",
+                           "zzz_derpy_iron_court_parties.lua", "zzz_derpy_iron_court_ui.lua",
+                           "zzz_derpy_iron_court_ui_map.lua"}) do
+        local fh = assert(io.open(dir .. file, "r"))
+        local text = fh:read("*a")
+        fh:close()
+        -- AND DWF.PLOT_TEXT, built at load the same way (phase 4 ruling, Task 1).
+        for _, head in ipairs({"\nIC.PLOTS = {", "\nDWF.PLOT_TEXT = {"}) do
+            local a = string.find(text, head, 1, true)
+            if a then
+                local b = string.find(text, "\n}", a + 1, true)
+                text = string.sub(text, 1, a) .. string.sub(text, b)
+            end
+        end
+        for key in pairs(IC.RACES.dwf.tune) do
+            assert(not string.find(text, "IC%.TUNE%." .. key .. "[^%w_]"),
+                file .. " reads IC.TUNE." .. key .. ", which the race layer never reaches")
+        end
+    end
+end)
+
+check("grudges: a book holds four, each its own loyalty line, and the Crown keeps none", function()
+    local k = grudge_court("dwf")
+    for i = 1, IC.TUNE.grudge_max + 2 do
+        turn = 30 + i
+        IC.grudge_write(k, "legion", IC.GRUDGE_CODES[i])
+    end
+    local book = IC.grudges(k, "legion")
+    assert(#book == IC.TUNE.grudge_max, "the book holds " .. #book)
+    assert(book[1].code == IC.GRUDGE_CODES[1] and book[1].turn == 31
+           and book[#book].code == IC.GRUDGE_CODES[IC.TUNE.grudge_max],
+        "a full book took a new grudge over an old one")
+    local n, sum = grudge_lines(k, "legion")
+    assert(n == IC.TUNE.grudge_max and sum == IC.TUNE.grudge_max * IC.TUNE.grudge_loyalty,
+        n .. " grudge lines summing to " .. sum)
+    local first
+    for _, t in ipairs(IC.loyalty_terms(k, "legion")) do
+        if string.find(t.label, "^Grudge: ") then first = first or t end
+    end
+    assert(first.label == "Grudge: " .. IC.GRUDGE_WORDS[IC.GRUDGE_CODES[1]] .. ", turn 31",
+        "the line reads " .. first.label)
+    assert(first.note and first.note ~= "", "the first grudge does not say how to settle it")
+    assert(not IC.grudge_write(k, IC.CROWN, "dismiss") and #IC.grudges(k, IC.CROWN) == 0,
+        "the Crown keeps a book against its own ruler")
+    assert(not IC.grudge_write(k, "forge", "dismiss"), "a party not in the court was written")
+    assert(not IC.grudge_write(k, "legion", "no_such_wrong"), "an unknown wrong was written")
+    local c = grudge_court("chd")
+    assert(not IC.grudge_write(c, "legion", "dismiss") and #IC.grudges(c, "legion") == 0,
+        "a Chaos Dwarf court keeps a book")
+end)
+
+check("grudges: Kin of the Karak is +1 for every party of a Dwarf court and nobody else's", function()
+    for _, rk in ipairs({"dwf", "chd"}) do
+        local k = grudge_court(rk)
+        for _, slug in ipairs({IC.CROWN, "legion"}) do
+            local kin
+            for _, t in ipairs(IC.loyalty_terms(k, slug)) do
+                if t.label == "Kin of the Karak" then kin = t end
+            end
+            if rk == "dwf" then
+                assert(kin and kin.n == IC.TUNE.kin_loyalty, slug .. " has no kinship on a Dwarf court")
+            else
+                assert(not kin, slug .. " is Kin of the Karak on a Chaos Dwarf court")
+            end
+        end
+    end
+end)
+
+check("grudges: the books survive a save, and an 18-field save reads none", function()
+    local k = grudge_court("dwf")
+    IC.add_house(k, "forge")
+    turn = 12; IC.grudge_write(k, "legion", "castout")
+    turn = 19; IC.grudge_write(k, "legion", "demand")
+    turn = 21; IC.grudge_write(k, "forge", "slayer")
+    IC.save(k)
+    IC.state = {}
+    IC.load(k)
+    local l, f2 = IC.grudges(k, "legion"), IC.grudges(k, "forge")
+    assert(#l == 2 and l[1].code == "castout" and l[1].turn == 12
+           and l[2].code == "demand" and l[2].turn == 19, "the Clan Warriors' book came back wrong")
+    assert(#f2 == 1 and f2[1].code == "slayer" and f2[1].turn == 21, "the Forgewrights' book came back wrong")
+    local fields = {}
+    for field in string.gmatch(saved["derpy_ic_" .. k] .. "|", "([^|]*)|") do
+        fields[#fields + 1] = field
+    end
+    assert(#fields >= 19 and string.find(fields[19], "legion:castout.12;demand.19", 1, true),
+        "field 19 reads " .. tostring(fields[19]))
+    IC.unpack(k, table.concat(fields, "|", 1, 18))
+    assert(#IC.grudges(k, "legion") == 0 and #IC.grudges(k, "forge") == 0,
+        "an 18-field save read a grudge out of nothing")
+    assert(IC.court(k).houses.legion and IC.court(k).houses.forge, "an 18-field save lost its parties")
+end)
+
+check("grudges: a written and a settled grudge each have a line in the Record", function()
+    local k = grudge_court("dwf")
+    local w = ICUI.intrigue_text({turn = 3, kind = "grudge", slug = "legion", key = "castout", n = 0})
+    assert(w and string.find(w, IC.GRUDGE_WORDS.castout, 1, true), "the written line reads " .. tostring(w))
+    local p = ICUI.intrigue_text({turn = 3, kind = "grudge_settled", slug = "legion", key = "recall", n = 0})
+    local s = ICUI.intrigue_text({turn = 3, kind = "grudge_settled", slug = "legion", key = "recall", n = 1})
+    assert(p and s and p ~= s and string.find(p, "weregild", 1, true) and string.find(s, "seat", 1, true),
+        "the settled lines read " .. tostring(p) .. " / " .. tostring(s))
+    IC.grudge_write(k, "legion", "insult")
+    local last = IC.court(k).log[#IC.court(k).log]
+    assert(last.kind == "grudge" and last.slug == "legion" and last.key == "insult",
+        "writing a grudge left no line in the Record")
+    IC.grudge_settle(k, "legion", "seat")
+    last = IC.court(k).log[#IC.court(k).log]
+    assert(last.kind == "grudge_settled" and last.key == "insult" and last.n == 1,
+        "settling a grudge left no line in the Record")
+end)
+
+-- EVERY WRONG THE SPEC NAMES, as the act that does it. The middle number is
+-- how many grudges the one act writes: an Insult that breaks an oath is two.
+local function seat_legion(k)
+    local office = IC.R(k).OFFICES[1].slug
+    IC.court(k).offices[office] = 7002
+    return office
+end
+local WRITERS = {
+    {"slayer",  1, function(k) assert(IC.plot(k, "murder", 7001, "7002")) end},
+    {"castout", 1, function(k) assert(IC.plot(k, "purge", 7001, "7002")) end},
+    {"insult",  1, function(k) assert(IC.plot(k, "provoke", 7001, "7002")) end},
+    {"bar",     1, function(k) seat_legion(k); assert(IC.plot(k, "unseat", 7001, "7002")) end},
+    {"recall",  1, function(k)
+        IC.court(k).govs.prov_a = 7002
+        assert(IC.plot(k, "recall", 7001, "7002"))
+    end},
+    {"dismiss", 1, function(k) assert(IC.dismiss(k, seat_legion(k))) end},
+    {"oath",    2, function(k)
+        local house = IC.court(k).houses.legion
+        house.oath_mine, house.oath_theirs = 7001, 7002
+        assert(IC.plot(k, "provoke", 7001, "7002"))
+    end},
+    {"demand",  1, function(k)
+        IC.agenda(k).demand = {slug = "legion", kind = "office", cqi = 7002,
+                               key = IC.R(k).OFFICES[1].slug, was = 0, ends = turn + 5}
+        assert(IC.refuse_demand(k))
+    end},
+    {"peace",   1, function(k) IC.grudge_write(k, "legion", "peace") end},
+}
+for _, w in ipairs(WRITERS) do
+    check("grudges: " .. w[1] .. " writes its grudge on a Dwarf court and none on a Chaos Dwarf court", function()
+        for _, rk in ipairs({"dwf", "chd"}) do
+            local k = grudge_court(rk)
+            landing(function() w[3](k) end)
+            local book, mine = IC.grudges(k, "legion"), 0
+            for _, g in ipairs(book) do
+                if g.code == w[1] then
+                    mine = mine + 1
+                    assert(g.turn == 34, w[1] .. " was dated turn " .. tostring(g.turn))
+                end
+            end
+            if rk == "dwf" then
+                assert(mine == 1 and #book == w[2], w[1] .. " left " .. mine .. " of its own and "
+                    .. #book .. " in all on a Dwarf court")
+            else
+                assert(#book == 0, w[1] .. " wrote " .. #book .. " on a Chaos Dwarf court")
+            end
+        end
+    end)
+end
+
+check("grudges: the Iron Law makes oath moves a third cheaper and a broken oath dearer", function()
+    IC_GOVS_ON = true
+    local ok, err = pcall(function()
+        local k = grudge_court("dwf")
+        IC.court(k).gov = "chain"
+        for _, key in ipairs({"oath", "patron", "pledge"}) do
+            local base = IC.TUNE["plot_" .. key .. "_cost"]
+            assert(IC.plot_cost(key, k) == math.floor(base * 0.67 + 0.5),
+                key .. " costs " .. IC.plot_cost(key, k) .. " under the Iron Law")
+        end
+        assert(IC.plot_cost("murder", k) == IC.TUNE.plot_murder_cost,
+            "the Iron Law kept the Slave-Lords' murder discount")
+        assert(IC.tune(k, "secede_turns") == math.floor(IC.TUNE.secede_turns * 1.5 + 0.5),
+            "the government layer hid the race layer")
+        local extra = IC.tune(k, "oath_broken_loyalty")
+        assert(extra < 0, "a broken oath costs nothing extra under the Iron Law")
+        local house = IC.court(k).houses.legion
+        house.oath_mine, house.oath_theirs, house.loyalty = 7001, 7002, 80
+        landing(function() assert(IC.plot(k, "provoke", 7001, "7002")) end)
+        assert(house.loyalty == 80 - IC.TUNE.plot_provoke_loyalty + extra,
+            "the broken oath left them at " .. house.loyalty)
+        local c = grudge_court("chd")
+        IC.court(c).gov = "chain"
+        assert(IC.plot_cost("oath", c) == IC.TUNE.plot_oath_cost,
+            "a Chaos Dwarf chain government discounted the oath")
+        assert(IC.tune(c, "oath_broken_loyalty") == 0, "a Chaos Dwarf broken oath costs extra")
+    end)
+    IC_GOVS_ON = nil
+    if not ok then error(err, 0) end
+end)
+
+check("grudges: a grudge never fades, fifty turns on", function()
+    local k = grudge_court("dwf")
+    cm.get_human_factions = function() return {k} end
+    local keep_s, keep_a = IC.TUNE.secession, IC.TUNE.parties_act
+    IC.TUNE.secession, IC.TUNE.parties_act = false, false
+    for _, code in ipairs({"castout", "recall", "demand", "bar"}) do IC.grudge_write(k, "legion", code) end
+    IC.save(k)
+    local ok, err = pcall(function()
+        for _ = 1, 50 do
+            turn = turn + 1
+            IC.turn(k)
+        end
+    end)
+    IC.TUNE.secession, IC.TUNE.parties_act = keep_s, keep_a
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+    local book = IC.grudges(k, "legion")
+    assert(#book == 4, #book .. " grudges are left after fifty turns")
+    for i, code in ipairs({"castout", "recall", "demand", "bar"}) do
+        assert(book[i].code == code and book[i].turn == 34, "grudge " .. i .. " changed")
+    end
+    local n, sum = grudge_lines(k, "legion")
+    assert(n == 4 and sum == 4 * IC.TUNE.grudge_loyalty, "fifty turns on, the breakdown draws " .. n)
+end)
+
+check("grudges: Pay the Weregild settles the oldest grudge, in gold, and only on a Dwarf court", function()
+    local k, f = grudge_court("dwf")
+    for i, code in ipairs({"castout", "recall", "demand"}) do
+        turn = 10 * i
+        IC.grudge_write(k, "legion", code)
+    end
+    turn = 40
+    local was = IC.court(k).houses.legion.loyalty
+    local standing = IC.standing(k, 7001)
+    treasury_calls = {}
+    assert(IC.plot(k, "weregild", 7001, "7002"), "the weregild was refused")
+    local book = IC.grudges(k, "legion")
+    assert(#book == 2 and book[1].code == "recall" and book[2].code == "demand",
+        "the weregild did not settle the oldest grudge")
+    assert(#treasury_calls == 1 and treasury_calls[1].amount == -IC.TUNE.plot_weregild_cost,
+        "the treasury moved by " .. tostring(treasury_calls[1] and treasury_calls[1].amount))
+    assert(IC.standing(k, 7001) == standing, "the weregild was paid out of his influence")
+    assert(IC.court(k).houses.legion.loyalty == was + IC.TUNE.plot_weregild_loyalty,
+        "the Clan Warriors sit at " .. IC.court(k).houses.legion.loyalty)
+    assert(IC.plot_chance(k, "weregild", 7001, "7002") == nil, "the weregild rolls")
+    f._gold = IC.TUNE.plot_weregild_cost - 1
+    local ok, why, short = IC.plot(k, "weregild", 7001, "7002")
+    assert(not ok and why == "gold" and short == 1, "a poor court was answered " .. tostring(why))
+    f._gold = 100000
+    IC.court(k).grudges.legion = nil
+    ok, why = IC.plot(k, "weregild", 7001, "7002")
+    assert(not ok and why == "no grudge", "a party with no grudge was paid: " .. tostring(why))
+    local c = grudge_court("chd")
+    ok, why = IC.plot(c, "weregild", 7001, "7002")
+    assert(not ok and why == "no such plot", "a Chaos Dwarf court paid a weregild: " .. tostring(why))
+    assert(IC.plot_costs_seat(k, "weregild", 7001) == nil, "a gold move costs a man his seat")
+end)
+
+check("grudges: seating their man in an office they claim settles one grudge", function()
+    local k = grudge_court("dwf")
+    turn = 10; IC.grudge_write(k, "legion", "castout")
+    turn = 20; IC.grudge_write(k, "legion", "recall")
+    turn = 30
+    local claimed, other
+    for _, o in ipairs(IC.R(k).OFFICES) do
+        if o.affinity == "legion" and not claimed then claimed = o.slug end
+        if o.affinity ~= "legion" and not other then other = o.slug end
+    end
+    assert(IC.appoint(k, other, 7003), "the unclaimed seat was refused")
+    assert(#IC.grudges(k, "legion") == 2, "a seat they do not claim settled a grudge")
+    assert(IC.appoint(k, claimed, 7002), "the claimed seat was refused")
+    local book = IC.grudges(k, "legion")
+    assert(#book == 1 and book[1].code == "recall", "the claimed seat did not settle the oldest")
+end)
+
+check("grudges: Pay the Weregild crosses the wire like any move", function()
+    local k, f = grudge_court("dwf")
+    f._cqi = 77
+    IC.grudge_write(k, "legion", "castout")
+    cm.get_human_factions = function() return {k} end
+    IC.register()
+    local ok, err = pcall(function()
+        with_mp(k, function(sent)
+            IC.mp_send(k, "plot", "weregild|7001|7002")
+            assert(#IC.grudges(k, "legion") == 1, "settled before the trigger came back")
+            assert(sent[1], "nothing was sent")
+            deliver(sent[1])
+            assert(#IC.grudges(k, "legion") == 0, "the trigger came back and nothing was settled")
+        end)
+    end)
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+end)
+
+check("grudges: an AI Dwarf ruler pays weregild in its turn, when the treasury allows", function()
+    local k, f = grudge_court("dwf")
+    turn = 10; IC.grudge_write(k, "legion", "castout")
+    turn = 30
+    local due, acts = IC.party_turn_due, IC.TUNE.parties_act
+    IC.party_turn_due = function() return true end
+    IC.TUNE.parties_act = false
+    f._gold = IC.TUNE.plot_weregild_cost - 1
+    local ok, err = pcall(IC.party_turn, k)
+    local poor = #IC.grudges(k, "legion")
+    f._gold = 100000
+    if ok then ok, err = pcall(IC.party_turn, k) end
+    IC.party_turn_due, IC.TUNE.parties_act = due, acts
+    assert(ok, err)
+    assert(poor == 1, "a poor AI ruler paid a weregild")
+    assert(#IC.grudges(k, "legion") == 0, "a rich AI ruler did not pay the weregild")
+    local c = grudge_court("chd")
+    assert(IC.ai_weregild(c) == nil, "a Chaos Dwarf AI ruler tried to pay a weregild")
+end)
+
+check("grudges: the loyalty breakdown names each grudge and the kinship", function()
+    local k = grudge_court("dwf")
+    turn = 34
+    IC.grudge_write(k, "legion", "castout")
+    cm.get_human_factions = function() return {k} end
+    local tip = bare(plain(ICUI.loyalty_tip(k, IC.court(k), "legion")))
+    cm.get_human_factions = function() return {} end
+    if os.getenv("IC_SHOW_TIP") then print(tip) end
+    assert(string.find(tip, "Grudge: Cast Out, turn 34: -1", 1, true), tip)
+    assert(string.find(tip, "Kin of the Karak: +1", 1, true), tip)
+    assert(string.find(tip, "Pay the Weregild", 1, true), "the breakdown never says how to settle it")
+end)
+
+check("grudges: a Dwarf court's intrigue grid carries Pay the Weregild at a gold price", function()
+    local k, f = grudge_court("dwf")
+    IC.grudge_write(k, "legion", "castout")
+    ICUI.use_plot_grid("dwf")
+    local ok, err = pcall(function()
+        assert(#ICUI.PLOT_XY == #grid_plots("dwf") and #grid_plots("dwf") == #grid_plots() + 1,
+            "the Dwarf grid has " .. #ICUI.PLOT_XY .. " cells")
+        with_fake_panel(function(panel)
+            cm.get_human_factions = function() return {k} end
+            ICUI.view, ICUI.pick = "intrigue", nil
+            ICUI.refresh()
+            local at
+            for i, move in pairs(ICUI.plot_keys) do
+                if move and move.plot == "weregild" then at = i end
+            end
+            assert(at, "no card carries the weregild")
+            -- EVERY CARD OF THE LONGER GRID IS DRAWN: the seventeenth, past the
+            -- Chaos Dwarf sixteen, included.
+            for i = 1, #ICUI.PLOT_XY do
+                local c = panel.children[ICUI.PLOT .. "_" .. i]
+                assert(c and c.visible and c.children.ic_plot_name.text ~= "",
+                    "move card " .. i .. " of " .. #ICUI.PLOT_XY .. " is not drawn")
+            end
+            local card = panel.children[ICUI.PLOT .. "_" .. at]
+            assert(card.visible, "the weregild's card is hidden")
+            assert(card.children.ic_plot_cost.text == ICUI.gold(IC.TUNE.plot_weregild_cost),
+                "the weregild's price reads " .. card.children.ic_plot_cost.text)
+            f._gold = 0
+            ICUI.refresh()
+            assert(is_red(card.children.ic_plot_cost.text), "an empty treasury drew the weregild affordable")
+            ICUI.pick = {kind = "plot", plot = "weregild", key = "7002"}
+            local title = ICUI.pick_title()
+            ICUI.pick = nil
+            assert(string.find(title, ICUI.gold(IC.TUNE.plot_weregild_cost), 1, true)
+                   and not string.find(title, "influence", 1, true), "the picker says " .. title)
+        end)
+        assert(ICUI.TARGET_REFUSAL["no grudge"] and ICUI.reason_text("no grudge") ~= "",
+            "a party with no grudge is refused in no words")
+    end)
+    ICUI.use_plot_grid("chd")
+    cm.get_human_factions = function() return {} end
+    if not ok then error(err, 0) end
+    assert(#ICUI.PLOT_XY == #grid_plots(), "the Chaos Dwarf grid did not come back")
+    for i = 1, #ICUI.plot_at do
+        assert(ICUI.plot_at[i].key ~= "weregild", "the Chaos Dwarf grid carries the weregild")
+    end
+end)
+
+check("grudges: the panel opens on its own race's move grid", function()
+    local k = grudge_court("dwf")
+    local ok, err = pcall(with_fake_root, function()
+        cm.get_human_factions = function() return {k} end
+        ICUI.open()
+        local found = false
+        for i = 1, #ICUI.plot_at do
+            if ICUI.plot_at[i].key == "weregild" then found = true end
+        end
+        ICUI.close()
+        assert(found, "a Dwarf player's panel opened on the Chaos Dwarf grid")
+    end)
+    ICUI.use_plot_grid("chd")
+    if not ok then error(err, 0) end
+end)
+
+check("grudges: an AI ruler that cannot reach its worst party's man pays the next party's weregild", function()
+    local k, f = grudge_court("dwf")
+    turn = 10; IC.grudge_write(k, "legion", "castout"); IC.grudge_write(k, "legion", "recall")
+    IC.add_house(k, "temple")
+    IC.grudge_write(k, "temple", "insult")
+    turn = 30
+    local leader = IC.party_leader
+    -- THE CLAN WARRIORS' MAN CANNOT BE REACHED; the Priesthood's can.
+    IC.party_leader = function(fk, slug)
+        if slug == "legion" then return nil end
+        if slug == "temple" then return 7003 end
+        return leader(fk, slug)
+    end
+    local hoc = IC.house_of_character
+    IC.house_of_character = function(c, fk)
+        if c and c:command_queue_index() == 7003 then return "temple" end
+        return hoc(c, fk)
+    end
+    local ok, err = pcall(IC.ai_weregild, k)
+    IC.party_leader, IC.house_of_character = leader, hoc
+    assert(ok, err)
+    assert(#IC.grudges(k, "temple") == 0, "the next party with a grudge was never paid")
+    assert(#IC.grudges(k, "legion") == 2, "the unreachable party's book changed")
+end)
+
+check("grudges: putting a man out on his term's last turn writes no grudge", function()
+    local k = grudge_court("dwf")
+    local office = IC.R(k).OFFICES[1].slug
+    IC.court(k).offices[office] = 7002
+    IC.court(k).terms[office] = turn
+    assert(IC.term_left(k, office) == 0, "the term is not on its last turn")
+    assert(IC.dismiss(k, office))
+    assert(#IC.grudges(k, "legion") == 0, "a term already ending wrote a grudge")
+    k = grudge_court("dwf")
+    IC.court(k).offices[office] = 7002
+    IC.court(k).terms[office] = turn + 3
+    assert(IC.dismiss(k, office))
+    assert(#IC.grudges(k, "legion") == 1, "an early dismissal wrote no grudge")
+end)
+
+check("grudges: the Record says the treasury paid the weregild, not the man sent", function()
+    local k = grudge_court("dwf")
+    IC.add_house(k, "temple")
+    IC.grudge_write(k, "temple", "insult")
+    local hoc = IC.house_of_character
+    -- THE MAN SENT IS A CLAN WARRIOR; the grudge is the Priesthood's.
+    IC.house_of_character = function(c, fk)
+        if c and c:command_queue_index() == 7003 then return "temple" end
+        return hoc(c, fk)
+    end
+    local ok, err = pcall(function() assert(IC.plot(k, "weregild", 7002, "7003")) end)
+    IC.house_of_character = hoc
+    assert(ok, err)
+    local log = IC.court(k).log
+    local e
+    for i = #log, 1, -1 do if log[i].kind == "weregild" then e = log[i]; break end end
+    assert(e, "the weregild left no line in the Record")
+    assert(e.slug == IC.CROWN, "the Record names " .. tostring(e.slug) .. " as the payer")
+end)
+
+end -- GRUDGES (plan 2026-10-04 phase 4)
+
 -- THE PREVIEW'S DEMO (plan 2026-10-02 laws, Task 10): with IC_DUMP set, draw
 -- the laws tab's two screens through the REAL panel code on the fake tree and
 -- write what every component ended up with, for preview_iron_court.py to draw.
@@ -31779,6 +33969,742 @@ if os.getenv("IC_DUMP") then
     ICUI.pick = nil
     out:close()
     gov_done()
+end
+
+-- THE DWARF COURT'S DUMP (plan 2026-10-04 phase 3, Task 10): with IC_DUMP_RACE=dwf,
+-- open Karak Kadrin's court through the REAL ICUI.open on the fake root at each box
+-- and walk every view, writing every component with the file it was created from,
+-- so preview_iron_court.py --race dwf draws only what the shipped Lua did. Not a
+-- check: it adds nothing to the count.
+if os.getenv("IC_DUMP_RACE") == "dwf" then
+    IC_TEST_LOC = dofile(os.getenv("IC_DUMP_LOC"))
+    IC_TEST_PORTRAITS = {}
+    local KK_DUMP = "wh_main_dwf_karak_kadrin"
+    local out = assert(io.open(os.getenv("IC_DUMP_RACE_OUT"), "w"))
+    local function esc(s)
+        return (string.gsub(tostring(s or ""), "[\t\n\\]",
+            {["\t"] = "\\t", ["\n"] = "\\n", ["\\"] = "\\\\"}))
+    end
+    local function longest_roll(R, slug)
+        local best, bh, bt = "", 1, 1
+        for h, head in ipairs(R.NAME_HEADS) do
+            for t, tail in ipairs(R.NAME_TAILS[slug] or {}) do
+                local s = head .. " of " .. tail
+                if #s > #best then best, bh, bt = s, h, t end
+            end
+        end
+        return bh, bt
+    end
+    -- THE HARD CASE: every party, each wearing its longest name; a king; two governors.
+    IC.state = {}
+    IC._race_cache = {}
+    IC_GOVS_ON = true
+    turn = IC.TUNE.grace_turns + 5
+    local king = make_character(9900, ANY_SEAT, IC.CROWN, nil)
+    king._forename, king._surname = "derpy_demo_dwf_fore", "derpy_demo_dwf_sur"
+    IC_TEST_PORTRAITS["9900"] = IC_TEST_LOC.derpy_demo_dwf_face_king
+    local chars = {king}
+    local f = make_faction(KK_DUMP, "wh_main_sc_dwf_dwarfs", chars,
+                           {"prov_a", "prov_b", "prov_c", "prov_d"})
+    f._leader = king
+    -- A TREASURY THAT CAN PAY THE WEREGILD (phase 4), so its card is drawn as
+    -- a court with gold sees it.
+    f._gold = 4000
+    cm.get_human_factions = function() return {KK_DUMP} end
+    local R = IC.R(KK_DUMP)
+    assert(R.key == "dwf", "Karak Kadrin is not a Dwarf court: " .. tostring(R.key))
+    -- A DWARF'S TRADE: make_character stamps the Chaos Dwarf background of the party
+    -- it is given, and a Dwarf court's men carry their own race's.
+    local function dwarf_bg(c, slug)
+        for k in pairs(c._traits) do
+            if string.find(k, "^derpy_ic_bg_") then c._traits[k] = nil end
+        end
+        c._traits[IC.rkey("bg", R.BACKGROUNDS[slug][1], R)] = true
+    end
+    dwarf_bg(king, IC.CROWN)
+    local court = IC.court(KK_DUMP)
+    for i, slug in ipairs(R.PARTIES) do
+        IC.add_house(KK_DUMP, slug)
+        if slug ~= IC.CROWN then
+            court.houses[slug].head, court.houses[slug].tail = longest_roll(R, slug)
+        end
+        local c = make_character(9900 + i, ANY_SEAT, slug, nil)
+        c._forename = "derpy_demo_fore_" .. i
+        c._faction = f
+        dwarf_bg(c, slug)
+        chars[#chars + 1] = c
+        IC_TEST_PORTRAITS[tostring(9900 + i)] = IC_TEST_LOC["derpy_demo_dwf_face_" .. ((i - 1) % 6 + 1)]
+        court.standing[9900 + i] = 420 - i * 30
+        -- THE CARDS' WHOLE LOAD (Task 13): two traits each, a government, and a
+        -- loyalty spread wide enough to show every mood.
+        -- BY HAND, not rolled: the stub's random answers alike, so every card
+        -- wore the same two.
+        local np = #R.PARTY_TRAITS
+        court.houses[slug].t1, court.houses[slug].t2 = (i - 1) % np + 1, i % np + 1
+        if slug ~= IC.CROWN then court.houses[slug].loyalty = ({100, 57, 52, 21, 38, 65, 80, 30, 50})[i] end
+    end
+    -- THE BOOK'S HARD CASE (plan 2026-10-04 phase 5): the factions the preview
+    -- names in IC_DUMP_BOOK - CA's three longest - met, each carrying points.
+    local met = {}
+    for key in string.gmatch(os.getenv("IC_DUMP_BOOK") or "", "[^,]+") do
+        local man = make_character(9950 + #met, ANY_SEAT, nil, nil)
+        man._force, man._grudge = true, 3000 - #met * 1000
+        make_faction(key, "wh_main_sc_grn_greenskins", {man}, {})
+        met[#met + 1] = key
+    end
+    f._met = met
+    court.gov = R.GOV_ORDER[1]
+    -- A PETITION ON THE PAGE, so its row is seen on the Dwarf ground.
+    court.gov_ask = {party = "chain", gov = "chain", ends = turn + 3}
+    court.govs.prov_a, court.govs.prov_b = 9901, 9902
+    IC.log(KK_DUMP, "appoint", R.PARTIES[2], R.OFFICES[1].slug, 0)
+    IC.log(KK_DUMP, "warn", R.PARTIES[3], nil, 3)
+    local cat = R.LAW_ORDER[1]
+    court.laws = {}
+    for _, k in ipairs(R.LAW_ORDER) do court.laws[k] = R.LAWS[k].order[1] end
+    court.votes = {[cat] = {option = R.LAWS[cat].order[5], proposer = R.PARTIES[2],
+                            ends = turn + IC.TUNE.law_vote_turns, stance = "aye",
+                            won = {}, push = {}}}
+    local VIEWS = {
+        {"court", function() ICUI.view = "court"; ICUI.sel = R.PARTIES[2] end},
+        {"intrigue", function() ICUI.view = "intrigue" end},
+        {"pick", function() ICUI.view = "offices"; ICUI.sort.pick = 1
+            ICUI.pick = {kind = "office", key = R.OFFICES[1].slug} end},
+        {"pick_ready", function() ICUI.view = "offices"; ICUI.sort.pick = 2
+            ICUI.pick = {kind = "office", key = R.OFFICES[1].slug} end},
+        {"offices", function() ICUI.view = "offices" end},
+        {"petitions", function() ICUI.view = "petitions" end},
+        {"gm_provinces", function() ICUI.view = "govs"; ICUI.gm_page = "provinces" end},
+        {"gm_picker", function() ICUI.view = "govs"; ICUI.gm_page = "provinces"
+            ICUI.pick = {kind = "gov", key = "prov_a"} end},
+        {"law_board", function() ICUI.view = "laws"; ICUI.law_cat = nil
+            ICUI.law_sel = {cat, R.LAWS[cat].order[2]} end},
+        {"law_vote", function() ICUI.view = "laws"; ICUI.law_cat = cat end},
+        {"gov_cards", function() ICUI.view = "court"; ICUI.pick = {kind = "doctrine"} end},
+        {"log", function() ICUI.view = "log" end},
+        {"help", function() ICUI.view = "help"; ICUI.help_page = 1 end},
+    }
+    for _, screen in ipairs({{1920, 1080}, {1600, 900}, {2560, 1440}}) do
+        with_fake_govmap(function(hud, panel, extra)
+            local function walk(name, c, path)
+                local imgs = {}
+                for i, p in pairs(c.images or {}) do imgs[#imgs + 1] = i .. "=" .. tostring(p) end
+                table.sort(imgs)
+                out:write(table.concat({name, path, c.visible and "1" or "0", c.x, c.y, c.w, c.h,
+                    esc(c.text), esc(table.concat(imgs, "|")), esc(extra.paths[c.name] or ""),
+                    c.resized and "1" or "0"}, "\t"), "\n")
+                for _, k in ipairs(c.order) do walk(name, k, path .. "/" .. k.name) end
+            end
+            ICUI.open()
+            for _, v in ipairs(VIEWS) do
+                ICUI.pick, ICUI.law_cat, ICUI.sel = nil, nil, nil
+                v[2]()
+                ICUI.refresh()
+                walk(v[1] .. "@" .. screen[1], panel, panel.name)
+            end
+            ICUI.pick = nil
+            ICUI.close(true)
+        end, screen, "dwf")
+    end
+    out:close()
+    ICUI.use_race(IC.RACES.chd)
+    ICUI.apply_scale(1920)
+    cm.get_human_factions = function() return {F} end
+    gov_done()
+end
+
+-- ---------------------------------------------------------------------------
+-- THE BOOK OF GRUDGES (plan 2026-10-04 phase 5). ONE do-block, as phase 4's:
+-- the main chunk is near Lua's 200 locals. BK is a Dwarf court; SK an enemy it
+-- has met whose army and settlements carry CA's grudge points. Later tasks add
+-- their checks above the closing line `end -- BOOK (plan 2026-10-04 phase 5)`.
+do
+local BK, SK = "wh_main_dwf_karak_kadrin", "wh2_main_skv_clan_skryre"
+local GR, ZG, FAR = "wh_main_grn_greenskins", "wh_main_grn_orcs_of_the_bloody_hand",
+                    "wh_main_grn_crooked_moon"
+
+local function grudged(cqi, n)
+    local man = make_character(cqi, ANY_SEAT, nil, nil)
+    man._force, man._grudge = true, n
+    return man
+end
+
+local function book_dump(list)
+    local out = {}
+    for _, e in ipairs(list) do out[#out + 1] = e.key .. "=" .. tostring(e.weight) end
+    return "{" .. table.concat(out, ", ") .. "}"
+end
+
+-- A FRESH WORLD: no state, no save, no cache, no bonuses. SK's one army carries
+-- `army` points, its settlements `regions` ({points, ...}), and a garrison 5000
+-- the Book must never read. Returns SK's army, whose _grudge a check moves.
+local function book_world(army, regions)
+    IC.state = {}
+    IC._book = nil
+    bonuses = {}
+    saved["derpy_ic_" .. BK] = nil
+    local man = grudged(9401, army)
+    local provs, pts = {}, {}
+    for i, n in ipairs(regions or {}) do
+        provs[i] = "sk_prov_" .. i
+        pts[provs[i]] = n
+    end
+    local sk = make_faction(SK, "wh2_main_sc_skv_skaven", {man}, provs)
+    sk._grudge_regions = pts
+    sk._garrison_units, sk._garrison_grudge = {}, 5000
+    local dw = make_faction(BK, IC.RACES.dwf.subculture,
+                            {make_character(9410, ANY_SEAT, IC.CROWN)}, {"dw_prov"})
+    dw._met = {SK}
+    for _, p in ipairs({IC.CROWN, "legion", "temple", "forge"}) do IC.add_house(BK, p) end
+    return man
+end
+
+check("book: the weight is CA's two pools on armies and settlements, never a garrison", function()
+    book_world(300, {100, 0})
+    turn = 20
+    assert(IC.book_weight(BK, SK) == 400, "weight " .. tostring(IC.book_weight(BK, SK)))
+    -- A SETTLEMENT WITH NO POOL is a null interface, not a zero.
+    factions[SK]._grudge_regions = {}
+    assert(IC.book_weight(BK, SK) == 300, "weight " .. tostring(IC.book_weight(BK, SK)))
+    assert(IC.book_weight(BK, "no_such_faction") == 0, "a faction that is not there weighs something")
+    assert(#IC_PARTY_FAULTS == 0, "the Book failed: " .. tostring(IC_PARTY_FAULTS[1]))
+end)
+
+check("book: names the heaviest it has met first, the top n, none at zero", function()
+    book_world(600, {})
+    make_faction(GR, "wh_main_sc_grn_greenskins", {grudged(9402, 900)}, {})
+    make_faction(ZG, "wh_main_sc_grn_greenskins", {grudged(9403, 0)}, {})
+    make_faction(FAR, "wh_main_sc_grn_greenskins", {grudged(9404, 5000)}, {})
+    factions[BK]._met = {SK, GR, ZG}       -- FAR is never met
+    turn = 30
+    local top = IC.book_names(BK, 3)
+    assert(#top == 2 and top[1].key == GR and top[1].weight == 900
+           and top[2].key == SK and top[2].weight == 600, "the Book reads " .. book_dump(top))
+    top = IC.book_names(BK, 1)
+    assert(#top == 1 and top[1].key == GR, "the top one reads " .. book_dump(top))
+    -- THE PANEL READS AND NEVER FILLS: what a machine holds must not depend on
+    -- whether its player opened the court.
+    assert(IC._book == nil, "a read filled the turn's cache")
+    assert(#IC_PARTY_FAULTS == 0, "the Book failed: " .. tostring(IC_PARTY_FAULTS[1]))
+end)
+
+check("book: each band fires once, in order, and a fall takes none back", function()
+    local man = book_world(499, {})
+    turn = 40
+    assert(IC.book_tick(BK) == 0 and #bonuses == 0, "499 crossed a band")
+    man._grudge = 500
+    turn = 41
+    assert(IC.book_tick(BK) == 1, "500 did not cross the first band")
+    assert(bonuses[1].a == BK and bonuses[1].b == SK and bonuses[1].n == IC.TUNE.book_penalty[1],
+        "the first band applied (" .. tostring(bonuses[1].a) .. ", " .. tostring(bonuses[1].b)
+        .. ", " .. tostring(bonuses[1].n) .. ")")
+    -- THE TURN PATH FILLS THE CACHE, and a later court's read this turn is it.
+    assert(IC._book and IC._book.turn == 41 and IC._book.w[SK] == 500, "the turn path filled no cache")
+    man._grudge = 50
+    assert(IC.book_weight(BK, SK) == 500, "a read this turn walked the map again")
+    man._grudge = 500
+    turn = 42
+    assert(IC.book_tick(BK) == 0 and #bonuses == 1, "the first band fired twice")
+    -- A JUMP PAST TWO BANDS fires both, once each, in order.
+    man._grudge = 2400
+    turn = 43
+    assert(IC.book_tick(BK) == 2 and #bonuses == 3, #bonuses .. " bonuses after a jump")
+    assert(bonuses[2].n == IC.TUNE.book_penalty[2] and bonuses[3].n == IC.TUNE.book_penalty[3],
+        "the bands fired out of order")
+    -- NEVER REVERSED: settled down to 100, nothing is applied and nothing is
+    -- taken back, and the rise after it fires nothing again.
+    man._grudge = 100
+    turn = 44
+    assert(IC.book_tick(BK) == 0 and #bonuses == 3, "a fall applied something")
+    assert(IC.court(BK).book[SK] == #IC.TUNE.book_bands, "a fall took a band back")
+    man._grudge = 2400
+    turn = 45
+    assert(IC.book_tick(BK) == 0 and #bonuses == 3, "a band fired again after a fall and a rise")
+end)
+
+check("book: the bands survive a save, and a 19-field save loads with none", function()
+    book_world(1200, {})
+    turn = 60
+    assert(IC.book_tick(BK) == 2, "1200 did not cross two bands")
+    IC.save(BK)
+    IC.state = {}
+    IC._book = nil
+    IC.load(BK)
+    assert(IC.court(BK).book[SK] == 2, "the bands were not saved")
+    turn = 61
+    assert(IC.book_tick(BK) == 0 and #bonuses == 2, "a load fired a band again")
+    local fields = {}
+    for field in string.gmatch(IC.pack(BK) .. "|", "([^|]*)|") do fields[#fields + 1] = field end
+    assert(#fields == 20, #fields .. " fields")
+    assert(fields[20] == SK .. ":2", "field 20 reads " .. fields[20])
+    -- AN OLDER SAVE: the same court cut to its first 19 fields.
+    IC.unpack(BK, table.concat(fields, "|", 1, 19))
+    assert(next(IC.court(BK).book) == nil, "a 19-field save read bands out of nothing")
+    -- A GARBLED ENTRY IS DROPPED and a count past the last band is the last band.
+    IC.unpack(BK, table.concat(fields, "|", 1, 19) .. "|" .. SK .. ":9/junk")
+    assert(IC.court(BK).book[SK] == #IC.TUNE.book_bands and IC.court(BK).book.junk == nil,
+        "field 20 read garbage")
+end)
+
+check("book: a Dwarf court's turn reads the Book; a Chaos Dwarf court's never does", function()
+    book_world(5000, {})
+    turn = 70
+    IC.register()
+    core.listeners["ic_turn"]({faction = function() return factions[BK] end})
+    local hit = {}
+    for _, b in ipairs(bonuses) do
+        if b.b == SK then hit[#hit + 1] = b.n end
+    end
+    assert(#hit == 3 and hit[1] == IC.TUNE.book_penalty[1] and hit[3] == IC.TUNE.book_penalty[3],
+        "a Dwarf court's turn applied " .. #hit .. " bands")
+    assert(#IC_PARTY_FAULTS == 0, "the Book failed: " .. tostring(IC_PARTY_FAULTS[1]))
+    -- A CHAOS DWARF COURT THAT HAS MET THE SAME FACTION.
+    bonuses = {}
+    saved["derpy_ic_" .. F] = nil
+    IC.state[F] = nil
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(11, ANY_SEAT, IC.CROWN)}, {"prov_a"})
+    factions[F]._met = {SK}
+    IC.add_house(F, IC.CROWN)
+    assert(IC.book_tick(F) == 0 and #IC.book_names(F, 3) == 0, "a Chaos Dwarf court has a Book")
+    core.listeners["ic_turn"]({faction = function() return factions[F] end})
+    for _, b in ipairs(bonuses) do
+        assert(b.b ~= SK, "a Chaos Dwarf court's turn applied a Book band")
+    end
+end)
+
+check("book: a treaty with a faction named at 1000 is a grudge to the Clan Warriors and the Priesthood", function()
+    local man = book_world(999, {})
+    IC.register()
+    local function treaty(kind, proposer, recipient)
+        local ctx = {proposer = function() return factions[proposer] end,
+                     recipient = function() return factions[recipient] end}
+        for _, k in ipairs({"is_peace_treaty", "is_trade_agreement", "is_alliance",
+                            "is_military_alliance", "is_defensive_alliance",
+                            "is_military_access", "is_non_aggression_pact",
+                            "is_vassalage", "is_state_gift"}) do
+            ctx[k] = function() return k == kind end
+        end
+        core.listeners["ic_book_peace"](ctx)
+    end
+    turn = 80
+    IC.book_tick(BK)
+    treaty("is_peace_treaty", BK, SK)
+    assert(#IC.grudges(BK, "legion") == 0 and #IC.grudges(BK, "temple") == 0, "999 is named")
+    man._grudge = 1000
+    turn = 81
+    IC.book_tick(BK)
+    -- MILITARY ACCESS IS NO TREATY THE SPEC NAMES.
+    treaty("is_military_access", SK, BK)
+    assert(#IC.grudges(BK, "legion") == 0, "military access wrote a grudge")
+    -- THE OTHER SIDE PROPOSING is the same wrong.
+    treaty("is_trade_agreement", SK, BK)
+    for _, p in ipairs({"legion", "temple"}) do
+        local g = IC.grudges(BK, p)
+        assert(#g == 1 and g[1].code == "peace" and g[1].turn == 81,
+            p .. " has " .. #g .. " grudges")
+    end
+    assert(#IC.grudges(BK, "forge") == 0, "a third party was wronged")
+    -- ONE WRONG A TURN: the same deal's second event writes nothing more.
+    treaty("is_peace_treaty", BK, SK)
+    assert(#IC.grudges(BK, "legion") == 1, "one deal wrote two grudges")
+    -- AND IT WAS SAVED by the listener.
+    IC.state = {}
+    IC.load(BK)
+    assert(#IC.grudges(BK, "legion") == 1, "the peace grudge was not saved")
+    -- CA WIPES AN ALLY'S POINTS ON THIS SAME EVENT: the Book still names it.
+    man._grudge = 0
+    turn = 82
+    treaty("is_alliance", BK, SK)
+    assert(#IC.grudges(BK, "legion") == 2, "an alliance after CA's wipe wrote nothing")
+    assert(#IC_PARTY_FAULTS == 0, "the Book failed: " .. tostring(IC_PARTY_FAULTS[1]))
+end)
+
+check("book: the faction's own grudge points rising is a deed for two parties; a fall is none", function()
+    book_world(0, {})
+    IC.register()
+    local saved_humans = cm.get_human_factions
+    cm.get_human_factions = function() return {BK} end     -- deeds are the player's
+    local function points(key, amount, faction_key)
+        core.listeners["ic_deed_grudge"]({
+            faction = function() return factions[faction_key or BK] end,
+            has_faction = function() return true end,
+            amount = function() return amount end,
+            resource = function()
+                return {is_null_interface = function() return false end,
+                        key = function() return key end}
+            end,
+        })
+    end
+    turn = 90
+    IC.fade_renown(BK)
+    -- SPENDING THEM ON A RITUAL IS A FALL.
+    points("wh3_dlc25_dwf_grudge_points", -200)
+    assert(IC.renown(BK, "legion") == 0 and IC.renown(BK, "temple") == 0,
+        "spending grudge points was a deed")
+    points("wh3_dlc25_dwf_grudge_points_enemy_armies", 40)
+    assert(IC.renown(BK, "legion") == 0, "another pool was a deed")
+    points("wh3_dlc25_dwf_grudge_points", 120)
+    assert(IC.renown(BK, "legion") == IC.TUNE.deed_grudge
+           and IC.renown(BK, "temple") == IC.TUNE.deed_grudge,
+        "a grudge settled gave legion " .. IC.renown(BK, "legion")
+        .. " and temple " .. IC.renown(BK, "temple"))
+    assert(IC.renown(BK, "forge") == 0, "a third party grew on a grudge")
+    -- AND THE PANEL SAYS SO: both parties' deed text names it, and no Chaos
+    -- Dwarf deed is offered to a Dwarf court.
+    local tip = ICUI.deeds_tip(BK, IC.court(BK)) or ""
+    local _, said = string.gsub(tip, "grudges settled", "")
+    assert(said == 2, "the deeds tooltip names grudges settled " .. said .. " times: " .. tip)
+    assert(not string.find(tip, "Hashut", 1, true) and not string.find(tip, "Hell-Forge", 1, true),
+        "a Dwarf court is told it grows on Chaos Dwarf deeds: " .. tip)
+    -- NOT A CHAOS DWARF DEED, and the Chaos Dwarf words are as they were.
+    saved["derpy_ic_" .. F] = nil
+    IC.state[F] = nil
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(11, ANY_SEAT, IC.CROWN)}, {"prov_a"})
+    for _, p in ipairs({IC.CROWN, "legion", "temple"}) do IC.add_house(F, p) end
+    cm.get_human_factions = function() return {F} end
+    points("wh3_dlc25_dwf_grudge_points", 120, F)
+    assert(IC.renown(F, "legion") == 0 and IC.renown(F, "temple") == 0,
+        "a Chaos Dwarf court took a grudge deed")
+    local chd = ICUI.deeds_tip(F, IC.court(F)) or ""
+    assert(string.find(chd, "temples of Hashut", 1, true) and not string.find(chd, "grudges", 1, true),
+        "the Chaos Dwarf deeds read " .. chd)
+    cm.get_human_factions = saved_humans
+end)
+
+check("book: the Court tab names the Book's top three on a Dwarf court only", function()
+    book_world(700, {})
+    for i, key in ipairs({GR, ZG, FAR}) do
+        make_faction(key, "wh_main_sc_grn_greenskins", {grudged(9420 + i, 1000 * i)}, {})
+    end
+    factions[BK]._met = {SK, GR, ZG, FAR}
+    turn = 100
+    with_fake_panel(function(panel)
+        cm.get_human_factions = function() return {BK} end
+        -- THE CUT IS NOT WHAT THIS CHECK IS ABOUT: a narrow stub face, so the
+        -- three keys standing in for names all fit at any panel scale.
+        local line = panel.children.ic_book
+        assert(line, "the panel has no ic_book")
+        line.text_px = 2
+        -- ITS REAL BOX: the fake tree's cells are 10px, and fit_cut reads Dimensions().
+        line.w, line.h = ICUI.PANEL_XY.ic_book[3], ICUI.PANEL_XY.ic_book[4]
+        ICUI.view = "court"
+        ICUI.refresh()
+        assert(line.visible, "a Dwarf court's Court tab has no Book line")
+        -- THE HARNESS'S LOC IS EMPTY, so each name draws as its key.
+        local text = line.text
+        assert(string.find(text, ICUI.BOOK_LABEL, 1, true) == 1, "the line reads " .. text)
+        local a, b, c = string.find(text, FAR, 1, true), string.find(text, ZG, 1, true),
+                        string.find(text, GR, 1, true)
+        assert(a and b and c and a < b and b < c, "not the top three, heaviest first: " .. text)
+        assert(not string.find(text, SK, 1, true), "a fourth name was drawn: " .. text)
+        assert(string.find(tostring(line.tooltip), "3000 grudge points", 1, true),
+            "the tooltip carries no weights: " .. tostring(line.tooltip))
+        assert(IC._book == nil, "drawing the panel filled the turn's cache")
+        ICUI.view = "offices"
+        ICUI.refresh()
+        assert(not panel.children.ic_book.visible, "another tab left the Book on screen")
+    end)
+    saved["derpy_ic_" .. F] = nil
+    IC.state[F] = nil
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(11, ANY_SEAT, IC.CROWN)}, {"prov_a"})
+    factions[F]._met = {SK}
+    IC.add_house(F, IC.CROWN)
+    with_fake_panel(function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        assert(not panel.children.ic_book.visible, "a Chaos Dwarf court drew the Book")
+    end)
+end)
+
+check("book: the tooltip names every faction the Book remembers, whatever it carries now", function()
+    -- FINAL REVIEW I1 (2026-10-06): a treaty is a grudge with a faction whose
+    -- SAVED bands ever reached book_named, and victories drain the live points.
+    -- The line ranks by today's weight, so the tooltip must say who is remembered.
+    book_world(200, {})
+    make_faction(GR, "wh_main_sc_grn_greenskins", {grudged(9431, 600)}, {})
+    factions[BK]._met = {SK, GR}
+    local court = IC.court(BK)
+    court.book[SK] = 2          -- crossed 1000 once, beaten down to 200 since
+    court.book[GR] = 1          -- only ever 500: a treaty with them is no grudge
+    turn = 101
+    with_fake_panel(function(panel)
+        cm.get_human_factions = function() return {BK} end
+        local line = panel.children.ic_book
+        line.text_px = 2
+        line.w, line.h = ICUI.PANEL_XY.ic_book[3], ICUI.PANEL_XY.ic_book[4]
+        ICUI.view = "court"
+        ICUI.refresh()
+        local tip = tostring(line.tooltip)
+        local listed = string.match(tip, ICUI.BOOK_REMEMBERED .. "([^\n]*)")
+        assert(listed, "the tooltip names no remembered faction: " .. tip)
+        assert(string.find(listed, SK, 1, true), "a faction once named at 1000 is not listed: " .. listed)
+        assert(not string.find(listed, GR, 1, true), "a faction never named was listed: " .. listed)
+        assert(IC._book == nil, "drawing the panel filled the turn's cache")
+    end)
+end)
+
+end -- BOOK (plan 2026-10-04 phase 5)
+
+-- ---------------------------------------------------------------------------
+-- BOTH RACES IN ONE CAMPAIGN (plan 2026-10-04 Iron Court for Dwarfs, phase 6).
+-- A Chaos Dwarf court and a Dwarf court tick side by side for fifty turns, and
+-- every assertion here is about CROSS-TALK: what one court's turns did to the
+-- other's bundles, save, grudges or Book bands. Each race's own rules are the
+-- phase 2-5 checks' business. One local (BR), so the main chunk's local count
+-- does not grow by ten.
+-- ---------------------------------------------------------------------------
+do
+    local BR = {CHD = F, DWF = "wh_main_dwf_karak_kadrin",
+                GRN = "wh_main_grn_greenskins"}
+
+    -- CA's grudge points on the greenskins as the Dwarf court reads them: 45 a
+    -- turn, so 500, 1,000 and 2,000 are crossed on turns 12, 23 and 45.
+    function BR.points(t) return 45 * t end
+
+    -- Field i of a court's save string, "" when the save is shorter or absent.
+    function BR.field(fk, i)
+        local parts = {}
+        for p in ((saved["derpy_ic_" .. fk] or "") .. "|"):gmatch("(.-)|") do
+            parts[#parts + 1] = p
+        end
+        return parts[i] or ""
+    end
+
+    -- A fresh two-court world. `humans` is what cm:get_human_factions answers.
+    function BR.world(humans)
+        IC.state, factions, applied, bonuses = {}, {}, {}, {}
+        saved["derpy_ic_" .. BR.CHD], saved["derpy_ic_" .. BR.DWF] = nil, nil
+        local function men(base)
+            local out = {}
+            for i = 1, 6 do out[i] = make_character(base + i, ANY_SEAT, nil, nil) end
+            return out
+        end
+        local w = {asked = {}, by = {}, ticked = {}, now = 0}
+        w.chd = make_faction(BR.CHD, IC.CHD_SUBCULTURE, men(9100), {"prov_a", "prov_b"})
+        w.dwf = make_faction(BR.DWF, "wh_main_sc_dwf_dwarfs", men(9200), {"prov_c", "prov_d"})
+        -- THE GREENSKINS' POINTS on one army, where CA keeps them, rising 45 a
+        -- turn. WHO READ THE BOOK is whoever's turn was running when the pool
+        -- was read: the only read is the Book's weighing, past its race guard.
+        w.grn_army = make_character(9300, ANY_SEAT, nil, nil)
+        w.grn_army._force, w.grn_army._grudge = true, nil
+        assert(getmetatable(w.grn_army) == nil, "the fixture army already has a metatable")
+        setmetatable(w.grn_army, {__index = function(_t, k)
+            if k ~= "_grudge" then return nil end
+            if w.current then w.asked[w.current] = (w.asked[w.current] or 0) + 1 end
+            return BR.points(w.now)
+        end})
+        make_faction(BR.GRN, "wh_main_sc_grn_greenskins", {w.grn_army}, {})
+        w.chd._met, w.dwf._met = {BR.DWF, BR.GRN}, {BR.CHD, BR.GRN}
+        w.keep = {humans = cm.get_human_factions, apply = cm.apply_effect_bundle,
+                  turn = IC.turn, govs = IC_GOVS_ON}
+        cm.get_human_factions = function() return humans end
+        IC_GOVS_ON = true
+        -- WHO EACH BUNDLE WENT TO. The stub keys `applied` by bundle alone,
+        -- which cannot tell the two courts apart.
+        cm.apply_effect_bundle = function(self, bundle, faction_key, turns)
+            w.by[#w.by + 1] = {f = faction_key, b = bundle}
+            return w.keep.apply(self, bundle, faction_key, turns)
+        end
+        IC._book = nil
+        -- WHOSE TURN RAN. The listener calls IC.turn by field, so this sees it.
+        IC.turn = function(fk, ...)
+            w.ticked[fk] = (w.ticked[fk] or 0) + 1
+            return w.keep.turn(fk, ...)
+        end
+        IC.register()
+        return w
+    end
+
+    function BR.done(w)
+        cm.get_human_factions, cm.apply_effect_bundle = w.keep.humans, w.keep.apply
+        IC.turn, IC_GOVS_ON = w.keep.turn, w.keep.govs
+        w.current = nil
+    end
+
+    -- Turns a..b, both courts each turn, the order swapped every other turn so a
+    -- value cached by whichever court went first is caught either way round.
+    function BR.turns(w, a, b)
+        for t = a, b do
+            turn, w.now = t, t
+            local first, second = w.chd, w.dwf
+            if t % 2 == 0 then first, second = w.dwf, w.chd end
+            w.current = first:name()
+            core.listeners["ic_turn"]({faction = function() return first end})
+            w.current = second:name()
+            core.listeners["ic_turn"]({faction = function() return second end})
+            w.current = nil
+        end
+    end
+
+    -- The penalties applied against the greenskins, "from:n" in order. Only
+    -- negative ones: Send Diplomats' goodwill is positive and is not the Book.
+    function BR.book()
+        local out = {}
+        for _, x in ipairs(bonuses) do
+            if x.b == BR.GRN and x.n < 0 then out[#out + 1] = x.a .. ":" .. x.n end
+        end
+        return table.concat(out, ",")
+    end
+
+    function BR.three_bands()
+        local want = {}
+        for i = 1, #IC.TUNE.book_bands do
+            want[i] = BR.DWF .. ":" .. IC.TUNE.book_penalty[i]
+        end
+        return table.concat(want, ",")
+    end
+
+    function BR.dwarf_bundles_on()
+        local n = 0
+        for k, c in pairs(applied) do
+            if c and c > 0 and k:find("^derpy_ic_") and k:find("_dwf_", 1, true) then
+                n = n + 1
+            end
+        end
+        return n
+    end
+
+    function BR.side_by_side(humans, dwf_human)
+        local w = BR.world(humans)
+        local ok, err = pcall(function()
+            BR.turns(w, 1, 50)
+
+            -- 1. KEYS: every court bundle went to the court of its own race.
+            local n = {}
+            for _, x in ipairs(w.by) do
+                if x.b:find("^derpy_ic_") then
+                    local dwarf = x.b:find("_dwf_", 1, true) ~= nil
+                    n[x.f] = (n[x.f] or 0) + 1
+                    assert(x.f ~= BR.CHD or not dwarf,
+                        "the Chaos Dwarf court was given a Dwarf bundle: " .. x.b)
+                    assert(x.f ~= BR.DWF or dwarf,
+                        "the Dwarf court was given a Chaos Dwarf bundle: " .. x.b)
+                end
+            end
+            assert((n[BR.CHD] or 0) > 0 and (n[BR.DWF] or 0) > 0,
+                "fifty turns applied " .. tostring(n[BR.CHD]) .. " Chaos Dwarf and "
+                .. tostring(n[BR.DWF]) .. " Dwarf court bundles: a court that applies "
+                .. "nothing proves nothing here")
+
+            -- 2. THE BOOK: never read for the Chaos Dwarf court; for a Dwarf
+            -- player, each band once, in order.
+            assert(not w.asked[BR.CHD], "the Book was read for the Chaos Dwarf court "
+                .. tostring(w.asked[BR.CHD]) .. " times")
+            if dwf_human then
+                assert((w.asked[BR.DWF] or 0) > 0,
+                    "the Dwarf court's turn never read the Book")
+                assert(BR.book() == BR.three_bands(), "the Book's bands against the "
+                    .. "greenskins were [" .. BR.book() .. "], wanted ["
+                    .. BR.three_bands() .. "]")
+            else
+                -- WHETHER AN AI DWARF COURT KEEPS A BOOK is phase 5's call; what it
+                -- may never do is fire a band twice or out of order.
+                local got = BR.book()
+                assert(got == "" or got == BR.three_bands(),
+                    "a Dwarf court run by the game fired [" .. got .. "]")
+            end
+            for _, x in ipairs(bonuses) do
+                local pair = (x.a == BR.CHD and x.b == BR.DWF)
+                          or (x.a == BR.DWF and x.b == BR.CHD)
+                assert(not (pair and x.n < 0), "the courts soured the two factions on "
+                    .. "each other: " .. x.a .. " -> " .. x.b .. " " .. x.n)
+            end
+
+            -- 3. GRUDGES, on a party both courts have, so a book keyed by slug
+            -- alone would land in both.
+            for _, fk in ipairs({BR.CHD, BR.DWF}) do
+                if not IC.court(fk).houses.forge then IC.add_house(fk, "forge") end
+            end
+            IC.grudge_write(BR.CHD, "forge", "castout")
+            for _ = 1, IC.TUNE.grudge_max + 2 do
+                IC.grudge_write(BR.DWF, "forge", "castout")
+            end
+            for slug in pairs(IC.court(BR.CHD).houses) do
+                assert(#IC.grudges(BR.CHD, slug) == 0, "the Chaos Dwarf " .. slug
+                    .. " holds " .. #IC.grudges(BR.CHD, slug) .. " grudge(s)")
+            end
+            assert(#IC.grudges(BR.DWF, "forge") == IC.TUNE.grudge_max,
+                "the Dwarf Forgewrights hold " .. #IC.grudges(BR.DWF, "forge")
+                .. " grudges, not " .. IC.TUNE.grudge_max)
+
+            -- 4. THE SAVES: the Chaos Dwarf string carries neither Dwarf field.
+            IC.save(BR.CHD)
+            IC.save(BR.DWF)
+            assert(BR.field(BR.CHD, 19) == "" and BR.field(BR.CHD, 20) == "",
+                "the Chaos Dwarf save carries grudges [" .. BR.field(BR.CHD, 19)
+                .. "] or Book bands [" .. BR.field(BR.CHD, 20) .. "]")
+            assert(BR.field(BR.DWF, 19):find("forge:", 1, true),
+                "the Dwarf save's grudge field is [" .. BR.field(BR.DWF, 19) .. "]")
+            if dwf_human then
+                assert(BR.field(BR.DWF, 20):find(BR.GRN .. ":", 1, true),
+                    "the Dwarf save's Book field is [" .. BR.field(BR.DWF, 20) .. "]")
+            end
+
+            -- 5. THROUGH A RELOAD: the grudges stay, the Chaos Dwarf court gains
+            -- none, and no band fires again. Turns 51-52 read 2,295 and 2,340,
+            -- above every band, so a lost field 20 re-fires all three here.
+            local before = BR.book()
+            IC.state = {}
+            IC.load(BR.CHD)
+            IC.load(BR.DWF)
+            assert(#IC.grudges(BR.DWF, "forge") == IC.TUNE.grudge_max,
+                "the Dwarf grudges did not survive the save: "
+                .. #IC.grudges(BR.DWF, "forge"))
+            assert(#IC.grudges(BR.CHD, "forge") == 0,
+                "the Chaos Dwarf court read a grudge back")
+            BR.turns(w, 51, 52)
+            assert(BR.book() == before, "a Book band fired again after the reload: ["
+                .. BR.book() .. "]")
+        end)
+        BR.done(w)
+        if not ok then error(err, 0) end
+    end
+
+    check("both races: a Dwarf player beside a Chaos Dwarf court, fifty turns, no cross-talk",
+    function() BR.side_by_side({BR.DWF}, true) end)
+
+    check("both races: a Chaos Dwarf player beside a Dwarf court, fifty turns, no cross-talk",
+    function() BR.side_by_side({BR.CHD}, false) end)
+
+    check("both races: Dwarf courts switched off mid-campaign, the Chaos Dwarf court runs on",
+    function()
+        local values = {}
+        for k, v in pairs(IC.TUNE_DEFAULTS) do values[k] = v end
+        with_mct(stub_mct(values), function()
+            with_frozen({}, function()
+                local w = BR.world({BR.CHD})
+                local ok, err = pcall(function()
+                    BR.turns(w, 1, 10)
+                    assert(BR.dwarf_bundles_on() > 0, "ten turns put no Dwarf court "
+                        .. "bundle on: the off case below would pass on a court that "
+                        .. "never ran")
+                    assert(BR.field(BR.DWF, 1) ~= "", "the Dwarf court was never saved")
+                    values.dwarf_courts = false
+                    core.listeners["ic_live_tune"]({})
+                    assert(IC.TUNE.dwarf_courts == false,
+                        "the Dwarf courts switch did not follow MCT's Finalize")
+                    local chd0, dwf0 = w.ticked[BR.CHD] or 0, w.ticked[BR.DWF] or 0
+                    BR.turns(w, 11, 12)
+                    assert(BR.dwarf_bundles_on() == 0,
+                        BR.dwarf_bundles_on() .. " Dwarf court bundle(s) stayed on")
+                    assert((saved["derpy_ic_" .. BR.DWF] or "") == "",
+                        "the switched-off Dwarf court is still in the save")
+                    assert((w.ticked[BR.DWF] or 0) == dwf0,
+                        "a switched-off Dwarf court still ran its turn")
+                    assert((w.ticked[BR.CHD] or 0) == chd0 + 2, "the Chaos Dwarf court "
+                        .. "ran " .. ((w.ticked[BR.CHD] or 0) - chd0) .. " of its two "
+                        .. "turns with Dwarf courts off")
+                    values.dwarf_courts = true
+                    core.listeners["ic_live_tune"]({})
+                    BR.turns(w, 13, 13)
+                    assert((w.ticked[BR.DWF] or 0) == dwf0 + 1,
+                        "switched back on, the Dwarf court did not run its turn")
+                end)
+                BR.done(w)
+                if not ok then error(err, 0) end
+            end)
+        end)
+    end)
 end
 
 check("no parties' turn failed anywhere in the run", function()

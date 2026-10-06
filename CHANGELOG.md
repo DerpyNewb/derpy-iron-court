@@ -5,6 +5,25 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-06 - build F4CF5CA4
+
+Deployed 2026-10-06. MD5 `F4CF5CA4DFA28C4FF9638E42B8BE3EA3`, 15,087,079 bytes. Covers the Dwarf
+work's phase builds since F4C63911. The detail is in
+`docs/history/HANDOFF_20261006_IRON_COURT_DWARFS_RELEASE.md`; the design in
+`docs/design/2026-10-04-iron-court-dwarfs-design.md`. Not yet seen in game.
+
+- **Dwarf factions get an Iron Court** in the same pack: Dwarf parties, offices, governments,
+  laws, moves, names and art. The Chaos Dwarf court is unchanged, row for row.
+- **Grudges inside the court**, -1 loyalty a turn each, up to 4 a party; Pay the Weregild settles one.
+- **Kin of the Karak**: +1 loyalty a turn for every party; secession countdowns 1.5 times as long.
+- **The Book of Grudges**: the Court tab names the top three factions; relations sour once
+  per band at 500, 1,000 and 2,000.
+- **Seats in the Great Hall** round the faction leader's throne, in CA's Book of Grudges look.
+- **MCT switch "Dwarf courts"**, live.
+- Tests: two fifty-turn both-races scenarios and the switch-off in the harness;
+  `tools/check_ic_release.py`, the release gate (both races at three screens, the saved pack
+  read back with RPFM shut).
+
 ## 2026-10-04 - build F4C63911
 
 Deployed 2026-10-04. MD5 `F4C6391183A7AA76309558640068318B`, 10,914,962 bytes. Covers builds

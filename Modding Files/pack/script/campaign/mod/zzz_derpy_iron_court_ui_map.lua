@@ -152,8 +152,11 @@ function ICUI.map_register()
                       leave_on_select, true)
     core:add_listener("ic_map_settlement_selected", "SettlementSelected", true,
                       leave_on_select, true)
-    cm:repeat_real_callback(function() pcall(ICUI.gm_scroll_poll) end,
-                            ICUI.GM_SCROLL_MS, "ic_gm_scroll")
+    -- AND THE OTHER VIEWS' LIST (ICUI.list_build), on the same frame tick.
+    cm:repeat_real_callback(function()
+        pcall(ICUI.gm_scroll_poll)
+        pcall(ICUI.list_scroll_poll)
+    end, ICUI.GM_SCROLL_MS, "ic_gm_scroll")
     cm:repeat_real_callback(function() pcall(ICUI.gm_zoom_poll) end,
                             ICUI.GM_ZOOM_MS, "ic_gm_zoom")
 end
@@ -290,6 +293,11 @@ function ICUI.gm_draw_pins(panel, faction, memo)
             local plate, loyal = comp(names[3], pins), comp(names[4], pins)
             local badge = comp(names[5], pins)
             if pin and face and plate and loyal and badge then
+                -- THE RACE'S PIN AND PLATES (DWF.art), over the shared file's own.
+                local art = ICUI.ART or {}
+                if art.gm_pin then pcall(function() pin:SetImagePath(art.gm_pin, 0) end) end
+                if art.gm_name then pcall(function() plate:SetImagePath(art.gm_name, 0) end) end
+                if art.gm_loyal then pcall(function() loyal:SetImagePath(art.gm_loyal, 0) end) end
                 local at = cco("CcoCampaignSettlement", cqi)
                 for _, c in ipairs({pin, face, plate, loyal, badge}) do c:SetContextObject(at) end
                 local gov = court.govs[province]
@@ -328,7 +336,8 @@ function ICUI.gm_sync()
     -- A VIEW ENTERED AFRESH starts with nothing chosen (the party map's rule).
     if on and not ICUI.gm_was_on then ICUI.gm_reset() end
     ICUI.gm_was_on = on
-    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ICUI.GM_BACKDROP, 0) end)
+    local ground = (ICUI.ART or {}).panel_bg or ICUI.GM_BACKDROP
+    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ground, 0) end)
     panel:SetInteractive(not on)
     ICUI.gm_show_column(panel, on)
     if not on then
@@ -496,6 +505,7 @@ function ICUI.gm_list(panel, n)
         local handle = comp("handle", slider)
         if handle then
             pcall(function() handle:SetProperty("max_height", h - ICUI.GM_HANDLE_H) end)
+            ICUI.skin_handle(handle)
         end
         show(slider, n > ICUI.GM_ROWS)
     end
@@ -594,8 +604,8 @@ end
 function ICUI.gm_fill_row(row, r)
     local art = ICUI.GM_ROW_ART[r.look or "live"] or ICUI.GM_ROW_ART.live
     pcall(function()
-        row:SetImagePath(art[1], 0)
-        row:SetImagePath(art[2], 1)
+        row:SetImagePath(ICUI.themed(art[1]), 0)
+        row:SetImagePath(ICUI.themed(art[2]), 1)
     end)
     -- NO PORTRAIT, NO PORTRAIT'S GAP: a Parties row's lines start beside its
     -- crest, as far from it as it is from the frame (author, 2026-10-01:
@@ -722,7 +732,7 @@ end
 -- THE GOVERNOR PICKER FOR A PROVINCE: the pin's and the check's one way in.
 function ICUI.gm_open_picker(province)
     ICUI.pick = {kind = "gov", key = province}
-    ICUI.scroll.pick = 0
+    ICUI.list_rescroll()
     ICUI.notice = nil
     ICUI.gm_rescroll()
     ICUI.gm_pick_sel = nil
@@ -837,8 +847,8 @@ function ICUI.gm_draw_column(panel, faction, memo)
         local art = ICUI.GM_ROUND_ART[p == page and "selected" or "live"]
         if tog then
             pcall(function()
-                tog:SetImagePath(art[1], ICUI.GM_TOG_ART[1])
-                tog:SetImagePath(art[2], ICUI.GM_TOG_ART[2])
+                tog:SetImagePath(ICUI.themed(art[1]), ICUI.GM_TOG_ART[1])
+                tog:SetImagePath(ICUI.themed(art[2]), ICUI.GM_TOG_ART[2])
             end)
         end
     end
@@ -1095,7 +1105,7 @@ function ICUI.gm_no()
     if ICUI.gm_live_page() == "picker" then
         -- BACK TO THE PAGE IT CAME FROM, with nothing done.
         ICUI.pick = nil
-        ICUI.scroll.pick = 0
+        ICUI.list_rescroll()
         ICUI.notice = nil
         ICUI.refresh()
         return

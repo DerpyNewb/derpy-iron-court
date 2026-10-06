@@ -61,6 +61,12 @@ DIM = 0.42
 INK = 245.0
 # The ordinary "readable body text" bar. The worst cell reached 2.8 undimmed.
 MIN_RATIO = 4.5
+# THE DWARF GROUND (plan 2026-10-04 phase 3): CA's own Dwarf loading screen, 1920x1200,
+# cover-cropped to the panel, dimmed to the largest hundredth at which every bare text
+# cell clears 4.5:1 at 1600, 1920 and 2560. Measured: 0.27 passes, 0.28 does not
+# (ic_row_crest[10] is the bound). check() asserts both halves.
+DIM_DWF = 0.27
+RACES = ("chd", "dwf")
 
 # Text cells with no plate OF THEIR OWN. The five tabs and the two pager buttons
 # wear one, the cards and the two big plates are opaque, and the Crown's porthole
@@ -78,7 +84,10 @@ TEXT_CELLS = ("ic_title", "ic_lbl_section", "ic_influence", "ic_control",
               # THE HEADER STRIP. Hidden on the court, bare on the four views that
               # do show it, and never on this list before the columns - a gap the
               # rebuild did not open but did make obvious.
-              "ic_hdr_a", "ic_hdr_b", "ic_hdr_c", "ic_hdr_d", "ic_hdr_e")
+              "ic_hdr_a", "ic_hdr_b", "ic_hdr_c", "ic_hdr_d", "ic_hdr_e",
+              # THE BOOK OF GRUDGES' LINE (plan 2026-10-04 phase 5): on the bare
+              # backdrop under the Crown's box, no plate behind it.
+              "ic_book")
 
 
 def text_cells(G):
@@ -95,7 +104,9 @@ def text_cells(G):
     """
     return (TEXT_CELLS + tuple("ic_plotcat_%d" % (i + 1) for i in range(G.PLOT_COLS))
             + tuple("ic_law_head_%d" % (i + 1) for i in range(G.LAW_COLS)) + ("ic_off_title",)
-            + tuple(sorted(k for k in G.TEXT_STYLE if k.startswith("ic_gc_"))))
+            + tuple(sorted(k for k in G.TEXT_STYLE if k.startswith("ic_gc_")))
+            + tuple(n for n in ("ic_throne_of", "ic_throne_name", "ic_throne_leader")
+                    if n in G.PANEL_LAYOUT))
 
 
 # The row pool's own cover. ROW_LAYERS is a single 1x1_blank_white at #00000055 -
@@ -132,7 +143,10 @@ def bare_boxes(G):
         if name == "ic_lbl_section":
             boxes.append(tuple(G.COURT_SECTION_XY))
         for box in boxes:
-            if not covered(box):
+            # THE BOOK'S LINE IS THE COURT TAB'S (plan 2026-10-04 phase 5), and
+            # the one plate over its box is the Laws vote's ic_lv_hand, which is
+            # never up on the Court tab - so it is bare where it is drawn.
+            if name == "ic_book" or not covered(box):
                 out.append((name, box))
     return out
 
@@ -153,13 +167,17 @@ def row_boxes(G):
     return out
 
 
-def _gen():
+def _gen(race="chd"):
     spec = importlib.util.spec_from_file_location(
         "gen_ic_ui", os.path.join(ROOT, "tools", "gen_ic_ui.py"))
     mod = importlib.util.module_from_spec(spec)
     sys.modules.setdefault("gen_ic_ui", mod)
     spec.loader.exec_module(mod)
-    return mod
+    return mod if race == "chd" else mod.at_box(1920, race)
+
+
+def dst(G):
+    return os.path.join(ROOT, "Modding Files", "pack", *G.PANEL_BG.split("/"))
 
 
 def build():
@@ -184,6 +202,36 @@ def build():
     return out.point(lambda v: int(v * DIM)).convert("RGBA")
 
 
+def build_dwf(dim=None):
+    """CA's Dwarf loading screen, cover-cropped to the panel and dimmed."""
+    from PIL import Image
+    G = _gen("dwf")
+    src = G._ca_png("ui.pack", G.DWF_BACKDROP_SRC)
+    if src is None:
+        raise SystemExit("no game install: %s cannot be read" % G.DWF_BACKDROP_SRC)
+    if src.size != (1920, 1200):
+        raise SystemExit("%s is %dx%d, not 1920x1200 - re-measure before trusting the crop"
+                         % ((G.DWF_BACKDROP_SRC,) + src.size))
+    w, h = G.PANEL_W, G.PANEL_H
+    k = max(w / float(src.width), h / float(src.height))
+    big = src.convert("RGB").resize((round(src.width * k), round(src.height * k)), Image.LANCZOS)
+    x0, y0 = (big.width - w) // 2, (big.height - h) // 2
+    out = big.crop((x0, y0, x0 + w, y0 + h))
+    d = DIM_DWF if dim is None else dim
+    return out.point(lambda v: int(v * d)).convert("RGBA")
+
+
+def _fails(img, G):
+    """Cells under 4.5:1 at 1920, and at 1600 and 2560 with the picture scaled."""
+    from PIL import Image
+    bad = [r for r in contrast(img, G) if r[3] < MIN_RATIO]
+    for bw in (1600, 2560):
+        g = G.at_box(bw)
+        scaled = img.convert("RGB").resize((g.PANEL_W, g.PANEL_H), Image.LANCZOS)
+        bad += [r for r in contrast(scaled, g) if r[3] < MIN_RATIO]
+    return bad
+
+
 def contrast(img=None, G=None):
     """(cell, mean, p95, ratio) for every bare text cell, worst last.
 
@@ -191,8 +239,8 @@ def contrast(img=None, G=None):
     picture shrunk to 1600x900, or the base module against the file itself.
     """
     from PIL import Image
-    img = img or Image.open(DST).convert("RGB")
     G = G or _gen()
+    img = img or Image.open(dst(G)).convert("RGB")
     rows = []
     rgb = img.convert("RGB")
     for name, (x, y, w, h), wash in (
@@ -215,13 +263,13 @@ def contrast(img=None, G=None):
     return sorted(rows, key=lambda r: -r[3])
 
 
-def check():
+def check(race="chd"):
     out = []
-    if not os.path.isfile(DST):
-        return ["the backdrop is not written: run py tools/make_ic_backdrop.py"]
+    G = _gen(race)
+    if not os.path.isfile(dst(G)):
+        return ["the backdrop is not written: run py tools/make_ic_backdrop.py --race %s" % race]
     from PIL import Image
-    img = Image.open(DST)
-    G = _gen()
+    img = Image.open(dst(G))
     if img.size != (G.PANEL_W, G.PANEL_H):
         out.append("the backdrop is %dx%d and the panel is %dx%d"
                    % (img.size + (G.PANEL_W, G.PANEL_H)))
@@ -240,7 +288,7 @@ def check():
             out.append("%s is a heading drawn on the panel and nothing measures it "
                        "against the backdrop - add it to TEXT_CELLS, or derive it "
                        "in text_cells()" % name)
-    for name, _mean, p95, ratio in contrast(img):
+    for name, _mean, p95, ratio in contrast(img.convert("RGB"), G):
         if ratio < MIN_RATIO:
             out.append("%s reads at %.1f:1 against the backdrop (p95 luminance %.0f) "
                        "- under the %.1f:1 this panel needs"
@@ -257,23 +305,42 @@ def check():
             out.append("at 1600x900, %s reads at %.1f:1 against the backdrop (p95 "
                        "luminance %.0f) - under the %.1f:1 this panel needs"
                        % (name, ratio, p95, MIN_RATIO))
+    if race == "dwf":
+        try:
+            up = build_dwf(round(DIM_DWF + 0.01, 2))
+        except SystemExit:
+            up = None
+        if up is not None and not _fails(up, G):
+            out.append("the Dwarf backdrop is dimmed to %.2f and %.2f would pass: dim it less"
+                       % (DIM_DWF, DIM_DWF + 0.01))
     return out
 
 
 if __name__ == "__main__":
-    if "--check" not in sys.argv:
-        img = build()
-        os.makedirs(os.path.dirname(DST), exist_ok=True)
-        img.save(DST, optimize=True)
-        print("wrote %s  %dx%d  %.2f MB  (cut %d rows of logo and credits, dimmed to "
-              "%.0f%%)" % (DST, img.width, img.height,
-                           os.path.getsize(DST) / 1048576.0, 1140 - ART_BOTTOM,
-                           DIM * 100))
-    measured = contrast()
-    print("  %d cells measured, worst ten:" % len(measured))
-    for name, mean, p95, ratio in measured[-10:]:
-        print("  %-18s mean %5.1f  p95 %5.1f  %4.1f:1" % (name, mean, p95, ratio))
-    problems = check()
+    races = ([sys.argv[sys.argv.index("--race") + 1]] if "--race" in sys.argv else list(RACES))
+    if "--search" in sys.argv:
+        G = _gen("dwf")
+        for k in range(60, 15, -1):
+            if not _fails(build_dwf(k / 100.0), G):
+                print("largest passing Dwarf dim: %.2f" % (k / 100.0))
+                break
+        sys.exit(0)
+    problems = []
+    for race in races:
+        G = _gen(race)
+        if "--check" not in sys.argv:
+            img = build() if race == "chd" else build_dwf()
+            os.makedirs(os.path.dirname(dst(G)), exist_ok=True)
+            img.save(dst(G), optimize=True)
+            print("wrote %s  %dx%d  %.2f MB  (dimmed to %.0f%%)"
+                  % (dst(G), img.width, img.height, os.path.getsize(dst(G)) / 1048576.0,
+                     (DIM if race == "chd" else DIM_DWF) * 100))
+        if os.path.isfile(dst(G)):
+            measured = contrast(None, G)
+            print("  %s: %d cells measured, worst ten:" % (race, len(measured)))
+            for name, mean, p95, ratio in measured[-10:]:
+                print("  %-18s mean %5.1f  p95 %5.1f  %4.1f:1" % (name, mean, p95, ratio))
+        problems += ["%s: %s" % (race, p) for p in check(race)]
     for p in problems:
         print("PROBLEM: " + p)
     sys.exit(1 if problems else 0)

@@ -201,7 +201,8 @@ def lua_words(src, name):
 # A namedtuple still indexes, so p[0] and p[4] keep working; what it stops is
 # the next field silently breaking a reader that spells the arity out.
 Move = collections.namedtuple(
-    "Move", "key name blurb cost aimed icon cat effect")
+    "Move", "key name blurb cost aimed icon cat effect race gold",
+    defaults=(None, False))
 
 
 def _tune(src):
@@ -258,8 +259,11 @@ def read_plots():
         # that has not existed since 2026-09-16.
         effect = _resolve_effect(
             chunk[chunk.index("effect = "):chunk.index("blurb =")], _tune(src))
+        # A RACE'S OWN MOVE, and one paid in gold (plan 2026-10-04 phase 4).
+        race = re.search(r'race = "(\w+)"', chunk)
         out.append(Move(key, name, blurb, cost, "aimed = false" not in chunk,
-                        icon, cat, effect))
+                        icon, cat, effect, race.group(1) if race else None,
+                        "gold = true" in chunk))
     return out
 
 
@@ -298,18 +302,32 @@ def _gen(_cache=[]):
 SIZES = (1600, 1920, 2560)
 
 
-def _gen_at(bw, _cache={}):
-    """The generator as the panel is at a box bw wide.
-
-    at_box() for any width but 1920, and cached, because at_box re-executes the
-    whole generator and a picture drawn from one copy with the numbers of another
-    describes neither.
-    """
-    if bw == 1920:
+def _gen_at(bw, race="chd", _cache={}):
+    """The generator as the panel is at a box bw wide, for a race. Cached: at_box
+    re-executes the whole generator, and a picture drawn from one copy with the
+    numbers of another describes neither."""
+    if bw == 1920 and race == "chd":
         return _gen()
-    if bw not in _cache:
-        _cache[bw] = _gen().at_box(bw)
-    return _cache[bw]
+    if (bw, race) not in _cache:
+        _cache[(bw, race)] = _gen().at_box(bw, race)
+    return _cache[(bw, race)]
+
+
+def raced(path, race):
+    """ic_court.png for the Chaos Dwarfs (every existing reference), ic_court_dwf.png
+    for the Dwarfs."""
+    if race == "chd":
+        return path
+    stem, ext = os.path.splitext(path)
+    return "%s_%s%s" % (stem, race, ext)
+
+
+VIEW_OUT = {"court": OUT, "intrigue": OUT_INTRIGUE, "pick": OUT_PICK,
+            "pick_ready": OUT_PICK_READY, "offices": OUT_OFFICES,
+            "petitions": OUT_PETITIONS, "gm_provinces": OUT_GM, "gm_picker": OUT_GM_PICK,
+            "law_board": OUT_LAW_BOARD, "law_vote": OUT_LAW_VOTE, "gov_cards": OUT_GOV_CARDS,
+            "log": os.path.join(PG.CACHE, "ic_log.png"),
+            "help": os.path.join(PG.CACHE, "ic_help.png")}
 
 
 def sized(path, bw):
@@ -396,7 +414,9 @@ def law_dump(_cache={}):
     loc = dict((r["key"], r["text"]) for r in GIC.build()["loc"])
     # THE LONGEST FORENAMES FIRST: the man cell holds a first name and his
     # influence, and the first block drawn is the heaviest.
-    fores = sorted(set(r[0].split()[0] for r in DEMO_PICK), key=len, reverse=True)
+    # Longest first, then by name: a tie left in set order made the law vote's
+    # picture differ run to run (Python seeds its string hash per process).
+    fores = sorted(set(r[0].split()[0] for r in DEMO_PICK), key=lambda s: (-len(s), s))
     for i in range(1, 41):
         loc["derpy_demo_fore_%d" % i] = fores[(i - 1) % len(fores)]
         loc["derpy_demo_face_%d" % i] = DEMO_FACES[(i - 1) % len(DEMO_FACES)]
@@ -431,6 +451,89 @@ def law_dump(_cache={}):
             vis == "1", float(x), float(y), float(w), float(h), unesc(text), images)
     return _cache
 
+
+
+DumpNode = collections.namedtuple(
+    "DumpNode", "path name visible x y w h text images file resized")
+DWF_VIEWS = ("log", "help")          # drawn for the Dwarf court only (Review Focus 7)
+DWF_DEMO_FACES = [
+    "ui/portraits/portholes/no_culture/dwf_lord_campaign_01_0.png",
+    "ui/portraits/portholes/no_culture/dwf_ch_runelord_campaign_01_0.png",
+    "ui/portraits/portholes/no_culture/dwf_master_engineer_campaign_01_0.png",
+    "ui/portraits/portholes/no_culture/dwf_runesmith_campaign_01_0.png",
+    "ui/portraits/portholes/no_culture/dwf_lord_campaign_02_0.png",
+    "ui/portraits/portholes/no_culture/dwf_ch_runelord_campaign_02_0.png",
+]
+DWF_DEMO_KING_FACE = "ui/portraits/portholes/no_culture/dwf_ch_ungrim_0.png"
+DWF_DEMO_FORE = ["Kazador", "Hargrim", "Thorgard", "Durgnar", "Bronnir", "Grimbok",
+                 "Ulfgrim", "Snorvald", "Morgrim", "Hakkin"]
+
+
+def race_dump(race, _cache={}):
+    """{"view@bw": [DumpNode, ...]} - a race's court drawn by the SHIPPED Lua: the
+    harness's IC_DUMP_RACE block opens it through the real ICUI.open on the fake root
+    at each box and walks every view. The text is the Lua's; its cuts measure with
+    the harness's linear stub, so the picture lets a long string overflow."""
+    if race in _cache:
+        return _cache[race]
+    import subprocess
+    import tempfile
+    import gen_iron_court as GIC
+    import read_vanilla_loc as L
+    loc = dict((r["key"], r["text"]) for r in GIC.build()["loc"])
+    names = L.load("factions")
+    loc["factions_screen_name_wh_main_dwf_karak_kadrin"] = names[
+        "factions_screen_name_wh_main_dwf_karak_kadrin"]
+    loc["derpy_demo_dwf_fore"], loc["derpy_demo_dwf_sur"] = "Ungrim", "Ironfist"
+    # THE BOOK'S HARD CASE (plan 2026-10-04 phase 5): CA's three longest faction
+    # screen names, met and weighed by the dump's court - a picture of three short
+    # names answers nothing about a cut cell.
+    book = sorted(((k[len("factions_screen_name_"):], t) for k, t in names.items()
+                   if k.startswith("factions_screen_name_")
+                   and not k.startswith("factions_screen_name_when_rebels_")
+                   and not t.startswith("{{")), key=lambda kt: (-len(kt[1]), kt[0]))[:3]
+    for key, text in book:
+        loc["factions_screen_name_" + key] = text
+    loc["derpy_demo_dwf_face_king"] = DWF_DEMO_KING_FACE
+    for i, fore in enumerate(DWF_DEMO_FORE):
+        loc["derpy_demo_fore_%d" % (i + 1)] = fore
+    for i, face in enumerate(DWF_DEMO_FACES):
+        loc["derpy_demo_dwf_face_%d" % (i + 1)] = face
+
+    def q(v):
+        return '"%s"' % v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+    tmp = tempfile.mkdtemp(prefix="ic_race_dump_")
+    loc_path, out_path = os.path.join(tmp, "loc.lua"), os.path.join(tmp, "dump.tsv")
+    with io.open(loc_path, "w", encoding="utf-8", newline="\n") as f:
+        f.write("return {\n" + "".join("[%s] = %s,\n" % (q(k), q(v))
+                                       for k, v in sorted(loc.items())) + "}\n")
+    env = dict(os.environ, IC_ONLY="no check is named this", IC_DUMP_RACE=race,
+               IC_DUMP_BOOK=",".join(k for k, _t in book),
+               IC_DUMP_RACE_OUT=out_path, IC_DUMP_LOC=loc_path)
+    env.pop("IC_TEST_ALL", None)
+    env.pop("IC_DUMP", None)
+    r = subprocess.run([LUA_EXE, os.path.join("tools", "_iron_court_harness.lua")],
+                       cwd=ROOT, env=env, capture_output=True, text=True)
+    if r.returncode != 0 or not os.path.isfile(out_path):
+        raise SystemExit("the harness's %s dump failed:\n%s%s" % (race, r.stdout, r.stderr))
+
+    def unesc(t):
+        return re.sub(r"\\(.)", lambda m: {"t": "\t", "n": "\n"}.get(m.group(1), m.group(1)), t)
+    out = {}
+    for line in io.open(out_path, encoding="utf-8").read().split("\n"):
+        if not line:
+            continue
+        screen, path, vis, x, y, w, h, text, imgs, fname, resized = line.split("\t")
+        images = {}
+        for pair in unesc(imgs).split("|"):
+            if "=" in pair:
+                k, v = pair.split("=", 1)
+                images[int(k)] = v.replace("\\", "/")
+        out.setdefault(screen, []).append(DumpNode(
+            path, path.rsplit("/", 1)[-1], vis == "1", float(x), float(y), float(w),
+            float(h), unesc(text), images, unesc(fname), resized == "1"))
+    _cache[race] = out
+    return out
 
 def demo_court(G):
     """(slug, title, share, loyalty, leader, his trait) per card.
@@ -520,6 +623,9 @@ DEMO_FACES = [
 # thing the red rows exist to show. selftest() re-reads the cached table and
 # fails if CA ever moves it.
 RED_INK = (0xFF, 0x2D, 0x2D, 255)
+# THE NAMED INKS the panel writes through [[col:]]: CA's red for a refusal, and black
+# for a lit Dwarf tab's word on the gold ribbon (db/ui_colours_tables, 000000).
+INK_OF = {"red": RED_INK, "black": (0, 0, 0, 255)}
 
 # [[col:name]] ... [[/col]] and [[img:path]][[/img]], the two markups this panel
 # writes through SetText.
@@ -635,20 +741,25 @@ def intrigue_lines(G, court):
 Card = collections.namedtuple("Card", "name blurb price afford icon cat")
 
 
-def plot_cards(G):
-    """One Card per move, in ICUI.draw_intrigue's order.
+def plot_cards(G, race="chd"):
+    """One Card per move of this race's grid, in ICUI.draw_intrigue's order.
 
     The same read_plots() source as before - a move added to the model draws here
     with no edit - split into the four cells a card has rather than concatenated
-    into one widened column.
+    into one widened column. A gold move (the weregild) is priced with the
+    treasury's icon; the demo court's treasury is not modelled, so it draws
+    affordable.
     """
     ui = bare(lua("ui"))
     cost_icon = re.search(r'ICUI\.COST_ICON = "([^"]+)"', ui).group(1)
+    gold_icon = re.search(r'ICUI\.GOLD_ICON = "([^"]+)"', ui).group(1)
     out = []
     for p in read_plots():
+        if p.race and p.race != race:
+            continue
         purse = DEMO_PURSE if p.aimed else DEMO_PURSE_CIVIL
-        afford = purse >= p.cost
-        price = "[[img:%s]][[/img]]%d" % (cost_icon, p.cost)    # ICUI.cost
+        afford = p.gold or purse >= p.cost
+        price = "[[img:%s]][[/img]]%d" % (gold_icon if p.gold else cost_icon, p.cost)
         # THE SAME CONCATENATION fill_plot makes, in the same order: what the
         # move does first, what it feels like second.
         out.append(Card(p.name, p.effect + " " + p.blurb,
@@ -930,16 +1041,17 @@ def gm_province_rows():
     return list(DEMO_GOVS) + [(DEMO_LONG_PROVINCE, "Dazminus Deathdealer", "temple", True, 25)]
 
 
-def render(path=None, view="court", box_w=1920):
+def render(path=None, view="court", box_w=1920, race="chd"):
     from PIL import Image, ImageDraw, ImageFont
     model, rendering = PG._studio()
-    G = _gen_at(box_w)
+    G = _gen_at(box_w, race)
     ui = lua("ui")
     gm = view.startswith("gm_")
     # THE COST ICON IS NAMED IN THE LUA AND IN NO .twui.xml, so the extractor has
     # to be told about it the way it is told about the lit tab's plate - otherwise
     # every price on the intrigue tab draws its number and no icon.
     cost_icon = re.search(r'ICUI\.COST_ICON = "([^"]+)"', ui).group(1)
+    gold_icon = re.search(r'ICUI\.GOLD_ICON = "([^"]+)"', ui).group(1)
     # THE MOVE ICONS ARE CA'S OWN, set at runtime and so named nowhere in our
     # .twui.xml - extract_art reads imagepath attributes, which never mention
     # them. They come out of IC.PLOTS here, the same place the panel reads them.
@@ -968,14 +1080,20 @@ def render(path=None, view="court", box_w=1920):
     # the generator's layer list - never an imagepath in a .twui.xml.
     n_art, missing = PG.extract_art(
         PREFIX,
-        extra=DEMO_FACES + [TAB_SELECTED, cost_icon, trait_icon, G.PARTY_SELECTED,
+        extra=DEMO_FACES + [TAB_SELECTED, cost_icon, gold_icon, trait_icon, G.PARTY_SELECTED,
                             band_icon] + sorted(fx_icons.values())
         + sorted(gov_icons.values())
         + law_art
         + icons
         + [G.GM_ROW_ART % s for s in ("active", "hover", "selected", "selected_hover", "inactive")]
         + [G.GM_ROUND % s for s in ("active", "hover", "selected", "selected_hover")]
-        + re.findall(r'"(ui/skins/default/icon_fealty_\w+\.png)"', lua("ui_map")))
+        + re.findall(r'"(ui/skins/default/icon_fealty_\w+\.png)"', lua("ui_map"))
+        + (sorted(set(p for nodes in race_dump(race).values() for nd in nodes
+                      for p in list(nd.images.values())
+                      # A PICTURE IN THE TEXT: the government line's [[img:]] is the
+                      # race's own icon, which no Chaos Dwarf list above holds.
+                      + re.findall(r"\[\[img:([^\]]+)\]\]", nd.text)
+                      if p.startswith("ui/"))) if race != "chd" else []))
 
     def doc_of(name):
         # BELOW 1920 THE PANEL OPENS THE COMPACT COPY, and the fonts this
@@ -985,7 +1103,7 @@ def render(path=None, view="court", box_w=1920):
         return model.Document(io.open(os.path.join(PG.OURS, name),
                                       encoding="utf-8").read())
 
-    panel, party = doc_of("derpy_ic_panel.twui.xml"), doc_of("derpy_ic_party.twui.xml")
+    panel, party = doc_of(G.PANEL_FILE), doc_of("derpy_ic_party.twui.xml")
     row_doc = doc_of("derpy_ic_row.twui.xml")
     office_doc = doc_of("derpy_ic_card.twui.xml")
     # THE MOVE CARDS ARE INSTANCES OF THE OFFICE CARD, so the intrigue view needs
@@ -1171,9 +1289,144 @@ def render(path=None, view="court", box_w=1920):
                         rendering.raster(art, px, px, _PlainMetrics()), (int(tx), int(ty)))
                 tx += px
                 continue
-            draw.text((tx, mid), body, fill=(RED_INK if tint == "red" else colour), font=f,
+            draw.text((tx, mid), body, fill=INK_OF.get(tint, colour), font=f,
                       anchor="lm")
             tx += draw.textlength(body, font=f)
+
+    # ---- A RACE OTHER THAN THE CHAOS DWARFS IS DRAWN FROM THE DUMP -----------
+    #
+    # Every visible component the shipped Lua left on the fake tree, at its MoveTo
+    # position, with the pictures and words it set, painted with its own file's
+    # layers - and nothing typed here. Siblings in engine order: a file's components
+    # in declaration order, the pools after them in creation order.
+    if race != "chd":
+        nodes = race_dump(race)["%s@%d" % (view, box_w)]
+        by_path = dict((nd.path, (i, nd)) for i, nd in enumerate(nodes))
+        kids = collections.defaultdict(list)
+        for nd in nodes:
+            if "/" in nd.path:
+                kids[nd.path.rsplit("/", 1)[0]].append(nd)
+        docs = {}
+
+        def creation_doc(nd):
+            p = nd.path
+            while True:
+                f = by_path[p][1].file
+                if f:
+                    name = os.path.basename(f) + ".twui.xml"
+                    if name not in docs:
+                        docs[name] = model.Document(io.open(
+                            os.path.join(PG.OURS, name), encoding="utf-8").read())
+                    return docs[name]
+                if "/" not in p:
+                    return None
+                p = p.rsplit("/", 1)[0]
+
+        def comp_of(nd):
+            doc = creation_doc(nd)
+            # A CREATED ROOT is named by its CreateComponent call (derpy_ic_card_3),
+            # and its file declares it under the file's own root name.
+            names = [nd.name]
+            if nd.file:
+                names.append(re.sub(r"(_dwf)?(_compact)?$", "", os.path.basename(nd.file)))
+            for want in names:
+                for c in (doc.components if doc else []):
+                    if c.get("id", c.tag) == want:
+                        return doc, c
+            # A ROOT CREATED UNDER ANOTHER NAME (ic_list from the Governors list
+            # file, whose root is "listview") is its file's root component.
+            if nd.file and doc is not None and doc.components and by_path[nd.path][1].file:
+                return doc, doc.components[0]
+            return doc, None
+        pools = ("derpy_ic_card_", "derpy_ic_party_", "derpy_ic_plot_", "derpy_ic_law_",
+                 "derpy_ic_lawblock_", "derpy_ic_row_")
+
+        def order(parent, nd):
+            doc, _c = comp_of(parent)
+            declared = [c.get("id", c.tag) for c in (doc.components if doc else [])]
+            if nd.name in declared:
+                return (0, declared.index(nd.name), 0)
+            for k, pre in enumerate(pools):
+                if nd.name.startswith(pre) and nd.name[len(pre):].isdigit():
+                    return (1, k, int(nd.name[len(pre):]))
+            return (2, by_path[nd.path][0], 0)
+        unknown, seen_art, drawn, fitted = [], set(), [0], {}
+
+        def draw_node(nd, clip=None):
+            if not nd.visible:
+                return
+            # A LIST'S ITEMS ARE CLIPPED TO ITS WINDOW (ICUI.list_build): an item
+            # wholly below or above list_clip is not drawn, nor anything in it.
+            # ponytail: whole items only - the dump is the list at its top, where
+            # every item is wholly in or out; a scrolled dump would need pixel clips.
+            if clip and (nd.y >= clip[1] or nd.y + (nd.h if nd.resized else 0) <= clip[0]):
+                return
+            if nd.name == "list_clip":
+                clip = (nd.y, nd.y + nd.h)
+            doc, c = comp_of(nd)
+            if c is None:
+                unknown.append(nd.path)
+            else:
+                st = doc.state(c)
+                # THE LUA'S SIZE where it sized the component; the file's otherwise
+                # (the fake tree's 10x10 default is nobody's size).
+                w = nd.w if nd.resized else model.number(st.get("width"), 0) if st is not None else 0
+                h = nd.h if nd.resized else model.number(st.get("height"), 0) if st is not None else 0
+                w, h, x, y = int(round(w)), int(round(h)), nd.x, nd.y
+                # THE SLIDER'S HANDLE IS THE ENGINE'S: docked at the top of its
+                # track at a list's top, and never MoveTo'd by the Lua.
+                if nd.name == "handle" and "/" in nd.path:
+                    track = by_path[nd.path.rsplit("/", 1)[0]][1]
+                    x, y, w = track.x, track.y, track.w
+                plain = "".join(b for k, b, _t in segments(nd.text) if k == "text")
+                if nd.name in G.FIT_PLATES and plain and nd.name in G.PANEL_LAYOUT:
+                    x, w = G.fit_plate(nd.name, G.PANEL_LAYOUT[nd.name][0],
+                                       G.PANEL_LAYOUT[nd.name][2], measure(doc, c, plain))
+                    fitted[nd.name] = (x, w)
+                # THE HELP BUTTON AT THE TITLE PLATE'S END, as ICUI.refresh puts it:
+                # the Lua placed it after the harness's stub-measured plate, and the
+                # plate drawn here is measured with the real face.
+                # A SORT ARROW AT ITS CAPTION'S END, as ICUI.hdr_text_w puts it with
+                # the engine's measure; the dump's x is the harness stub's.
+                if nd.name.startswith("ic_hsort_"):
+                    hn = [n for n in nodes if n.name == "ic_hdr_" + nd.name[-1]]
+                    if hn:
+                        hdoc, hc = comp_of(hn[0])
+                        cap = "".join(b for k, b, _t in segments(hn[0].text) if k == "text")
+                        gap = int(re.search(r"ICUI\.HSORT_GAP = (\d+)", lua("ui")).group(1))
+                        x = hn[0].x + gap * 2 + (measure(hdoc, hc, cap) if cap and hc is not None else 0)
+                if nd.name == "ic_help" and "ic_title" not in fitted:
+                    tn = [n for n in nodes if n.name == "ic_title"]
+                    tdoc, tc = comp_of(tn[0]) if tn else (None, None)
+                    tplain = "".join(b for k, b, _t in segments(tn[0].text) if k == "text") if tn else ""
+                    if tc is not None and tplain:
+                        fitted["ic_title"] = G.fit_plate("ic_title", G.PANEL_LAYOUT["ic_title"][0],
+                                                         G.PANEL_LAYOUT["ic_title"][2],
+                                                         measure(tdoc, tc, tplain))
+                if nd.name == "ic_help" and "ic_title" in fitted:
+                    t, hb = G.PANEL_LAYOUT["ic_title"], G.PANEL_LAYOUT["ic_help"]
+                    x = fitted["ic_title"][0] + fitted["ic_title"][1] + hb[0] - (t[0] + t[2])
+                paste(doc, c, x, y, w, h, repaint=nd.images or None)
+                if nd.text:
+                    s_ = nd.text
+                    # A CUT CELL DRAWS CUT, as ICUI.fit_cut cuts it in game: the
+                    # dump's own cut measured with the harness's 8px-a-letter stub.
+                    if nd.name in G.CUT_CELLS and "[[" not in s_:
+                        s_ = s_[:-3] if s_.endswith("...") else s_
+                        s_ = cut_words(lambda _s, _d=doc, _c=c: measure(_d, _c, _s), s_, w)
+                    text(doc, c, s_, x, y, w, h)
+                seen_art.update(nd.images.values())
+                drawn[0] += 1
+            for k in sorted(kids[nd.path], key=lambda k: order(nd, k)):
+                draw_node(k, clip)
+        draw_node(nodes[0])
+        out = sized(raced(path or VIEW_OUT[view], race), box_w)
+        canvas.save(out)
+        problems = ["%s@%d: %s is in no twui file it was created from" % (view, box_w, p)
+                    for p in unknown]
+        problems += ["%s@%d: draws Chaos Dwarf art %s, not in gen_ic_ui.DWF_KEEPS"
+                     % (view, box_w, p) for p in sorted(seen_art) if p and G.chd_art(p)]
+        return out, n_art, missing + problems, drawn[0]
 
     # ---- the panel, then the tab's own furniture -------------------------
     # ON THE GOVERNORS VIEW THE BACKDROP IS CLEARED (ICUI.gm_sync), so the
@@ -1325,6 +1578,12 @@ def render(path=None, view="court", box_w=1920):
     # show rather than one it quietly avoids. Read out of the Lua, so a key added
     # to either list is hidden here too.
     hidden = set(("ic_page_prev", "ic_page_lbl", "ic_page_next"))    # see STRINGS
+    # THE BOOK'S LINE (plan 2026-10-04 phase 5) is a Dwarf court's only, and this
+    # path draws the Chaos Dwarf court; the Dwarf one is the shipped Lua's dump.
+    if not re.search(r'show\(comp\("ic_book", panel\), false\)', ui):
+        raise SystemExit("ICUI.refresh no longer hides ic_book by name on a "
+                         "tab switch - re-read it before trusting this picture")
+    hidden.add("ic_book")
     _gm_n = (len(gm_province_rows()) if view == "gm_provinces"
              else len(pick_lines(False)) if view == "gm_picker" else 0)
     hidden |= gm_hidden(G, view, _gm_n)
@@ -1462,10 +1721,10 @@ def render(path=None, view="court", box_w=1920):
             # entry for it at all, because a sentence counting the seats in prose
             # goes stale the moment a tier gains one. ICUI.section_text builds it,
             # and this reads that same format string and fills it from the same
-            # three places - IC.OFFICES, IC.TIER_SEATS and IC.TUNE.
+            # three places - IC.OFFICES, tier_seats() and IC.TUNE.
             _fmt = re.search(r'"(%d seats in %d tiers [^"]*)"', ui).group(1)
             _tiers = sorted(set(o["tier"] for o in G.IC.OFFICES))
-            _widths = "/".join(str(G.IC.TIER_SEATS[t]) for t in _tiers)
+            _widths = "/".join(str(G.IC.tier_seats()[t]) for t in _tiers)
             _turns = re.search(r"term_turns\s*=\s*(\d+)", lua("model")).group(1)
             STRINGS["ic_lbl_section"] = (_fmt
                 .replace("%d", str(len(G.IC.OFFICES)), 1)
@@ -1986,7 +2245,7 @@ def render(path=None, view="court", box_w=1920):
             text(panel, hc, title.upper(), hx, hy, hw, hh)
 
         # ---- the move cards, one column per category -----------------------
-        moves = plot_cards(G)
+        moves = plot_cards(G, race)
         by_cat = {}
         for m in moves:
             by_cat.setdefault(m.cat, []).append(m)
@@ -2335,6 +2594,7 @@ def selftest():
         # positionally the way they read, and the lookup below fails loudly
         # rather than quietly finding nothing if that ever changes.
         by_key = dict((r["blue"], r["description"].upper()) for r in _rows)
+        assert by_key.get("black") == "000000", "db/ui_colours_tables has no black 000000"
         assert by_key.get("red") == "%02X%02X%02X" % RED_INK[:3], (
             "db/ui_colours_tables calls red %s, not %s"
             % (by_key.get("red"), "%02X%02X%02X" % RED_INK[:3]))
@@ -2379,6 +2639,30 @@ def selftest():
     assert Image.open(_out).convert("RGBA").getpixel((1800, 600)) == GM_MAP_FILL, (
         "the Governors picture drew the backdrop over the map")
 
+    # THE DWARF COURT'S DUMP (plan 2026-10-04 phase 3, Task 10).
+    D = race_dump("dwf")
+    for bw in SIZES:
+        for v in VIEWS + DWF_VIEWS:
+            key = "%s@%d" % (v, bw)
+            assert key in D, "the harness dumped no %s" % key
+            want = "derpy_ic_panel_dwf" + ("_compact" if bw < 1920 else "")
+            assert D[key][0].file.endswith(want), "%s was built from %s" % (key, D[key][0].file)
+    off = dict((n.name, n) for n in D["offices@1920"])
+    assert off["ic_off_title"].text == "THE GREAT HALL", off["ic_off_title"].text
+    assert off["ic_throne_name"].text == "Karak Kadrin", off["ic_throne_name"].text
+    assert off["ic_throne_leader"].text == "Ungrim Ironfist", off["ic_throne_leader"].text
+    assert off["derpy_ic_card_1"].images.get(1) == "ui/derpy_ic/dwf_frame_364x184.png"
+    assert off["ic_tab_offices"].text == "[[col:black]]Offices[[/col]]"
+
+    # THE DWARF PICTURES (plan 2026-10-04 phase 3, Task 11).
+    assert INK_OF["black"] == (0, 0, 0, 255)
+    assert segments("[[col:black]]Offices[[/col]]") == [("text", "Offices", "black")]
+    assert raced(OUT_OFFICES, "dwf").endswith("ic_offices_dwf.png")
+    assert sized(raced(OUT_OFFICES, "dwf"), 1600).endswith("ic_offices_dwf_1600.png")
+    out, _n, problems, drawn = render(view="offices", box_w=1920, race="dwf")
+    assert not problems, problems
+    assert drawn > 100, "the Dwarf offices picture drew %d components" % drawn
+
     print("selftest ok: %d files validate, the card's %d cells are all seen, the "
           "%d moves read %d rows, the reader catches a broken link"
           % (len(PG.our_files(PREFIX)), len(G.PARTY_LAYOUT), len(plots), len(lines)))
@@ -2397,17 +2681,22 @@ if __name__ == "__main__":
         problems = validate()
         for p in problems:
             print("PROBLEM: " + p)
-        # EVERY VIEW AT EVERY WIDTH. The offices, governors and picker views
-        # draw the office card and the row pool, which carry most of the
-        # compact overrides - drawing only the court and the move cards at
-        # 1600 left those unseen at the one size they were written for.
-        jobs = [(view, bw) for bw in SIZES for view in VIEWS]
-        for view, bw in jobs:
-            out, n_art, missing, drawn = render(view=view, box_w=bw)
-            for m in missing:
-                print("  art not found in any ui pack: " + m)
-            print("wrote %s  (%d art files, %d %s)"
-                  % (out, n_art, drawn,
-                     "of %d card slots filled" % len(_gen_at(bw).PARTY_GRID)
-                     if view == "court" else "rows"))
+        races = ([sys.argv[sys.argv.index("--race") + 1]] if "--race" in sys.argv
+                 else ["chd", "dwf"])
+        for race in races:
+            views = VIEWS + (DWF_VIEWS if race != "chd" else ())
+            for bw in SIZES:
+                for view in views:
+                    out, n_art, missing, drawn = render(view=view, box_w=bw, race=race)
+                    for m in missing:
+                        if m.startswith(view + "@"):
+                            print("PROBLEM: " + m)
+                            problems.append(m)
+                        else:
+                            print("  art not found in any ui pack: " + m)
+                    print("wrote %s  (%d art files, %d %s)"
+                          % (out, n_art, drawn,
+                             "components" if race != "chd" else
+                             "of %d card slots filled" % len(_gen_at(bw).PARTY_GRID)
+                             if view == "court" else "rows"))
         sys.exit(1 if problems else 0)
