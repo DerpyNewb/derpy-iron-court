@@ -10,7 +10,7 @@ this one ships them together.
 - Build `F4CF5CA4`: MD5 `f4cf5ca4dfa28c4ff9638e42b8be3ea3`, 15,087,079 bytes, 1867 files.
 - Where: byte-identical in `data/` and `Modding Files/Modpacks/`, built and deployed 2026-10-06.
 - Backup of the pack it replaced: `Modding Files/Backup/deployed_auto/derpy_iron_court.pack.bak_pre_auto_20261006_130017`.
-- **Not pushed.** There is no Workshop entry.
+- **Pushed to GitHub** as `d163830` (2026-10-06). There is no Workshop entry.
 - **Not yet seen in game.** Section 7 is the checklist.
 
 ## 2. Gates
