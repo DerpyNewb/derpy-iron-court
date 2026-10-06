@@ -203,10 +203,11 @@ mirrors the in-pack paths, so the tools run from the repo root unchanged.
 | Path | What it is |
 |---|---|
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, overseers, loyalty, intrigue, secession, save state |
+| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua` | the Dwarf race: parties, offices, governments, laws, moves, deeds, rebels and tuning |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua` | the rival parties' own acts, demands and offers |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, the HUD opener and the influence plate |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua` | the Governors tab: pins on the campaign map and the column beside them |
-| `Modding Files/pack/ui/campaign ui/` | the seventeen `derpy_ic_*.twui.xml` layouts (generated): twelve layouts, five of them with a `_compact` copy |
+| `Modding Files/pack/ui/campaign ui/` | the thirty `derpy_ic_*.twui.xml` layouts (generated): twenty-one layouts, nine of them with a `_compact` copy, the Dwarf panel pair among them |
 | `Modding Files/source/iron_court/` | the DB rows and loc as TSV (generated), except the `factions` override (see below) |
 | `tools/` | generators, checks, the Lua test harness, the mutation runner, the preview renderer, the art tools and the packer |
 | `docs/design/` | design specs, and the gap analysis against Rome II's politics |

@@ -4,6 +4,8 @@ Plan: `docs/superpowers/plans/2026-10-04-iron-court-dwarfs-phase5-book-of-grudge
 Spec: `docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md`, section 6. Ledger with every
 ruling: `.superpowers/sdd/iron-court-dwarfs-phase5/progress.md`. Finished 2026-10-06.
 
+**Now superseded in data/ by `F4CF5CA4`, the Dwarf release of 2026-10-06 (`HANDOFF_20261006_IRON_COURT_DWARFS_RELEASE.md`).**
+
 **State:** built after the final review's fix and copied byte-identical to `data/` on 2026-10-06 (`derpy_iron_court.pack`, md5 `500C7AB0`). See section 5. **Not yet seen in game.** The author approved
 the Court tab picture with the Book line ("continue", 2026-10-06).
 

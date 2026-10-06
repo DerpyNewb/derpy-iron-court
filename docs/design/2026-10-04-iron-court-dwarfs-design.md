@@ -1,6 +1,9 @@
 # The Iron Court for Dwarfs - design (2026-10-04)
 
-Status: SPEC, written after a brainstorm in which the author approved every section below
+Status: BUILT in six phases and released as build `F4CF5CA4` (2026-10-06), pushed to GitHub as
+d163830; not yet seen in game. Write-up: `docs/sessions/HANDOFF_20261006_IRON_COURT_DWARFS_RELEASE.md`.
+
+Original status: SPEC, written after a brainstorm in which the author approved every section below
 marked APPROVED. Sections marked PROPOSED are the spec's own proposals, presented here for
 the first time; the author reviews them in this document. Handoff:
 `docs/sessions/HANDOFF_20261004_IRON_COURT_DWARFS_DESIGN.md`. Previews:

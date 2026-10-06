@@ -4,6 +4,8 @@ Plan: `docs/superpowers/plans/2026-10-04-iron-court-dwarfs-phase3-dwarf-ui.md` (
 Spec: `docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md`. Ledger with every ruling:
 `.superpowers/sdd/iron-court-dwarfs-phase3/progress.md`. Finished 2026-10-05.
 
+**Now superseded in data/ by `F4CF5CA4`, the Dwarf release of 2026-10-06 (`HANDOFF_20261006_IRON_COURT_DWARFS_RELEASE.md`).**
+
 **State:** built, packed (`Modding Files/Modpacks/derpy_iron_court.pack`, md5 `8BF4E96D`, 1867
 files, verified from disk) and copied byte-identical to `data/`. The pack is unpublished, so
 there is no Workshop folder to copy to. **Not yet seen in game.** The author has approved all

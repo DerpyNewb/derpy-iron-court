@@ -130,7 +130,7 @@ Settings: MCT on, Default difficulty, UI scale 100%. Check the opener at 1600x90
 - [ ] Offices tab: the Great Hall, two wings of seats facing the throne, no ziggurat; 2/4/4/4 seats; Fill Empty Seats under the doors.
 - [ ] Court tab: the government is The War-King. Every party, office, law and move name is a Dwarf one; no Chaos Dwarf word on any tab, tooltip or message.
 - [ ] Laws tab: Craft, Tribute, Ancestors, War, each starting on its first law.
-- [ ] A grudge written: use Cast Out the Clan on a party. Its loyalty breakdown gains a line "Grudge: Cast Out, turn N" costing 1 a turn; the Record logs it written.
+- [ ] A grudge written: use An Insult to the Clan on a party (it can fail; retry until it lands). Its loyalty breakdown gains a line "Grudge: An Insult to the Clan, turn N" costing 1 a turn; the Record logs it written. (Not Cast Out the Clan: that writes its grudge and then removes the party, so there is no breakdown left to read.)
 - [ ] Settled by weregild: Pay the Weregild on that party. Gold is spent, the grudge line leaves the breakdown, loyalty rises a little, the Record logs it settled.
 - [ ] Kin of the Karak: every party's breakdown shows +1 a turn.
 - [ ] Secession countdown: push one party to the bottom of its loyalty after turn 10. Its countdown shows 8 turns (a Chaos Dwarf party shows 5 on Default).
@@ -165,4 +165,23 @@ The in-game checks owed by phases 3, 4 and 5 are in their own handoffs (phase 4 
     - the Hold/leader minor and the one-turn-old-rules government minor;
     - the deeds minors.
   - Owed in game: the shader-effect looks.
-- **Deferred minors:** phases 4 and 5 list them in their final-review sections.
+- **Deferred minors:** phases 4 and 5 list them in their final-review sections, and section 9 lists this phase's.
+- **Every ruling and deferred minor of phases 1-6**, verbatim from the six ledgers: `docs/sessions/IRON_COURT_DWARFS_RULINGS_20261006.md`.
+
+## 9. Final review (opus) and its fix
+
+The review found no fault in the shipped game Lua: 0 Critical, 1 Important, 6 Minor.
+
+**Fixed (Important):** the checklist's grudge step used Cast Out the Clan. That move writes its
+grudge and then removes the party, so neither the grudge line nor the Weregild step after it
+could be done. It now uses An Insult to the Clan (section 7, A).
+
+**Deferred (minor):**
+
+- `chd_unchanged` lets an added row change an existing Chaos Dwarf one, through a junction or trait-level row under an old key, and its set comparison misses a lost duplicate. Neither happens in this pack (measured).
+- `matches_generator` compares only the generator's columns. The 24 `*_colour_r/g/b` columns behind the eight `*_hex` ones are never checked; they hold 000000 on all four rows (measured).
+- `pack_tables` reads only `db/*/derpy_iron_court` and the one `.loc`. A fragment under another name would be invisible; there are none.
+- The switch-off check counts the Chaos Dwarf court's turns, not whether its bundles and save survived.
+- The dismantle log line says "AI courts are off" when the Dwarf switch removes a court (script log only).
+
+**Fixed after the review, in a later doc pass (2026-10-06):** the public README's file table gained the Dwarf Lua and now counts thirty layouts (twenty-one, nine with a compact copy), and the patch notes say "at 1,000 or more" where they said "above 1,000".

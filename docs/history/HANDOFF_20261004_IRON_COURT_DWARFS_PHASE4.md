@@ -4,6 +4,8 @@ Plan: `docs/superpowers/plans/2026-10-04-iron-court-dwarfs-phase4-court-grudges.
 Spec: `docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md`. Ledger with every ruling:
 `.superpowers/sdd/iron-court-dwarfs-phase4/progress.md`. Finished 2026-10-05.
 
+**Now superseded in data/ by `F4CF5CA4`, the Dwarf release of 2026-10-06 (`HANDOFF_20261006_IRON_COURT_DWARFS_RELEASE.md`).**
+
 **State:** built after the final review's fixes and copied byte-identical to `data/` on
 2026-10-05 (`derpy_iron_court.pack`, md5 `90518DE4`, 1867 files, verified from disk). The
 backup is `Modding Files/Backup/deployed_auto/derpy_iron_court.pack.bak_pre_auto_20261005_232610`.
