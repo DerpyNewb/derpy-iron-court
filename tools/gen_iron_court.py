@@ -1,11 +1,9 @@
-"""The Iron Court - DB generator.
+"""The Iron Court: DB generator.
 
-See docs/superpowers/specs/2026-09-11-iron-court-design.md and
-docs/mockups/politics_panel.png.
-
-Emits the effect bundles, their effect junctions and the loc for the Chaos Dwarf
-political system: six court offices, their vacancy penalties, and the governor
-bundles the Overseer agent carries.
+Emits every Iron Court DB table and the loc as TSVs in Modding Files/source/iron_court/:
+effect bundles and their junctions, traits, event feed rows, missions, campaign groups and
+the rebel factions' banner override. The design is 2026-09-11-iron-court-design.md
+(docs/design/ in the public repo).
 
     py tools/gen_iron_court.py --check      # validate, write nothing
     py tools/gen_iron_court.py              # write TSVs
@@ -25,19 +23,17 @@ CHD_SUBCULTURE = "wh3_dlc23_sc_chd_chaos_dwarfs"
 CACHE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                      ".skilltree_cache")
 
-# ---------------------------------------------------------------------------
 # The verified vocabulary.
 #
 # Every (effect, scope) pair below was read out of vanilla's own
-# effect_bundles_to_effects_junctions on 2026-09-11; is_positive_value_good came
-# from effects.json the same day. check() re-reads both and refuses on any drift,
+# effect_bundles_to_effects_junctions; is_positive_value_good came from
+# effects.json. check() re-reads both and refuses on any drift,
 # because an invented effect key or an (effect, scope) pair CA never ships does
 # not error - it silently does nothing forever.
 #
 # The third element is is_positive_value_good. TWO of the nine are False: they are
 # load/cost modifiers where the BENEFIT is a NEGATIVE value. Nothing below ever
 # writes a raw signed number - see signed_value().
-# ---------------------------------------------------------------------------
 E_ARMAMENTS = ("wh3_dlc23_pooled_resource_chd_armaments_modifier",
                "faction_to_region_own", True)
 E_WORKLOAD = ("wh3_dlc23_pooled_resource_chd_workload_modifier",
@@ -48,12 +44,11 @@ E_ORDER = ("wh_main_effect_public_order_faction",
            "faction_to_province_own", True)
 E_GDP = ("wh_main_effect_economy_gdp_mod_all",
          "faction_to_region_own", True)
-# THE SAME EFFECT ON ONE PROVINCE: the governor's runtime bundle adds it (spec
-# 2026-09-27 section 7). Vanilla's province payloads scope it province_to_*.
+# THE SAME EFFECT ON ONE PROVINCE: the governor's runtime bundle adds it.
+# Vanilla's province payloads scope it province_to_*.
 E_GDP_PROVINCE = ("wh_main_effect_economy_gdp_mod_all",
                   "province_to_region_own", True)
-# NO GROWTH (author, 2026-10-03: "growth is useless for chaos dwarf"). Its five
-# uses became Conclave Influence (the High Priest, the two end bands), CA's
+# NO GROWTH: growth is useless to the Chaos Dwarfs. Its five uses became Conclave Influence (the High Priest, the two end bands), CA's
 # slave-driven Control (a Priesthood governor) and Workload (every governor).
 # THE SLAVES' CONTROL: CA's own effect, on its Dark Elf slave bundles at
 # faction_to_province_own, is_positive_value_good True.
@@ -81,9 +76,8 @@ E_AGENT = ("wh_main_effect_agent_action_success_chance",
            "faction_to_character_own", True)
 E_RAID = ("wh_main_effect_force_all_campaign_raid_income",
           "faction_to_force_own", True)
-# CHEAPER HOBGOBLINS, for the Steward of the Ash Fields (author, 2026-09-28:
-# "redo growth effect into something else"; chose "cheaper hobgoblins"). UPKEEP,
-# not recruitment cost: CA ships the hobgoblin recruit-cost effect only on
+# CHEAPER HOBGOBLINS, for the Steward of the Ash Fields, in place of growth.
+# UPKEEP, not recruitment cost: CA ships the hobgoblin recruit-cost effect only on
 # buildings, scoped to one province, and a faction bundle cannot use that scope.
 # This one CA ships faction-wide, faction_to_force_own at -15, on the Volary
 # (Tomb of Khengai Khan) - an upkeep_mod on unit set
@@ -91,10 +85,10 @@ E_RAID = ("wh_main_effect_force_all_campaign_raid_income",
 E_HOBGOBLIN = ("wh3_dlc23_effect_upkeep_hobgoblins",
                "faction_to_force_own", False)
 
-# THE ENVOY'S FOUR (spec 2026-09-29 section 6): CA's province-bundle shape, every
-# effect province_to_province_own_unseen - the scope CA's Higher Quotas and Smoke
+# THE ENVOY'S FOUR: CA's province-bundle shape, every effect
+# province_to_province_own_unseen - the scope CA's Higher Quotas and Smoke
 # Stacks edicts and its mood bundles give them. Signs measured off the vanilla
-# cache 2026-09-29: labour loss is the one where less is better.
+# cache: labour loss is the one where less is better.
 E_ENVOY_CTL = ("wh_main_effect_public_order_edict",
                "province_to_province_own_unseen", True)
 E_ENVOY_ARM = ("wh3_dlc23_pooled_resource_chd_armaments_modifier",
@@ -103,8 +97,8 @@ E_ENVOY_RAW = ("wh3_dlc23_pooled_resource_chd_raw_material_efficiency",
                "province_to_province_own_unseen", True)
 E_ENVOY_LAB = ("wh3_dlc23_pooled_resource_chd_increased_labour_loss",
                "province_to_province_own_unseen", False)
-# THE LAWS (spec 2026-10-02 laws section 2). Every pair below ships in CA's
-# junction tables and every flag matches CA's, read 2026-10-02.
+# THE LAWS. Every pair below ships in CA's junction tables and every flag
+# matches CA's.
 E_LAW_CAPTIVES = ("wh_main_effect_force_all_campaign_captives", "faction_to_force_own_unseen", True)
 E_LAW_RUSH = ("wh3_dlc23_effect_rush_construction_cost", "faction_to_province_own", False)
 E_LAW_LAB_LD = ("wh3_dlc23_effect_force_stat_leadership_chd_labourers", "faction_to_force_own", True)
@@ -151,11 +145,10 @@ LAW_EFFECTS = [E_LAW_CAPTIVES, E_LAW_RUSH, E_LAW_LAB_LD, E_LAW_LAB_UPKEEP, E_LAW
                E_LAW_TEMPLE_TIME, E_LAW_HF_COST, E_LAW_HF_CAP, E_LAW_INF_COST, E_LAW_INF_RANK,
                E_LAW_ART_UPKEEP, E_LAW_DWARF_XP, E_LAW_HOB_UPKEEP, E_LAW_ART_EXPL, E_LAW_ART_RANGE,
                E_LAW_RANGED_COST]
-# THE DWARF EFFECTS (plan 2026-10-04 phase 2, spec section 4). Every (effect,
-# scope) pair is one a vanilla Dwarf bundle, building or technology ships and
-# every flag is CA's, read out of db.pack 2026-10-04; the source is named on
-# each line. check() items 1, 2 and 15 re-read all of them. Dropped for want of
-# a shipped pair: plan ruling 5.
+# THE DWARF EFFECTS. Every (effect, scope) pair is one a vanilla Dwarf bundle,
+# building or technology ships and every flag is CA's, read out of db.pack; the
+# source is named on each line. check() items 1, 2 and 15 re-read all of them.
+# An effect with no shipped pair is left out.
 E_DWF_OATHGOLD = ("wh2_dlc17_pooled_resource_oathgold_buildings_mod",
                   "faction_to_faction_own_unseen", True)      # bundle wh2_dlc17_lord_trait_dwf_thorek
 E_DWF_CRAFT = ("wh3_dlc29_pooled_resource_oathgold_all_crafting_mod",
@@ -207,15 +200,15 @@ DWF_EFFECTS = [E_DWF_OATHGOLD, E_DWF_CRAFT, E_DWF_RUNECRAFT, E_DWF_GRUDGE_REQ,
 ENVOY_EFFECT = {"ctl": E_ENVOY_CTL, "arm": E_ENVOY_ARM,
                 "raw": E_ENVOY_RAW, "lab": E_ENVOY_LAB}
 ENVOY_BLURB = {
-    "ctl": "An envoy of the court is keeping order here.",
-    "arm": "An envoy of the court is driving the forges here.",
-    "raw": "An envoy of the court is driving the mines here harder.",
-    "lab": "An envoy of the court is seeing that fewer Labourers are worked to death here.",
+    "ctl": "The court's envoy keeps order here.",
+    "arm": "The court's envoy drives the forges here.",
+    "raw": "The court's envoy drives the mines harder.",
+    "lab": "The court's envoy keeps more Labourers alive.",
 }
-# ONE PAIR CA DOES NOT SHIP, KEPT ON PURPOSE (plan ruling 5). CA's only province
-# bundle scope for raw materials is province_to_province_own_factionwide - every
-# province - so the edict's scope is borrowed. Only the game can say it moves
-# (spec section 8, look 3); check 2 refuses every OTHER unshipped pair.
+# ONE PAIR CA DOES NOT SHIP, KEPT ON PURPOSE. CA's only province bundle scope for
+# raw materials is province_to_province_own_factionwide - every province - so the
+# edict's scope is borrowed. Only the game can say it moves; check 2 refuses
+# every OTHER unshipped pair.
 BORROWED_SCOPES = {
     (E_ENVOY_RAW[0], E_ENVOY_RAW[1]):
         "spec 2026-09-29 section 6: the edict scope, borrowed for one province",
@@ -227,7 +220,6 @@ ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
                E_HOBGOBLIN,
                E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB] + LAW_EFFECTS + DWF_EFFECTS
 
-# ---------------------------------------------------------------------------
 # THE ZIGGURAT.
 #
 # Four tiers, narrow at the top: two great offices of state at the apex and five
@@ -242,7 +234,6 @@ ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
 # because a flat one would make the ziggurat a shape and nothing more.
 #
 # ALL FOURTEEN ARE OPEN FROM TURN 1. Nothing gates a tier.
-# ---------------------------------------------------------------------------
 TIER_MULT = {1: 3.0, 2: 2.0, 3: 1.5, 4: 1.0}
 TIER_NAME = {1: "The Apex", 2: "The High Table", 3: "The Broad Step",
              4: "The Lower Step"}
@@ -263,8 +254,8 @@ def signed_value(effect, magnitude, intent):
 
     This exists so no data row below ever carries a raw sign. On a cost modifier
     (is_positive_value_good False) the player's BOON is a negative number, and a
-    reward written +15 arrives in game as a penalty drawn in red. That inversion
-    has shipped in this workspace before; here it is arithmetic, not vigilance.
+    reward written +15 arrives in game as a penalty drawn in red. Here the sign
+    is arithmetic, not vigilance.
     """
     assert magnitude > 0, "declare a positive magnitude and an intent, not a sign"
     assert intent in (BOON, MALUS), intent
@@ -273,22 +264,17 @@ def signed_value(effect, magnitude, intent):
     return magnitude if positive_is_wanted else -magnitude
 
 
-# ---------------------------------------------------------------------------
-# WHERE A MAN IS FROM - and since 2026-09-12 that is no longer who he sits with.
+# WHERE A MAN IS FROM, which is not who he sits with.
 #
-# These were the sixteen HOUSES of the court, and a house was a faction: your
-# court was the set of factions whose men served you, so the whole of your
-# politics was a consequence of your conquests and nothing you could act on from
-# inside. They are ORIGINS now. An origin is one trait on a lord recording where
-# he came from and it carries no mechanical weight at all; what he WANTS is his
-# background, and his background is what seats him in a party. See PARTIES.
+# An origin is one trait on a lord recording where he came from, and it carries
+# no mechanical weight at all; what he WANTS is his background, and his
+# background is what seats him in a party. See PARTIES.
 #
 # Faction keys are from factions_tables/!!_cr_oldworld_new_factions via
 # docs/MOD_STRUCTURE.md - a typo here fails silently forever, so check() greps
 # them back out of the staged source. A faction key of None is a PLACE rather
 # than a house: where a lord who was never confederated in from anywhere was
 # born, and the only kind of origin most of a campaign's lords will ever have.
-# ---------------------------------------------------------------------------
 ORIGINS = [
     # slug,        faction key,                        display
     ("khorakk",    "cr_chd_house_of_khorakk",          "the House of Khorakk"),
@@ -366,8 +352,35 @@ PARTIES = [
 # The crown is not rolled and cannot secede: it is the player.
 CROWN = "crown"
 
+# A MEMBER TRAIT'S FLAVOUR, ONE PER PARTY, so 140 member traits do not all read
+# alike. A party's six rolled names share its line; "confed" is a house that came over by confederation.
+MEMBER_FLAVOUR = {
+    "crown":  "He answers to you, and the court knows it.",
+    "confed": "His house came over whole and still keeps its own counsel.",
+    "temple": "He votes the way the priests say Hashut would.",
+    "forge":  "He weighs every law by what it does to the furnaces.",
+    "chain":  "His party wants more slaves and fewer questions.",
+    "legion": "He speaks for the army. The army is listening.",
+    "ledger": "He knows what every vote at court is worth in gold.",
+    "tower":  "He sides with the sorcerers, who forget no slight.",
+    "road":   "His party lives off the convoys and wants the roads open.",
+    "hearth": "He speaks for the home kilns and the families that feed them.",
+}
+DWF_MEMBER_FLAVOUR = {
+    "crown":  "He swore to the throne and means to keep his oath.",
+    "confed": "His hold joined yours by oath. It keeps its own ways.",
+    "temple": "He reminds the king what the ancestors expect.",
+    "forge":  "He weighs every law by what it does to the forges.",
+    "chain":  "He speaks for the miners, who dig deeper every year.",
+    "legion": "He speaks for the clan warriors, who settle grudges with axes.",
+    "ledger": "He knows what every hold owes, to the last coin.",
+    "tower":  "He keeps the runes' secrets, even from the king.",
+    "road":   "He keeps the Underway open, one tunnel at a time.",
+    "hearth": "He speaks for the families who keep the holds fed and warm.",
+}
+
 PARTY_GOV_BLURB = {
-    "crown":   "Your own men hold it, and they are watched.",
+    "crown":   "Your retainers answer for this province.",
     "temple":  "The temples take the province in hand and it grows for Hashut.",
     "forge":   "Forge-guild overseers run the province like a workshop floor.",
     "chain":   "The slavers work the province to the bone and account for every hour.",
@@ -415,22 +428,22 @@ BACKGROUNDS = {
 
 BG_COLOUR = {
     "household":  "He stood at your door before he ever stood in a battle line.",
-    "blood":      "Close enough to the line to be dangerous, and he knows it.",
-    "sworn":      "He swore to the throne in person, and means every word.",
+    "blood":      "He knows how close he is to the throne.",
+    "sworn":      "He swore to the throne in person. He keeps his word.",
     "acolyte":    "Temple-raised. He still says the words under his breath.",
     "ashpriest":  "He has burned enough offerings to have stopped smelling them.",
     "taurukh":    "Half bull and wholly zealot, like all his kind.",
-    "daemonsmith": "He talks to what he binds, and it is not clear who is listening.",
+    "daemonsmith": "He talks to the daemons he binds. Sometimes they answer.",
     "gunnery":    "He can tell you what a barrel will do before it does it.",
     "furnace":    "Twenty years at a furnace mouth. His eyes are not what they were.",
     "overseer":   "He counts a work gang the way other men count coin.",
-    "driver":     "Loud and cheerful, and entirely without mercy.",
+    "driver":     "He laughs while he works the lash.",
     "wrangler":   "He handles hobgoblins, which means he trusts nothing that moves.",
     "immortal":   "He has stood in the front rank and expects the courtesy of it.",
     "infernal":   "Masked so long that the face underneath is a rumour.",
     "siege":      "He has taken walls down for a living and finds doors insulting.",
     "broker":     "He prices everything, including this conversation.",
-    "tribute":    "He has collected from people who could not pay, and did anyway.",
+    "tribute":    "He collects from those who cannot pay. Coin is only one way.",
     "harbour":    "He knows what every hull on the Sea of Dread is carrying.",
     "apprentice": "Never finished the Tower. Nobody asks him why.",
     "clerk":      "He has read more of the Tower's word than he was meant to.",
@@ -438,9 +451,9 @@ BG_COLOUR = {
     "caravan":    "He has crossed the Wastes enough times to have stopped counting.",
     "roadwarden": "He keeps a road open by making the alternative worse.",
     "pathfinder": "He goes out further than anyone sensible and comes back.",
-    "ashfarmer":  "He has made ash grow something, which nobody believes until they eat.",
+    "ashfarmer":  "He grows food in ash. His clan doubts it until they eat.",
     "kiln":       "He smells of slag and can judge a firing by the sound.",
-    "elder":      "Old clan, small clan, and a memory for every slight in it.",
+    "elder":      "His clan is small. He remembers every slight against it.",
 }
 
 # WHAT THE TOOLTIP SAYS AN OFFICE DOES.
@@ -529,7 +542,7 @@ EFFECT_TEXT = {
     E_LAW_ART_EXPL[0]: "Explosive missile damage: %+n% for Iron Daemon and Artillery units",
     E_LAW_ART_RANGE[0]: "Range: %+n% for Iron Daemon and Artillery units",
     E_LAW_RANGED_COST[0]: "Recruitment cost: %+n% for all Missile Infantry, Artillery and War Machine units",
-    # THE DWARFS (plan 2026-10-04 phase 2). E_ENVOY_OATH and E_ENVOY_REC share
+    # THE DWARFS. E_ENVOY_OATH and E_ENVOY_REC share
     # their keys with E_DWF_OATHGOLD and E_RECRUIT, so they need no line.
     E_DWF_OATHGOLD[0]: "Oathgold from buildings: %+n%",
     E_DWF_CRAFT[0]: "Oathgold cost for crafting in the Forge: %+n%",
@@ -682,18 +695,16 @@ def effect_line(effect, magnitude, intent):
     return text.replace("%+n", "%+d" % v).replace("%n", "%d" % v)
 
 
-# ---------------------------------------------------------------------------
 # The six offices.
 #
 # affinity is the house that considers the office theirs. Appointing that house's
 # man doubles its standing gain; appointing an outsider costs the affine house
-# loyalty. That one field is the whole Rome 2 squeeze - see spec section 5.
+# loyalty. That one field is the whole Rome 2 squeeze.
 #
 # NOTE ON THE SLAVE PITS: Chaos Dwarfs have no "slaves" pooled resource. The
 # vanilla set is labour, armaments, raw_materials, workload, efficiency and
-# conclave_influence (read from pooled_resources.json, 2026-09-11). Slaves are
-# flavour; the mechanic is post-battle Labour.
-# ---------------------------------------------------------------------------
+# conclave_influence (read from pooled_resources.json). Slaves are flavour; the
+# mechanic is post-battle Labour.
 OFFICES = [
     {
         "slug": "priest",
@@ -837,7 +848,6 @@ OFFICES = [
     },
 ]
 
-# ---------------------------------------------------------------------------
 # Traits.
 #
 # A character's house allegiance and his office are both traits. Save state stays
@@ -860,11 +870,10 @@ OFFICES = [
 #
 # Single-level traits use the trait key as the level key - CA's own convention,
 # read off wh2_dlc09_dummy_trait_dynasty_1.
-# ---------------------------------------------------------------------------
-# EACH KIND OF TRAIT WEARS ITS OWN PICTURE (author, 2026-09-29: "traits gain
-# also defaults to chaos dwarf warrior"). character_traits.icon names a
-# trait_categories row, and every trait here named CA's chaos_dwarfs - the
-# Chaos Dwarf helmet the Trait Gained card blows up into a face. A category is
+
+# EACH KIND OF TRAIT WEARS ITS OWN PICTURE. character_traits.icon names a
+# trait_categories row; CA's chaos_dwarfs category is the Chaos Dwarf helmet
+# the Trait Gained card blows up into a face. A category is
 # two columns, a key and a picture path, and CA points its own at effect-bundle
 # art (loyalty, harkon_fractured), so one row of our own per picture is all it
 # takes. check() holds every path to a picture that ships.
@@ -912,7 +921,7 @@ STANDING_BAND = {
         "The court has begun to say his name.",
         "Has enough influence for a seat on %s, the lowest tier." % _tier_lc(4)),
     3: ("Spoken For at Court",
-        "A party or two would take him, and one says so openly.",
+        "A party has spoken for him at court.",
         "Has enough influence for a seat on %s." % _tier_lc(3)),
     2: ("Weighed at Court",
         "The old ones have stopped talking over him when he speaks.",
@@ -932,32 +941,32 @@ AMBITION_BANDS = {
 }
 
 ORIGIN_COLOUR = {
-    "conclave":     "Conclave-raised, and never lets anyone forget which tower taught him.",
+    "conclave":     "He names the tower that taught him before he gives his own name.",
     "astragoth":    "Old blood and old rites. His back has never bent.",
-    "azgorh":       "Forge-bred in Azgorh, and smells of it at forty paces.",
+    "azgorh":       "Azgorh's forges left their smell in his clothes.",
     "zhatan":       "Raised in the Warhost, where a man is his last campaign.",
     "skullstack":   "Company-raised: he prices a man before he greets him.",
-    "khorakk":    "Born to the bull-cult, and never lets anyone forget it.",
+    "khorakk":    "Born to the bull-cult. He demands the respect due to it.",
     "uzkulak":    "Raised on a deck, counting other men's cargo.",
     "artificers": "Snakebeard's people take apart anything that holds still.",
-    "fists":      "Temple-drilled, and proud of the scars that took.",
+    "fists":      "Temple drills left scars he wears with pride.",
     "horns":      "The Horns raise their sons lean and keep them that way.",
     "baal":       "Baal's kin smell of burnt brass and do not apologise for it.",
     "azeros":     "Azeros builds. His people measure a thing before they hate it.",
-    "bzaark":     "Bzaark's household is not known for restraint, or for survivors.",
+    "bzaark":     "Few survive Bzaark's household. He did.",
     "blackdwarf": "Sworn to the Black Dwarf, which is not the same as being free.",
-    "kraken":     "The Armada raised him, and the Armada expects its due.",
-    "zharrduk":   "Zharrduk-born, and runs a province the way the plain is run.",
+    "kraken":     "The Armada raised him. It still expects its due.",
+    "zharrduk":   "He learned to run a province on the Plain of Zharrduk.",
     # AND THE PLACES, for a lord who was raised in your own lands rather
     # than confederated in from somebody else's.
-    "zharr":      "Raised under the Tower itself, and impossible to impress.",
+    "zharr":      "The Tower loomed over his childhood. Little impresses him now.",
     "plain":      "Plain-bred: he measures everything against a horizon.",
-    "gorgoth":    "Gorgoth raised him, and Gorgoth raises them hard.",
+    "gorgoth":    "He learned early to survive Gorgoth's pits.",
     "stump":      "From the Stump, where the ground is still warm.",
     "zornuzkul":  "Born on the Great Skull Land. He does not discuss it.",
-    "gash":       "Gash Kadrak: orc country, and he grew up armed.",
-    "mines":      "Born underground and never entirely comfortable above it.",
-    "wastes":     "Waste-born, and he still eats as if the next meal may never come.",
+    "gash":       "He grew up armed in the orc country of Gash Kadrak.",
+    "mines":      "He grew up in the mines. Open sky still makes him uneasy.",
+    "wastes":     "Born in the Wastes. He still eats as though food might run out.",
 }
 
 
@@ -990,22 +999,17 @@ BUNDLE_ICON = "chd_conclave_influence.png"
 # effect_bundle_advancement_stages, and vanilla fills it on all 16,430 rows. An
 # empty string there is not "no stage", it is an unresolvable reference, and the
 # game refuses the whole pack at database load - naming whichever row sorts
-# first, which is why the 2026-09-11 crash pointed at House of Baal and not at
-# the fault. 'start_turn_completed' is the column's own default and what 16,351
+# first, so the crash names an innocent row (House of Baal) and not the fault. 'start_turn_completed' is the column's own default and what 16,351
 # of vanilla's rows use.
 ADVANCEMENT_STAGE = "start_turn_completed"
 
 
-# ---------------------------------------------------------------------------
 # THE EVENT FEED.
 #
-# The court did everything in silence. Appointments, dismissals, expired terms,
-# a plot landing or missing, a party walking into the court - all of it was
-# written to IC.log, a forty-entry ring buffer inside the save that is only ever
-# drawn on the panel's RECORD tab. A player who did not open the panel and change
-# tabs was told nothing at all, which is what the 2026-09-15 session reported as
-# "no event log for intrigue success or fail" and "no clear reason why another
-# party joined".
+# IC.log, a forty-entry ring buffer in the save, is drawn only on the panel's
+# RECORD tab. Appointments, dismissals, expired terms, plots landing or missing
+# and parties joining also raise event cards, so a player who never opens the
+# panel still hears of them.
 #
 # WHY THESE SIX FIELDS ARE WHAT THEY ARE. cm:show_message_event's last argument
 # is not a free number: it resolves
@@ -1019,8 +1023,7 @@ ADVANCEMENT_STAGE = "start_turn_completed"
 # above was followed end to end through a real vanilla row
 # (wh3_dlc27_event_group_old_gods_curse -> 887) rather than taken on trust.
 #
-# THE EVENT TYPE IS NOT A FREE CHOICE EITHER, and this is the part that would
-# have shipped broken. The table offers four scripted types, two of them
+# THE EVENT TYPE IS NOT A FREE CHOICE EITHER. The table offers four scripted types, two of them
 # "located" variants. Reading the table alone suggests
 # scripted_persistent_located_event is ideal - it is the ONLY type vanilla ships
 # with instant_open false, i.e. saved to the event history without stealing the
@@ -1029,8 +1032,8 @@ ADVANCEMENT_STAGE = "start_turn_completed"
 # them resolves to scripted_persistent_event (persistent=true, instant_open
 # true) or scripted_transient_event (persistent=false). The located variants are
 # for cm:show_message_event_located and are never used with the plain call. So
-# the choice here is between exactly two proven shapes, and "ideal but unproven"
-# would have been a silent non-draw nobody could have debugged from in game.
+# the choice is between exactly two proven shapes; an unproven type is a silent
+# non-draw nobody can debug from in game.
 #
 #   persistent  -> a card, and an entry in the event history the player can
 #                  re-read. For things that happened TO the court.
@@ -1079,8 +1082,7 @@ EVENT_FIXED = {
 # slug, persistent, image, sound, title, primary sentence, secondary line.
 #
 # THE SECONDARY IS THE SMALL PLATE UNDER THE PRIMARY, and passing "" for it
-# does not hide the plate - it draws it empty, which is what the 2026-09-17
-# report was. None means the event passes its own key at the call site
+# does not hide the plate - it draws it empty. None means the event passes its own key at the call site
 # instead (office_lost and snub name the seat), so nothing here would be
 # read; anything else is emitted as a loc key and used as the default.
 #
@@ -1089,35 +1091,30 @@ EVENT_FIXED = {
 EVENTS = [
     ("plot_ok", True, "chd/diplomacy", "Positive",
      "The Court Moves",
-     "Your move has succeeded, and the court has taken note!",
-     "Success!"),
+     "Your move succeeded. The court has taken note.",
+     "Success"),
     ("plot_fail", True, "chd/army_morale_down", "Negative",
      "The Court Refuses",
-     "Your move has failed. The influence is spent, and its target knows "
-     "who tried.",
+     "Your move failed. The influence is spent. Its target knows who tried.",
      "Failure"),
     # THE ONE THE PLAYER DID NOT DO. A term running out empties a seat with no
-    # input from the player at all, which is exactly why it needs telling: the
-    # 2026-09-15 report was "no event when officers are removed from office".
+    # input from the player at all, which is exactly why it needs telling.
     ("office_lost", True, "chd/civilisation_down", "Neutral",
      "A Seat Stands Empty",
-     "An officer no longer holds his seat. The office grants nothing while it "
-     "stands empty, and its party will not thank you for the vacancy.",
+     "An officer has left his seat. The vacant office grants no bonus. Its party resents the vacancy.",
      # NAMES THE SEAT AT THE CALL SITE, out of the office bundle's own key.
      None),
     ("party_joined", True, "chd/faction", "Positive",
      "A Party Enters the Court",
      "A faction you absorbed has brought its men into your court as a party "
-     "of its own. It holds weight now, and it will expect seats.",
+     "of its own. It has strength at court now and will expect seats.",
      "The Court Grows"),
-    # THE MOST EXPENSIVE THING THAT CAN HAPPEN, and the panel's alert bar was
-    # the only place it was said.
+    # THE MOST EXPENSIVE THING THAT CAN HAPPEN, so it is not left to the panel's
+    # alert bar alone.
     ("secede_warn", True, "chd/settlement_lost", "Negative",
      "A Party Prepares to Leave",
-     "A party has begun counting down to secession. When the count runs out it "
-     "takes its provinces with it. Settle with it, or take its seats away "
-     "before it can.",
-     "Secession Pending!"),
+     "A party is preparing to leave the court. When its time runs out, it takes its provinces with it. Settle with it or take its seats away first.",
+     "Preparing to Leave"),
     # TRANSIENT, ALONE: six offices can snub six parties in one turn.
     ("snub", False, "chd/army_morale_down", "Negative",
      "A Party Is Slighted",
@@ -1127,20 +1124,16 @@ EVENTS = [
      None),
     # LAST, AND THAT IS DELIBERATE. An event's index is derived from its POSITION
     # in this list, so a row inserted in the middle renumbers everything after it
-    # - putting this one above snub moved snub from 2605 to 2606 while the model
-    # still said 2605, which the build gate refused. Appending costs nothing and
-    # cannot do that.
+    # while the model keeps the old numbers (the build gate refuses that).
+    # Append new events.
     #
-    # THE THING ITSELF. secede_warn announced a countdown and nothing announced
-    # the end of it - and at zero loyalty there is no countdown in front of it at
-    # all now, so without this a party takes a province, puts an army on the map
-    # and says nothing whatsoever about it.
+    # THE THING ITSELF. secede_warn announces a countdown, and at zero loyalty
+    # there is no countdown at all, so without this a party takes a province,
+    # puts an army on the map and says nothing whatsoever about it.
     ("secede_done", True, "chd/settlement_lost", "Negative",
      "A Party Has Broken With You",
-     "A party has broken away from your court, taking land with it, and an "
-     "army of its own now stands on that land. Its seats are empty, and its "
-     "remaining men now serve your own party.",
-     "Secession!"),
+     "A party has left your court with land and an army of its own. Its seats are empty. Its remaining men now serve your own party.",
+     "Departure"),
     # AND THE ONE THAT COMES BEFORE ANY OF THEM. secede_warn fires only when a
     # party has a big enough share of the court to be worth counting down; a
     # small party with nothing to lose rots to the floor without a single card
@@ -1148,69 +1141,52 @@ EVENTS = [
     # and it lands while the player can still buy it off.
     ("loyalty_warn", True, "chd/army_morale_down", "Negative",
      "A Party Turns Against You",
-     "A party's loyalty is falling dangerously low. Give it a seat or buy it "
-     "off. If its loyalty runs out, it leaves at once and takes its land with it.",
+     "A party's loyalty is running low. Give it a seat or buy it off. If its loyalty runs out, it leaves at once with its land.",
      "Disloyalty"),
-    # YOUR OWN HOUSE, COMING APART. The Crown cannot secede from itself, so
-    # until 2026-09-18 its loyalty was written every turn and read by nothing.
-    # This is what it costs now. chd/faction is the same picture party_joined
+    # YOUR OWN HOUSE, COMING APART. The Crown cannot secede from itself; this is
+    # what its loyalty running out costs. chd/faction is the same picture party_joined
     # draws, because the thing that happened is the same thing: a party the
     # court did not have yesterday.
     ("splinter", True, "chd/faction", "Negative",
      "Your Own House Splits",
-     "Your party's loyalty has run out. The men who no longer answer to you "
-     "have formed a party of their own. They take a share of the court that was "
-     "yours, and will expect seats like any other party.",
+     "Your party's loyalty has run out. Some of its men have formed their own party, taking a share of the court from you. They expect seats.",
      "A New Party"),
     # THE SECOND NOTICE ON A SECESSION. secede_warn lands at the top of a
-    # five-turn clock and nothing was said again until the party was gone - and
-    # Provoke, which shortens that clock outright, skipped the opening card too,
-    # so the fastest route to losing a province was also the quietest. This
-    # fires once, as the count enters its last warn_turns.
+    # five-turn clock, and Provoke shortens that clock and skips the opening
+    # card, so without this the fastest route to losing a province is also the
+    # quietest. This fires once, as the count enters its last warn_turns.
     ("secede_soon", True, "chd/settlement_lost", "Negative",
      "The Count Is Nearly Out",
-     "A party that began counting down to secession is close to the end of it. "
-     "When the count runs out it leaves, and it takes the provinces it holds "
-     "with it. There will be no further warning.",
-     "Secession Imminent!"),
-    # AND THE ONE YOUR OWN HOUSE NEVER GAVE. The split used to happen on the
-    # turn the Crown's loyalty crossed the line, with its card arriving in the
-    # same frame - which tells the player what has happened, never what is
-    # about to. This is the warning that now runs in front of it.
+     "A party is about to leave the court with the provinces it holds. There will be no further warning.",
+     "Leaving Soon"),
+    # AND THE CROWN'S OWN WARNING. The split card says what has happened; this
+    # one runs in front of it and says what is about to.
     ("splinter_warn", True, "chd/faction", "Negative",
      "Your Own House Is Turning",
-     "Your party's loyalty has run out, and the men who no longer answer to "
-     "you are forming a party of their own. Restore your party's loyalty "
-     "before they break away!",
+     "Your party's loyalty has run out. Some of its men are forming a party of their own. Restore its loyalty before they break away.",
      "Split Pending"),
-    # A PARTY WITH NOTHING TO TAKE. Author, 2026-09-23: a party with nobody in it
-    # and no province to its name broke up instead of seceding, where before it
-    # "seceded" into another rising's faction, renamed it and started a war.
+    # A PARTY WITH NOTHING TO TAKE. A party with nobody in it and no province to
+    # its name breaks up instead of seceding; seceding, it would take over
+    # another rising's faction, rename it and start a war.
     ("dissolved", True, "chd/faction", "Neutral",
      "A Party Dissolves",
-     "A party with no members and no province has dissolved. You lose nothing, "
-     "and its share of the court is gone.",
+     "A party with no members or province has dissolved. Its share of the court is gone. You lose nothing.",
      "Party Dissolved"),
     ("party_plot_warn", True, "chd/army_morale_down", "Negative",
      "A Party Moves Against You",
-     "One of the court's parties is preparing to strike at the Crown next turn. "
-     "Open the Iron Court: its card names the man and the move, and what "
-     "would stop it.",
-     "Warning!"),
+     "A party plans to strike at the Crown next turn. Open the Iron Court to see who is behind it and how to stop him.",
+     "Warning"),
     ("party_plot_ok", True, "chd/army_morale_down", "Negative",
      "The Court Strikes at the Crown",
-     "A party's move against the Crown has landed. The Record tab says who "
-     "did it and what it cost you.",
+     "A party's move against the Crown succeeded.",
      "Struck"),
     ("party_plot_fail", True, "chd/diplomacy", "Positive",
      "A Plot Is Foiled",
-     "A party tried to move against the Crown and failed. What it spent is "
-     "gone, and the Record tab names it.",
-     "Foiled!"),
+     "A party's move against the Crown failed. It has lost the influence it spent.",
+     "Foiled"),
     ("party_plot_dropped", True, "chd/diplomacy", "Neutral",
      "A Plot Comes to Nothing",
-     "The move a party was preparing against the Crown has fallen apart "
-     "before it could land.",
+     "A party has abandoned its planned move against the Crown.",
      "Abandoned"),
     ("party_feud", True, "chd/faction", "Neutral",
      "A Feud in the Court",
@@ -1224,52 +1200,40 @@ EVENTS = [
      "Feud Over"),
     ("party_feud_murder", True, "chd/army_morale_down", "Negative",
      "Blood Between Parties",
-     "A feud at court has ended in a killing. One of your men is dead at the hands "
-     "of a rival party. The Record tab names both sides.",
+     "A feud at court has ended in a killing. A rival party has killed one of your men.",
      "Killed"),
     ("party_demand", True, "chd/diplomacy", "Neutral",
      "A Party Makes a Demand",
-     "One of the court's parties demands a post for one of its men. Its card "
-     "names the man and the post. Grant it and its loyalty rises; refuse it, "
-     "or let the time run out, and it falls.",
+     "A party demands a post for one of its men. The party's card names the man and the post. Grant it and its loyalty rises; refuse or let the time run out and it falls.",
      "Demand"),
     ("party_demand_refused", True, "chd/army_morale_down", "Negative",
      "A Demand Refused",
-     "A party's demand went unmet. It will remember, and its loyalty has "
-     "fallen.",
+     "A party's demand went unmet. Its loyalty has fallen.",
      "Refused"),
     ("party_offer", True, "chd/diplomacy", "Positive",
      "A Party Offers a Favour",
-     "A loyal party offers the Crown a favour. Answer it on the Petitions tab "
-     "before it lapses, and know that the other parties will resent it if you "
-     "accept.",
+     "A loyal party offers the Crown a favour. Answer on the Petitions tab before it lapses. The other parties will resent your acceptance.",
      "Offer"),
-    # THE TURN BEFORE office_lost (author, 2026-09-25). The call site names the
+    # THE TURN BEFORE office_lost. The call site names the
     # seat when only one is ending; the default below is for two or more.
     ("term_soon", True, "chd/civilisation_down", "Neutral",
      "A Term Ends Next Turn",
-     "An officer's term ends at the start of your next turn, and his seat will "
-     "stand empty. He cannot take the same seat straight back, so decide now "
-     "who follows him.",
+     "An officer's term ends at the start of your next turn. His seat will be vacant, and he cannot take it straight back. Choose his successor now.",
      "Terms End"),
     ("party_sabotage", True, "chd/army_morale_down", "Negative",
      "An Office Sabotaged",
-     "A feuding party has sabotaged an office held by its rival. Its bonus is "
-     "lost for a few turns; the Offices tab shows which seat and for how long.",
-     "Sabotage!"),
+     "A feuding party has sabotaged its rival's office. The office gives no bonus for a few turns.",
+     "Sabotage"),
     ("party_withhold", True, "chd/army_morale_down", "Negative",
      "A Party Withholds Its Service",
-     "A party whose loyalty has fallen low has told its officers to stop working "
-     "for you. Every office its men hold gives no bonus for a few turns. Secure "
-     "their loyalty and they return to work at once.",
+     "A disloyal party's officers have stopped working for you. Their offices give no bonus for a few turns. Use Secure Loyalty and they return to work at once.",
      "Withheld"),
     ("realm_secede", False, "chd/army_morale_down", "Negative",
      "A Rival Court Splits",
-     "A party in another Chaos Dwarf court has broken away and risen in "
-     "rebellion. The Record tab names them; the camera button shows where.",
-     "Rebellion!"),
-    # THE THREE THE COURT DID IN SILENCE (author, 2026-09-29: "add event cards
-    # to the three"). A death the court arranged - a plot, a feud - has its own
+     "A party has broken from another Chaos Dwarf court and risen in rebellion.",
+     "Rebellion"),
+    # Three things the court would otherwise do in silence. A death the court
+    # arranged - a plot, a feud - has its own
     # card already and does not raise this one.
     ("officer_died", True, "chd/army_morale_down", "Negative",
      "An Officer Is Dead",
@@ -1285,46 +1249,37 @@ EVENTS = [
      "Stood Down"),
     ("stall_end", True, "chd/diplomacy", "Positive",
      "An Office Is Back at Work",
-     "An office that stood stalled is working again, and its bonus applies "
-     "from now on.",
+     "An office has returned to work. Its bonus applies again.",
      # NAMES THE SEAT AT THE CALL SITE.
      None),
-    # THE GOVERNMENT (spec 2026-10-02).
+    # THE GOVERNMENT.
     ("gov_changed", True, "chd/faction", "Positive",
      "A New Government",
-     "The court has a new government. Its rule bends the court's own, and its "
-     "party expects much of it.",
+     "A new government rules the court. Its party expects you to follow its rules.",
      "The Court Changes"),
     ("gov_pressure", True, "chd/faction", "Neutral",
      "The Court Pulls Another Way",
-     "A party leads the court and asks for its own government. Accept it, or "
-     "pay to keep the one you have, on the Petitions tab.",
+     "A leading party asks for its own government. Accept or pay to keep your current government on the Petitions tab.",
      "A Choice Waits"),
-    # DEEDS (spec 2026-10-02 deeds). gov_intro is raised once per player court;
+    # DEEDS. gov_intro is raised once per player court;
     # party_drawn names its deed in a per-party secondary line (PARTY_DRAWN).
     ("gov_intro", True, "chd/faction", "Neutral",
      "Your Deeds Move the Court",
-     "Your court has a government, shown in the Crown's box. What you do moves "
-     "it. Victories raise the Legion, the Hell-Forge raises the Forge, the "
-     "Tower's rites and temples raise the Priesthood, slaves and razing raise "
-     "the Chain, convoys raise the Road, and research raises the Tower. A "
-     "party that grows strong enough asks for its own government.",
+     "Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box.",
      "The Court Watches You"),
     ("party_drawn", True, "chd/faction", "Positive",
      "A Party Comes to Court",
      "Your deeds have drawn a new party into your court, and the next lord you "
-     "raised has joined it. It holds weight now, and it will expect seats.",
+     "raised has joined it. It has strength at court now and will expect seats.",
      "The Court Grows"),
-    # THE LAWS (spec 2026-10-02 laws).
+    # THE LAWS.
     ("law_proposed", True, "chd/faction", "Neutral",
      "A Law Before the Court",
-     "A law has been put to the court. Its men will vote by their parties' lines, "
-     "and you can push, win men or overrule on the Laws tab.",
+     "A law is before the court. Members vote with their parties. On the Laws tab, push for support, persuade men or overrule the vote.",
      "The Court Will Vote"),
     ("law_passed", True, "chd/faction", "Positive",
      "A Law Passes",
-     "The court has voted, and a new law is in force. Its parties are pleased, and "
-     "those against it are not.",
+     "A new law is in force. Parties that supported it are pleased; its opponents resent it.",
      "The Law Is Changed"),
     ("law_failed", True, "chd/faction", "Negative",
      "A Law Fails",
@@ -1357,20 +1312,13 @@ DEMAND_REWARD = "derpy_ic_demand_reward"
 DEMAND_REWARD_TEXT = "The party's loyalty rises."
 DEMANDS = [
     ("derpy_ic_demand_office", "A Party Demands an Office",
-     "One of the court's parties wants one of its men seated in a vacant "
-     "office. Its party card names the man and the office. Seat him before "
-     "the time runs out and its loyalty rises; let it run out, or give the "
-     "office to someone else, and it falls.",
-     "The office is filled as it asked, and the party is satisfied.",
-     "Seat the party's man in the office it named (see its party card)."),
+     "A party demands a vacant office for one of its men. The party's card names the man and the office. Appoint him in time and its loyalty rises; miss the deadline or appoint someone else and it falls.",
+     "The party's man holds the office it demanded.",
+     "Appoint the man named on its party card to the office it demands."),
     ("derpy_ic_demand_province", "A Party Demands a Province",
-     "One of the court's parties wants one of its men made governor of a "
-     "province. Its party card names the man and the province. Appoint him "
-     "before the time runs out and its loyalty rises; let it run out, or "
-     "give the province to someone else, and it falls.",
-     "The province has the governor it asked for, and the party is satisfied.",
-     "Make the party's man governor of the province it named (see its "
-     "party card)."),
+     "A party demands a province for one of its men. The party's card names the man and the province. Make him governor in time and its loyalty rises; miss the deadline or appoint someone else and it falls.",
+     "The party's man governs the province it demanded.",
+     "Make the man named on its party card governor of the province it demands."),
 ]
 
 
@@ -1378,15 +1326,30 @@ def event_key(slug):
     return "derpy_ic_event_" + slug
 
 
-def event_index(slug):
+# A RUN OF RECORDS PER RACE, because the picture belongs to the record the index
+# names; one shared run would give a Dwarf court Chaos Dwarf pictures.
+# The Chaos Dwarf run is the original, keys and numbers unchanged; the Dwarf run
+# is the same events 200 higher, keyed <event>_dwf, each with the dwf/ picture of
+# its twin - vanilla ships a dwf/ version of every one of the five used. The
+# model adds DWF.EVENT_OFFSET, which import_iron_court holds to this. 2800-2899
+# was free across all 354 installed packs (Mixu holds three in the 2700s).
+RACE_EVENT_OFFSET = {"chd": 0, "dwf": 200}
+
+
+def event_index(slug, race="chd"):
     """The number the script passes. Derived from position, never typed twice."""
     for i, ev in enumerate(EVENTS):
         if ev[0] == slug:
-            return EVENT_INDEX_BASE + i
+            return EVENT_INDEX_BASE + i + RACE_EVENT_OFFSET[race]
     raise KeyError(slug)
 
 
-# ---------------------------------------------------------------------------
+def event_image(image, race):
+    """The race's own picture for a Chaos Dwarf one."""
+    assert image.startswith("chd/"), image
+    return image if race == "chd" else race + "/" + image[len("chd/"):]
+
+
 # CONTROL OF THE COURT.
 #
 # The crown's share of the weight, in bands. FLOOR, not a range: a band runs
@@ -1412,19 +1375,19 @@ CONTROL_BANDS = [
      "The parties argue, and then they do as they are told.",
      [(E_ORDER, 4, BOON), (E_GDP, 8, BOON), (E_UPKEEP, 10, BOON)]),
     ("command", 40, "In Command of the Court",
-     "The Crown is first among the parties, and no more than first.",
+     "The Crown leads the parties but cannot command them.",
      [(E_ORDER, 2, BOON)]),
     ("contested", 10, "A Contested Court",
      "No decree passes without a bargain struck.",
      [(E_ORDER, 2, MALUS), (E_UPKEEP, 5, MALUS)]),
     ("lost", 0, "The Court Is Not Yours",
-     "The parties rule and the Crown is consulted, when there is time.",
+     "The parties rule. The Crown hears their decisions later.",
      [(E_ORDER, 8, MALUS), (E_UPKEEP, 20, MALUS), (E_GDP, 15, MALUS),
       (E_LAW_INFLUENCE, 5, MALUS)]),
 ]
 
 
-# THE GOVERNMENTS (spec 2026-10-02 section 3), in IC.GOV_ORDER's order:
+# THE GOVERNMENTS, in IC.GOV_ORDER's order:
 # slug, name, the rule as the player reads it, the bundle's line, its effects.
 # check_governments() holds the order to the model's.
 GOVERNMENTS = [
@@ -1434,7 +1397,7 @@ GOVERNMENTS = [
      [(E_RESEARCH, 5, BOON)]),
     ("priest", "Rule of the High Priest",
      "Each rank a man gains is worth double influence. Battles are worth less.",
-     "The eldest voice is the strongest, and it speaks for Hashut.",
+     "The eldest priest rules in Hashut's name.",
      [(E_LAW_INFLUENCE, 10, BOON)]),
     ("forge", "Rule of the Daemonsmiths",
      "Governors earn more income. Men at court earn less influence each turn.",
@@ -1455,58 +1418,58 @@ GOVERNMENTS = [
      [(E_GDP, 5, BOON)]),
 ]
 
-# THE LAWS (spec 2026-10-02 laws section 2), in IC.LAW_ORDER's order and each
+# THE LAWS, in IC.LAW_ORDER's order and each
 # category's IC.LAWS order. check_laws() holds the two together.
 LAWS = [
     ("labour", "Labour", "chd_labour.png", [
-        ("measure", "The Measure", "The overseers work the stock as they always have.", []),
-        ("lash", "The Lash", "More are taken and they are driven hard, and they break.",
+        ("measure", "The Measure", "Keep the work gangs to their usual quotas.", []),
+        ("lash", "The Lash", "More slaves are taken. The lash works them to death.",
          [(E_LAW_CAPTIVES, 15, BOON), (E_LAW_RUSH, 30, BOON), (E_LAW_LAB_LD, 4, MALUS)]),
-        ("kept", "The Kept Stock", "The stock is fed and kept, and fewer are taken.",
+        ("kept", "The Kept Stock", "Feed the stock. Keep it alive. Take fewer slaves.",
          [(E_LAW_LAB_UPKEEP, 50, BOON), (E_LAW_LAB_RANK, 2, BOON), (E_LAW_CAPTIVES, 10, MALUS)]),
-        ("quota", "The Furnace Quota", "Every forge has its quota, and the stock pays for it.",
+        ("quota", "The Furnace Quota", "The stock pays for every forge's quota.",
          [(E_WORKLOAD, 15, BOON), (E_LAW_RAW_USED, 15, BOON), (E_LAW_LAB_UPKEEP, 25, MALUS)]),
-        ("ash", "The Ash Harvest", "What cannot be held is burned, and its people with it.",
+        ("ash", "The Ash Harvest", "Burn what cannot be held, people and all.",
          [(E_LAW_RAZE, 25, BOON), (E_LAW_SACK, 15, BOON), (E_LAW_CAPTIVES, 10, MALUS)]),
     ]),
     ("tribute", "Tribute", "edict_collect_tribute.png", [
-        ("tithe", "The Crown's Tithe", "The Crown takes its tithe, as it always has.", []),
-        ("roads", "Open Roads", "The roads are opened to more convoys, and the vassals pay less.",
+        ("tithe", "The Crown's Tithe", "The Crown collects its usual tithe.", []),
+        ("roads", "Open Roads", "More convoys use the roads. Vassals pay less tribute.",
          [(E_LAW_CONVOYS, 1, BOON), (E_LAW_AMBUSH, 25, BOON), (E_LAW_VASSAL, 20, MALUS)]),
-        ("tariff", "The Ledger's Tariff", "Every route pays the Ledger, and the cargo is worth less.",
+        ("tariff", "The Ledger's Tariff", "The Ledger takes more from each route. Cargo sells for less.",
          [(E_LAW_TARIFF, 5, BOON), (E_LAW_REFINERY, 10, BOON), (E_LAW_CARGO_VALUE, 10, MALUS)]),
-        ("mines", "The Mines Before All", "The mines come first, and the convoys carry less.",
+        ("mines", "The Mines Before All", "Supply the mines first. Convoys carry less.",
          [(E_LAW_MINES, 15, BOON), (E_LAW_GOODS, 10, BOON), (E_LAW_CARGO_CAP, 15, MALUS)]),
-        ("charter", "The Overseers' Charter", "The convoy overseers are chartered, and the other houses resent it.",
+        ("charter", "The Overseers' Charter", "Charter the convoy overseers. The other houses resent their privilege.",
          [(E_LAW_OVR_RANK, 3, BOON), (E_LAW_OVR_XP, 100, BOON), (E_LAW_CHD_DIPLO, 10, MALUS)]),
     ]),
     ("worship", "Worship", "chd_conclave_influence.png", [
-        ("rites", "The Rites Kept", "The rites are kept, as they always have been.", []),
-        ("fires", "The Fires Fed", "Hashut's fires are fed without stint, and building waits on them.",
+        ("rites", "The Rites Kept", "The priests keep the customary rites.", []),
+        ("fires", "The Fires Fed", "Feed Hashut's fires at the expense of building work.",
          [(E_LAW_INFLUENCE, 10, BOON), (E_LAW_CORRUPT, 1, BOON), (E_LAW_RUSH, 15, MALUS)]),
-        ("seats", "Seats Bought in the Tower", "Seats in the Tower are sold, and the priests' favour cools.",
+        ("seats", "Seats Bought in the Tower", "Sell seats in the Tower. The priests withhold their favour.",
          [(E_LAW_TOZ_SEAT, 25, BOON), (E_LAW_INFLUENCE, 10, MALUS)]),
-        ("lore", "The Lore Taught", "The Lore of Hashut is taught more widely, and more carelessly.",
+        ("lore", "The Lore Taught", "Teach the Lore of Hashut widely, with less care.",
          [(E_LAW_WOM, 10, BOON), (E_LAW_COOLDOWN, 10, BOON), (E_LAW_MISCAST, 15, MALUS)]),
-        ("licence", "The Daemonsmiths' Licence", "The Daemonsmiths are licensed, and the priests resent it.",
+        ("licence", "The Daemonsmiths' Licence", "License the Daemonsmiths. The priests resent their privilege.",
          [(E_LAW_KDAAI, 10, BOON), (E_LAW_TEMPLE_TIME, 1, BOON), (E_LAW_INFLUENCE, 10, MALUS)]),
     ]),
     ("war", "War", "edict_levy_conscripts.png", [
-        ("levy", "The Levy", "The levy is raised as it always has been.", []),
-        ("hellforge", "The Hell-Forge Unbound", "The Hell-Forge works without leave, and the infantry pays for it.",
+        ("levy", "The Levy", "Raise the customary levy.", []),
+        ("hellforge", "The Hell-Forge Unbound", "The Hell-Forge needs no leave to work. Infantry pays the bill.",
          [(E_LAW_HF_COST, 10, BOON), (E_LAW_HF_CAP, 1, BOON), (E_LAW_INF_COST, 10, MALUS)]),
-        ("legions", "Standing Legions", "The legions stand ready, and the guns wait.",
+        ("legions", "Standing Legions", "Keep the legions ready. The guns must wait.",
          [(E_LAW_INF_RANK, 1, BOON), (E_LAW_INF_COST, 10, BOON), (E_LAW_ART_UPKEEP, 10, MALUS)]),
-        ("grudge", "The Old Grudge", "The old grudge against the Dwarfs is fed, and the labour pays for it.",
+        ("grudge", "The Old Grudge", "Pursue the old grudge against the Dwarfs at the labourers' expense.",
          [(E_LAW_DWARF_XP, 100, BOON), (E_LAW_HOB_UPKEEP, 10, MALUS)]),
-        ("gunnery", "The Gunnery Doctrine", "The guns come first, and every shooter costs more.",
+        ("gunnery", "The Gunnery Doctrine", "Supply the guns first. Shooters cost more to recruit.",
          [(E_LAW_ART_EXPL, 10, BOON), (E_LAW_ART_RANGE, 5, BOON), (E_LAW_RANGED_COST, 15, MALUS)]),
     ]),
 ]
 
 
-# THE RACES (plan 2026-10-04 phase 1). Phase 2 adds "dwf". `prefix` is the Lua
-# table prefix the race's tables are declared under; LUA_OF_PREFIX names the file.
+# THE RACES. `prefix` is the Lua table prefix the race's tables are declared
+# under; LUA_OF_PREFIX names the file.
 RACES = {
     "chd": {"infix": "", "prefix": "IC",
             "ORIGINS": ORIGINS, "PARTIES": PARTIES, "BACKGROUNDS": BACKGROUNDS,
@@ -1514,11 +1477,8 @@ RACES = {
 }
 LUA_OF_PREFIX = {"IC": "zzz_derpy_iron_court.lua"}
 
-# ---------------------------------------------------------------------------
-# THE DWARFS (plan 2026-10-04 phase 2; spec sections 2-4, 7, 8). The model's
-# tables are in zzz_derpy_iron_court_dwarf.lua as DWF.X; check_dwf() holds the
+# THE DWARFS. The model's tables are in zzz_derpy_iron_court_dwarf.lua as DWF.X; check_dwf() holds the
 # two together. Slugs are the Chaos Dwarf slots; every key carries "dwf_".
-# ---------------------------------------------------------------------------
 DWF_ORIGINS = [
     ("karaz",     "wh_main_dwf_dwarfs",                "Karaz-a-Karak"),
     ("kadrin",    "wh_main_dwf_karak_kadrin",          "Karak Kadrin"),
@@ -1540,7 +1500,7 @@ DWF_ORIGINS = [
     ("black",     None,                                "the Black Mountains"),
 ]
 
-# Dwarf factions deliberately NOT origins, each named (spec section 3).
+# Dwarf factions deliberately NOT origins, each named.
 DWF_NOT_AN_ORIGIN = {
     "wh_main_dwf_dwarf_rebels",              # the engine's rebels
     "wh_main_dwf_dwarfs_qb1",                # CA's convoy ambushes, Worldroots, Sayl
@@ -1559,23 +1519,23 @@ DWF_NOT_AN_ORIGIN = {
 }
 
 DWF_ORIGIN_COLOUR = {
-    "karaz":     "Raised under the High King's own roof, and impossible to impress.",
-    "kadrin":    "Kadrin-born, where every second dwarf has sworn an oath he means to die by.",
-    "angrund":   "Clan Angrund raised him on the tale of Eight Peaks, and he means to see it retaken.",
-    "throng":    "He marched with the Throng, and saw things the Ancestors only spoke of.",
+    "karaz":     "He grew up hearing the High King's judgements in the great hall.",
+    "kadrin":    "He grew up in Kadrin among Slayers sworn to seek their deaths.",
+    "angrund":   "Clan Angrund taught him the loss of Eight Peaks. He means to reclaim it.",
+    "throng":    "He marched with the Throng to places named in the oldest clan tales.",
     "ironbrow":  "Ironbrow's people go further from home than any dwarf should.",
-    "malakai":   "Malakai's people build things that should not fly, and fly them.",
-    "barakvarr": "Raised by the sea-gate, counting other folk's cargo.",
+    "malakai":   "He trusts Malakai's flying machines. His elders disapprove.",
+    "barakvarr": "He learned his trade among the ships at Barak Varr.",
     "zhufbar":   "Zhufbar-born: he knows an engine by its sound.",
-    "krakadrak": "From the far north, where the cold keeps a dwarf honest.",
-    "azorn":     "Azorn raised him, and raised him hard.",
-    "norn":      "Norn-born, from the Grey Mountains, and proud of the stone.",
-    "hirn":      "Hirn's people hear the mountain, and listen to it.",
-    "azul":      "Azul's forges never cool, and neither do its grudges.",
+    "krakadrak": "He learned to endure the northern winters at Kraka Drak.",
+    "azorn":     "Azorn taught him to watch the east.",
+    "norn":      "He judges stonework against the halls of Karak Norn.",
+    "hirn":      "He knows the sound of wind in Karak Hirn's caverns.",
+    "azul":      "He learned his craft at Azul's anvils.",
     "ziflin":    "Ziflin-born, from a small hold with a long memory.",
-    "rangers":   "Raised among the rangers, and never easy under a roof.",
-    "deeps":     "Born deep underground and never entirely comfortable above it.",
-    "grey":      "Grey Mountains born: he measures everything against a peak.",
+    "rangers":   "Ranger clans taught him to watch the passes for greenskins.",
+    "deeps":     "He grew up in the Deeps. He knows the stone above him is sound.",
+    "grey":      "He knows the passes between the holds of the Grey Mountains.",
     "black":     "From the Black Mountains, where the greenskins are never far.",
 }
 
@@ -1593,15 +1553,15 @@ DWF_PARTIES = [
 ]
 
 DWF_PARTY_GOV_BLURB = {
-    "crown":  "Your own men hold it, and they are watched.",
-    "temple": "The priests keep the province, and every grudge in it is remembered.",
-    "forge":  "The Forgewrights run the province like a forge floor, and the Oathgold comes in.",
-    "chain":  "The Deepdelvers work the seams, and what the battlefields yield is counted.",
-    "legion": "A hold under a thane costs less to keep than it should.",
-    "ledger": "The Reckoners keep the province's books, and the tithe arrives whole.",
-    "tower":  "The Runesmiths read everything that passes through, and pass it on.",
-    "road":   "The Underway Wardens keep the roads open whatever the season.",
-    "hearth": "The Hearth Clans hold it, and men come back to the muster faster.",
+    "crown":  "The king's retainers answer for this province.",
+    "temple": "The priests tend its clan shrines and keep its old grudges alive.",
+    "forge":  "The Forgewrights collect Oathgold from the province's workshops.",
+    "chain":  "The Deepdelvers weigh the spoils brought home by their warriors.",
+    "legion": "A thane knows what his clan needs to defend the hold.",
+    "ledger": "The Reckoners collect every debt owed to the hold.",
+    "tower":  "The Runesmiths put the hold's old lore to use.",
+    "road":   "The Underway Wardens clear safe routes beneath the mountains.",
+    "hearth": "The Hearth Clans care for wounded warriors until they can march again.",
 }
 
 DWF_BACKGROUNDS = {
@@ -1635,55 +1595,55 @@ DWF_BACKGROUNDS = {
 }
 
 DWF_BG_COLOUR = {
-    "kinguard":     "He stood at the king's door before he ever stood in a shield wall.",
-    "lineblood":    "Close enough to the throne to be dangerous, and he knows it.",
-    "oathsworn":    "He swore to the throne before the Ancestors, and means every word.",
-    "shrinekeeper": "He keeps the ancestor shrines, and knows every name carved in them.",
+    "kinguard":     "The king trusted him to guard his household before taking him to war.",
+    "lineblood":    "His clan can trace its kinship to the royal line.",
+    "oathsworn":    "The Ancestors witnessed his oath to the king. He will keep it.",
+    "shrinekeeper": "He tends the ancestor shrines. He knows every name in the stone.",
     "valayan":      "Valaya's priest. The hearth is his altar and the hold his charge.",
-    "tombwarden":   "He guards the dead of the hold, and the dead are many.",
-    "smith":        "He can tell good gromril by its ring, and bad by its silence.",
-    "engineer":     "He can tell you what a gun will do before it does it.",
-    "foundry":      "Twenty years at a furnace mouth. His beard is shorter for it.",
+    "tombwarden":   "He has kept watch over the clan tombs for years.",
+    "smith":        "A tap of his hammer tells him whether gromril is sound.",
+    "engineer":     "He checks every gun himself before the warriors trust it.",
+    "foundry":      "Twenty years at the foundry have scorched his beard.",
     "miner":        "He has dug further down than most dwarfs have ever been.",
-    "prospector":   "He goes looking for seams nobody else believes in, and finds them.",
+    "prospector":   "His claims on new seams have made his clan wealthy.",
     "tunneller":    "He can hear rock about to give before it gives.",
-    "longbeard":    "Old enough to complain that nothing is as it was, and right to.",
+    "longbeard":    "He remembers better days and expects the young to listen.",
     "ironbreaker":  "He has held the underways against things that never come up to the light.",
-    "thane":        "A thane of a small clan, with a long memory for every slight to it.",
-    "reckoner":     "He prices everything, including this conversation.",
-    "trader":       "He has traded with men, elves and worse, and been cheated by none of them.",
+    "thane":        "He answers for his clan's honour, however few its warriors.",
+    "reckoner":     "He remembers every debt owed to his clan.",
+    "trader":       "He checks every coin a foreign trader offers.",
     "goldsmith":    "He weighs gold by eye and is never more than a grain out.",
-    "runesmith":    "He strikes the runes his master taught him, and tells no one how.",
-    "loremaster":   "He has read more of the hold's old books than they were written for.",
-    "scribe":       "He writes the grudges down, and forgets none of them.",
-    "ranger":       "He has walked the high passes enough times to have stopped counting.",
+    "runesmith":    "His master entrusted him with runes he will never teach outsiders.",
+    "loremaster":   "He knows which old records still matter to the hold.",
+    "scribe":       "He leaves no wrong out of the Book.",
+    "ranger":       "He spots a greenskin trail where others see bare rock.",
     "wayfinder":    "He knows the old roads the maps have forgotten.",
-    "underwarden":  "He keeps the underways open by making the alternative worse.",
-    "farmer":       "He grows barley on a mountainside, which nobody believes until they drink it.",
-    "brewer":       "He can judge a brew by its smell, and has never been wrong.",
-    "clanelder":        "Old clan, small clan, and a memory for every slight in it.",
+    "underwarden":  "He guards the crossings where greenskins enter the Underway.",
+    "farmer":       "He brings in the hold's barley before the mountain frosts.",
+    "brewer":       "He knows a spoiled barrel before anyone lifts a tankard.",
+    "clanelder":        "He hears every clan dispute, however petty.",
 }
 
-# THE FOURTEEN SEATS, tier-4 magnitudes raised by TIER_MULT (plan ruling 6).
+# THE FOURTEEN SEATS, tier-4 magnitudes raised by TIER_MULT.
 DWF_OFFICES = [
     {"slug": "priest", "name": "High Priest of the Ancestors", "affinity": "temple", "tier": 1,
-     "blurb": "The Ancestors are honoured in every hall, and the hold is quiet.",
+     "blurb": "He tends the clan shrines and settles disputes in their names.",
      "vacant_blurb": "The shrines stand unattended and the old names go unspoken.",
      "effects": [(E_ORDER, 2, BOON), (E_GDP, 4, BOON)],
      "vacancy": [(E_ORDER, 2, MALUS)]},
     {"slug": "forge", "name": "Master Forgewright", "affinity": "forge", "tier": 1,
-     "blurb": "Every forge in the hold answers to one hammer, and it is his.",
-     "vacant_blurb": "No master stands at the great anvil. The work slips and no one is blamed.",
+     "blurb": "The master smiths accept his judgement at the anvil.",
+     "vacant_blurb": "The smiths dispute each other's work. No master settles the matter.",
      "effects": [(E_DWF_OATHGOLD, 5, BOON), (E_DWF_CRAFT, 4, BOON)],
      "vacancy": [(E_DWF_OATHGOLD, 2, MALUS)]},
     {"slug": "ledger", "name": "Keeper of the Reckoning", "affinity": "ledger", "tier": 2,
-     "blurb": "Every debt the hold is owed is written down, and he holds the book.",
-     "vacant_blurb": "The books go unbalanced and the tithe arrives light.",
+     "blurb": "He makes each debtor pay what the hold is owed.",
+     "vacant_blurb": "Unpaid debts gather in the hold's books.",
      "effects": [(E_GDP, 6, BOON)],
      "vacancy": [(E_GDP, 3, MALUS)]},
     {"slug": "warden", "name": "Warden of the Gate", "affinity": "legion", "tier": 2,
-     "blurb": "The gate is watched, and the watchers are paid on time.",
-     "vacant_blurb": "The gate keeps itself, badly and at the hold's expense.",
+     "blurb": "He assigns the gate watch and keeps the garrison supplied.",
+     "vacant_blurb": "The clans dispute who owes the gate watch.",
      "effects": [(E_UPKEEP, 5, BOON), (E_REPLEN, 5, BOON)],
      "vacancy": [(E_ORDER, 2, MALUS)]},
     {"slug": "hand", "name": "Keeper of the Grudge-Book", "affinity": "tower", "tier": 2,
@@ -1692,48 +1652,48 @@ DWF_OFFICES = [
      "effects": [(E_DWF_GRUDGE_REQ, 5, BOON)],
      "vacancy": [(E_DWF_GRUDGE_REQ, 2, MALUS)]},
     {"slug": "roads", "name": "Warden of the Underway", "affinity": "road", "tier": 2,
-     "blurb": "The underways are his, and they are quicker than they were.",
-     "vacant_blurb": "The underways go unwatched, and the traders take the long way round.",
+     "blurb": "He keeps the old routes through the Underway clear.",
+     "vacant_blurb": "Blocked tunnels force traders over the mountain passes.",
      "effects": [(E_MOVEMENT, 4, BOON)],
      "vacancy": [(E_MOVEMENT, 2, MALUS)]},
     {"slug": "chains", "name": "Overseer of the Mines", "affinity": "chain", "tier": 3,
-     "blurb": "He counts every cart that comes up the shaft, and the miners know he counts.",
-     "vacant_blurb": "Uncounted, the miners dig at their own pace.",
+     "blurb": "He inspects each seam and accounts for every ore cart.",
+     "vacant_blurb": "The mining clans quarrel over their claims.",
      "effects": [(E_LAW_MINES, 10, BOON)],
      "vacancy": [(E_LAW_MINES, 4, MALUS)]},
     {"slug": "pits", "name": "Master of the Delvings", "affinity": "chain", "tier": 3,
-     "blurb": "What comes back from a battlefield is his to weigh and his to store.",
-     "vacant_blurb": "The spoils are picked over by whoever reaches them first.",
+     "blurb": "He sees that spoils reach the hold's vaults.",
+     "vacant_blurb": "Warriors take spoils before the hold receives its share.",
      "effects": [(E_DWF_LOOT, 16, BOON)],
      "vacancy": [(E_DWF_LOOT, 7, MALUS)]},
     {"slug": "quarry", "name": "Master of the Stonecutters", "affinity": "forge", "tier": 3,
-     "blurb": "Stone is cut to his measure, and the halls rise for less.",
-     "vacant_blurb": "The stonecutters work at the pace of the slowest of them.",
+     "blurb": "His stonecutters waste little when they widen the halls.",
+     "vacant_blurb": "The clans cannot agree whose halls to cut first.",
      "effects": [(E_CONSTRUCT, 6, BOON)],
      "vacancy": [(E_CONSTRUCT, 3, MALUS)]},
     {"slug": "muster", "name": "Thane of the Muster", "affinity": "legion", "tier": 3,
-     "blurb": "He knows what a warrior costs, and he pays no more than that.",
-     "vacant_blurb": "Every clan is mustered at whatever it asks for.",
+     "blurb": "He ensures each clan equips its warriors at a fair price.",
+     "vacant_blurb": "Each clan asks its own price to send warriors.",
      "effects": [(E_RECRUIT, 8, BOON)],
      "vacancy": [(E_RECRUIT, 4, MALUS)]},
     {"slug": "kilns", "name": "Brewmaster of the Hold", "affinity": "hearth", "tier": 4,
-     "blurb": "The hold's ale is the best in the mountains, and the trade in its fine work follows it.",
-     "vacant_blurb": "The brewhouse goes unkept, and the hold's fine work sells for less.",
+     "blurb": "Traders come for his ale and buy the hold's fine work beside it.",
+     "vacant_blurb": "Poor ale drives traders away from the hold's wares.",
      "effects": [(E_DWF_CULTURE, 8, BOON)],
      "vacancy": [(E_DWF_CULTURE, 4, MALUS)]},
     {"slug": "fields", "name": "Steward of the Holdfarms", "affinity": "hearth", "tier": 4,
-     "blurb": "The holdfarms are tended, and the hold grows.",
-     "vacant_blurb": "The holdfarms go untended, and the hold grows slowly.",
+     "blurb": "He brings in enough grain to feed new households.",
+     "vacant_blurb": "The holdfarms lack hands to feed new households.",
      "effects": [(E_DWF_GROWTH, 5, BOON)],
      "vacancy": [(E_DWF_GROWTH, 2, MALUS)]},
     {"slug": "scribes", "name": "Keeper of the Lore", "affinity": "tower", "tier": 4,
-     "blurb": "The old books are kept and read, and new work comes quicker for it.",
-     "vacant_blurb": "The lore goes unread, and new work comes slowly.",
+     "blurb": "He finds old designs the smiths can put to work.",
+     "vacant_blurb": "The smiths repeat work from neglected old books.",
      "effects": [(E_RESEARCH, 5, BOON)],
      "vacancy": [(E_RESEARCH, 2, MALUS)]},
     {"slug": "banners", "name": "Keeper of the Clan Banners", "affinity": "legion", "tier": 4,
-     "blurb": "Every clan banner is counted, and the Grudge Settlers march cheaper for it.",
-     "vacant_blurb": "The banners go uncounted, and the Grudge Settlers ask more to march.",
+     "blurb": "He gathers supplies for the Grudge Settlers from each clan.",
+     "vacant_blurb": "The Grudge Settlers must buy their own supplies.",
      "effects": [(E_DWF_SETTLER_COST, 10, BOON)],
      "vacancy": [(E_DWF_SETTLER_COST, 5, MALUS)]},
 ]
@@ -1742,20 +1702,20 @@ DWF_OFFICES = [
 DWF_GOVERNMENTS = [
     ("conclave", "The Council of Elders",
      "Office terms are shorter. A man may take a seat again after 1 turn.",
-     "The eldest of the clans sit in council, and the throne hears them out.",
+     "The king hears each clan elder before the council decides.",
      [(E_RESEARCH, 5, BOON)]),
     ("priest", "The Ancestors' Writ",
      "Each rank a man gains is worth double influence. Battles are worth less.",
-     "The Ancestors set down how a hold is ruled, and the priests read it aloud.",
+     "The priests judge the hold by the laws of its Ancestors.",
      [(E_DWF_GRUDGE_ORDER, 2, BOON)]),
     ("forge", "The Forge-Throne",
      "Governors earn more income. Men at court earn less influence each turn.",
-     "The master smiths rule from the forge, and the anvil keeps the time.",
+     "The master smiths govern the hold between shifts at the forge.",
      [(E_DWF_OATHGOLD, 10, BOON)]),
     ("legion", "The War-King",
      "Battles are worth more influence and loyalty. Men at court earn no "
      "influence each turn.",
-     "The king rules from the shield wall, and so does every dwarf who would follow him.",
+     "The king leads the shield wall. Clan thanes must fight beside him.",
      [(E_UPKEEP, 5, BOON)]),
     ("chain", "The Iron Law",
      "Ancestor Oath, Stand His Patron and Oath on the Anvil cost a third less. "
@@ -1764,74 +1724,74 @@ DWF_GOVERNMENTS = [
      [(E_DWF_SETTLER_SRC, 1, BOON)]),
     ("convoy", "The Reckoning-Throne",
      "Gifts and oaths cost less gold. Skimming the Tally angers the parties twice as much.",
-     "Every debt is counted, and the throne keeps the count.",
+     "The king demands an account of every debt.",
      [(E_DWF_TARIFF, 10, BOON)]),
 ]
 
-# THE LAWS (spec section 7), in DWF.LAW_ORDER and each category's order.
+# THE LAWS, in DWF.LAW_ORDER and each category's order.
 DWF_LAWS = [
     ("labour", "Craft", "edict_masters_of_steel_and_stone.png", [
         ("measure", "The Old Ways", "The clans work as their fathers worked.", []),
-        ("lash", "Deep Seams", "The miners go deeper, and the holdfarms go short of hands.",
+        ("lash", "Deep Seams", "Send more miners into the deep seams. The holdfarms lose hands.",
          [(E_LAW_MINES, 15, BOON), (E_DWF_GROWTH, 3, MALUS)]),
-        ("kept", "Hearth and Holdfarm", "The holdfarms are tended first, and the mines wait.",
+        ("kept", "Hearth and Holdfarm", "The holdfarms get the hands they need before the mines.",
          [(E_DWF_GROWTH, 8, BOON), (E_LAW_MINES, 10, MALUS)]),
-        ("quota", "The Master's Mark", "Only marked work leaves the forge, and the forge eats the hours.",
+        ("quota", "The Master's Mark", "Master smiths inspect every piece. Warriors wait for their equipment.",
          [(E_DWF_CRAFT, 15, BOON), (E_REPLEN, 5, MALUS)]),
-        ("ash", "Raise the Halls", "The halls are raised and widened, and the counting-houses pay.",
+        ("ash", "Raise the Halls", "Widen the halls at the counting-houses' expense.",
          [(E_CONSTRUCT, 15, BOON), (E_GDP, 5, MALUS)]),
     ]),
     ("tribute", "Tribute", "edict_collect_tribute.png", [
-        ("tithe", "The King's Tithe", "The throne takes its tithe, as it always has.", []),
-        ("roads", "Open Underways", "The underways are opened to trade, and the vassal holds pay less.",
+        ("tithe", "The King's Tithe", "Each clan owes the king its customary tithe.", []),
+        ("roads", "Open Underways", "Clear the Underway for traders. Vassal holds owe less tribute.",
          [(E_DWF_TARIFF, 15, BOON), (E_MOVEMENT, 5, BOON), (E_LAW_VASSAL, 20, MALUS)]),
-        ("tariff", "The Reckoners' Tariff", "Every hall pays the Reckoners, and the traders pay more at the gate.",
+        ("tariff", "The Reckoners' Tariff", "Every hall pays the Reckoners. Traders pay at the gate and come less often.",
          [(E_GDP, 5, BOON), (E_DWF_TARIFF, 10, MALUS)]),
-        ("mines", "The Oathgold Hoard", "The Oathgold is hoarded, and the roads are left to keep themselves.",
+        ("mines", "The Oathgold Hoard", "Gather Oathgold for the hold. Repairs to the roads must wait.",
          [(E_DWF_OATHGOLD, 15, BOON), (E_MOVEMENT, 5, MALUS)]),
-        ("charter", "Hold Charters", "The holds are chartered to trade their craft, and the warriors pay for it.",
+        ("charter", "Hold Charters", "Charter the holds to sell their craft. Warriors cost more to maintain.",
          [(E_DWF_CULTURE, 15, BOON), (E_LAW_GOODS, 10, BOON), (E_UPKEEP, 5, MALUS)]),
     ]),
     ("worship", "Ancestors", "edict_venerate_the_ancestors.png", [
-        ("rites", "The Ancestors' Rites", "The rites are kept, as they always have been.", []),
-        ("fires", "Valaya's Hearth", "Valaya's hearths are kept warm, and the loremasters go short.",
+        ("rites", "The Ancestors' Rites", "The clans honour their Ancestors.", []),
+        ("fires", "Valaya's Hearth", "Supply Valaya's hearths before the loremasters' work.",
          [(E_DWF_GRUDGE_ORDER, 2, BOON), (E_DWF_GROWTH, 3, BOON), (E_RESEARCH, 5, MALUS)]),
-        ("seats", "Rune-Lore", "The runesmiths are given their head, and the shrines are given less.",
+        ("seats", "Rune-Lore", "Give the runesmiths leave to work. The shrines receive less.",
          [(E_DWF_RUNECRAFT, 15, BOON), (E_DWF_GRUDGE_ORDER, 1, MALUS)]),
-        ("lore", "The Lore of the Book", "The old books are opened, and the holdfarms lose their hands to them.",
+        ("lore", "The Lore of the Book", "Call clansmen from the holdfarms to study the old books.",
          [(E_RESEARCH, 10, BOON), (E_DWF_GROWTH, 3, MALUS)]),
         ("licence", "The Anvil's Licence", "The forge is licensed to work without the priests' leave.",
          [(E_DWF_CRAFT, 10, BOON), (E_DWF_GRUDGE_ORDER, 1, MALUS)]),
     ]),
     ("war", "War", "edict_levy_conscripts.png", [
-        ("levy", "The Muster", "The clans are mustered as they always have been.", []),
-        ("grudge", "Grudge Settlers", "Grudge Settlers march at the throne's cost, and the counting-houses pay.",
+        ("levy", "The Muster", "Each clan sends its customary muster.", []),
+        ("grudge", "Grudge Settlers", "The king funds the Grudge Settlers from the counting-houses.",
          [(E_DWF_SETTLER_COST, 15, BOON), (E_DWF_SETTLER_SRC, 1, BOON), (E_GDP, 5, MALUS)]),
-        ("hellforge", "Batteries of the Hold", "The guns come first, and every warrior costs more.",
+        ("hellforge", "Batteries of the Hold", "Guns come first. Infantry costs more to recruit.",
          [(E_DWF_WM_UPKEEP, 10, BOON), (E_DWF_GT_DMG, 5, BOON), (E_DWF_INF_COST, 10, MALUS)]),
-        ("legions", "Clan Hosts", "The clans march in strength, and the guns wait.",
+        ("legions", "Clan Hosts", "Equip the clan hosts. The gun batteries must wait.",
          [(E_DWF_INF_COST, 10, BOON), (E_DWF_WM_UPKEEP, 10, MALUS)]),
-        ("gunnery", "Thunder and Iron", "The engineers drill the guns and the thunderers, and every recruit costs more.",
+        ("gunnery", "Thunder and Iron", "Engineers train the gun crews and Thunderers. Recruits cost more.",
          [(E_DWF_THUNDER, 10, BOON), (E_DWF_ART_RANK, 1, BOON), (E_RECRUIT, 5, MALUS)]),
     ]),
 ]
 
 DWF_CONTROL_BANDS = [
     ("grip", 75, "An Iron Grip on the Court",
-     "Nothing moves in the hold that the throne did not set moving.",
+     "Every clan accepts the king's authority.",
      [(E_ORDER, 6, BOON), (E_GDP, 12, BOON), (E_UPKEEP, 15, BOON),
       (E_DWF_OATHGOLD, 5, BOON)]),
     ("mastery", 60, "Master of the Court",
-     "The clans argue, and then they do as they are told.",
+     "The elders grumble but honour the king's decisions.",
      [(E_ORDER, 4, BOON), (E_GDP, 8, BOON), (E_UPKEEP, 10, BOON)]),
     ("command", 40, "In Command of the Court",
-     "The throne is first among the clans, and no more than first.",
+     "The king must hear the clans before he rules.",
      [(E_ORDER, 2, BOON)]),
     ("contested", 10, "A Contested Court",
-     "No decree passes without a bargain struck.",
+     "The clans bargain over each royal decree.",
      [(E_ORDER, 2, MALUS), (E_UPKEEP, 5, MALUS)]),
     ("lost", 0, "The Court Is Not Yours",
-     "The clans rule and the throne is consulted, when there is time.",
+     "The clan elders decide matters without the king.",
      [(E_ORDER, 8, MALUS), (E_UPKEEP, 20, MALUS), (E_GDP, 15, MALUS),
       (E_DWF_OATHGOLD, 5, MALUS)]),
 ]
@@ -1848,7 +1808,7 @@ DWF_STANDING_BAND = {
         "The court has begun to say his name.",
         "Has enough influence for a seat at the Hall Doors, the lowest tier."),
     3: ("Spoken For at Court",
-        "A clan or two would take him, and one says so openly.",
+        "A clan elder has spoken for him at court.",
         "Has enough influence for a seat in the Long Hall."),
     2: ("Weighed at Court",
         "The longbeards have stopped talking over him when he speaks.",
@@ -1876,10 +1836,10 @@ RACES["dwf"] = {
     "ENVOY_EFFECT": {"ctl": E_ENVOY_CTL, "oath": E_ENVOY_OATH,
                      "grow": E_ENVOY_GROW, "rec": E_ENVOY_REC},
     "ENVOY_BLURB": {
-        "ctl": "An envoy of the throne is keeping order here.",
-        "oath": "An envoy of the throne is seeing that the forges here pay their Oathgold.",
-        "grow": "An envoy of the throne is seeing to the holdfarms here.",
-        "rec": "An envoy of the throne is mustering the clans here for less.",
+        "ctl": "The king's envoy settles disputes here.",
+        "oath": "The king's envoy collects Oathgold from the forges.",
+        "grow": "The king's envoy sees to the holdfarms.",
+        "rec": "The king's envoy reduces the cost of the clan muster.",
     },
     "TIER_NAME": DWF_TIER_NAME,
     "STANDING_BAND": DWF_STANDING_BAND,
@@ -1892,20 +1852,16 @@ RACES["dwf"] = {
     "EVENT_TEXT": {
         "gov_intro": (
             "Your Deeds Move the Court",
-            "Your court has a government, shown in the throne's box. What you do "
-            "moves it. Victories raise the Clan Warriors, and research raises the "
-            "Runesmiths. A party that grows strong enough asks for its own government.",
+            "Victory strengthens the Clan Warriors at court. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court.",
             "The Court Watches You"),
         "realm_secede": (
             "A Rival Court Splits",
-            "A party in a Dwarf hold's court has broken away and risen in rebellion. "
-            "The Record tab names them; the camera button shows where.",
-            "Rebellion!"),
+            "A party has broken from another hold's court and risen in rebellion.",
+            "Rebellion"),
     },
     "BUNDLE_ICON": "trait_dwarf.png",
 }
-# THE DWARF TABLES' FILE: race_lua("DWF") / lua_table(name, "DWF") read it
-# (pre-flight B3).
+# THE DWARF TABLES' FILE: race_lua("DWF") / lua_table(name, "DWF") read it.
 LUA_OF_PREFIX["DWF"] = "zzz_derpy_iron_court_dwarf.lua"
 _MOD_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "Modding Files", "pack", "script", "campaign", "mod")
@@ -2043,7 +1999,7 @@ def model_tails(prefix="IC"):
     return tails
 
 
-# THE DWARF RACE'S TABLES, READ OUT OF ITS OWN FILE (plan 2026-10-04 phase 2)
+# THE DWARF RACE'S TABLES, READ OUT OF ITS OWN FILE
 # the way the Chaos Dwarf ones are read out of the model. Raises rather than
 # falling back: these feed build().
 DWF_LUA = os.path.join(
@@ -2060,7 +2016,7 @@ def _dwf_src():
 
 
 def _dwf_block(name):
-    """The body of a column-0 DWF.<name> = { ... } - phase 1's lua_table, the one
+    """The body of a column-0 DWF.<name> = { ... } - lua_table, the one
     scraper (anchored at column 0); never a second regex."""
     body = lua_table(name, "DWF")
     if body is None:
@@ -2115,7 +2071,7 @@ def dwf_plot_names():
 
 def emit_dwf(emit, emit_trait, emit_member, loc):
     """Every Dwarf bundle, trait and loc row. Each key is bundle_key(kind, slug,
-    "dwf"), the Lua's IC.key with the dwf_ infix (plan 2026-10-04 phase 2)."""
+    "dwf"), the Lua's IC.key with the dwf_ infix."""
     R = RACES["dwf"]
     icon = R["BUNDLE_ICON"]
 
@@ -2153,7 +2109,7 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
             for n, (e, m, intent) in enumerate(effects, start=1):
                 text(K("law_fx%d" % n, cat + "_" + opt), effect_line(e, m, intent))
     emit(K("gov", "base"), "Governor of the Province",
-         "A governor of the throne sits here, and the province knows it.",
+         "The king's governor answers for this province.",
          "faction", R["GOVERNOR_BASE"], icon=icon)
     for slug, display, effect, magnitude in R["PARTIES"]:
         emit(K("gov_house", slug), "Governor: " + display, R["PARTY_GOV_BLURB"][slug],
@@ -2172,7 +2128,7 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
             text(K("bg_name", slug), display)
             emit_trait(K("bg", slug), display, R["BG_COLOUR"][slug],
                        "His former trade. It decides which party he sits with.",
-                       "He has left the trade behind, whatever he says.", party_cat(party))
+                       "He no longer follows this trade.", party_cat(party))
     for tier in [0] + sorted(R["TIER_NAME"]):
         name, colour, explain = R["STANDING_BAND"][tier]
         emit_trait(K("standing", str(tier)), name, colour, explain,
@@ -2181,14 +2137,17 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
         name, colour, explain = AMBITION_BANDS[slug]
         emit_trait(K("ambition", slug), name, colour, explain,
                    "His ambition does not change.", "derpy_ic_cat_ambition")
-    emit_member(K("member", CROWN), "the Throne-Sworn", party_cat(CROWN))
+    emit_member(K("member", CROWN), "the Throne-Sworn", party_cat(CROWN),
+                DWF_MEMBER_FLAVOUR[CROWN])
     for slug, _faction, display in R["ORIGINS"]:
-        emit_member(K("member", slug), display, "derpy_ic_cat_confed")
+        emit_member(K("member", slug), display, "derpy_ic_cat_confed",
+                    DWF_MEMBER_FLAVOUR["confed"])
     tails = model_tails("DWF")
     for party, _d, _e, _m in R["PARTIES"]:
         if party != CROWN:
             for n, tail in enumerate(tails[party], 1):
-                emit_member("%s_%d" % (K("member", party), n), tail, party_cat(party))
+                emit_member("%s_%d" % (K("member", party), n), tail, party_cat(party),
+                            DWF_MEMBER_FLAVOUR[party])
     for slug, (title, primary, secondary) in sorted(R["EVENT_TEXT"].items()):
         stem = "event_feed_strings_text_" + K("event", slug)
         text(stem + "_title", title)
@@ -2201,8 +2160,8 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
     for move_key, move_name in model_moves():
         if move_key in keys:
             name = names.get(move_key, move_name)
-            text("event_feed_strings_text_" + K("move", move_key) + "_ok", name + " - Success!")
-            text("event_feed_strings_text_" + K("move", move_key) + "_fail", name + " - Failure")
+            text("event_feed_strings_text_" + K("move", move_key) + "_ok", name + ": Success")
+            text("event_feed_strings_text_" + K("move", move_key) + "_fail", name + ": Failure")
 def member_trait_key(slug, index=None, race="chd"):
     """The key IC.member_trait builds: the Crown, a confederate origin, or a tail."""
     key = bundle_key("member", slug, race)
@@ -2222,9 +2181,6 @@ def office_by_slug(slug):
     return None
 
 
-# ---------------------------------------------------------------------------
-# build
-# ---------------------------------------------------------------------------
 def build():
     bundles = []
     junctions = []
@@ -2235,8 +2191,8 @@ def build():
 
         The row text and the loc are written from the same two strings on
         purpose. Row text alone draws an icon with no text in the Faction
-        Effects panel - measured 2026-09-05 over 27 bundles that shipped that
-        way. CA ships both, 11,710 entries deep.
+        Effects panel (measured over 27 bundles). CA ships both, 11,710
+        entries deep.
         """
         bundles.append({
             "key": key,
@@ -2310,7 +2266,7 @@ def build():
         loc.append({"key": bundle_key("doctrine_rule", slug),
                     "text": rule, "tooltip": "false"})
 
-    # ONE PER LAW (spec 2026-10-02 laws), and the model puts one per category on
+    # ONE PER LAW, and the model puts one per category on
     # a player faction. The start options have no effects: a bundle so the
     # Faction Effects panel still names the law in force.
     law_icons = model_law_icons()
@@ -2326,7 +2282,7 @@ def build():
                             "text": effect_line(e, m, intent), "tooltip": "false"})
 
     emit("derpy_ic_gov_base", "Governor of the Province",
-         "A governor of the court sits here, and the province knows it.",
+         "The court's governor rules this province.",
          "faction", GOVERNOR_BASE)
 
     # ONE PER PARTY, and the key kept the "gov_house" stem so a save made
@@ -2337,9 +2293,9 @@ def build():
              "Governor: " + display, PARTY_GOV_BLURB[slug],
              "faction", [(effect, magnitude, BOON)])
 
-    # THE ENVOY'S FOUR (spec 2026-09-29 section 6): one province, for
+    # THE ENVOY'S FOUR: one province, for
     # IC.TUNE.mission_turns, in CA's province-bundle shape. The value is the
-    # model's own knob (plan ruling 4).
+    # model's own knob.
     for code, name, knob, bundle, icon in model_envoy_tasks():
         emit(bundle, "Envoy: " + name, ENVOY_BLURB[code], "province",
              [(ENVOY_EFFECT[code], model_tune(knob), BOON)], icon=icon)
@@ -2367,7 +2323,7 @@ def build():
         loc.append({"key": bundle_key("bg_name", slug),
                     "text": display, "tooltip": "false"})
 
-    # --- traits -----------------------------------------------------------
+    # Traits.
     trait_info = []
     traits = []
     trait_levels = []
@@ -2416,9 +2372,8 @@ def build():
                    "His ambition does not change.", "derpy_ic_cat_ambition")
 
     # WHERE HE IS FROM. Flavour and nothing else - an origin moves no
-    # number in the court. It used to BE his politics, and that was the
-    # fault: a lord you recruited yourself wanted what his grandfather's
-    # faction wanted, forever, and you could not change it.
+    # number in the court. Were it his politics, a lord you recruited
+    # yourself would want what his grandfather's faction wanted, forever.
     for slug, _faction, display in ORIGINS:
         emit_trait(origin_trait_key(slug),
                    "Born: " + display[0].upper() + display[1:],
@@ -2434,28 +2389,29 @@ def build():
                    display,
                    BG_COLOUR[slug],
                    "His former trade. It decides which party he sits with.",
-                   "He has left the trade behind, whatever he says.", party_cat(party))
+                   "He no longer follows this trade.", party_cat(party))
 
-    # WHICH PARTY HE SITS WITH (author, 2026-09-29: "there is no place
-    # indicating the character's party"). Kept in step by IC.stamp_members at
+    # WHICH PARTY HE SITS WITH, shown on the character panel. Kept in step by IC.stamp_members at
     # the end of every turn. A rolled party is named by its tail, the part of
     # "Covenant of the Cold Anvil" that tells two parties apart; a confederate
     # party by the faction it was.
-    def emit_member(key, party, cat):
+    def emit_member(key, party, cat, flavour):
         emit_trait(key, "Party: " + party[0].upper() + party[1:],
-                   "Counted with them at the Iron Court.",
-                   "The party he sits with at the Iron Court. It changes when a "
-                   "party forms, breaks away or dissolves.",
+                   flavour,
+                   "His party at court. Changes when parties form, break away or dissolve.",
                    "He sits with another party now.", cat)
 
-    emit_member(member_trait_key(CROWN), "the Crown", party_cat(CROWN))
+    emit_member(member_trait_key(CROWN), "the Crown", party_cat(CROWN),
+                MEMBER_FLAVOUR[CROWN])
     for slug, _faction, display in ORIGINS:
-        emit_member(member_trait_key(slug), display, "derpy_ic_cat_confed")
+        emit_member(member_trait_key(slug), display, "derpy_ic_cat_confed",
+                    MEMBER_FLAVOUR["confed"])
     tails = model_tails()
     for party, _d, _e, _m in PARTIES:
         if party != CROWN:
             for i, tail in enumerate(tails[party], 1):
-                emit_member(member_trait_key(party, i), tail, party_cat(party))
+                emit_member(member_trait_key(party, i), tail, party_cat(party),
+                            MEMBER_FLAVOUR[party])
 
     for office in OFFICES:
         # ONE LINE, and deliberately so. Vanilla does put doubled newlines in
@@ -2475,7 +2431,7 @@ def build():
                    "He no longer holds the office.",
                    "derpy_ic_cat_office")
 
-    # ---- the event feed ---------------------------------------------------
+    # The event feed.
     # FOUR ROWS PER EVENT, and three of the four tables exist only to turn a
     # number into a record. The group and the member are given different names
     # on purpose, the way vanilla does it (wh3_dlc27_event_group_old_gods_curse
@@ -2484,30 +2440,34 @@ def build():
     groups, members, criteria, feed = [], [], [], []
     for slug, persistent, image, sound, title, primary, secondary in EVENTS:
         key = event_key(slug)
-        group_id = key + "_group"
-        groups.append({"id": group_id})
-        members.append({"group": group_id, "id": key, "priority": "0.0"})
-        criteria.append({"member": key, "value": str(event_index(slug))})
-        # IN THE DEFINITION'S OWN FIELD ORDER. write_tsvs takes the column order
-        # off the first row's keys, so a dict built in a convenient order writes
-        # a header CA's definition does not match.
-        mine = {
-            "event": ("scripted_transient_located_event" if slug in LOCATED_EVENTS
-                      else "scripted_persistent_event" if persistent
-                      else "scripted_transient_event"),
-            "group": group_id,
-            "image": image,
-            "sound_event": "UI_CAM_POPUP_Message_Event_" + sound,
-            # instant_open MUST agree with the event type. All 93 vanilla
-            # persistent rows are true and all 4 transient rows are false;
-            # this is not a preference, it is what the type means.
-            "instant_open": "true" if persistent else "false",
-        }
-        row = {}
-        for col in EVENT_COLS:
-            row[col] = mine.get(col, EVENT_FIXED.get(col))
-            assert row[col] is not None, "no value for event column " + col
-        feed.append(row)
+        # THE RECORDS, ONE RUN PER RACE (RACE_EVENT_OFFSET). The loc is the
+        # model's to pick by race (IC.event_stem), so it is written once.
+        for race in ("chd", "dwf"):
+            rkey = key if race == "chd" else key + "_" + race
+            group_id = rkey + "_group"
+            groups.append({"id": group_id})
+            members.append({"group": group_id, "id": rkey, "priority": "0.0"})
+            criteria.append({"member": rkey, "value": str(event_index(slug, race))})
+            # IN THE DEFINITION'S OWN FIELD ORDER. write_tsvs takes the column
+            # order off the first row's keys, so a dict built in a convenient
+            # order writes a header CA's definition does not match.
+            mine = {
+                "event": ("scripted_transient_located_event" if slug in LOCATED_EVENTS
+                          else "scripted_persistent_event" if persistent
+                          else "scripted_transient_event"),
+                "group": group_id,
+                "image": event_image(image, race),
+                "sound_event": "UI_CAM_POPUP_Message_Event_" + sound,
+                # instant_open MUST agree with the event type. All 93 vanilla
+                # persistent rows are true and all 4 transient rows are false;
+                # this is not a preference, it is what the type means.
+                "instant_open": "true" if persistent else "false",
+            }
+            row = {}
+            for col in EVENT_COLS:
+                row[col] = mine.get(col, EVENT_FIXED.get(col))
+                assert row[col] is not None, "no value for event column " + col
+            feed.append(row)
         loc.append({"key": "event_feed_strings_text_" + key + "_title",
                     "text": title, "tooltip": "false"})
         loc.append({"key": "event_feed_strings_text_" + key + "_primary",
@@ -2529,13 +2489,13 @@ def build():
     # ships 0 event feed strings in capitals of 910).
     for move_key, move_name in model_moves():
         loc.append({"key": move_result_key(move_key, True),
-                    "text": move_name + " - Success!",
+                    "text": move_name + ": Success",
                     "tooltip": "false"})
         loc.append({"key": move_result_key(move_key, False),
-                    "text": move_name + " - Failure",
+                    "text": move_name + ": Failure",
                     "tooltip": "false"})
 
-    # THE DWARFS (plan 2026-10-04 phase 2), after every Chaos Dwarf row so none
+    # THE DWARFS, after every Chaos Dwarf row so none
     # of those moves; what they wrote is kept for check_dwf.
     _was = (len(bundles), len(traits), len(loc))
     emit_dwf(emit, emit_trait, emit_member, loc)
@@ -2590,9 +2550,6 @@ def build():
             "loc": loc}
 
 
-# ---------------------------------------------------------------------------
-# check
-# ---------------------------------------------------------------------------
 def _cache_table(name):
     path = os.path.join(CACHE, name + ".json")
     if not os.path.isfile(path):
@@ -2639,8 +2596,7 @@ def _lua_not_dwarf():
 
 # THE TOKENS THAT MEAN GREENSKIN, matched against the VOICE and the unit and
 # never against the subtype key - wh3_dlc23_chd_overseer_hobgoblin_spawned_army
-# is a Chaos Dwarf whose key says otherwise, and reading keys shipped him onto
-# this list for one revision.
+# is a Chaos Dwarf whose key says otherwise.
 _GREEN = ("hobgoblin", "goblin", "greenskin", "_grn_", "_orc_")
 
 
@@ -2861,9 +2817,7 @@ def check_rebel_roster():
                        % (want, ARMY_SLOTS, ARMY_SLOTS - 1))
     return out
 
-# ---------------------------------------------------------------------------
 # The rebel crests: one DB row each, so two rebellions stop sharing a banner.
-# ---------------------------------------------------------------------------
 # CA's own rows, exported by RPFM out of db.pack, kept verbatim so the override
 # changes exactly one column. See tools/make_ic_rebel_flags.py for why a crest
 # cannot be set at runtime and why four is the ceiling.
@@ -3003,8 +2957,8 @@ def check_demand_keys():
 
 
 # LORD RECRUIT RANK. A lord made by create_force_with_general arrives at rank 1
-# whatever the faction's lord recruit rank - measured 2026-09-25, under a +10
-# bundle - so a party leader put in the field is raised by IC.recruit_rank off
+# whatever the faction's lord recruit rank (measured under a +10 bundle), so a
+# party leader put in the field is raised by IC.recruit_rank off
 # IC.RECRUIT_RANK. That table is EVERY source in CA's DB, with no race filter: a
 # Chaos Dwarf can hold a captured landmark's `_other` variant, and the slot walk
 # costs the same whatever the table holds. Derived here so a patch that moves a
@@ -3072,8 +3026,7 @@ def _lua_recruit_rank():
 
 
 def check_gov_rank_constants():
-    """IC.GOV_* in the Lua must be what this generator ships (spec 2026-09-27
-    section 7): the governor's base bundle is rebuilt at runtime from them."""
+    """IC.GOV_* in the Lua must be what this generator ships: the governor's base bundle is rebuilt at runtime from them."""
     lua = io.open(os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "Modding Files", "pack", "script", "campaign", "mod",
@@ -3116,15 +3069,14 @@ def sound_registry():
 
 def unknown_sounds(lua_text, names):
     """Every UI_ sound literal in the Lua that is not an event. A hook key from
-    sound_settings.xml, or a made-up name, plays nothing and raises nothing -
-    three shipped that way until 2026-10-02."""
+    sound_settings.xml, or a made-up name, plays nothing and raises nothing."""
     found = set(re.findall(r'"((?:UI|ui)_[A-Za-z0-9_]+)"', lua_text))
     return sorted(s for s in found if s.lower() not in names)
 
 
 def check_governments(race="chd"):
     """The model's governments and this file's are one list, in one order, and
-    the bundle the model applies is one this file builds (spec 2026-10-02)."""
+    the bundle the model applies is one this file builds."""
     prefix = RACES[race]["prefix"]
     lua = race_lua(prefix)
     out = []
@@ -3149,13 +3101,13 @@ def check_governments(race="chd"):
     return out
 
 
-# THE AUTHOR'S PLAIN-WORDS RULE for player text: none of these as a word.
+# THE PLAIN-WORDS RULE for player text: none of these as a word.
 JARGON = ("cap", "caps", "accrue", "accrues", "rep", "AI", "HUD", "standing")
 
 
 def check_laws(race="chd"):
     """The model's laws and this file's are one catalogue, in one order, each
-    option's bundle built and wearing the model's picture (spec 2026-10-02 laws)."""
+    option's bundle built and wearing the model's picture."""
     prefix = RACES[race]["prefix"]
     lua = race_lua(prefix)
     out = []
@@ -3196,13 +3148,13 @@ def check_laws(race="chd"):
 
 
 def check_party_drawn(prefix="IC"):
-    """Every party <prefix>.DEEDS can name has a party_drawn line (spec 2026-10-02 deeds)."""
+    """Every party <prefix>.DEEDS can name has a party_drawn line."""
     body = lua_table("DEEDS", prefix)
     named = set(re.findall(r'(?:party|alt|also) = "(\w+)"', body)) if body is not None else set()
     missing = sorted(named - set(PARTY_DRAWN))
     out = ["party_drawn has no line for %s" % p for p in missing] + (
         [] if named else ["the model Lua declares no %s.DEEDS" % prefix])
-    # EACH LINE NAMES ITS PARTY AS THE PANEL DOES (review 2026-10-02): the
+    # EACH LINE NAMES ITS PARTY AS THE PANEL DOES: the
     # generic display, not the government's name - "the Daemonsmiths" is a
     # government, "the Forge" is the party the card says arrived.
     display = {slug: name for slug, name, _e, _m in PARTIES}
@@ -3246,6 +3198,48 @@ def check_recruit_rank():
         out.append("paste this over IC.RECRUIT_RANK:\n" + recruit_rank_lua(want))
     return out
 
+def check_seed_price():
+    """IC.SEED_PRICE holds every lord the seeding can make at CA's own price.
+
+    A starting lord is hired out of the pool for nothing - the engine prices a
+    scripted pool lord at zero - so the model charges agent_subtypes.cost once
+    at his hire, the normal recruit price once. There is no
+    script call for a character's price, so the number is typed; this holds it
+    to the DB, and a store lord with no price would be hired free, silently.
+    """
+    import read_vanilla_cache as R
+    here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    mod = os.path.join(here, "Modding Files", "pack", "script", "campaign", "mod")
+    src = {n: io.open(os.path.join(mod, n), encoding="utf-8").read()
+           for n in ("zzz_derpy_iron_court.lua", "zzz_derpy_iron_court_dwarf.lua")}
+    m = re.search(r"IC\.SEED_PRICE = \{([^}]*)\}", src["zzz_derpy_iron_court.lua"])
+    if not m:
+        return ["IC.SEED_PRICE not found in zzz_derpy_iron_court.lua"]
+    have = {k: int(v) for k, v in re.findall(r'\["(\w+)"\]\s*=\s*(\d+)', m.group(1))}
+    lords = set()
+    for name, prefix in (("zzz_derpy_iron_court.lua", "IC"),
+                         ("zzz_derpy_iron_court_dwarf.lua", "DWF")):
+        b = re.search(prefix + r"\.STORE_LORDS = \{([^}]*)\}", src[name])
+        if not b:
+            return ["%s.STORE_LORDS not found in %s" % (prefix, name)]
+        lords |= set(re.findall(r'"(\w+)"', b.group(1)))
+    rows = [r for part in R.load("agent_subtypes") if isinstance(part, list)
+            for r in part if isinstance(r, dict)]
+    cost = {r["key"]: r["cost"] for r in rows if "cost" in r}
+    if not cost:
+        return ["agent_subtypes read back no cost column - the check cannot run"]
+    out = []
+    for k in sorted(lords | set(have)):
+        if k not in lords:
+            out.append("IC.SEED_PRICE prices %s, which no STORE_LORDS can make" % k)
+        elif k not in have:
+            out.append("IC.SEED_PRICE has no price for %s - he is hired free" % k)
+        elif cost.get(k) != have[k]:
+            out.append("IC.SEED_PRICE says %s costs %d, CA's agent_subtypes %s"
+                       % (k, have[k], cost.get(k)))
+    return out
+
+
 # TABLES WHOSE CACHED DEFINITION IS KNOWN TO BE WIDER THAN THEIR ROWS, and what
 # covers them instead. RPFM patches a definition's unused fields without removing
 # them, so a name-to-value zip of the dump misaligns after the first such field.
@@ -3278,7 +3272,7 @@ def check_race_effects():
     have = set(ALL_EFFECTS)
     return ["%s / %s is used by a Dwarf row and is not in ALL_EFFECTS" % (e[0], e[1])
             for e in sorted(used - have)]
-# WHY EACH DWARF SUBTYPE ALL THREE POOL FACTIONS PERMIT IS LEFT OUT (plan ruling 7).
+# WHY EACH DWARF SUBTYPE ALL THREE POOL FACTIONS PERMIT IS LEFT OUT.
 DWF_REBEL_GEN_EXCLUDED = {
     "wh_main_dwf_thorgrim_grudgebearer": "a legendary lord; IC.is_legend bars him",
     "wh_dlc06_dwf_belegar": "a legendary lord; IC.is_legend bars him",
@@ -3290,7 +3284,7 @@ DWF_REBEL_HERO_EXCLUDED = {
     ("colonel", "wh_main_dwf_lord"): "a lord's subtype on a hero's agent type",
     ("minister", "wh_main_dwf_lord"): "a lord's subtype on a hero's agent type",
 }
-# THE CHAOS DWARFS' OWN WORDS, which no Dwarf string may carry (spec section 2).
+# THE CHAOS DWARFS' OWN WORDS, which no Dwarf string may carry.
 CHD_WORDS = re.compile(r"hashut|zharr|hell-?forge|slave|labourer|hobgoblin|convoy|"
                        r"ziggurat|daemon|chaos dwarf", re.I)
 DWF_SUBCULTURE = "wh_main_sc_dwf_dwarfs"
@@ -3315,7 +3309,7 @@ def _bare(name):
 
 def check_dwf():
     """The Dwarf race: Lua and Python one race, every key against the DB, its
-    words its own (plan 2026-10-04 phase 2)."""
+    words its own."""
     out = []
     R = RACES.get("dwf")
     if not R:
@@ -3331,8 +3325,8 @@ def check_dwf():
         out.append("DWF.OFFICES and RACES dwf OFFICES disagree")
     if tier_seats("dwf") != {1: 2, 2: 4, 3: 4, 4: 4}:
         out.append("the Dwarf tiers are %s, not 2/4/4/4" % (tier_seats("dwf"),))
-    # The order, bundles and pictures of the governments and laws: phase 1's
-    # race-taking checks, run for the Dwarfs (pre-flight D-3).
+    # The order, bundles and pictures of the governments and laws: the
+    # race-taking checks, run for the Dwarfs.
     out.extend(check_governments("dwf"))
     out.extend(check_laws("dwf"))
     for cat, _n, _i, options in R["LAWS"]:
@@ -3429,7 +3423,7 @@ def check_dwf():
         out.append("the Dwarf draft holds %d slots" % len(roles))
 
     # 3b. EVERY OTHER DWARF KEY THE MODEL HANDS THE ENGINE, re-read here so a game
-    #     patch that drops one fails the build (phase 2 final review, finding 4).
+    #     patch that drops one fails the build.
     src = io.open(DWF_LUA, encoding="utf-8").read()
 
     def one(name):
@@ -3489,8 +3483,8 @@ def check_dwf():
     # 5. NO DWARF PARTY IS A GREAT GUILD.
     guilds = set(_bare(n) for n in great_guild_dwarf_names())
     # A FLOOR, not a count: the Great Guilds mod adds guilds on its own schedule
-    # (a seventh, the Ancestor Temples, on 2026-10-05). Fewer than six is a scraper
-    # that read nothing.
+    # (a seventh, the Ancestor Temples, was added later). Fewer than six is a
+    # scraper that read nothing.
     if len(guilds) < 6:
         out.append("read %d Great Guilds Dwarf names, fewer than 6" % len(guilds))
     for _s, d, _e, _m in R["PARTIES"]:
@@ -3516,7 +3510,7 @@ def check():
     #    key is an unvalidated string, and a wrong one HERE is not the usual
     #    silent no-op - create_force_with_general takes a subtype the faction
     #    cannot field and the game dies, with no Lua error and no minidump
-    #    (2026-09-17, derpy_bzaark, 1.4 seconds after the secession).
+    #    (seen 1.4 seconds after a secession).
     out.extend(check_rebel_generals())
     out.extend(check_not_dwarf())
     out.extend(check_rebel_heroes())
@@ -3524,6 +3518,7 @@ def check():
     out.extend(check_factions())
     out.extend(check_demand_keys())
     out.extend(check_recruit_rank())
+    out.extend(check_seed_price())
     out.extend(check_gov_rank_constants())
     out.extend(check_sound_names())
     out.extend(check_governments())
@@ -3587,9 +3582,9 @@ def check():
         if row["effect_bundle_key"] not in defined:
             out.append("junction for undefined bundle: %s" % row["effect_bundle_key"])
 
-    # 4b. EVERY BUNDLE'S ICON EXISTS (plan ruling 6). ui_icon is a bare name
+    # 4b. EVERY BUNDLE'S ICON EXISTS. ui_icon is a bare name
     #     under ui/campaign ui/effect_bundles/; a wrong one draws a blank square
-    #     with no error, and nothing checked it before 2026-09-29.
+    #     with no error.
     try:
         import gen_iron_court_emitter as _EU
         assets = _EU._game_assets()
@@ -3682,13 +3677,8 @@ def check():
     # 9b. AND THE OTHER DIRECTION: every Chaos Dwarf faction a player can lead
     #     must have an ORIGIN, so that its men read as having come from
     #     somewhere when you confederate them rather than as locally born.
-    #
-    #     This used to be a harder rule - a faction with no house left a player
-    #     leading it with no party of his own at all - and it is not that any
-    #     more, because the crown is the player's party whatever faction he
-    #     leads. It stays a build failure anyway: checking the keys we DO name
-    #     proves nothing about the ones we forgot, and that is how
-    #     wh3_dlc23_chd_minor_faction went missing for a month.
+    #     A build failure, because checking the keys we DO name proves nothing
+    #     about the ones we forgot (wh3_dlc23_chd_minor_faction, for one).
     for faction in sorted(chd):
         if faction in NOT_AN_ORIGIN:
             continue
@@ -3812,9 +3802,8 @@ def check():
     # 14. No column may be left empty that vanilla never leaves empty. Such a
     #     column is a required foreign key whether or not the schema says so, and
     #     an empty string in one is a load-time database reject that names an
-    #     arbitrary row. This is the check that was missing on 2026-09-11: every
-    #     junction row shipped with an empty advancement_stage, and the game
-    #     rejected the pack while naming House of Baal, which merely sorted first.
+    #     arbitrary row: an empty advancement_stage on the junctions makes the
+    #     game reject the pack while naming House of Baal, which merely sorts first.
     for table, rows in tables.items():
         if table == "loc" or not rows:
             continue
@@ -3970,7 +3959,8 @@ def check():
             #      ten plain-call indices resolves to one.
             #      EXCEPT LOCATED_EVENTS, which are raised with the located
             #      call and must carry the located type - and only they may.
-            located = {event_key(s) + "_group" for s in LOCATED_EVENTS}
+            located = {event_key(s) + suf + "_group" for s in LOCATED_EVENTS
+                       for suf in ("", "_dwf")}
             for row in tables["event_feed_message_events"]:
                 if row["event"] not in ("scripted_persistent_event",
                                         "scripted_transient_event",
@@ -4053,22 +4043,19 @@ def check():
     return out
 
 
-# ---------------------------------------------------------------------------
-# write
-# ---------------------------------------------------------------------------
 TSV_META = {
     "effect_bundles": ("effect_bundles_tables", 4),
     "effect_bundles_to_effects_junctions":
         ("effect_bundles_to_effects_junctions_tables", 3),
-    # Versions read off the cached vanilla definitions 2026-09-11. A version that
+    # Versions read off the cached vanilla definitions. A version that
     # does not match the field shape imports a wrong-width TSV.
     "trait_info": ("trait_info_tables", 1),
     "character_traits": ("character_traits_tables", 3),
     "character_trait_levels": ("character_trait_levels_tables", 0),
     # Two fields, category and icon_path, read off CA's own data__ v0.
     "trait_categories": ("trait_categories_tables", 0),
-    # THE EVENT FEED'S FOUR. Versions read off CA's own shipped files on
-    # 2026-09-16 - the `definition.version` inside each cached RPFM dump, not
+    # THE EVENT FEED'S FOUR. Versions read off CA's own shipped files - the
+    # `definition.version` inside each cached RPFM dump, not
     # RPFM's default for the table, which is allowed to differ and would import
     # a wrong-width TSV. Field counts there too: 1, 3, 2, 13.
     "campaign_groups": ("campaign_groups_tables", 0),
@@ -4121,11 +4108,8 @@ def write_tsvs(outdir):
     return written
 
 
-# ---------------------------------------------------------------------------
-# selftest
-# ---------------------------------------------------------------------------
 def selftest():
-    # THE RACE SEAM (plan 2026-10-04 phase 1). The tiers are counted off the
+    # THE RACE SEAM. The tiers are counted off the
     # race's own offices, a key carries the race's infix, and a scraper reads
     # the prefix it is given and no other.
     assert tier_seats("chd") == {1: 2, 2: 3, 3: 4, 4: 5}, tier_seats("chd")
@@ -4228,13 +4212,13 @@ def selftest():
     keys = [r["key"] for r in tables["effect_bundles"]]
     assert len(keys) == len(set(keys)), "no duplicate bundle keys"
     n_parties = len(PARTIES)
-    # AND ONE PER ENVOY TASK (spec 2026-09-29 section 6).
+    # AND ONE PER ENVOY TASK.
     n_envoy = len(model_envoy_tasks())
-    # AND ONE PER LAW (spec 2026-10-02 laws), start options included.
+    # AND ONE PER LAW, start options included.
     n_laws = sum(len(options) for _cat, _name, _icon, options in LAWS)
     want = (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy
             + len(GOVERNMENTS) + n_laws)
-    # PER RACE (plan 2026-10-04 phase 2): the Dwarfs keep the skeleton, so each
+    # PER RACE: the Dwarfs keep the skeleton, so each
     # race builds the same count; a Dwarf key carries "_dwf_".
     chd_keys = [k for k in keys if "_dwf_" not in k]
     assert len(chd_keys) == want, \
@@ -4275,8 +4259,7 @@ def selftest():
             assert boon * malus < 0, \
                 "%s: office and vacancy must oppose on %s" % (office["slug"], effect_key)
 
-    # No bundle description may carry a value placeholder. The Great Guilds
-    # shipped 36 that did, with a selftest that asserted the opposite.
+    # No bundle description may carry a value placeholder.
     for row in tables["effect_bundles"]:
         assert "%+n" not in row["localised_description"], row["key"]
 
@@ -4290,9 +4273,8 @@ def selftest():
     # DERIVED, not a literal: one band per tier plus the man who clears none.
     n_bands = len(TIER_NAME) + 1
     n_backgrounds = len(backgrounds())
-    # AND ONE PER PARTY A MAN CAN SIT WITH (build C0E394F5 added them and this
-    # count never learned: it failed from then until 2026-09-29): the Crown,
-    # each confederate party, and each rolled party's tails.
+    # AND ONE PER PARTY A MAN CAN SIT WITH: the Crown, each confederate party,
+    # and each rolled party's tails.
     _tails = model_tails()
     n_members = 1 + len(ORIGINS) + sum(len(_tails[p[0]]) for p in PARTIES if p[0] != CROWN)
     n_traits = (n_origins + n_backgrounds + n_offices + n_bands + len(AMBITION_BANDS)
@@ -4302,7 +4284,7 @@ def selftest():
         ("one trait per origin, per background, per office, per standing band "
          "and per party: expected %d, got %d"
          % (n_traits, len(chd_traits)))
-    # THE SAME COUNT FOR THE DWARFS, off their own tables (plan 2026-10-04 phase 2).
+    # THE SAME COUNT FOR THE DWARFS, off their own tables.
     D = RACES["dwf"]
     d_tails = model_tails("DWF")
     d_members = 1 + len(D["ORIGINS"]) + sum(len(d_tails[p[0]]) for p in D["PARTIES"] if p[0] != CROWN)
@@ -4356,7 +4338,7 @@ def selftest():
     _names = [STANDING_BAND[t][0] for t in STANDING_BAND]
     assert len(set(_names)) == len(_names), "two standing bands share a name"
 
-    # --- the checks themselves -------------------------------------------
+    # The checks themselves.
     # A check nobody has seen fail is not a check. Break each fault in memory and
     # confirm check() names it, then put the data back.
     assert not check(), "the real data must pass before faults are injected"
@@ -4367,9 +4349,8 @@ def selftest():
         assert any(needle in p for p in problems), \
             "check() did not catch %s (said: %s)" % (fault, problems)
 
-    # The tooltip text. Typing CA's wording from memory is exactly how "Raw
-    # Materials efficiency" got declared for a string CA writes as "Raw Materials
-    # output" - caught by check 15 on its first run, before it shipped.
+    # The tooltip text. CA's wording typed from memory goes wrong ("Raw Materials
+    # efficiency" for CA's "Raw Materials output"); check 15 must catch it.
     _t = EFFECT_TEXT[E_GDP[0]]
     EFFECT_TEXT[E_GDP[0]] = "Income from every building: %+n%"
     injected("reworded tooltip text",
@@ -4394,7 +4375,7 @@ def selftest():
     injected("a scope CA never pairs with that effect",
              lambda: ALL_EFFECTS.__setitem__(3, saved), "not shipped by CA")
 
-    # A BUNDLE ICON THE GAME DOES NOT SHIP (plan ruling 6). emit() reads the
+    # A BUNDLE ICON THE GAME DOES NOT SHIP. emit() reads the
     # module's BUNDLE_ICON at build time, and check() builds afresh.
     _icon = BUNDLE_ICON
     globals()["BUNDLE_ICON"] = "no_such_icon.png"
@@ -4402,7 +4383,7 @@ def selftest():
              lambda: globals().__setitem__("BUNDLE_ICON", _icon),
              "an icon the game does not have")
 
-    # THE BORROWED SCOPE IS EXEMPT BY PAIR, NOT BY EFFECT (plan ruling 5): the
+    # THE BORROWED SCOPE IS EXEMPT BY PAIR, NOT BY EFFECT: the
     # same effect on any other unshipped scope is still refused.
     _i = ALL_EFFECTS.index(E_ENVOY_RAW)
     ALL_EFFECTS[_i] = (E_ENVOY_RAW[0], "province_to_region_own_unseen_TYPO", True)

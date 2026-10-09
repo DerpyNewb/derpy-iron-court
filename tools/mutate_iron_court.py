@@ -4,9 +4,9 @@
 WHY THIS EXISTS. tools/_iron_court_harness.lua is the only tool in this workspace
 with no --selftest of its own, and it is the one that decides whether the model
 and the panel are correct. A green harness is worth exactly as much as its
-weakest check, and a check nobody has watched fail proves nothing at all: this
-session alone found THREE assertions that had quietly become unbreakable, aimed
-at rules the layout had moved out from under them.
+weakest check, and a check nobody has watched fail proves nothing at all: an
+assertion quietly becomes unbreakable when the code it was aimed at moves out
+from under it.
 
 WHAT A MUTANT IS. Not a typo - the compiler finds those. Each entry below is a
 plausible IMPLEMENTATION mistake: the guard somebody forgets, the sweep somebody
@@ -52,14 +52,14 @@ LUA = r"C:\Program Files (x86)\Lua\5.1\lua.exe"
 # Grouped by the rule each one attacks, not by the check meant to catch it: the
 # whole point is that this file does not know which check is watching.
 #
-# Anchor on CODE lines, never a comment line: the 2026-09-21 comment pass cut the
-# Lua's comments and staled seven anchors whose code had not moved at all.
+# Anchor on CODE lines, never a comment line: a comment pass on the Lua stales
+# an anchor whose code has not moved at all.
 # THE CONTRACT'S SIGNATURES (docs/superpowers/plans/2026-10-04-iron-court-dwarfs-CONTRACT.md).
-# The "both races" mutants anchor on these and not on lines inside them: phases 2-5
-# own the bodies, the contract fixes the names. Each renames the real function to a
-# body and wraps it, which is how a mistake AROUND a function - a cache keyed by
-# nothing, the wrong faction, a guard nobody runs - is written without knowing what
-# the function says inside.
+# The "both races" mutants anchor on these and not on lines inside them: the
+# bodies change, the contract fixes the names. Each renames the real function
+# to a body and wraps it, which is how a mistake AROUND a function (a cache
+# keyed by nothing, the wrong faction, a guard nobody runs) is written without
+# knowing what the function says inside.
 _SIG_R = "function IC.R(faction_key)\n"
 _SIG_KEY = "function IC.key(kind, slug, faction_key)\n"
 _SIG_HAS = "function IC.has_court(faction)\n"
@@ -90,7 +90,7 @@ def _as_dwarf(call):
             "    if not ok then error(out, 0) end\n" % call)
 
 MUTANTS = [
-    # ---- what your house can break into ------------------------------------
+    # What your house can break into.
     # THE ROLL BACK OVER EVERY UNSEATED INTEREST. A man joins a party when his
     # background maps to it, so an interest nobody in the faction has the
     # background for is seated with weight, a name, traits, a card - and nobody
@@ -109,7 +109,7 @@ MUTANTS = [
      """            if man and not man:is_null_interface() and not IC.is_legend(man) then""",
      """            if man and not man:is_null_interface() then"""),
 
-    # ---- what a secession would cost (SS2.10) -----------------------------
+    # What a secession would cost.
     # THE PANEL DOING ITS OWN ARITHMETIC. "How many provinces would go" looks
     # like it should be the party's share of the court, and it is not -
     # defecting_provinces floors it at what the party already governs and at
@@ -122,9 +122,9 @@ MUTANTS = [
         math.ceil(#seats * (IC.share(faction, slug) or 0) / 100), #seats,
         table.concat(names, ", "), more)"""),
 
-    # THE KEY ON SCREEN. province_name() is documented as returning a key and
-    # has put "wh3_main_combi_province_gash_kadrak" in front of a player once
-    # already; skipping the lookup here is the same fault with fewer steps.
+    # THE KEY ON SCREEN. province_name() is documented as returning a key, so
+    # skipping the lookup puts "wh3_main_combi_province_gash_kadrak" in front
+    # of the player.
     ("a province at risk printed as its key", U,
      """        names[i] = loc("provinces_onscreen_" .. doomed[i], doomed[i])""",
      """        names[i] = doomed[i]"""),
@@ -142,8 +142,7 @@ MUTANTS = [
     # THE CAP TRIMMING THE WRONG END. defecting_provinces returns its answer in
     # the order the land is actually taken, so keeping the tail names the
     # provinces least likely to go and drops the ones already lost. Identical
-    # in every fixture with fewer provinces than the cap, which was all of them
-    # until the cap got a check of its own.
+    # in every fixture with fewer provinces than the cap.
     ("a long list of doomed provinces cut at the front", U,
      """    for i = 1, math.min(#doomed, ICUI.TIP_PROVINCES) do
         names[i] = loc("provinces_onscreen_" .. doomed[i], doomed[i])
@@ -153,12 +152,10 @@ MUTANTS = [
         names[#names + 1] = loc("provinces_onscreen_" .. doomed[i], doomed[i])
     end"""),
 
-    # ---- the record's two halves ------------------------------------------
-    # THE FAULT THAT SHIPPED TWICE. IC.log drops a kind that is not in this
-    # table at its first line, so the model writes the entry, the whitelist
-    # eats it, and the sentence waiting in the panel can never draw. `pressed`
-    # and `dissolve` were each in exactly this state from the day they were
-    # written until 2026-09-18.
+    # The record's two halves.
+    # A kind missing from the whitelist. IC.log drops a kind that is not in this
+    # table at its first line, so the model writes the entry, the whitelist eats
+    # it, and the sentence waiting in the panel can never draw.
     ("the record's whitelist missing a kind the court writes", M,
      """    pressed = true, dissolve = true,""",
      """"""),
@@ -170,7 +167,7 @@ MUTANTS = [
      """    elseif e.kind == "pressed" then""",
      """    elseif e.kind == "pressed_not" then"""),
 
-    # ---- the last warning, on both things that end a house ----------------
+    # The last warning, on both things that end a house.
     # THE CARD NOBODY RAISES. secede_warn fires at the top of a five-turn clock
     # and this is the only other thing said before a province changes hands;
     # without it the player has four silent turns and then a secession. The
@@ -196,10 +193,9 @@ MUTANTS = [
      """                elseif house.clock == -1 + math.min(IC.TUNE.warn_turns,"""),
 
     # THE SECOND CALL SITE. Provoke sets the clock outright rather than going
-    # through the branch above, so it skips secede_warn AND the crossing - the
-    # one move whose entire purpose is to shorten a countdown was the only way
-    # to be put on one in silence. Deleting this restores exactly that, and
-    # every ordinary secession still warns correctly.
+    # through the branch above, so it skips secede_warn AND the crossing. Without
+    # this, the one move meant to shorten a countdown puts a house on one in
+    # silence, while every ordinary secession still warns correctly.
     ("provoke putting a house on a silent clock", M,
      """                if house.clock <= IC.TUNE.warn_turns
                    and (now <= 0 or now > IC.TUNE.warn_turns) then
@@ -208,8 +204,8 @@ MUTANTS = [
      """"""),
 
     # THE CLOCK TREATED AS COSMETIC. Raise the warning and then split anyway in
-    # the same call - which is what the card used to do, and looks right in the
-    # log because both the warning and the split are recorded.
+    # the same call, which looks right in the log because both the warning and
+    # the split are recorded.
     ("a split warning that lands with the split itself", M,
      """    if (crown.split or 0) <= 0 then
         crown.split = IC.TUNE.warn_turns
@@ -234,27 +230,24 @@ MUTANTS = [
     # THE COUNT THAT PAUSES INSTEAD OF CANCELLING. A player who buys his own
     # house back above the line stops the split today and is split anyway the
     # moment it dips again, from wherever the count had got to - with no second
-    # warning, because the count never restarted. The secession clock has
-    # cancelled since it shipped; this is the court answering one question two
-    # ways.
+    # warning, because the count never restarted. The secession clock cancels,
+    # so this is the court answering one question two ways.
     ("a split count that pauses rather than cancelling", M,
      """            crown.split = 0
 """,
      """"""),
 
-    # ---- the save string -------------------------------------------------
-    # THE ONE THAT SHIPPED. The walk was string.find(packed, "%|", from), which
-    # works in Lua 5.1.5 and finds nothing in WH3 - so every load came back with
-    # the whole string as the houses and no offices, governors, terms, standing,
-    # record or provinces at all. The harness could not see it, because the
-    # harness runs on stock Lua; check_lua_api.py refuses the init argument now.
+    # The save string.
+    # string.find(packed, "%|", from) works in Lua 5.1.5 and finds nothing in
+    # WH3, which loses every section after the houses on load. The harness runs
+    # stock Lua and cannot see that; check_lua_api.py refuses the init argument.
     # What the harness CAN see is the other half of the same contract: a walk
     # that eats empty fields shifts every section after the first gap.
     ("the save walk back on the field-eating form of gmatch", M,
      """    for field in string.gmatch(packed .. "|", "([^|]*)|") do""",
      """    for field in string.gmatch(packed, "([^|]+)") do"""),
 
-    # ---- what a move says it does -----------------------------------------
+    # What a move says it does.
     # THE ODDS PUT BACK ON THE CARD. The picker already draws them on each
     # candidate's button, LIVE - base plus the actor's standing edge - so a card
     # can only ever carry the base and the two disagree for every aimed move.
@@ -266,7 +259,7 @@ MUTANTS = [
      """         "%d%% odds. He dies. -%d loyalty from his party.",
          IC.TUNE.plot_chance_murder, IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died)"""),
 
-    # ---- feedback for a click the player made -----------------------------
+    # Feedback for a click the player made.
     # A PULSE NOTHING TURNS OFF. pulse_uicomponent has no duration: it runs until
     # something stops it, so dropping the callback leaves every seat the player
     # has ever appointed to flashing for the rest of the campaign. It looks
@@ -276,7 +269,7 @@ MUTANTS = [
             pcall(function() pulse_uicomponent(again, false, 0, false) end)
         end""",
      """"""),
-    # THE STOP THROUGH THE OLD HANDLE (2026-10-02). The court can shut inside
+    # THE STOP THROUGH THE OLD HANDLE. The court can shut inside
     # those seconds, and a destroyed component's handle is not an error a
     # pcall catches.
     ("the pulse stopped through a handle its court may have destroyed", U,
@@ -292,7 +285,7 @@ MUTANTS = [
      """ICUI.SOUND_BAD = "UI_CAM_POPUP_Message_Event_Negative\"""",
      """ICUI.SOUND_BAD = "UI_CAM_POPUP_Message_Event_Positive\""""),
 
-    # ---- the event feed --------------------------------------------------
+    # The event feed.
     # THE VACANCY THAT TELLS NOBODY. A term running out is the one way a seat
     # empties with no input from the player, which is exactly why it is the one
     # that has to reach him. Removing the call leaves the record line in place,
@@ -317,8 +310,8 @@ MUTANTS = [
      "    if IC.is_colonel(character) then return IC.tune(faction_key, \"influence_trickle\") end",
      ""),
 
-    # AN OLD SAVE'S INDEX READ STRAIGHT: the head list got shorter on
-    # 2026-09-23, so a party rolled before then names nothing, or errors.
+    # AN OLD SAVE'S INDEX READ STRAIGHT: the head list got shorter, so a party
+    # rolled in an older save names nothing, or errors.
     ("an old save's name index read without wrapping", M,
      '    return R.NAME_HEADS[(head - 1) % #R.NAME_HEADS + 1] .. " of "',
      '    return R.NAME_HEADS[head] .. " of "'),
@@ -337,20 +330,18 @@ MUTANTS = [
      '    IC.feed(faction_key, "plot_ok")'),
 
     # THE FOURTEENTH FIELD, DROPPED. house.snubbed is what drift_loyalty's
-    # transition gate compares against, and for most of this mod's life it was
-    # not packed - so IC.load built a fresh court every turn, the comparison ran
-    # against nil, and a grievance that had not changed at all was written to the
-    # record as though it had just started. Found in a live save: one house
-    # restated at six of the last twenty-two entries.
+    # transition gate compares against. Unpacked, IC.load builds a fresh court
+    # every turn, the comparison runs against nil, and a grievance that has not
+    # changed is written to the record as though it had just started.
     # THE COUNT LEFT OUT OF THE SAVE. IC.turn opens with IC.load, so a field that
     # does not round-trip is reset on every single turn - the player gets his
     # warning, the count restarts from the top each turn and the split he was
     # promised never arrives. It looks correct in one session of a live game and
     # correct in every check that does not reload.
 # THE CROWN'S CARD BACK TO A WORD WITHOUT A NUMBER. A rival on the way out
-    # reads "SECEDES 3"; the Crown read a bare "SPLINTERING" for the whole count,
-    # which is the same situation stated two ways with the number missing from
-    # the one the player is standing in. Looks correct in a screenshot.
+# reads "SECEDES 3"; a bare "SPLINTERING" on the Crown states the same
+# situation with the number missing from the card the player is standing in.
+# Looks correct in a screenshot.
     ("the Crown's split count taken off its own card", U,
      """            if (house.split or 0) > 0 then
                 return string.format("SPLITS %d", house.split)
@@ -368,21 +359,21 @@ MUTANTS = [
      """            0,"""),
 
     # AN ABSENT FIELD IS "-", NEVER "": split() drops an empty piece, so a record
-    # entry aimed at nobody came back four fields long and was thrown away on the
-    # next load. Every unaimed move in the court's record vanished on reload.
+    # entry aimed at nobody comes back four fields long and is thrown away on the
+    # next load.
     ("a record entry with no target written as an empty field again", M,
      """            e.turn or 0, e.kind or "-", e.slug or "-", e.key or "-",""",
      """            e.turn or 0, e.kind or "-", e.slug or "-", e.key or "","""),
 
     # A CONFEDERATION'S POLL BRANDING THE WHOLE LIST. stamp_origin refuses a man
-    # who already has one, so this only ever caught lords recruited since the
-    # last turn start - which is why it read as intermittent rather than as a rule.
+    # who already has one, so this only ever catches lords recruited since the
+    # last turn start, which makes it look intermittent rather than like a rule.
     ("a confederation branding every unstamped man in the faction", M,
      """        if man and not man:is_null_interface()
            and not before[man:command_queue_index()] then""",
      """        if man and not man:is_null_interface() then"""),
 
-    # ---- the clocks, the witnesses and the sweeps ------------------------
+    # The clocks, the witnesses and the sweeps.
     ("provoke lengthens a clock it should only shorten", M,
      """               and (now <= 0 or now > count) then""",
      """               and true then"""),
@@ -402,13 +393,11 @@ MUTANTS = [
      """        IC.move_loyalty(faction_key, slug, delta)
         moved = moved + 1"""),
 
-    # ---- only a lord speaks, and only a lord leaves -----------------------
+    # Only a lord speaks, and only a lord leaves.
 
-    # THE LORDS-ONLY FILTER DROPPED. This is how it shipped and it was right
-    # while "who speaks for them" was a label on a card. It is not a label any
-    # more - he is the man who leads the party's rebellion - and a party whose
-    # best-standing member is a Daemonsmith secedes under a general the ENGINE
-    # invents, which is the orc shaman the author watched on 2026-09-17.
+    # THE LORDS-ONLY FILTER DROPPED. The man who speaks for a party leads its
+    # rebellion, so a party whose best-standing member is a Daemonsmith secedes
+    # under a general the ENGINE invents (an orc shaman).
     ("a party spoken for by a hero who cannot lead an army", M,
      """            if IC.is_lordly(man) then""",
      """            if true then"""),
@@ -436,26 +425,23 @@ MUTANTS = [
      """    local leaving = #lords"""),
 
     # THE SCALE THROWN AWAY, so every party sends the same number whatever it
-    # was. This is how it shipped an hour before it was asked about, and it is
-    # the same complaint the province count already answered: a two-man splinter
-    # and a faction-within-the-faction eight strong put identical armies on the
-    # map.
+    # was: a two-man splinter and a faction-within-the-faction eight strong put
+    # identical armies on the map.
     ("a two-man splinter that rebels as hard as a faction-within-a-faction", M,
      """    local leaving = math.min(#defectors, want_lords, IC.TUNE.rebel_lords_max)""",
      """    local leaving = math.min(#lords, IC.TUNE.rebel_lords_max)"""),
 
     # THE HEROES TAKEN BACK OUT OF THE COUNT. They cannot lead an army, so
-    # counting only the men who can looks like the tighter rule - and it throws
-    # away the half the author asked for by name: "heroes included". A party with
-    # a long tail of hangers-on is a bigger thing to lose than its lords alone.
+    # counting only the men who can looks like the tighter rule, and it drops the
+    # heroes the count includes on purpose. A party with a long tail of
+    # hangers-on is a bigger thing to lose than its lords alone.
     ("a party sized by its lords when the author asked for its members", M,
      """            members = members + 1
             if IC.can_defect_hero(man) then""",
      """            if IC.can_defect_hero(man) then"""),
     # AND AGAIN WITH THE COUNTER PUT BACK, one line lower, where only the lords
     # reach it. The mutant above deletes the count; this one MOVES it, which is
-    # the mistake somebody actually makes and the one the original was aimed at
-    # before the hero sweep landed between the two lines.
+    # the mistake somebody actually makes.
     ("a party sized by its lords with the count merely moved", M,
      """            if IC.is_lordly(man) then
                 local cqi = man:command_queue_index()""",
@@ -471,12 +457,11 @@ MUTANTS = [
      """    local want_lords = math.ceil(members / IC.TUNE.rebel_lords_per)""",
      """    local want_lords = math.floor(members / IC.TUNE.rebel_lords_per)"""),
 
-    # A PARTY WITH NO LORDS THAT GOES QUIETLY. `math.max(leaving, 1)` is the
-    # kind of clamp that reads as belt and braces beside a loop bound that is
-    # already a count, and taking it off is the one outcome three sessions were
-    # spent removing: a party of nothing but agents walks out and the map does
-    # not move. It has nobody who can lead an army; it is still a party that has
-    # left, and the Castellan fallback is there for exactly this.
+    # A PARTY WITH NO LORDS THAT GOES QUIETLY. `math.max(leaving, 1)` reads as
+    # belt and braces beside a loop bound that is already a count. Without it a
+    # party of nothing but agents walks out and the map does not move. It has
+    # nobody who can lead an army; it is still a party that has left, and the
+    # Castellan fallback is there for exactly this.
     ("a party of agents that secedes without a shot", M,
      """    for i = 1, math.max(leaving, 1) do""",
      """    for i = 1, leaving do"""),
@@ -491,10 +476,9 @@ MUTANTS = [
      """    local leaving = math.min(want_lords, IC.TUNE.rebel_lords_max)"""),
 
     # THE SUBTYPE HALF OF THE LEGEND TEST DROPPED, leaving is_unique on its own.
-    # This is the state the file was in at 20:25 on 2026-09-17, when the live
-    # campaign answered is_unique = false for derpy_bzaark and every rule built
-    # on it went quiet: he sat in a rival party, the secession killed him, and
-    # the game was gone a second and a half later.
+    # A live campaign answers is_unique = false for derpy_bzaark, so every rule
+    # built on it goes quiet: he sits in a rival party, the secession kills him,
+    # and the game crashes.
     ("a legend the engine does not flag, and nothing notices", M,
      """    if IC.is_unique(character) then return true end
     local key = nil
@@ -503,28 +487,25 @@ MUTANTS = [
      """    return IC.is_unique(character)"""),
 
     # AND THE SAFETY NET UNDER IT. Whether a man may be killed and made again is
-    # a whitelist question, and without it any subtype at all goes over - which
-    # is what turned a political event into a deleted legendary lord.
+    # a whitelist question, and without it any subtype at all goes over, which
+    # turns a political event into a deleted legendary lord.
     ("a lord killed to defect into a faction that cannot field him", M,
      """    return in_any_race("REBEL_GENERALS", key) == true
 end""",
      """    return true
 end"""),
 
-    # THE TWO TESTS BACK IN THEIR OLD ORDER. This is not a typo anybody would
-    # make - it is how the file READ for months, and the rule it defeats was
-    # sitting right underneath it the whole time. "A legendary lord IS the
-    # faction" could only ever reach a legend who was NOT confederated, which is
-    # the one case it changed nothing in, so every absorbed legend went to his
-    # old house and Bzaark sat with the legion in a Conclave campaign.
+    # THE TWO TESTS BACK IN THEIR OLD ORDER. In that order "a legendary lord IS
+    # the faction" can only reach a legend who was NOT confederated, which is the
+    # one case it changes nothing in, so every absorbed legend goes to his old
+    # house and Bzaark sits with the legion in a Conclave campaign.
     ("an absorbed legend seated with the house he came from", M,
      """    if IC.is_legend(character) then return IC.CROWN end
     local origin = IC.origin_of_character(character)""",
      """    local origin = IC.origin_of_character(character)"""),
 
-    # AND THE LEGEND GUARD PUT BACK BEHIND THE OWN-BLOC TEST. It sat there and
-    # was correct there, right up until every legend became a crown man - at
-    # which point the own-bloc test answers first every time and a guard on an
+    # AND THE LEGEND GUARD PUT BACK BEHIND THE OWN-BLOC TEST. Every legend is a
+    # Crown man, so the own-bloc test answers first every time and a guard on an
     # irreversible act silently stops firing while still reading like a guard.
     ("a legend refused for where he sits rather than for what he is", M,
      """    if plot_key == "murder" and IC.is_legend(victim) then
@@ -533,11 +514,10 @@ end"""),
     if IC.house_of_character(victim, faction_key) == IC.CROWN then""",
      """    if IC.house_of_character(victim, faction_key) == IC.CROWN then"""),
 
-    # EVERY ARMY CROWNING ITS GENERAL, which is how it shipped and is what four
-    # crash dumps at Warhammer3.exe+0x268CE1F were: three characters each made
-    # faction leader of the same faction inside one tick, each deposing the last.
-    # It reads as harmless because for a ONE-army secession it is - and the one
-    # secession that never crashed raised one army.
+    # EVERY ARMY CROWNING ITS GENERAL: three characters each made faction leader
+    # of the same faction inside one tick, each deposing the last, which crashes
+    # at Warhammer3.exe+0x268CE1F. A ONE-army secession is unharmed, which is
+    # why it reads as harmless.
     ("every rebel army crowning its own general as faction leader", M,
      """            local crown = waking and i == 1""",
      """            local crown = waking"""),
@@ -549,19 +529,18 @@ end"""),
      """            local crown = waking and i == 1""",
      """            local crown = (i == 1)"""),
 
-    # AND NOBODY CROWNED AT ALL. The other way round, and the one that was fixed
-    # earlier the same day: a dormant faction woken with make_faction_leader
-    # false has a leader INVENTED for it, which is the orc shaman.
+    # AND NOBODY CROWNED AT ALL. The other way round: a dormant faction woken
+    # with make_faction_leader false has a leader INVENTED for it, which is the
+    # orc shaman.
     ("a woken faction left to invent its own leader", M,
      """            local crown = waking and i == 1""",
      """            local crown = false"""),
 
     # THE STEPS RUN INLINE AGAIN, all in the frame the turn handler is already
-    # in. This is how it shipped through five crashes at Warhammer3.exe+
-    # 0x268CE1F, and it reads like a simplification - the callback does nothing
-    # you cannot do by calling the function. What it does is give the engine a
-    # frame between waking a faction, moving twenty regions and killing three of
-    # the player's generals.
+    # in, which crashes at Warhammer3.exe+0x268CE1F. It reads like a
+    # simplification, since the callback does nothing you cannot do by calling
+    # the function. What it does is give the engine a frame between waking a
+    # faction, moving twenty regions and killing three of the player's generals.
     ("a secession that changes the whole world in one frame", M,
      """    pcall(steps[i])
     cm:callback(function() IC.secede_step(steps, i + 1) end,
@@ -575,12 +554,9 @@ end"""),
      """    secede_step         = 0,"""),
 
     # THE WHITELIST DROPPED, so the departing lord's subtype goes over whatever
-    # it is. This is exactly how it shipped at 19:55 on 2026-09-17 and exactly
-    # what killed the campaign at 20:00: derpy_bzaark handed to qb2, which may
-    # not field him, and the game gone 1.4 seconds later with no Lua error and
-    # no minidump. It reads as a pointless narrowing of "he arrives as himself",
-    # which is the whole point of him - and he belongs to the PLAYER's faction,
-    # so he can be anything at all.
+    # it is. derpy_bzaark handed to qb2, which may not field him, crashes the
+    # game about a second later with no Lua error and no minidump. He belongs to
+    # the PLAYER's faction, so he can be anything at all.
     ("a rebel general the rebels are not allowed to field", M,
      """        if key and key ~= "" and R.REBEL_GENERALS[key] then
             out.subtype = key
@@ -590,8 +566,8 @@ end"""),
         end"""),
 
     # AND THE LEGEND ALLOWED TO DEFECT. A defection is a kill and a respawn, so
-    # this deletes a legendary lord from the player's campaign for good - which
-    # IC.plot has refused to do since it was written, and the secession did not.
+    # this deletes a legendary lord from the player's campaign for good, which
+    # IC.plot also refuses to do.
     ("a legendary lord killed off for a party he merely belonged to", M,
      """                             defects = IC.can_defect(man)}""",
      """                             defects = true}"""),
@@ -611,22 +587,18 @@ end"""),
      """                pcall(function() cm:kill_character(rise.cqi, false) end)""",
      """                local _ = rise.cqi"""),
 
-    # AND HIS ARMY DELETED WITH HIM. This was true and reads better - "an army
-    # whose lord has changed sides has changed sides" - and it is the best
-    # remaining suspect for a crash that survived three fixes: all three dumps
-    # are the same null dereference at Warhammer3.exe+0x268CE1F, the one
-    # secession that did not crash killed nobody, and these lords stand in
-    # provinces handed to the rebels a moment later.
+    # AND HIS ARMY DELETED WITH HIM. "An army whose lord has changed sides has
+    # changed sides" reads better, and it is the prime suspect for the null
+    # dereference at Warhammer3.exe+0x268CE1F: these lords stand in provinces
+    # handed to the rebels a moment later.
     ("a secession that deletes the player's armies as well as his lords", M,
      """                pcall(function() cm:kill_character(rise.cqi, false) end)""",
      """                pcall(function() cm:kill_character(rise.cqi, true) end)"""),
 
     # THE OTHER DIRECTION, on the other caller. A murder in the Tower passing
-    # true deletes the dead man's army - a stack of the player's own soldiers
-    # gone because somebody lost a vote. This was asserted inside the harness
-    # stub for every caller until secession became a caller that needs true, and
-    # a pcall ate it; it is a check on the murder now, and this is what watches
-    # it fail.
+    # true deletes the dead man's army: a stack of the player's own soldiers
+    # gone because somebody lost a vote. The harness checks this on the murder,
+    # not in the stub, because secession is a caller that needs true.
     ("a knife in the Tower that takes his whole army with him", M,
      """        cm:kill_character(cm:char_lookup_str(victim), false)""",
      """        cm:kill_character(cm:char_lookup_str(victim), true)"""),
@@ -642,13 +614,12 @@ end"""),
             out.subtype = IC.REBEL_LORD
         end"""),
 
-    # ---- the secession actually bites ------------------------------------
+    # The secession actually bites.
 
-    # THE FLOOR PUT BACK ON THE ORDINARY CLOCK. This is how it shipped: zero
-    # forced the anger and then queued behind the same five turns as every other
-    # grievance, so the most final state in the model was five turns of warning.
-    # The author was asked, chose the clock, watched it, and asked for the
-    # opposite - "remove 5 turns setup, make it instant".
+    # THE FLOOR PUT BACK ON THE ORDINARY CLOCK. Zero forces the anger and then
+    # queues behind the same five turns as every other grievance, so the most
+    # final state in the model gets five turns of warning. A party at zero
+    # leaves at once.
     ("a party at zero put back on the five-turn countdown", M,
      """        if breaking then
             seceding[#seceding + 1] = slug
@@ -659,20 +630,18 @@ end"""),
         end
         if angry then"""),
 
-    # RE-AIMED 2026-09-17. The fallback used to be a line of its own; the share
-    # rule absorbed it into the floor under `want`, so the way to write this
-    # mistake now is to let the count reach zero. Same outcome either way: a
-    # party that governs nothing in a loyal realm walks out with nothing and the
-    # whole secession is a row leaving a table - "no settlements seized by the
-    # other party", 2026-09-17.
+    # The fallback lives in the floor under `want`, so this mistake is written
+    # as letting the count reach zero: a party that governs nothing in a loyal
+    # realm walks out with nothing and the whole secession is a row leaving a
+    # table, with no settlements seized.
     ("a secession that moves no land when the party built nothing", M,
      """    if want < 1 then want = 1 end""",
      """    if false then want = 1 end"""),
 
     # THE ARMY HANDED TO THE PLAYER'S OWN FACTION. One argument, and it is the
-    # argument the whole call exists for: force_rebellion_in_region had no
-    # faction parameter at all, which is why a Chaos Dwarf secession at
-    # Nagashizzar raised skaven. A rebellion the player owns is not a rebellion.
+    # argument the whole call exists for: force_rebellion_in_region has no
+    # faction parameter at all, so a Chaos Dwarf secession through it at
+    # Nagashizzar raises skaven. A rebellion the player owns is not a rebellion.
     ("a rebel army that belongs to the faction it is rebelling against", M,
      """            rebels, table.concat(units, ","), region_key, x, y,""",
      """            "wh3_dlc23_chd_conclave", table.concat(units, ","), region_key, x, y,"""),
@@ -683,12 +652,10 @@ end"""),
     # province that has changed hands, and the transfers need the rebel faction
     # to exist, which is what creating the force does.
     #
-    # THE ANCHOR MOVED once every lord got a place of his own; this is the same
-    # fault written against the loop that replaced the single read. Asking for a
-    # province the player does not hold is exactly what reading the site after
-    # the transfer amounts to - rebel_site walks his region_list and finds
-    # nothing - so the mutant says it that way rather than by reordering
-    # thirty lines.
+    # Written against the per-lord loop: asking for a province the player does
+    # not hold is what reading the site after the transfer amounts to (rebel_site
+    # walks his region_list and finds nothing), so the mutant says it that way
+    # rather than by reordering thirty lines.
     ("an army raised after the ground it was going to stand on changed hands", M,
      """        local name, x, y = IC.rebel_site(faction_key, where)""",
      """        local name, x, y = IC.rebel_site(faction_key, where .. "_gone")"""),
@@ -710,21 +677,20 @@ end"""),
         end""",
      """        units[1] = kit[IC.TUNE.rebel_units]"""),
 
-    # THE ARMY ASKED OF CA's WRAPPER AGAIN. This is how it shipped on
-    # 2026-09-17 and it is the obvious thing to write: `cm` is what every other
-    # call in this file uses. Its create_force_with_general refuses a faction
-    # that is not on the campaign map, the rebels never are, and the refusal
-    # lands inside a pcall - so the army silently never spawns and the province
-    # transfer that was waiting on the faction existing does nothing either.
+    # THE ARMY ASKED OF CA's WRAPPER AGAIN. It is the obvious thing to write:
+    # `cm` is what every other call in this file uses. Its
+    # create_force_with_general refuses a faction that is not on the campaign
+    # map, the rebels never are, and the refusal lands inside a pcall, so the
+    # army silently never spawns and the province transfer that was waiting on
+    # the faction existing does nothing either.
     ("a rebel army asked of the wrapper that refuses off-map factions", M,
      """        cm.game_interface:create_force_with_general(""",
      """        cm:create_force_with_general("""),
 
     # THE SHARE DROPPED OUT OF THE COUNT. Back to "what it governs plus what has
-    # rotted", which is a floor with nothing on top of it - so a party holding
-    # half the court walks out with whatever it happened to be governing, which
-    # is the author's "depending on the percentage of the party, it should very
-    # well reflect the amount of territories i shouldve lost".
+    # rotted", which is a floor with nothing on top of it, so a party holding
+    # half the court walks out with whatever it happened to be governing. The
+    # land a party takes reflects its share of the court.
     ("a secession whose size has nothing to do with the party's", M,
      """    local want = math.ceil(#pool * share / 100)""",
      """    local want = 0"""),
@@ -738,14 +704,13 @@ end"""),
      """    if false then want = must end"""),
 
     # THE ROUNDING TURNED DOWN. Every party under half a province's worth of
-    # court takes nothing at all, and the fallback that used to catch that is
-    # gone - it is this line now.
+    # court takes nothing at all; this line is the fallback that catches that.
     ("a share rounded down, so a small party leaves with nothing", M,
      """    local want = math.ceil(#pool * share / 100)""",
      """    local want = math.floor(#pool * share / 100)"""),
 
-    # BACK TO THE REBEL FACTION. This is how it shipped and it is the key
-    # anybody would pick: wh3_dlc23_chd_chaos_dwarfs_rebels is the canonical
+    # BACK TO THE REBEL FACTION. It is the key anybody would pick:
+    # wh3_dlc23_chd_chaos_dwarfs_rebels is the canonical
     # Chaos Dwarf rebels and the only is_rebel row in the subculture. Asked of a
     # live campaign it answers FALSE - every is_rebel faction does, because the
     # engine makes them per rebellion - so the transfer and the spawn both do
@@ -763,7 +728,7 @@ end"""),
         pcall(function() dead = f:is_dead() end)
         return dead""",
      """        return true"""),
-    # A FULL POOL JOINING A RISING WHILE A HOUSE LIES DEAD (2026-10-02).
+    # A FULL POOL JOINING A RISING WHILE A HOUSE LIES DEAD.
     ("a full pool joining a running rising while a dead house is free", M,
      """        if key and key ~= exclude and dead_one(key) then return key, true end""",
      """        if false then return key, true end"""),
@@ -777,23 +742,21 @@ end"""),
             end)""",
      """            pcall(function() local _ = rebels end)"""),
 
-    # THE GENERAL NOT LEADING THE FACTION HE WAS SPAWNED INTO. This is how it
-    # shipped, and it reads like the safe value: don't touch the faction's
-    # leadership. A dormant faction woken with no leader has one INVENTED for
-    # it, and the author watched his rebels turn up under an orc shaman - the
-    # Infernal Castellan is permitted for all four of these factions, so the
-    # shaman was never this army's general, it was the leader nobody set.
+    # THE GENERAL NOT LEADING THE FACTION HE WAS SPAWNED INTO. It reads like the
+    # safe value: don't touch the faction's leadership. A dormant faction woken
+    # with no leader has one INVENTED for it (an orc shaman); the Infernal
+    # Castellan is permitted for all four of these factions, so the shaman was
+    # never this army's general, it was the leader nobody set.
     ("a rebel army whose general does not lead the rebellion", M,
      """            crown == true, true, false)""",
      """            false, true, false)"""),
 
-    # ---- the feed waits for the panel ------------------------------------
+    # The feed waits for the panel.
 
-    # THE BUG AS IT SHIPPED. IC.feed raised the card the moment the plot
-    # resolved, and the panel it was raised from is priority 60 and covers the
-    # screen while CA's events layout is 50 - so the card opened underneath it
-    # and the player never saw one. The engine logs the call either way, which
-    # is why this looked like it was working for as long as it did.
+    # The card raised under the panel. The panel is priority 60 and covers the
+    # screen while CA's events layout is 50, so a card raised the moment the
+    # plot resolves opens underneath it and the player never sees one. The
+    # engine logs the call either way.
     ("a feed that raises a card straight into the back of the panel", M,
      """    if IC.feed_held then
         if #IC.feed_queue < IC.FEED_QUEUE_MAX then
@@ -864,22 +827,17 @@ end"""),
     -- AND THE ESCAPE KEY""",
      """    -- AND THE ESCAPE KEY"""),
 
-    # ---- the breaking point ---------------------------------------------
+    # The breaking point.
 
-    # TESTED BEFORE THE OATH INSTEAD OF AFTER IT. This reads better - the two
-    # ways a party can be held, one after the other - and it is the OTHER answer
-    # to the question the author was asked on 2026-09-17. He was shown both and
-    # chose that nothing holds a party at zero, so the oath has to be cleared
-    # first and the floor tested last. Written this way, the expensive button
-    # still saves a party that has hit bottom and every check about the floor
-    # that does not swear the party first goes on passing.
+    # TESTED BEFORE THE OATH INSTEAD OF AFTER IT. This reads better (the two
+    # ways a party can be held, one after the other) and breaks the rule that
+    # nothing holds a party at zero, so the oath has to be cleared first and the
+    # floor tested last. Written this way, the expensive button still saves a
+    # party that has hit bottom.
     #
-    # RE-AIMED 2026-09-17, NOT DELETED. The rule it defends has not moved - no
-    # oath holds a party at zero - but the code under it has: the floor is no
-    # longer a branch of `angry` that the oath could clear, it is its own flag,
-    # read first and acted on before the anger is looked at. So the version of
-    # this mistake that still compiles is an oath that clears the NEW flag,
-    # which is the same rejected answer wearing the shape the code now has.
+    # The floor is its own flag, read first and acted on before the anger is
+    # looked at, so the version of this mistake that still compiles is an oath
+    # that clears that flag.
     ("an oath that holds a party at zero after all", M,
      """            if IC.protected_for(faction_key, slug) > 0 then angry = false end
             breaking = IC.at_breaking_point(faction_key, slug)""",
@@ -889,10 +847,10 @@ end"""),
                 breaking = false
             end"""),
 
-    # THE FLOOR DELETED, which is the behaviour the author reported: a party at
-    # zero loyalty sitting in court forever because five equal parties are 20
-    # per cent each and secede_share is 25, so the loyalty half of the gate was
-    # unreachable. The line looks redundant beside the gate two lines up.
+    # THE FLOOR DELETED: a party at zero loyalty sits in court forever, because
+    # five equal parties are 20 per cent each and secede_share is 25, so the
+    # loyalty half of the gate is unreachable. The line looks redundant beside
+    # the gate two lines up.
     ("a court where zero loyalty is just another low number", M,
      """            breaking = IC.at_breaking_point(faction_key, slug)""",
      """            breaking = false"""),
@@ -909,16 +867,15 @@ end"""),
             return false, "breaking"
         end"""),
 
-    # AND THE TOOLTIP PUT BACK TO PROMISING IT. The panel told the player "they
-    # cannot break with you for another 5 turns" off protected_for alone, which
-    # is false at the floor - and Secure Loyalty's tooltip (the favour screen's
-    # line, since 2026-09-24) is exactly where a player goes when a party is
-    # about to leave.
+    # AND THE TOOLTIP PUT BACK TO PROMISING IT. "They cannot break with you for
+    # another 5 turns" off protected_for alone is false at the floor, and Secure
+    # Loyalty's tooltip (the favour screen's line) is exactly where a player
+    # goes when a party is about to leave.
     ("a Secure Loyalty tooltip that still promises an oath holds them", U,
      """    if IC.at_breaking_point(faction, slug) then""",
      """    if false then"""),
 
-    # ---- the oath -------------------------------------------------------
+    # The oath.
     ("the oath's loyalty gate", M,
      """        if (house.loyalty or IC.TUNE.loyalty_start)
                 < IC.TUNE.plot_oath_min_loyalty then
@@ -932,7 +889,7 @@ end"""),
      """        for slug2, house2 in pairs(court.houses) do
             if house2.oath_theirs == cqi and false then"""),
 
-    # ---- the odds -------------------------------------------------------
+    # The odds.
     ("an errand's odds measured against a victim that is not there", M,
      """    local edge = 0
     if IC.plot_is_aimed(plot_key) then""",
@@ -944,7 +901,7 @@ end"""),
     if chance > IC.TUNE.plot_chance_max then chance = IC.TUNE.plot_chance_max end""",
      """"""),
 
-    # ---- who may move, and against whom ----------------------------------
+    # Who may move, and against whom.
     ("a general sent on a civil mission", M,
      """    if IC.is_civil_mission(plot_key) and actor:has_military_force() then
         return false, "commands"
@@ -961,7 +918,7 @@ end"""),
     end""",
      """"""),
 
-    # ---- what a move costs, and what a miss costs ------------------------
+    # What a move costs, and what a miss costs.
     ("a plot that is never paid for", M,
      """    IC.add_standing(faction_key, actor_cqi, -cost)""",
      """"""),
@@ -977,12 +934,12 @@ end"""),
      """    house.loyalty = math.max(0, math.min(100, was + delta))""",
      """    house.loyalty = was + delta"""),
 
-    # ---- the save --------------------------------------------------------
+    # The save.
     ("an older save refused instead of migrated", M,
      """        if #bits >= 3 then""",
      """        if #bits >= 13 then"""),
 
-    # ---- the seven moves that filled the columns out ---------------------
+    # The seven moves that fill out the columns.
     ("a strike that charges the insult once per seat", M,
      """            IC.dismiss(faction_key, office_slug, true)""",
      """            IC.dismiss(faction_key, office_slug)"""),
@@ -1032,7 +989,7 @@ end"""),
                 IC.province_loyalty(faction_key, province_key)
                 + IC.TUNE.plot_circuit_prov"""),
 
-    # ---- the grid the categories derive -----------------------------------
+    # The grid the categories derive.
     ("a category quietly one move deeper than the rest", M,
      """    {key = "circuit", name = "Ride the Circuit", aimed = false,
      icon = "ui/campaign ui/ancillaries/wh3_dlc23_anc_follower_convoy_enforcer.png",
@@ -1045,7 +1002,7 @@ end"""),
      """    plot_chance_circuit   = 80,""",
      """    plot_chance_cicruit   = 80,"""),
 
-    # ---- who speaks for your own house -----------------------------------
+    # Who speaks for your own house.
     ("the Crown led by the richest courtier instead of the man on the throne", M,
      """    if slug == IC.CROWN then
         local seated = IC.faction_leader_cqi(faction_key)
@@ -1066,9 +1023,9 @@ end"""),
      """    local cqi = IC.party_leader(faction, IC.CROWN)""",
      """    local cqi = IC.faction_leader_cqi(faction)"""),
 
-    # ---- the panel -------------------------------------------------------
-    # THE CARD IS THE CONTROL since 2026-09-24: once to choose, again for its
-    # members. A handler that only ever chooses leaves the roster unreachable.
+    # The panel.
+    # THE CARD IS THE CONTROL: once to choose, again for its members. A handler
+    # that only ever chooses leaves the roster unreachable.
     ("a second click on a chosen card choosing it again, not opening its men", U,
      """    if ICUI.sel == slug then""",
      """    if false then"""),
@@ -1102,8 +1059,8 @@ end"""),
      """                ICUI.on_petition_click(context, false)""",
      """                ICUI.on_petition_click(context, true)"""),
 
-    # RE-AIMED 2026-09-25: a roster row now offers Find, but only for a man the
-    # camera can go to. The mistake is wiring the rest.
+    # A roster row offers Find, but only for a man the camera can go to. The
+    # mistake is wiring the rest.
     ("a roster row wired to a man the camera cannot go to", U,
      """            ICUI.pick_rows[#lines] = ICUI.map_spot(cand.character)
                                      and cand.cqi or nil""",
@@ -1138,8 +1095,7 @@ end"""),
         end
     end
     return true"""),
-    # ---- recruits priced off the seat ladder, 2026-09-28 --------------------
-    # ---- the Crown's block says what each line is, 2026-09-28 ---------------
+    # The Crown's block says what each line is.
     ("the share line drawn bare", U,
      """string.format(
              "[[img:%s]][[/img]]%d%% of the court", ICUI.COST_ICON, IC.control(faction))""",
@@ -1176,22 +1132,13 @@ end"""),
      """    local cqi = character:command_queue_index()
     local court = IC.court(faction_key)"""),
 
-    # ---- sorting -----------------------------------------------------------
-    # THE SORT PUT SOMEWHERE EVERYTHING READS. One place for it looks like the
-    # tidier edit and is the whole fault: ICUI.dial_slots takes its order from
-    # court_slugs too, so every change of sort repaints the standing bar - the
-    # one list IC.present_houses documents as positional, because confederates
-    # are appended rather than interleaved so that seating one does not move a
-    # colour already on screen.
-    # RE-AIMED 2026-09-17. It pushed ICUI.sorted_parties down into court_slugs,
-    # where the standing bar read the sorted copy too. That function was deleted
-    # with the court's sorting, so the mutant would now be caught for calling a
-    # nil field rather than for the fault it names.
-    #
-    # THE HAZARD ON THIS PATH TODAY IS THE MIRROR OF IT. The court draws the
-    # model's own list and the pie, the grid and the pager all index it, so a
-    # COPY taken here - the obvious "don't hand callers your internals" reflex -
-    # leaves the grid drawing one order while the pie and the click read another.
+    # Sorting.
+    # A copy of the court's list. The court draws the model's own list, and the
+    # pie, the grid and the pager all index it, so a copy taken here (the obvious
+    # "don't hand callers your internals" reflex) leaves the grid drawing one
+    # order while the pie and the click read another. The standing bar is
+    # positional too: IC.present_houses appends confederates rather than
+    # interleaving them, so seating one does not move a colour already on screen.
     ("a court grid handed a copy the pie and the clicks are not", U,
      """function ICUI.court_slugs(faction_key)
     return IC.present_houses(faction_key)
@@ -1221,14 +1168,8 @@ end""",
     return function(a, b) return cmp(a) < cmp(b) end
 end"""),
 
-    # RE-AIMED 2026-09-17. It used to read "a card grid drawn from the list the
-    # clicks are not", and it cannot: the court sorted through a copy and now
-    # draws the model's own list, so there is no second list to key off. The
-    # hazard still on that path is the offset - the court pages, and a page
-    # offset kept from a larger court indexes past the end of a smaller one,
-    # which draws an empty grid on a court that has parties in it.
-    # THE LISTS SCROLL (author, 2026-10-05): every list drawn whole, the pager
-    # gone. Each rule the drawn-whole list rests on, broken once.
+    # THE LISTS SCROLL: every list is drawn whole, with no pager. Each rule the
+    # drawn-whole list rests on, broken once.
     ("the Court's cards never put in a list", U,
      """        ICUI.list_build(panel, "party", #slugs)
         ICUI.list_items(panel, "party", #slugs)""",
@@ -1328,10 +1269,8 @@ end
     # is a character the engine has every reason to answer yes for. Asked first,
     # a wizard embedded in an army is drawn as a General.
     #
-    # WORSE UNDER FOUR KINDS THAN IT WAS UNDER THREE. It used to cost the panel
-    # one wrong word on one man; it now cannot produce a Retainer at all, so the
-    # kind the author asked for last would simply never appear and the feature
-    # would look like it had been built.
+    # With four kinds it also means a Retainer can never be produced, so that
+    # kind never appears and the feature looks like it had been built.
     ("a man's kind decided by his army before his type", M,
      """    local ok, general = pcall(function()
         return character:character_type("general")
@@ -1349,13 +1288,10 @@ end
     end)
     if not ok then return nil end"""),
 
-    # THE TITLE TIDIED OFF THE FRONT OF THE NAME. The cell held the bare name
-    # for the life of the panel and the shorter line still reads correctly,
-    # which is exactly why somebody would write it - the feature is then gone
-    # with no error anywhere and a column that looks like it always did.
-    #
-    # RE-AIMED 2026-09-17 from the rank cell, where the label lived for one
-    # build before the author asked for it to be a position name instead.
+    # THE TITLE TIDIED OFF THE FRONT OF THE NAME. The shorter line still reads
+    # correctly, which is exactly why somebody would write it: the feature is
+    # then gone with no error anywhere and a column that looks like it always
+    # did.
     ("a character cell that stops saying what kind of man he is", U,
      """            ICUI.titled(cand.kind, man),""",
      """            man,"""),
@@ -1366,18 +1302,16 @@ end
     # so a list ordered on it comes back grouped by kind - every General, then
     # every Hero, then every Lord - under a heading that says Character.
     #
-    # RE-AIMED 2026-09-17 from the rank column. The same mistake wearing the
-    # other column's clothes: the rank cell is a bare number again, so it can no
-    # longer be made to carry a word, and the name cell can.
+    # It lives on the name cell because the rank cell is a bare number and
+    # cannot be made to carry a word.
     ("a name order keyed on the label instead of the name", U,
      """            sort = {name = man, standing = has, rank = cand.rank,""",
      """            sort = {name = ICUI.titled(cand.kind, man), standing = has, rank = cand.rank,"""),
 
-    # THE CARD THAT DRAWS A BARE NAME. The title was asked for in the lists
-    # AND on the cards, and the card is the easier half to forget: it is a
+    # THE CARD THAT DRAWS A BARE NAME. The title belongs in the lists AND on
+    # the cards, and the card is the easier half to forget: it is a
     # different function, in a different file section, and the line it changes
-    # reads perfectly well without it. Built this way, the feature would look
-    # finished everywhere the author had already looked.
+    # reads perfectly well without it.
     ("an office card whose second line goes back to spelling out the party", U,
      """            local kind = holder and IC.kind_of_character(holder) or nil
             ICUI.fit_cut(comp("ic_card_house", card),
@@ -1385,15 +1319,13 @@ end
      """            ICUI.fit_cut(comp("ic_card_house", card),
                          slug and ICUI.house_name(slug) or "")"""),
 
-    # THE WORD LEFT ON A SEAT NOBODY HOLDS. Cards are RECYCLED and this is the
-    # hazard that has cost this panel three faults already: the component that
-    # drew the last officer draws the vacancy, so writing the cell only when
-    # there IS a man reads like a guard and is the opposite of one.
+    # THE WORD LEFT ON A SEAT NOBODY HOLDS. Cards are RECYCLED: the component
+    # that drew the last officer draws the vacancy, so writing the cell only
+    # when there IS a man reads like a guard and is the opposite of one.
     #
-    # NOT "or nil". That was this mutant's first shape and it is a no-op -
-    # fit_cut's own first line is tostring(text or ""), so nil and "" reach the
-    # cell as the same empty string. A mutant that changes nothing survives for
-    # the same reason a correct build does, which is no reason at all.
+    # NOT "or nil": fit_cut's own first line is tostring(text or ""), so nil and
+    # "" reach the cell as the same empty string and that mutant changes
+    # nothing.
     ("a vacated card that keeps the last man's position", U,
      """            ICUI.fit_cut(comp("ic_card_house", card),
                          (kind and ICUI.KIND_NAME[kind]) or "")""",
@@ -1427,13 +1359,12 @@ end
      """    pick = {
         {key = "name",     name = "NAME",      col = 1},"""),
 
-    # ---- who a rebellion IS -----------------------------------------------
-    # THE POOL FOR EVERYBODY, which is what shipped until 2026-09-17 and is
-    # defensible right up until you look at the map: four dormant factions all
-    # called "Chaos Dwarfs" over the generic rebel flag, and a confederated
-    # House of Bzaark rising again as "Chaos Dwarfs (2)". A faction's crest is a
-    # factions_tables column with no runtime setter, so being the right faction
-    # is the ONLY way to fly the right one.
+    # Who a rebellion is.
+    # THE POOL FOR EVERYBODY, which is defensible right up until you look at the
+    # map: four dormant factions all called "Chaos Dwarfs" over the generic rebel
+    # flag, and a confederated House of Bzaark rising again as "Chaos Dwarfs
+    # (2)". A faction's crest is a factions_tables column with no runtime setter,
+    # so being the right faction is the ONLY way to fly the right one.
     ("every rebellion back in the dormant pool, crest and all", M,
      """    local own = IC.faction_for_origin(slug)
     if own and own ~= faction_key then""",
@@ -1449,7 +1380,7 @@ end
      """    if own and own ~= faction_key then""",
      """    if own then"""),
 
-    # ---- what it is called ------------------------------------------------
+    # What it is called.
     # THE RENAME APPLIED AND NOT REMEMBERED. change_custom_faction_name is not
     # documented as persistent and this is exactly the line somebody removes as
     # redundant - the name is visibly right for the whole session it was set in,
@@ -1466,10 +1397,9 @@ end
      """            IC.rebel_rename(rebels, flying)""",
      """            IC.rebel_rename(rebels, rebels)"""),
 
-    # ---- who minds -------------------------------------------------------
-    # NO THREAT SCORE. The war is declared, so the secession looks complete -
-    # and a rebellion against an AI court is on friendly terms with the player,
-    # which is what the author photographed on 2026-09-17.
+    # Who minds.
+    # NO THREAT SCORE. The war is declared, so the secession looks complete, and
+    # a rebellion against an AI court is on friendly terms with the player.
     ("a rebellion everybody else is perfectly happy about", M,
      """                if f and f ~= false then
                     cm:set_base_strategic_threat_score(f, IC.TUNE.rebel_threat)
@@ -1478,8 +1408,8 @@ end
                     local _ = IC.TUNE.rebel_threat
                 end"""),
 
-    # ---- edicts need a governor (author, 2026-09-28) ------------------------
-    # THE GREY THAT DID NOT HOLD (2026-09-28): the state alone, which the
+    # Edicts need a governor.
+    # THE GREY THAT DID NOT HOLD: the state alone, which the
     # engine moves back to "active" by itself.
     ("an ungoverned province's edicts greyed by state alone", U,
      """                c:SetDisabled(true)
@@ -1489,7 +1419,7 @@ end
      """                c:SetDisabled(false)
                 ICUI.grey_look(c, false)""",
      """                c:SetDisabled(false)"""),
-    # THE THREE WAYS THE FIRST BUILD FOUND NOTHING IN GAME.
+    # Three ways the edict lookup finds nothing in game.
     ("the edict stack looked for under the layout file's spelling", U,
      """ICUI.EDICT_STACK = {"hud_campaign", "BL_parent", "stack_incentives"}""",
      """ICUI.EDICT_STACK = {"hud_campaign", "bl_parent", "stack_incentives"}"""),
@@ -1520,8 +1450,8 @@ end
      """        if region:owning_faction():name() ~= me then return nil end
         local province""",
      """        local province"""),
-    # RE-AIMED 2026-10-03: since the by-id rewrite the branch guard is redundant
-    # (a false memo throws inside the pcall), so the rule lives per button.
+    # The branch guard is redundant (a false memo throws inside the pcall), so
+    # the rule lives per button.
     ("buttons the engine greyed lit by the court", U,
      """                if not mine[c:Id()] then return end
                 local to = ICUI.EDICT_LIVE[c:CurrentState()]""",
@@ -1538,8 +1468,8 @@ end""",
     ("a selected settlement's edicts never judged", U,
      """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)""",
      """        cm:callback(function() end, delay)"""),
-    # THE ONE THAT SHIPPED: no persist argument, and the engine drops the
-    # listener after the first settlement the player selects.
+    # No persist argument: the engine drops the listener after the first
+    # settlement the player selects.
     ("the settlement listener registered once-only", U,
      """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
     end
@@ -1547,7 +1477,7 @@ end, true)""",
      """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
     end
 end)"""),
-    # THE REASON beside the grey buttons (author, 2026-09-28).
+    # THE REASON beside the grey buttons.
     ("no note beside the grey edicts", U,
      """    ICUI.edict_note(verdict == "grey")
 """,
@@ -1577,7 +1507,8 @@ end)"""),
     ("the governor note at the standing plate's height", U,
      """        ICUI.fit_words(note, ICUI.EDICT_NOTE_TEXT, ICUI.EDICT_NOTE_H)""",
      """        ICUI.fit_words(note, ICUI.EDICT_NOTE_TEXT, ICUI.STANDING_H)"""),
-    # "edges are too long" (author, 2026-09-28): the metric that shipped.
+    # The note's width comes from WidthOfTextLine; TextDimensionsForText runs its
+    # edges too long.
     ("the governor note sized off TextDimensionsForText", U,
      """    local tw = c:WidthOfTextLine(text)""",
      """    local tw = c:TextDimensionsForText(text)"""),
@@ -1586,8 +1517,8 @@ end)"""),
     c:SetTextXOffset(side, side)
 """,
      ""),
-    # THE INFLUENCE PLATE (author, 2026-09-28: "background stretched out",
-    # "doesnt also change when changing characters").
+    # THE INFLUENCE PLATE: its background fits its words, and it follows the
+    # panel's man, not the map's selection.
     ("the influence plate reads the map's selection, not the panel's man", U,
      """    local cqi = ICUI.standing_cqi()""",
      """    local cqi = ICUI.selected_cqi"""),
@@ -1611,7 +1542,7 @@ end)"""),
     ("the influence plate left at its file width", U,
      """    pcall(ICUI.fit_words, plate, ICUI.standing_text(faction, cqi), ICUI.STANDING_H)""",
      """    set_text(plate, ICUI.standing_text(faction, cqi))"""),
-    # "does it scale with higher or lower reso?" (author, 2026-09-28)
+    # The governor note at any screen resolution.
     ("the governor note pinned where the stack sits at 1920x1080", U,
      """        note:MoveTo(x + w + ICUI.EDICT_NOTE_GAP, y + math.floor((h - ICUI.EDICT_NOTE_H) / 2))""",
      """        note:MoveTo(314, 1036)"""),
@@ -1619,22 +1550,20 @@ end)"""),
      """ICUI.EDICT_NOTE_GAP = -2""",
      """ICUI.EDICT_NOTE_GAP = 6"""),
 
-    # ---- only a seat somebody can take pulses (author, 2026-09-28) ---------
+    # Only a seat somebody can take pulses.
     ("every empty seat pulses the button again", U,
      '''        offices = s.fillable > 0 or #s.ending > 0,''',
      '''        offices = s.empty > 0 or #s.ending > 0,'''),
     ("every empty seat listed as waiting", U,
-     '''    if s.fillable > 0 then
-        waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",''',
-     '''    if s.empty > 0 then
-        waiting[#waiting + 1] = string.format("Seats you can fill now: %d (Offices tab).",'''),
+     '    if s.fillable > 0 then\n        waiting[#waiting + 1] = string.format("Seats ready to fill: %d. See Offices.",',
+     '    if s.empty > 0 then\n        waiting[#waiting + 1] = string.format("Seats ready to fill: %d. See Offices.",'),
     ("the summary drops the empty seats it cannot fill", U,
      '''    lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #R.OFFICES)''',
      '''    if s.fillable > 0 then
         lines[#lines + 1] = string.format("Empty seats: %d of %d.", s.empty, #R.OFFICES)
     end'''),
 
-    # ---- why the button pulses (author, 2026-09-28: "no info why") ----------
+    # Why the button pulses.
     ("the court button's tooltip with no heading saying why it pulses", U,
      '''        lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"''',
      '''        lines[1] = ""'''),
@@ -1644,7 +1573,7 @@ end)"""),
      '''    if true then
         lines[1] = "[[col:yellow]]Waiting for you:[[/col]]"'''),
     ("a party leaving listed without the tab to open", U,
-     '''"%s leaves the court in %d turn%s (Court tab)."''',
+     '"%s leaves in %d turn%s. See Court."',
      '''"%s leaves the court in %d turn%s."'''),
     ("the reasons listed after the summary", U,
      """    if #waiting > 0 then
@@ -1665,7 +1594,7 @@ end)"""),
         for i = 1, #waiting do lines[#lines + 1] = waiting[i] end
     end"""),
 
-    # ---- the court button between turns (author, 2026-09-28) ---------------
+    # The court button between turns.
     ("the court button lit whoever's turn it is", U,
      """    if live == nil then live = ICUI.player_turn() end""",
      """    if live == nil then live = true end"""),
@@ -1712,7 +1641,7 @@ end, true)""",
      """    ICUI.gate_opener(false, false)
 end)"""),
 
-    # ---- the help page (author, 2026-09-28) -------------------------------
+    # The help page.
     # THE BUTTON LEFT AT THE END OF THE 600px BOX, when the plate is sized to
     # its words and ends hundreds of pixels short of it.
     ("the help button left where the title's box ends, not its plate", U,
@@ -1729,7 +1658,7 @@ end)"""),
     ("a help number the model lacks filled in blank", U,
      """        if type(v) ~= "number" then return nil end""",
      """        if type(v) ~= "number" then return "" end"""),
-    # THE NUMBERS LEFT PLAIN, which is most of what the second pass was for.
+    # THE NUMBERS LEFT PLAIN.
     ("a help number drawn in the sentence's own colour", U,
      """        return string.format("[[col:%s]]%s[[/col]]", ICUI.SORT_LIT, tostring(v))""",
      """        return tostring(v)"""),
@@ -1760,8 +1689,8 @@ end)"""),
     local page = ICUI.help_page""",
      """    local page = ICUI.help_page"""),
 
-    # A RISING LEFT ON ITS SLEEPING PERSONALITY (author, 2026-09-28: "make the
-    # rebel faction aggresive"), and the same call aimed at the court it left.
+    # A RISING LEFT ON ITS SLEEPING PERSONALITY (a rebel faction must be
+    # aggressive), and the same call aimed at the court it left.
     ("a rebellion left with the personality of a sleeping faction", M,
      """                cm:force_change_cai_faction_personality(rebels, IC.rebel_personality(faction_key))""",
      """                local _ = IC.rebel_personality(faction_key)"""),
@@ -1781,7 +1710,7 @@ end)"""),
                 if f and f ~= false then
                     cm:set_base_strategic_threat_score(f, IC.TUNE.rebel_threat)"""),
 
-    # ---- which heroes go --------------------------------------------------
+    # Which heroes go.
     # THE LORDLY GUARD DROPPED. A lord whose subtype is on the hero whitelist -
     # the Castellan is on it, as an engineer - would be spawned as an AGENT,
     # his twenty-stack handed to nobody, and every check about the right men
@@ -1822,23 +1751,23 @@ end"""),
 """,
      """"""),
 
-    # ---- what a rebellion arrives with ------------------------------------
+    # What a rebellion arrives with.
     # THE LORD COUNTED TWICE. Twenty is the army and nineteen is the roster,
     # because the general it is created with holds the twentieth slot - and
-    # "full roster army (20)" is exactly how the request was phrased, so this is
-    # the number somebody types.
+    # "full roster army (20)" is how the rule reads, so this is the number
+    # somebody types.
     ("a rebel army one unit over what a stack holds", M,
      """    rebel_units         = 19,""",
      """    rebel_units         = 20,"""),
 
-    # THE OLD RAIDING PARTY. Six units was what shipped, and it reads as a
-    # tuning choice rather than a defect right up until the party that took
-    # eight provinces off you turns up with six units of warriors.
+    # THE OLD RAIDING PARTY. Six units reads as a tuning choice rather than a
+    # defect right up until the party that took eight provinces off you turns
+    # up with six units of warriors.
     ("a rebellion that arrives as a raiding party again", M,
      """    rebel_units         = 19,""",
      """    rebel_units         = 6,"""),
 
-    # ---- what they are worth ----------------------------------------------
+    # What they are worth.
     # THE HEAL DROPPED. It looks redundant beside a force that was only just
     # created - and a force created on top of a siege, or joining a faction
     # already at war, is not at full health.
@@ -1861,7 +1790,7 @@ end"""),
      """                pcall(function() cm:heal_military_force(force) end)""",
      """                pcall(function() cm:heal_military_force(man) end)"""),
 
-    # ---- who gets it -------------------------------------------------------
+    # Who gets it.
     # THE SNAPSHOT IGNORED. It reads as defensive clutter - the faction was
     # dormant a moment ago, who else could be in it - and a fifth party joining
     # a rebellion already running then re-levels every lord that rebellion
@@ -1870,7 +1799,7 @@ end"""),
      """                and not before[man:command_queue_index()] then""",
      """                then"""),
 
-    # ---- the walls ---------------------------------------------------------
+    # The walls.
     # A REGION KEY WHERE A CQI BELONGS. Every other region call in this file
     # takes a key, CA's docs say "the region is specified by cqi" in one line of
     # prose, and passing the key is a silent no-op in game.
@@ -1878,7 +1807,7 @@ end"""),
      """            if pcall(function() cm:heal_garrison(region:cqi()) end) then""",
      """            if pcall(function() cm:heal_garrison(region:name()) end) then"""),
 
-    # ---- what the men who left are carrying -------------------------------
+    # What the men who left are carrying.
     # THE TYPED ROSTER PREFERRED OVER WHAT HE HAD. It reads as the safe default -
     # a list this file checked against main_units beats keys read off whatever
     # the player happens to be fielding - and it is the whole of the mod support
@@ -1903,9 +1832,8 @@ end"""),
      """        if citizenry then return end""",
      """        local _ = citizenry"""),
 
-    # ---- the Hashut draft (2026-09-27) --------------------------------------
-    # The typed roster and the pad-with-his-own-stack loop are gone: a rising is
-    # his own army, if he brought one, filled out off IC.REBEL_DRAFT.
+    # The Hashut draft: a rising is his own army, if he brought one, filled out
+    # off IC.REBEL_DRAFT.
     ("every slot of a rebel army rolled for the first role", M,
      """        local role = R.REBEL_DRAFT[(i - 1) % #R.REBEL_DRAFT + 1]""",
      """        local role = R.REBEL_DRAFT[1]"""),
@@ -1919,16 +1847,15 @@ end"""),
      """    local extra = IC.rebel_draw(want - #kit, faction_key)""",
      """    local extra = {}"""),
 
-    # ---- what he is worth -------------------------------------------------
-    # THE FLAT NUMBER BACK. This is what shipped for an hour and it reads as the
-    # tidier rule - every rebel lord the same, one knob to tune - and it throws
-    # away exactly what was asked for: "the lord rank should be the same level as
-    # he left the faction".
+    # What he is worth.
+    # THE FLAT NUMBER BACK. It reads as the tidier rule (every rebel lord the
+    # same, one knob to tune) and throws away the rule that a rebel lord keeps
+    # the rank he left the faction at.
     ("every rebel lord arriving at the same flat level", M,
      """    return rank""",
      """    return IC.TUNE.rebel_lord_level"""),
 
-    # ---- what the diplomacy screen says -----------------------------------
+    # What the diplomacy screen says.
     # ONE PENALTY AND DONE, which is what the call looks like it is for and what
     # every CA use of it does. It is wrong here for a reason that is invisible
     # at the call site: the magnitude of a PENALTY_XXXLARGE lives in the DB, so
@@ -1938,11 +1865,11 @@ end"""),
      """    local n = 0
     while n < (max_steps or IC.TUNE.rebel_relation_max) do
         local now
-        -- A KEY, as CA's caravan script passes it (sweep 2026-09-29): handed the
+        -- A KEY, as CA's caravan script passes it: handed the
         -- interface, the pcall ate the refusal and every souring ran all steps.
         pcall(function() now = a:diplomatic_standing_with(other) end)
         if now and now <= IC.TUNE.rebel_relation then break end
-        -- BOTH WAYS (2026-10-02). CA's five calls put the faction whose regard
+        -- BOTH WAYS. CA's five calls put the faction whose regard
         -- moves SECOND, so (rebels, other) alone moved other's regard and left
         -- the one read above - the rebels' own, the number on the player's
         -- diplomacy screen - where it was, and every souring ran all its steps.
@@ -1965,9 +1892,9 @@ end"""),
     end)
     return 1"""),
 
-    # ONE WAY ONLY (2026-10-02): each half of the souring dropped. The
-    # rebels' own regard is the number on the player's diplomacy screen; the
-    # others' regard for the rebels is what the spec asks for.
+    # ONE WAY ONLY: each half of the souring dropped. The rebels' own regard is
+    # the number on the player's diplomacy screen; the others' regard for the
+    # rebels is the other half of the rule.
     ("the rebels soured on nobody, only disliked", M,
      """        pcall(function()
             cm:apply_dilemma_diplomatic_bonus(other, rebels,
@@ -1982,8 +1909,8 @@ end"""),
         n = n + 1""",
      """        n = n + 1"""),
 
-    # THE EDICT RELIGHT BY ID (2026-10-02): the old relight gave back every
-    # inactive button, the engine's own locks with the court's.
+    # THE EDICT RELIGHT BY ID: a relight that gives back every inactive button
+    # frees the engine's own locks with the court's.
     ("the relight giving back every inactive edict", U,
      """                if not mine[c:Id()] then return end""",
      """"""),
@@ -2001,8 +1928,8 @@ end"""),
 
     # THE COURT AND NOBODY ELSE. The war goes to the court the party left, and
     # in an AI secession that is not the player - who is the one reading the
-    # number. This is the same hole the threat score was added to fill on
-    # 2026-09-17, one layer up, and it looks complete without the second half.
+    # number. This is the same hole the threat score fills, one layer up, and
+    # it looks complete without the second half.
     ("a rebellion soured only against the court it left", M,
      """    local ok, human = pcall(function() return cm:get_human_factions() end)
     if ok and human then
@@ -2018,7 +1945,7 @@ end"""),
      """    if not rebels or not other or rebels == other then return 0 end""",
      """    if not rebels or not other then return 0 end"""),
 
-    # ---- the card a rotting party raises ----------------------------------
+    # The card a rotting party raises.
     # KEYED ON THE STATE INSTEAD OF THE CROSSING. This is the simpler condition
     # and it is right on the turn the party crosses; it is wrong on every turn
     # after, and drift_loyalty moves every house every turn, so it is a card a
@@ -2059,12 +1986,11 @@ end"""),
     # common case - drift moves loyalty one point a turn - so this misses the
     # turn it lands and then fires on every turn after, which is both halves of
     # the rule wrong from a single character.
-    # THE CAP, ONE OVER. Removing the cap outright does not fail, it HANGS -
-    # a stale read never reaches the target - and a hang in this runner is how
-    # the rebel_kit padding loop took the whole suite down on 2026-09-17. So the
-    # cap is mutated by an off-by-one instead: it terminates, it leaves the
-    # ordinary case untouched at exactly the count it needed, and it is the only
-    # mutant the stale-read check sees on its own.
+    # THE CAP, ONE OVER. Removing the cap outright does not fail, it HANGS (a
+    # stale read never reaches the target), and a hang takes this whole runner
+    # down. So the cap is mutated by an off-by-one instead: it terminates, it
+    # leaves the ordinary case untouched at exactly the count it needed, and it
+    # is the only mutant the stale-read check sees on its own.
     ("the souring cap off by one", M,
      """    while n < (max_steps or IC.TUNE.rebel_relation_max) do""",
      """    while n <= (max_steps or IC.TUNE.rebel_relation_max) do"""),
@@ -2073,7 +1999,7 @@ end"""),
      """       and house.loyalty <= IC.TUNE.loyalty_warn then""",
      """       and house.loyalty < IC.TUNE.loyalty_warn then"""),
 
-    # ---- the Crown coming apart -------------------------------------------
+    # The Crown coming apart.
     # A SHARE MINTED INSTEAD OF MOVED. add_house already hands out weight_start
     # and this reads like the tidy-up nobody needed - it is invisible on the new
     # party's own card, which shows the right number, and it silently demotes
@@ -2136,9 +2062,8 @@ end"""),
      """    IC.feed(faction_key, "splinter")""",
      """"""),
 
-    # AND THE WHOLE THING UNREACHABLE. A correct function that nothing calls is
-    # the fault this workspace has shipped more than once - it passes every
-    # check written against the function itself.
+    # AND THE WHOLE THING UNREACHABLE. A correct function that nothing calls
+    # passes every check written against the function itself.
     ("your own house coming apart on no turn at all", M,
      """    local warned = IC.tick_secession(faction_key)
     IC.splinter(faction_key)
@@ -2149,13 +2074,10 @@ end"""),
     # THE TWO PASSES SWAPPED. The order looks arbitrary and it is not: a
     # breakaway arrives carrying the Crown's grievance, so a countdown running
     # after it opens against a house the player has not had one turn to answer.
-    # MOVED, NOT DUPLICATED, and that distinction is the whole mutant. It used to
-    # insert a second IC.splinter above the countdown and leave the original call
-    # below it, which expressed "splinter runs first" exactly as long as a split
-    # was instant. With a count in front of it the inserted call only advances
-    # the count and the ORIGINAL call still lands the split - so the ordering
-    # never actually changed, the newcomer was never judged, and this survived a
-    # green harness on 2026-09-18 without either being broken.
+    # MOVED, NOT DUPLICATED, and that distinction is the whole mutant. With a
+    # count in front of the split, a second IC.splinter inserted above the
+    # countdown only advances the count and the ORIGINAL call below still lands
+    # the split, so the ordering never changes and the mutant survives.
     ("a party judged on the turn it was born", M,
      """    local warned = IC.tick_secession(faction_key)
     IC.splinter(faction_key)""",
@@ -2178,14 +2100,11 @@ end"""),
      """    IC.log(faction_key, "splinter", slug, nil, house.weight)""",
      """"""),
 
-    # ---- what the player's own card says ----------------------------------
-    # THE CROWN BRANCH REMOVED, which is the state this shipped in until the
-    # author asked what happens at zero: his own party's card read PLOTTING, a
-    # threat from the one house no plot can be aimed at.
-    # ---- who may be the face of a house -----------------------------------
-    # THE FILTER NEVER APPLIED. This is the state the mod shipped in until
-    # 2026-09-18 and what the author photographed: the highest-standing man
-    # speaks for the house whatever he is.
+    # What the player's own card says: never PLOTTING, a threat from the one
+    # house no plot can be aimed at.
+    # Who may be the face of a house.
+    # THE FILTER NEVER APPLIED: the highest-standing man speaks for the house
+    # whatever he is.
     ("a greenskin fronting a Chaos Dwarf house", M,
      """        if IC.may_speak(faction_key, lords[i]) then return lords[i] end""",
      """        if lords[i] then return lords[i] end"""),
@@ -2242,7 +2161,7 @@ end"""),
                and IC.may_speak(faction_key, man:command_queue_index()) then
                 local cqi = man:command_queue_index()"""),
 
-    # ---- what a trait says it is worth ------------------------------------
+    # What a trait says it is worth.
     # THE SENTENCE RETUNED AND THE FUNCTION LEFT ALONE. This is the direction
     # somebody takes when a trait "feels weak" and the card is the thing in
     # front of them - the words move, the drift does not, and the player plans
@@ -2258,7 +2177,7 @@ end"""),
      """     n = function(ctx) return ctx.govs > 0 and 1 or -2 end},""",
      """     n = function(ctx) return ctx.govs > 0 and 1 or -3 end},"""),
 
-    # ---- ambition ---------------------------------------------------------
+    # Ambition.
     # THE AMBITIOUS BAND FLATTENED. The band is the model's one owner of this
     # multiplier; changing it to Steady's value leaves the marker and the roll
     # intact while removing the incentive a player is meant to see in influence.
@@ -2339,7 +2258,7 @@ end"""),
      """    local factor = IC.ambition_factor(faction_key, cqi) / 100""",
      """    local factor = tonumber(string.match(name, "%d+")) or 1"""),
 
-    # ---- what Military Doctrine contributes ------------------------------
+    # What Military Doctrine contributes.
     ("edict accepts every active commandment", M,
      """            if IC.governor_edict(faction_key, province_key)
                     == R.MILITARY_DOCTRINE then""",
@@ -2391,7 +2310,7 @@ end"""),
         IC.move_loyalty(faction_key, slug, IC.loyalty_net(terms)
             + doctrine * IC.TUNE.loyalty_military_doctrine)"""),
 
-    # ---- and whether the cell says any of it -------------------------------
+    # And whether the cell says any of it.
     # THE LIVE NUMBER DROPPED. The rule alone tells a player what the trait CAN
     # pay; this line is the only thing that tells him what it is paying him now,
     # which for five of the eight is a different number depending on his court.
@@ -2401,18 +2320,18 @@ end"""),
      """"""),
 
     # AND THE RULE DROPPED, which puts the cell back to a name and a flavour
-    # line - the exact state the author asked to have fixed.
+    # line with no number.
     ("a trait cell back to flavour text and no numbers", U,
      """    local rule = IC.trait_rule(trait)
     if rule then lines[#lines + 1] = rule end""",
      """"""),
 
-    # ---- the effect icon on a trait ---------------------------------------
+    # The effect icon on a trait.
     # THE DECORATION QUIETLY DROPPED. A trait is a term in the loyalty drift and
     # the icon is the only thing on the card that says so; without it the line
-    # is a bare word among bare words again, which is the state the author asked
-    # to have fixed. gen_ic_ui.py would go on measuring the WIDER string, so the
-    # build alone cannot see this - only reading the drawn cell can.
+    # is a bare word among bare words. gen_ic_ui.py would go on measuring the
+    # WIDER string, so the build alone cannot see this; only reading the drawn
+    # cell can.
     ("a trait drawn as a bare word again", U,
      """    return string.format("[[img:%s]][[/img]]%s", ICUI.TRAIT_ICON, name)""",
      """    return name"""),
@@ -2447,9 +2366,8 @@ end"""),
      """                    if not used[cqi]
                             and IC.can_appoint(faction_key, office.slug, cqi) then"""),
 
-    # THE SECOND PASS RUN WHATEVER THE CLAIMANT IS, which is how it shipped on
-    # 2026-09-22: the live saves showed every falling AI party was one whose seat
-    # an outsider took because it was empty or under the rank bar.
+    # THE SECOND PASS RUN WHATEVER THE CLAIMANT IS: an outsider takes a seat
+    # that is empty or under the rank bar, and that AI party falls.
     ("the AI handing a claimed seat to an outsider again", M,
      """            local passes = court.houses[office.affinity] and 1 or 2""",
      """            local passes = 2"""),
@@ -2472,10 +2390,9 @@ end"""),
                or IC.roll_background(faction_key, tally)""",
      """    local bg = IC.roll_background(faction_key, tally)"""),
 
-    # ---- the deal (author, 2026-09-25: "how did one party get 7 members
-    # while the other party gets none?") --------------------------------------
-    # ONE INDEPENDENT ROLL PER MAN, which is how it shipped: a Conclave start
-    # rolled the Chain for all six men who were not lords.
+    # The deal: how men are shared out among the parties.
+    # ONE INDEPENDENT ROLL PER MAN: a Conclave start can roll the Chain for all
+    # six men who are not lords.
     ("deal: every man rolled at random again", M,
      """    local list = R.BACKGROUNDS[IC.fewest(pool, tally)]
     if not list or #list == 0 then return nil end""",
@@ -2507,7 +2424,7 @@ end"""),
      """        if a.first ~= b.first then return a.first < b.first end""",
      """"""),
 
-    # ---- a leader put in the field (author, 2026-09-25) --------------------
+    # A leader put in the field.
     # THE AI GIVEN ARMIES, which recruits from the pool itself.
     ("field: an AI party given an army", M,
      """            elseif not house.fielded and IC.is_human(faction_key) and now > 1
@@ -2545,9 +2462,14 @@ end"""),
     end"""),
 
     # AND NEVER OPENED AGAIN, which swallows every character message after.
+    # field_leader's own re-open, closed by its 1s delay: the starting members'
+    # copy (2s) is a mutant of its own.
     ("field: the feed left shut", M,
-     """            cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")""",
-     """"""),
+     """            cm:disable_event_feed_events(false, IC.QUIET_FEED[i], "", "")
+        end
+    end, 1)""",
+     """        end
+    end, 1)"""),
 
     ("field: the agent messages left on", M,
      """IC.QUIET_FEED = {"wh_event_category_character", "wh_event_category_agent",""",
@@ -2574,7 +2496,7 @@ end"""),
      """            0,
             h.gifted or 0,"""),
 
-    # ---- lord recruit rank -------------------------------------------------
+    # Lord recruit rank.
     ("rank: a province's own source counted everywhere", M,
      """        local local_ok = here ~= nil and region:province_name() == here""",
      """        local local_ok = true"""),
@@ -2602,8 +2524,8 @@ end"""),
     # A LORD IN STORE MADE EVERY TURN. A pooled lord is invisible to
     # character_list, so without the flag nothing says one is already waiting.
     ("a lord made in store every turn", M,
-     """            elseif not house.stored then""",
-     """            else"""),
+     """            elseif not house.stored and not IC.seeding(faction_key) then""",
+     """            elseif not IC.seeding(faction_key) then"""),
 
     # THE FLAG NEVER CLEARED, so a party that loses its leader later never gets
     # another.
@@ -2613,7 +2535,7 @@ end"""),
      """            if led then
                 house.stored = house.stored"""),
 
-    # EVERY GOVERNOR JUDGED BY WHERE HE STANDS, which put six of seven "away"
+    # EVERY GOVERNOR JUDGED BY WHERE HE STANDS, which puts six of seven "away"
     # live: garrison commanders and pool lords cannot be where the rule asks.
     ("a garrison commander called away from a province he cannot reach", M,
      """    if IC.kind_of_character(character) ~= "general" then return true end
@@ -2699,7 +2621,7 @@ end"""),
      """    if (members or 0) > 0 then return false end""",
      """"""),
 
-    # DISSOLVED WITHOUT A WORD - the author asked for the event log.
+    # DISSOLVED WITHOUT A WORD: a dissolution belongs in the event log.
     ("a party dissolving with no card", M,
      """    IC.feed(faction_key, "dissolved")""",
      """"""),
@@ -2757,12 +2679,11 @@ end"""),
      """    local court = IC.court(faction_key)
     local fallen = {}"""),
 
-    # ---- rival parties that act on their own -------------------------------
+    # Rival parties that act on their own.
     ("the parties given no turn", M,
      "        local ok, err = pcall(IC.party_turn, faction_key)\n",
      "        local ok, err = true, nil\n"),
-    # AI COURTS ACT since 2026-09-27 (spec section 5), so the old mutant here -
-    # the human-only gate removed - is the shipped behaviour now. What stays
+    # AI COURTS ACT, so the human-only gate is not a mutant. What stays
     # human-only is the governors' wages.
     ("an AI court paying its governors' wages", P,
      "    if human then IC.governor_xp(faction_key) end",
@@ -2901,7 +2822,7 @@ end"""),
      "            plotter and ICUI.character_name(plotter) or \"their plotter\")",
      "            \"their plotter\")"),
 
-    # ---- Build 2: demands ---------------------------------------------------
+    # Demands.
     ("the demand band's low edge allowing 25", P,
      """        if loyalty < T.party_demand_low or loyalty > T.party_demand_high then""",
      """        if loyalty < T.party_demand_low - 1 or loyalty > T.party_demand_high then"""),
@@ -3017,8 +2938,8 @@ end"""),
         end""",
      """"""),
 
-    # WITH ITS NEIGHBOUR, because IC.grant_demand calls it too since 2026-09-24
-    # and the bare line matched twice.
+    # WITH ITS NEIGHBOUR, because IC.grant_demand calls it too and the bare
+    # line matches twice.
     ("IC.check_demand not called in the party's turn", P,
      """    IC.check_demand(faction_key)
     IC.expire_offers(faction_key)""",
@@ -3029,7 +2950,7 @@ end"""),
     return true""",
      """    return true"""),
 
-    # ---- Build 2: offers -----------------------------------------------------
+    # Offers.
     ("an offer made below the offer line", P,
      """        if not house or (house.loyalty or 0) < T.party_offer_line then""",
      """        if not house or (house.loyalty or 0) < T.party_offer_line - 1 then"""),
@@ -3119,7 +3040,7 @@ end"""),
     IC.expire_offers(faction_key)""",
      """    IC.check_demand(faction_key)"""),
 
-    # ---- Build 2: the panel ---------------------------------------------------
+    # Demands and offers on the panel.
     ("DEMANDING never shown on the party card", U,
      """    if a.demand and a.demand.slug == slug then return "DEMANDING" end""",
      """"""),
@@ -3154,7 +3075,7 @@ end"""),
     if plot_line and not urgent then
         urgent = plot_line"""),
 
-    # ---- Build 2: the controller's three extra rules --------------------------
+    # The controller's three extra rules.
     ("a demand card raised whatever the outcome", P,
      """    if outcome == "met" then
         IC.move_loyalty(faction_key, d.slug, T.party_demand_met)
@@ -3196,7 +3117,7 @@ end"""),
     elseif why == "room" then""",
      """    elseif why == "room" then"""),
 
-    # ---- Build 2: the final fix wave -------------------------------------------
+    # Demand expiry, the Intrigue alert and the second wage.
     ("the engine's expiry refusing a demand the player met", P,
      """                if now == "met" or now == "void" then result = now end""",
      """                if now == "void" then result = now end"""),
@@ -3225,7 +3146,7 @@ end"""),
      """            if rank == "0" then""",
      """            if true then"""),
 
-    # ---- the screen's share of the layout (2026-09-24) ---------------------
+    # The screen's share of the layout.
     # THE BOX OFF THE WIDTH ALONE. A 2560x1080 ultrawide is 1080 tall, so a
     # 2560 box would run 360px off the bottom of it.
     ("the box read off the screen's width alone", U,
@@ -3274,8 +3195,8 @@ end"""),
             for k, b in pairs(t) do"""),
 
     # THE REDRAW WITHOUT THE BOX'S OFFSET: the pie, the header strip and the
-    # arrows at the screen's corner on any screen the box does not fill. It
-    # shipped this way until 2026-09-24, invisible at 1080p.
+    # arrows at the screen's corner on any screen the box does not fill.
+    # Invisible at 1080p.
     ("a redraw that forgets the box offset", U,
      """    local px, py = panel:Position()
     px = px + ICUI.OX
@@ -3312,7 +3233,7 @@ end"""),
 
     -- A POOL"""),
 
-    # ---- the Crown's box in two halves (2026-09-24) -----
+    # The Crown's box in two halves.
     ("the hint moved beside the pager and left at the grid's width", U,
      """            c:MoveTo(px + home[1], py + home[2])
             ICUI.resize(c, home[3], home[4])""",
@@ -3341,7 +3262,7 @@ end"""),
      """ICUI.CONTROL_KEYS = {"ic_control", "ic_control_band", "ic_control_fx",""",
      """ICUI.CONTROL_KEYS = {"ic_control", "ic_control_fx","""),
 
-    # ---- SEND A GIFT back on the bar (2026-09-25) ------------------------------
+    # SEND A GIFT back on the bar.
     ("SEND A GIFT routed to the oath", U,
      """    ic_act_gift = {favour = "gift"},""",
      """    ic_act_gift = {favour = "secure"},"""),
@@ -3350,13 +3271,13 @@ end"""),
      """        if move.favour == "gift" then""",
      """        if false then"""),
 
-    # THE NIL THAT BROKE THE GAME (2026-09-25): an and-chain starting with a nil
+    # THE NIL THAT BREAKS THE GAME: an and-chain starting with a nil
     # slug hands SetVisible nil, and the engine's string library dies with it.
     ("the bar's visibility built from an and-chain that can be nil", U,
      """    local rival = slug ~= nil and slug ~= IC.CROWN and court.houses[slug] ~= nil""",
      """    local rival = slug and slug ~= IC.CROWN and court.houses[slug] ~= nil"""),
 
-    # THE FIVE BUGS OF 2026-09-25. Each fix undone, and one fix made too wide.
+    # Five fixes undone, and one fix made too wide.
     ("a full pool's fallback allowed to be the seceding court itself", M,
      """        if key ~= exclude then fallback = fallback or key end""",
      """        fallback = fallback or key"""),
@@ -3389,7 +3310,7 @@ end"""),
      "                court.terms[office_slug] = nil\n",
      ""),
 
-    # ---- MCT: the settings, frozen into the save (2026-09-25) ---------------
+    # MCT: the settings, frozen into the save.
     ("mct: multiplayer reading MCT after all", M,
      "    if IC.is_mp() then return t end",
      "    if false then return t end"),
@@ -3410,7 +3331,7 @@ end"""),
      "        local n = tonumber(chunk)",
      "        local n = tonumber(chunk) or 0"),
     ("mct: the sliders read under every difficulty", M,
-     "                and preset == IC.PRESET_CUSTOM",
+     "                and (preset == IC.PRESET_CUSTOM or IC.TUNE_START[key])",
      "                and true"),
     ("mct: the switches read under Custom only", M,
      '            if type(IC.TUNE_DEFAULTS[key]) == "boolean" or custom_number then',
@@ -3482,8 +3403,8 @@ end"""),
                 o:set_locked(false)
             end"""),
     ("live: ai_courts marked live on the page", S,
-     """     .. "theirs can split. Off, only your court runs.", false},""",
-     """     .. "theirs can split. Off, only your court runs.", true},"""),
+     '     .. "can split. Off, only your court runs.", false},',
+     '     .. "can split. Off, only your court runs.", true},'),
     ("live: the live switches locked in a campaign", S,
      """            elseif SWITCHES[i][5] then
                 o:set_locked(false)""",
@@ -3505,7 +3426,7 @@ end"""),
      """    in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true""",
      """    in_mp = false"""),
 
-    # ---- live switches: read again at load and on Finalize (2026-09-25) ----
+    # Live switches: read again at load and on Finalize.
     ("live: the switches never read again at load", M,
      """    IC.apply_tune(t)
     IC.refresh_live_tune()
@@ -3557,7 +3478,7 @@ end"""),
      """    core:add_listener("ic_live_tune", "MctFinalized", true, function()""",
      """    core:add_listener("ic_live_tune_gone", "MctFinalized", true, function()"""),
 
-    # ---- MP: every panel action through one transport (2026-09-25) ---------
+    # MP: every panel action through one transport.
     ("mp: an unsendable action applied on this machine", M,
      """    if not cqi then
         IC.warn("IRON COURT: no command queue index for " .. tostring(faction_key)
@@ -3618,7 +3539,7 @@ end"""),
             ICUI.play(ICUI.SOUNDS.refused)
         end"""),
 
-    # ---- The final review's fix pass (2026-09-25) ---------------------------
+    # MP: click waits, and a court only for a Chaos Dwarf player.
     ("mp: a second click sent before the answer", U,
      "    if ICUI.waiting then return false end",
      "    if false then return false end"),
@@ -3640,7 +3561,7 @@ end"""),
     if comp(ICUI.PANEL) then ICUI.refresh() return end""",
      """    if not ICUI.prefs_loaded then ICUI.load_prefs() end
     if comp(ICUI.PANEL) then ICUI.refresh() return end"""),
-    # ---- The court's size is the difficulty (2026-09-25) --------------------
+    # The court's size is the difficulty.
     ("mct: Ruthless seating one party short of a full court", M,
      "        party_intrigue_line = 65, rivals_min = 5, rivals_max = 5, term_turns = 10,",
      "        party_intrigue_line = 65, rivals_min = 4, rivals_max = 4, term_turns = 10,"),
@@ -3705,7 +3626,7 @@ end"""),
     ("ui: the renewal refusal not put into words", U,
      "    elseif why == \"renew\" then\n",
      "    elseif why == \"renew_\" then\n"),
-    # --- QOL, 2026-09-25 ---------------------------------------------------
+    # Quality of life.
     ("qol: no warning the turn before a term ends", M,
      "    IC.expire_terms(faction_key)\n    IC.warn_terms(faction_key)\n",
      "    IC.expire_terms(faction_key)\n"),
@@ -3725,10 +3646,8 @@ end"""),
      "    \"detailed_log\", \"all_cards\",\n",
      "    \"detailed_log\",\n"),
     ("qol: an empty seat's card never mentions the wait", U,
-     "            if wait > 0 then\n"
-     "                term_text = string.format(\"Vacant - holder waits %d turn%s\",",
-     "            if false then\n"
-     "                term_text = string.format(\"Vacant - holder waits %d turn%s\","),
+     '            if wait > 0 then\n                term_text = string.format("Last holder waits %d turn%s",',
+     '            if false then\n                term_text = string.format("Last holder waits %d turn%s",'),
     ("qol: an empty seat's button never names its old holder", U,
      "                local tip = \"\"\n                if was then\n",
      "                local tip = \"\"\n                if false then\n"),
@@ -3739,8 +3658,8 @@ end"""),
      "        elseif seated[i] ~= IC.CROWN and house and (house.clock or 0) > 0 then",
      "        elseif seated[i] ~= IC.CROWN and house and (house.clock or 0) > 99 then"),
     ("qol: the button's summary leaves out who may return", U,
-     "    if #back > 0 then\n        lines[#lines + 1] = \"Free to take",
-     "    if false then\n        lines[#lines + 1] = \"Free to take"),
+     "    if #back > 0 then\n        lines[#lines + 1] = \"Ready to return",
+     "    if false then\n        lines[#lines + 1] = \"Ready to return"),
     ("qol: closing the court leaves the button's summary stale", U,
      "    ICUI.save_prefs()\n"
      "    -- WHAT THE PLAYER JUST CHANGED, on the button he closes the panel onto -\n"
@@ -3801,7 +3720,7 @@ end"""),
     ("qol: the fill button on every tab", U,
      "    show(comp(\"ic_fill\", panel), ICUI.pick == nil and ICUI.view == \"offices\")",
      "    show(comp(\"ic_fill\", panel), ICUI.pick == nil)"),
-    # THE OFFICES TAB'S ZIGGURAT (author, 2026-10-01).
+    # THE OFFICES TAB'S ZIGGURAT.
     ("the ziggurat drawn on every tab", U,
      "    show(comp(\"ic_zig_bg\", panel), view == \"offices\")",
      "    show(comp(\"ic_zig_bg\", panel), true)"),
@@ -3825,7 +3744,7 @@ end"""),
             local empty = true""",
      """            local court = IC.court(human[i])
             local empty = true"""),
-    # ---- living courts (2026-09-27) ---------------------------------------
+    # Living courts.
     ("a stalled office still paying", M,
      """        if court.offices[slug] and not court.stalled[slug] then""",
      """        if court.offices[slug] then"""),
@@ -3856,7 +3775,7 @@ end"""),
     ("a confederated court arriving at the default loyalty", M,
      """    if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then""",
      """    if stamped > 0 and IC.add_house(faction_key, slug, true) then"""),
-    # ---- bug-fix pass, 2026-09-28 -------------------------------------------
+    # AI court loading and rotation, the warning clock and switched-off settings.
     ("an AI court touched before its own turn never loaded from the save", M,
      "    if faction_key and not IC.state[faction_key] then IC.load(faction_key) end",
      "    if false then IC.load(faction_key) end"),
@@ -3896,12 +3815,11 @@ end"""),
         return string.format("He is away""",
      """    if false then
         return string.format("He is away"""),
-    # ---- UI feedback, 2026-09-28 ---------------------------------------------
-    # Each is a plausible slip in the effects layer: the rim written only when
-    # there is one (so a recycled card keeps it), the flash painted but not
-    # remembered, the marker condition narrowed, the pulse never stopped.
+    # UI feedback: the effects layer. Each is a plausible slip: the rim written
+    # only when there is one (so a recycled card keeps it), the flash painted
+    # but not remembered, the marker condition narrowed, the pulse never stopped.
     ("a held seat's rim never lit", U,
-     """ICUI.set_rim(card, "card", cqi and (stalled and "dim" or "lit") or nil)""",
+     """ICUI.set_rim(card, "card", cqi and look or nil)""",
      """ICUI.set_rim(card, "card", nil)"""),
     ("a stalled seat lit like a working one", U,
      """local stalled = stall ~= nil and stall_left > 0""",
@@ -3939,7 +3857,7 @@ end"""),
     ("a failed plot flashes nothing", U,
      """if slug then ICUI.flash(slug, "fail") end""",
      """if false then ICUI.flash(slug, "fail") end"""),
-    # ---- final review fixes, 2026-09-28 ------------------------------------
+    # Plot flashes, tab markers and the button's pulse.
     ("a failed plot flashes the man's number, not his party", U,
      """local slug = target and IC.house_of_cqi(ICUI.player(), target)""",
      """local slug = target and tostring(target)"""),
@@ -3996,7 +3914,7 @@ end"""),
     pcall(ICUI.take_baseline, faction:name())""",
      """    pcall(ICUI.take_baseline, faction:name())"""),
 
-    # ---- the three the court did in silence (author, 2026-09-29) -----------
+    # Three things the court must not do in silence.
     ("an officer's death that tells nobody", M,
      """            IC.feed(faction_key, "officer_died",""",
      """            IC.feed(faction_key, "officer_gone","""),
@@ -4053,7 +3971,7 @@ end"""),
      """                #back == 1 and IC.office_title_key(back[1].slug, faction_key) or nil)""",
      """                nil)"""),
 
-    # ---- the party a man sits with, on the man (author, 2026-09-29) --------
+    # The party a man sits with, shown on the man.
     ("a party trait that ignores the roll's wrap", M,
      """    return IC.key("member", slug .. "_" .. ((house.tail - 1) % #tails + 1), faction_key)""",
      """    return IC.key("member", slug .. "_" .. house.tail, faction_key)"""),
@@ -4075,7 +3993,7 @@ end"""),
 """,
      """"""),
 
-    # ---- a sound of its own for each answer (author, 2026-09-29) -----------
+    # A sound of its own for each answer.
     ("every petition answer back on one chime", U,
      """            ICUI.confirm(nil, yes, ICUI.SOUNDS[op])""",
      """            ICUI.confirm(nil, yes)"""),
@@ -4121,7 +4039,7 @@ end"""),
      """        ICUI.confirm(nil, true, ICUI.SOUNDS.fill)""",
      """        ICUI.confirm(nil, true)"""),
 
-    # ---- the 2026-09-29 audit's first four --------------------------------
+    # A leaving party's posts, and where a governor's bonus lands.
     ("a leaving party's posts looked up after it is gone", M,
      """    local seats, provinces = {}, {}
     for office_slug, cqi in pairs(court.offices) do""",
@@ -4163,7 +4081,7 @@ end"""),
      """        pcall(IC.refresh_gov_weight, faction_key)""",
      """"""),
 
-    # ---- the 2026-09-29 audit, second round -------------------------------
+    # Provocations, a gone party's business, and the Record's names.
     ("a provocation the next turn forgets", M,
      """                house.provoked = true""",
      """"""),
@@ -4220,8 +4138,8 @@ end"""),
      """        if false then
             tip = string.format("""),
     ("a seat at stake drawn like any other row", U,
-     """            loses and ICUI.red(string.format("%d influence - %s", has, holds))""",
-     """            false and ICUI.red(string.format("%d influence - %s", has, holds))"""),
+     '            loses and ICUI.red(string.format("%d influence: %s", has, holds))',
+     '            false and ICUI.red(string.format("%d influence: %s", has, holds))'),
     ("a mood word on a fixed line", U,
      """    if house.loyalty <= IC.TUNE.party_intrigue_line then return "RESTLESS" end""",
      """    if house.loyalty <= 55 then return "RESTLESS" end"""),
@@ -4255,7 +4173,7 @@ end"""),
     ("an influence plate for another race's lord", U,
      """    if not faction or not ICUI.court_player() then return hide() end""",
      """    if not faction then return hide() end"""),
-    # ---- the 2026-09-29 audit, the low items -------------------------------
+    # Insults, lost demands, and the Dwarf court's own words and paint.
     ("a dismissed man seated again at once", M,
      """        court.last[office_slug] = {cqi = cqi, turn = cm:model():turn_number()}
     end""",
@@ -4302,8 +4220,7 @@ end"""),
      """        local net = o.n - IC.TUNE.party_offer_envy""",
      """        local net = o.n"""),
     ("a greyed slider that names no number", S,
-     """                o:set_locked(true, string.format("The difficulty above sets this to "
-                    .. "%s. Choose Custom to edit it.", tostring(v)))""",
+     '                o:set_locked(true, string.format("Your difficulty sets this to "\n                    .. "%s. Choose Custom to edit it.", tostring(v)))',
      """                o:set_locked(true, "Set by the difficulty above. Choose Custom to edit it.")"""),
     ("a greyed slider naming the default under every difficulty", S,
      """                local set = PRESET_VALUES[preset] or {}""",
@@ -4357,6 +4274,9 @@ end"""),
     ("a Dwarf party block's Win left red", U,
      """        ICUI.skin_buttons(comp(ICUI.LAWBLOCK .. "_" .. i, panel))""",
      """        local _ = i"""),
+    ("a refused Chaos Dwarf button left red on CA's red plate", U,
+     """    local theme = (ICUI.ART or {}).theme or ICUI.DEFAULT_SKIN""",
+     """    local theme = (ICUI.ART or {}).theme if not theme then return end"""),
     ("a refused Dwarf button left on the blue plate", U,
      """    if ICUI.grey_refused then ICUI.grey_refused(c, text) end""",
      """    local _ = text"""),
@@ -4448,8 +4368,7 @@ end"""),
      """        local errand = not e.key or ICUI.plot_of(e.key)""",
      """        local errand = not e.key"""),
     ("a failed errand's notice that somebody knows", U,
-     """                ICUI.notice = "It did not work. The influence is spent."
-            end""",
+     '                ICUI.notice = "The move failed. The influence is spent."\n            end',
      """            end"""),
     ("a poor plotter told about a seat", U,
      """            "He is %d influence short.",""",
@@ -4494,7 +4413,7 @@ end"""),
     ("a placated mark kept from an earlier turn", P,
      """    p.placated = (house and move and (house.loyalty or 0) > move.line) or nil""",
      """    if house and move and (house.loyalty or 0) > move.line then p.placated = true end"""),
-    # ---- the 2026-09-28 review's leftovers --------------------------------
+    # Burst and flash timers.
     ("an old burst's timer taking the new one away", U,
      """        if ICUI.burst_n[host_name] ~= n then return end""",
      """"""),
@@ -4513,7 +4432,7 @@ end"""),
     ("a failed plot flashing as if it had worked", U,
      """if slug then ICUI.flash(slug, "fail") end""",
      """if slug then ICUI.flash(slug, "lit") end"""),
-    # ---- 2026-09-29: the stuck plate and the icons pass --------------------
+    # The plate that sticks after a close.
     ("the plate redrawn from a panel on its way out", U,
      """    ICUI.standing_shut = true
     ICUI.show_standing()""",
@@ -4525,7 +4444,7 @@ end"""),
      """    ICUI.standing_shut = nil
     cm:callback(function() ICUI.show_standing() end, 0)""",
      """    cm:callback(function() ICUI.show_standing() end, 0)"""),
-    # ---- 2026-09-29: the full sweep ------------------------------------------
+    # Splits, figures left bare, and the help page's pictures.
     ("a split leaving its men's seats' weight on the Crown", M,
      """            crown.weight = math.max(1, crown.weight - IC.office_weight(office_slug, IC.CROWN, faction_key))
 """,
@@ -4564,7 +4483,7 @@ end"""),
     if odds_div then
         chance = math.max(T.plot_chance_min, math.floor(chance / odds_div))
     end
-    -- THE ODDS BEFORE THE PRICE, as IC.plot reads them (sweep 2026-09-29).
+    -- THE ODDS BEFORE THE PRICE, as IC.plot reads them.
     IC.add_standing(faction_key, actor, -cost)
 """,
      """    local cost = IC.plot_cost(move, faction_key)
@@ -4604,8 +4523,8 @@ end"""),
      """"""),
     ("a turn ending on a band it does not wear", M,
      """    IC.apply_control_bundle(faction_key)
-    -- THE BOOK (plan 2026-10-04 phase 5), caught""",
-     """    -- THE BOOK (plan 2026-10-04 phase 5), caught"""),
+    -- THE BOOK, caught""",
+     """    -- THE BOOK, caught"""),
     ("a rising soured by asking with an interface", M,
      """now = a:diplomatic_standing_with(other)""",
      """now = a:diplomatic_standing_with(b)"""),
@@ -4649,8 +4568,8 @@ end"""),
 """,
      """"""),
     ("the Record's figures left bare", U,
-     """ICUI.units(all[i].text)""",
-     """all[i].text"""),
+     """ICUI.units(a.text)""",
+     """a.text"""),
     ("the notice's figures left bare", U,
      """set_text(alert, ICUI.units(text))""",
      """set_text(alert, text)"""),
@@ -4704,7 +4623,7 @@ end"""),
      """    got = got + (pics or 0) * (line_h or ICUI.PLATE_EST * 2)
 """,
      """"""),
-    # ---- 2026-09-29: the four leftovers -------------------------------------
+    # Card prompts at roll time, gifts, and a governor's public order.
     ("the court's roll asking a card for every origin", M,
      """            if IC.stamp_origin(character, IC.origin_for(character, faction_key), true) then""",
      """            if IC.stamp_origin(character, IC.origin_for(character, faction_key)) then"""),
@@ -4767,7 +4686,7 @@ end"""),
 end""",
      """    IC.end_feuds(faction_key)
 end"""),
-    # THE GRACE PERIOD (author, 2026-09-29).
+    # THE GRACE PERIOD.
     ("the grace period one turn short", M,
      """    return math.max(0, IC.TUNE.grace_turns + 1 - cm:model():turn_number())""",
      """    return math.max(0, IC.TUNE.grace_turns - cm:model():turn_number())"""),
@@ -4803,12 +4722,12 @@ end"""),
             and IC.grace_left() > 0 then""",
      """    if plot_key == "provoke" and IC.grace_left() > 0 then"""),
     ("Provoke's refusal counting the wrong turns", U,
-     """            .. "is no countdown to start yet.", left, left == 1 and "" or "s")""",
-     """            .. "is no countdown to start yet.", 10, left == 1 and "" or "s")"""),
+     '            .. "countdown cannot begin yet.", left, left == 1 and "" or "s")',
+     '            .. "countdown cannot begin yet.", 10, left == 1 and "" or "s")'),
     ("the protection said to last one turn longer", U,
      """            .. "for %d more turn%s.", grace, grace == 1 and "" or "s")""",
      """            .. "for %d more turn%s.", grace + 1, grace == 1 and "" or "s")"""),
-    # THE CIVIL MISSIONS (plan 2026-09-29).
+    # THE CIVIL MISSIONS.
     ("an envoy's work on the wrong province", M,
      """            IC.held_region(faction_key, province), IC.TUNE.mission_turns)""",
      """            IC.held_region(faction_key, IC.seats(faction_key)[1]), IC.TUNE.mission_turns)"""),
@@ -4887,7 +4806,7 @@ end"""),
     ("a failed mission's Record line losing its place", U,
      """        local mission, where = string.match(e.key or "", "^(%a+):(.+)$")""",
      """        local mission, where = nil, nil"""),
-    # THE PARTY MAP (plan 2026-09-29): what the Governors map kept of it.
+    # THE PARTY MAP: what the Governors map kept of it.
     ("a marker on the first region rather than the capital", UM,
      """    return capital or first""",
      """    return first"""),
@@ -4915,19 +4834,17 @@ end"""),
     ("a governed marker promising a new governor", UM,
      """    else lines[#lines + 1] = man and "Click to replace its governor." or "Click to choose its governor." end""",
      """    else lines[#lines + 1] = "Click to choose its governor." end"""),
-    # THE FINAL REVIEW'S NINE (2026-09-30): each survived every check until one was
-    # written for it.
-    # RE-AIMED 2026-10-01: the tip reads what each party would take off the
-    # refresh's memo now (ICUI.map_memo).
+    # The marker's tip reads what each party would take off the refresh's memo
+    # (ICUI.map_memo).
     ("a marker never saying which party it would go with", UM,
      """    for _, slug in ipairs(memo.goes[province] or {}) do""",
      """    for _, slug in ipairs({}) do"""),
-    # THE FINAL REVIEW'S ONE IMPORTANT FIX (2026-10-01): asked per pin and per
-    # row, what each party would take froze a mid-game realm for seconds a click.
+    # One memo per refresh: asked per pin and per row, what each party would
+    # take freezes a mid-game realm for seconds a click.
     ("a tip asking every party what it would take again, not reading the refresh's memo", UM,
      """    memo = memo or ICUI.map_memo(faction_key)""",
      """    memo = ICUI.map_memo(faction_key)"""),
-    # WEIGHT FROM A DEVELOPED PROVINCE (plan 2026-09-30 Task 1).
+    # WEIGHT FROM A DEVELOPED PROVINCE.
     ("a governorship worth the old flat 3 again", M,
      """    local worth = IC.gov_weight_of(levels[province_key])""",
      """    local worth = 3"""),
@@ -4952,7 +4869,7 @@ end"""),
     ("the Help page's weight rule gone", U,
      """    vars.levels_per_weight = IC.TUNE.gov_levels_per_weight""",
      """    vars.levels_per_weight = nil"""),
-    # THE GOVERNORS VIEW, PHASE 0 (plan 2026-09-30 Task 2).
+    # THE GOVERNORS VIEW.
     ("the Governors view leaves the throne room over the map", UM,
      """    pcall(function() panel:SetImagePath(on and ICUI.MASK_NONE or ground, 0) end)""",
      """    pcall(function() panel:SetImagePath(ground, 0) end)"""),
@@ -5038,7 +4955,7 @@ end"""),
     ("a selection closes the court from any tab", UM,
      """    if ICUI.gm_on() then ICUI.close() end""",
      """    if comp(ICUI.PANEL) then ICUI.close() end"""),
-    # THE AUTHOR'S LOOK AT PHASE 0 (2026-09-30): Escape, and a name cut to the plate.
+    # Escape, and a name cut to the plate.
     ("the court never holds the Escape key", U,
      """        ICUI.hold_esc()
         ICUI.refresh()""",
@@ -5060,7 +4977,7 @@ end"""),
     ("a cut that ignores the room it is given", U,
      """    local w = room or ICUI.cell_w(c)""",
      """    local w = ICUI.cell_w(c)"""),
-    # THE AUTHOR'S THIRD LOOK (2026-09-30): a governorship's weight is earned.
+    # A governorship's weight is earned.
     ("a new governor counts in full at once", M,
      """    if was ~= cqi then court.gov_grown[province_key] = 0 end""",
      """    if was ~= cqi then court.gov_grown[province_key] = nil end"""),
@@ -5090,7 +5007,7 @@ end"""),
     ("an older save's governors start from nothing", M,
      """            court.gov_grown[bits[1]] = tonumber(bits[3])""",
      """            court.gov_grown[bits[1]] = tonumber(bits[3]) or 0"""),
-    # THE START IS THE POOL'S (author, 2026-09-30).
+    # THE START IS THE POOL'S.
     ("turn 1 puts a lord in the field again", M,
      """            elseif not house.fielded and IC.is_human(faction_key) and now > 1""",
      """            elseif not house.fielded and IC.is_human(faction_key)"""),
@@ -5114,7 +5031,7 @@ end"""),
      """    if kind ~= "general" and kind ~= "lord" then return end""",
      """"""),
     ("every hire raised, not just a stored party's", M,
-     """    if not (house and house.stored) then return end""",
+     """    if not (house and (house.stored or was)) then return end""",
      """    if not house then return end"""),
     ("a hired pool lord's rank ignores the recruit effects", M,
      """    local want = 1 + IC.recruit_rank(faction_key, region_key)""",
@@ -5122,7 +5039,7 @@ end"""),
     ("nothing raises a hired pool lord", M,
      """            if man then IC.raise_hired(faction_key, man) end""",
      """            if false then IC.raise_hired(faction_key, man) end"""),
-    # THE PETITION BUTTONS (author, 2026-09-30).
+    # THE PETITION BUTTONS.
     ("the second button's tooltip never set", U,
      """                        if j == 5 or j == 6 then
                             local tip""",
@@ -5134,7 +5051,7 @@ end"""),
     ("a feud's Make Peace says nothing of its price", U,
      """                tip2 = string.format("Make Peace: %d gold, +%d loyalty for both.",""",
      """                tip3 = string.format("Make Peace: %d gold, +%d loyalty for both.","""),
-    # THE GOVERNORS VIEW'S COLUMN (plan 2026-09-30 Task 3).
+    # THE GOVERNORS VIEW'S COLUMN.
     ("the column left up on another tab", UM,
      """    for _, name in ipairs(ICUI.GM_KEYS) do show(comp(name, panel), on) end""",
      """    for _, name in ipairs(ICUI.GM_KEYS) do show(comp(name, panel), true) end"""),
@@ -5190,7 +5107,7 @@ end"""),
         x, y = holder:Position()""",
      """        host, count = holder, n
         x, y = 0, 0"""),
-    # THE SCROLLING LIST (author, 2026-10-01: "no scrollbar for selecting a governor").
+    # THE SCROLLING LIST: the governor picker scrolls.
     ("the list never made again", UM,
      """    if list and key == ICUI.gm_list_key then""",
      """    if list then"""),
@@ -5251,15 +5168,15 @@ end"""),
     else""",
      """        ICUI.gm_draw_sorts(panel, "provinces")
     else"""),
-    # THE PROVINCES PAGE (plan 2026-09-30 Task 4).
+    # THE PROVINCES PAGE.
     ("a province's weight on its tooltip from the flat rule", UM,
      """                ICUI.house_name(slug, faction_key), now, levels, levels == 1 and "" or "s",""",
      """                ICUI.house_name(slug, faction_key), 3, levels, levels == 1 and "" or "s","""),
     ("a Provinces row tells the player a click appoints", UM,
      """        local tip = ICUI.map_tip(faction, p, true, memo)""",
      """        local tip = ICUI.map_tip(faction, p, nil, memo)"""),
-    ("a Provinces row with no weight figure", UM,
-     """                 or string.format("%d%%, +%d weight", loyal, now),""",
+    ("a Provinces row with no strength figure", UM,
+     """                 or string.format("%d%%, +%d strength", loyal, now),""",
      """                 or string.format("%d%%", loyal),"""),
     ("an empty seat drawn with no silhouette", UM,
      """            face = port or ((not cqi) and ICUI.SILHOUETTE or nil),""",
@@ -5320,7 +5237,7 @@ end"""),
     ("the loyalty icon never low", UM,
      """    if loyalty <= IC.TUNE.prov_defect_floor then return ICUI.GM_FEALTY.low end""",
      """    if false then return ICUI.GM_FEALTY.low end"""),
-    # THE WEIGHT AS GROWN (Task 2's gradual weight, after the plan).
+    # THE WEIGHT AS GROWN: a governorship's gradual weight.
     ("the tooltip counts a new governorship in full", UM,
      """            local now, worth = IC.gov_grown_weight(court, province, all), IC.gov_weight_of(levels)""",
      """            local now, worth = IC.gov_weight_of(levels), IC.gov_weight_of(levels)"""),
@@ -5331,9 +5248,9 @@ end"""),
      """                now < worth and string.format(", growing to +%d", worth) or "",""",
      """                "","""),
     ("a growing row says nothing of what it grows to", UM,
-     """                 or (now < worth) and string.format("%d%%, +%d of %d weight", loyal, now, worth)""",
-     """                 or (now < worth) and string.format("%d%%, +%d weight", loyal, now)"""),
-    # THE PICKER IN THE COLUMN (plan 2026-09-30 Task 5).
+     """                 or (now < worth) and string.format("%d%%, +%d of %d strength", loyal, now, worth)""",
+     """                 or (now < worth) and string.format("%d%%, +%d strength", loyal, now)"""),
+    # THE PICKER IN THE COLUMN.
     ("the governor picker drawn full-screen again", UM,
      """    if ICUI.pick and ICUI.pick.kind == "gov" then return "picker" end
     return ICUI.gm_page""",
@@ -5390,14 +5307,14 @@ end"""),
     local key = page .. "|" .. n .. "|" .. ICUI.gm_list_gen""",
      """    local page = ICUI.gm_page
     local key = page .. "|" .. n .. "|" .. ICUI.gm_list_gen"""),
-    # THE PARTIES ROWS' LINES BESIDE THE CREST (author, 2026-10-01).
+    # THE PARTIES ROWS' LINES BESIDE THE CREST.
     ("a party row's lines left in the portrait's place", UM,
      """    local dx = r.face and 0 or (2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3] - xy.ic_gr_l1[1])""",
      """    local dx = 0"""),
     ("a row with no loyalty icon keeps its gap", UM,
      """                   ic_gr_l3 = dx + (r.fealty and 0 or xy.ic_gr_l1[1] - xy.ic_gr_l3[1])}""",
      """                   ic_gr_l3 = dx}"""),
-    # CA'S REGION OVERLAY ON WHAT THE CHOSEN PARTY GOVERNS (author, 2026-10-01).
+    # CA'S REGION OVERLAY ON WHAT THE CHOSEN PARTY GOVERNS.
     ("the overlay lights what the party would take", UM,
      """            local list = r.slug and IC.provinces_of_house(faction, r.slug)""",
      """            local list = r.slug and (ICUI.map_outline(faction, r.slug))"""),
@@ -5417,7 +5334,7 @@ end"""),
      """    ICUI.gm_list_key = nil
     ICUI.gm_light(nil)""",
      """    ICUI.gm_list_key = nil"""),
-    # ---- the drawn-whole column (2026-10-02) ------------------------------
+    # The drawn-whole column.
     ("the holder sized to one screen of cards", UM,
      """math.max(ICUI.GM_ROWS, n) * ICUI.GM_ROW_PITCH)""",
      """ICUI.GM_ROWS * ICUI.GM_ROW_PITCH)"""),
@@ -5436,7 +5353,7 @@ end"""),
      """        ICUI.gm_clear_pins(panel)
         ICUI.gm_light(nil)""",
      """        ICUI.gm_clear_pins(panel)"""),
-    # THE MAP TAB, REMOVED (plan 2026-09-30 Task 6).
+    # THE MAP TAB, REMOVED.
     ("the Map tab back in the strip", U,
      """    ic_tab_intrigue  = {750, 62, 240, 32},""",
      """    ic_tab_map       = {750, 62, 240, 32},
@@ -5447,7 +5364,7 @@ end"""),
     ("the Petitions marker left on the old tab", U,
      """    ic_mark_petitions = {1200, 64, 28, 28},""",
      """    ic_mark_petitions = {1444, 64, 28, 28},"""),
-    # ---- the HUD hub -------------------------------------------------------
+    # The HUD hub.
     ("the court button moved by its own placement while the hub manages it", U,
      """    if ICUI.hubbed() then
         if not quiet then ICUI.update_opener_tip() end""",
@@ -5471,7 +5388,7 @@ end"""),
     ("the court button registered with the hub under another key", U,
      """    key = ICUI.HUB_KEY, button = ICUI.BTN, order = 1,""",
      """    key = "court", button = ICUI.BTN, order = 1,"""),
-    # ---- governments (2026-10-02) ----------------------------------------
+    # Governments.
     ("gov: the government line does not say it is the government", U,
      """[[img:%s]][[/img]]Government: %s\",""",
      """[[img:%s]][[/img]]%s\","""),
@@ -5635,26 +5552,26 @@ end"""),
      """        show(comp(\"ic_gov\", panel), false)
         show(comp(\"ic_gov_btn\", panel), false)""",
      """"""),
-    # ---- the government's glow and burst (2026-10-04) -------------------------
+    # The government's glow and burst.
     ("gov fx: a government chosen bursts nothing", U,
-     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
+     """                show(glow, true)
                 ICUI.burst(\"ic_gov_glow\")""",
-     """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])"""),
+     """                show(glow, true)"""),
     ("gov fx: CA's pulse on the glow, which can clear its breathing", U,
      """                ICUI.confirm(nil, true, ICUI.SOUNDS[op])
-                ICUI.burst(\"ic_gov_glow\")""",
+                -- The glow is shown only""",
      """                ICUI.confirm(glow, true, ICUI.SOUNDS[op])
-                ICUI.burst(\"ic_gov_glow\")"""),
+                -- The glow is shown only"""),
     ("gov fx: another tab leaves the glow on screen", U,
      """        show(comp(\"ic_gov_glow\", panel), false)""",
      """"""),
     ("gov fx: the glow drawn with governments off", U,
-     """    show(comp(\"ic_gov_glow\", panel), on)""",
-     """    show(comp(\"ic_gov_glow\", panel), true)"""),
+     """    show(comp(\"ic_gov_glow\", panel), on and ICUI.gov_moving(faction, court) and true or false)""",
+     """    show(comp(\"ic_gov_glow\", panel), ICUI.gov_moving(faction, court) and true or false)"""),
     ('gov: the embezzle card states the base price', U,
      """    if plot.key ~= \"embezzle\" then return plot.effect end""",
      """    do return plot.effect end"""),
-    # ---- deeds (2026-10-02) ---------------------------------------------------
+    # Deeds.
     ("deed: renown is not weight", M,
      """        + IC.member_weight(faction_key, slug) + renown""",
      """        + IC.member_weight(faction_key, slug)"""),
@@ -5718,7 +5635,7 @@ end"""),
         text = text""",
      """    if true then
         text = text"""),
-    # ---- the laws and votes (plan 2026-10-02 laws, Task 10) ----------------
+    # The laws and votes.
     ("law: a tie passes", M,
      """function IC.law_passes(t) return t.aye > t.nay end""",
      """function IC.law_passes(t) return t.aye >= t.nay end"""),
@@ -5764,7 +5681,7 @@ end"""),
      """    for cqi in pairs(vote.won) do if stance ~= "abstain" then vote.won[cqi] = stance end end
     vote.stance = stance
     vote.answered = true"""),
-    # ADDED 2026-10-03 with the settle loop walking the law's own lists.
+    # The settle loop walks the law's own lists.
     ("law: a passed law pays the party against it", M,
      """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end""",
      """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end"""),
@@ -5823,15 +5740,14 @@ end"""),
     ("law: a block shows a Win button on every man", U,
      """            show(win, price ~= nil)""",
      """            show(win, true)"""),
-    # ADDED IN TASK 10 for what Task 10 changed: the influence line, the
-    # abstain count and the button pulse for a waiting law.
+    # The influence line, the abstain count and the button pulse for a waiting
+    # law.
     ("law: a winnable man shows his influence over his Win button", U,
      """            show(inf, price == nil)""",
      """            show(inf, true)"""),
     ("law: the abstain line names every party", U,
      """    local who = #abst > 2 and string.format("%d parties, %d influence", #abst, held)""",
      """    local who = false and string.format("%d parties, %d influence", #abst, held)"""),
-    # FINAL REVIEW FIXES, 2026-10-02.
     ("law: the push margin counts the abstainers", M,
      """            local margin = math.floor((t.aye + t.nay) * IC.TUNE.law_push_margin / 100)""",
      """            local margin = math.floor((t.aye + t.nay + t.abstain) * IC.TUNE.law_push_margin / 100)"""),
@@ -5851,7 +5767,7 @@ end"""),
      """    out.any = out.offices or out.court or out.petitions
 """),
 
-    # ---- race plumbing (plan 2026-10-04 phase 1) ---------------------------
+    # Race plumbing.
     # Each makes a Dwarf court run on Chaos Dwarf data, which no Chaos Dwarf
     # check can tell from the truth.
     ("race: IC.R never asking the faction its race", M,
@@ -5881,7 +5797,7 @@ end"""),
     ("race: the panel drawing the Chaos Dwarf law board for any player", U,
      '    local R = ICUI.race()\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]',
      '    local R = IC.RACES.chd\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]'),
-    # ---- grudges inside the court (plan 2026-10-04 phase 4) -------------
+    # Grudges inside the court.
     ("grudge: the race guard dropped", M,
      """    if IC.race_key(faction_key) ~= "dwf" or not IC.GRUDGE_WORDS[code or ""] then return false end""",
      """    if not IC.GRUDGE_WORDS[code or ""] then return false end"""),
@@ -5900,7 +5816,7 @@ end"""),
     ("grudge: the countdown read off IC.TUNE", M,
      """                house.clock = IC.tune(faction_key, "secede_turns")""",
      """                house.clock = IC.TUNE.secede_turns"""),
-    # ---- the Book of Grudges (plan 2026-10-04 phase 5) --------------------
+    # The Book of Grudges.
     ("book: a band fired every turn", M,
      """        for i = had + 1, n do""",
      """        for i = 1, n do"""),
@@ -5955,7 +5871,7 @@ end"""),
     ("book: the tooltip forgets who a treaty wrongs", U,
      """    if #known == 0 then return tip end""",
      """    do return tip end"""),
-    # ---- both races in one campaign (plan 2026-10-04 dwarfs phase 6) ---------
+    # Both races in one campaign.
     ("both races: the race cache keyed by nothing", _holder(_SIG_R), _SIG_R,
      _SIG_R + "    IC._one_race = IC._one_race or IC._R_body(faction_key)\n"
      "    return IC._one_race\nend\nfunction IC._R_body(faction_key)\n"),
@@ -5982,6 +5898,167 @@ end"""),
     ("both races: a key built without its race", _holder(_SIG_KEY), _SIG_KEY,
      _SIG_KEY + "    return IC._key_body(kind, slug, nil)\nend\n"
      "function IC._key_body(kind, slug, faction_key)\n"),
+    # Starting members.
+    # THE POOL ROUTE. The wound gives the lord a new cqi, so every mistake that
+    # keeps using the one he was made with returns nobody to the pool.
+    ("starting members: the lord returned under the cqi he was made with", M,
+     """        if wounded then cqi_back, hurt = IC.seed_wounded(faction_key, cqi, bg) end""",
+     """        if wounded then cqi_back, hurt = cqi, true end"""),
+    ("starting members: the wounded lord never returned to the pool", M,
+     """            if hurt then cm:stop_character_convalescing(cqi_back) end
+""",
+     ""),
+    # THE UNHURT LORD: the first lord of a party can come back from the wound
+    # unhurt, and a lookup that wants is_wounded never finds him.
+    ("starting members: the lookup wants the lord wounded", M,
+     """        if man and not man:is_null_interface() and not man:has_military_force() then
+            local cqi = man:command_queue_index()
+            if cqi > after""",
+     """        if man and not man:is_null_interface() and man:is_wounded() then
+            local cqi = man:command_queue_index()
+            if cqi > after"""),
+    ("starting members: an unhurt lord sent home from convalescing", M,
+     """            if hurt then cm:stop_character_convalescing(cqi_back) end""",
+     """            cm:stop_character_convalescing(cqi_back)"""),
+    # THE DWARF RUN OF EVENT RECORDS. Without the offset a Dwarf card names the
+    # Chaos Dwarf record and wears its picture.
+    ("dwarfs: a card raised at the Chaos Dwarf record", M,
+     """    return ev[1] + (IC.R(faction_key).EVENT_OFFSET or 0)""",
+     """    return ev[1]"""),
+    ("dwarfs: located news numbered by the recipient, not the court it is about", M,
+     """            x, y, ev[2], IC.event_index(slug, about or faction_key))""",
+     """            x, y, ev[2], IC.event_index(slug, faction_key))"""),
+    ("dwarfs: the plain card raised at the base record", M,
+     """            ev[2], IC.event_index(slug, faction_key))""",
+     """            ev[2], ev[1])"""),
+    ("starting members: the lord keeps the background his birth dealt him", M,
+     """        if old ~= bg then
+            if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+            cm:force_add_trait(lookup, IC.bg_trait(bg), false)
+        end
+        cm:wound_character(lookup, 1)""",
+     """        cm:wound_character(lookup, 1)"""),
+    ("starting members: the men a party already has not counted", M,
+     """            local want = lo + cm:random_number(hi - lo + 1, 1) - 1 - (members or 0)""",
+     """            local want = lo + cm:random_number(hi - lo + 1, 1) - 1"""),
+    ("starting members: the roll ignored, every party at the fewest", M,
+     """            local want = lo + cm:random_number(hi - lo + 1, 1) - 1 - (members or 0)""",
+     """            local want = lo - (members or 0)"""),
+    ("starting members: the Crown left out", M,
+     """        if R.BACKGROUNDS[slug] then
+            local _lords, members = IC.party_lords(faction_key, slug)""",
+     """        if slug ~= IC.CROWN and R.BACKGROUNDS[slug] then
+            local _lords, members = IC.party_lords(faction_key, slug)"""),
+    ("starting members: a full party with nobody to lead it gets no lord", M,
+     """            if want < 1 and slug ~= IC.CROWN and not IC.party_leader(faction_key, slug) then""",
+     """            if false then"""),
+    ("starting members: an AI court seeded too", M,
+     """    if (IC.TUNE.seed_max or 0) <= 0 or not IC.is_human(faction_key) then return false end""",
+     """    if (IC.TUNE.seed_max or 0) <= 0 then return false end"""),
+    ("starting members: seeded after turn 1", M,
+     """    if cm:model():turn_number() > 1 then return false end
+    return not cm:get_saved_value(IC.SEED_DONE .. faction_key)""",
+     """    return not cm:get_saved_value(IC.SEED_DONE .. faction_key)"""),
+    ("starting members: never marked done, so seeded again", M,
+     """    IC._seed_bg[faction_key] = nil
+    cm:set_saved_value(IC.SEED_DONE .. faction_key, true)""",
+     """    IC._seed_bg[faction_key] = nil"""),
+    ("starting members: a spawn that never lands stalls the seeding", M,
+     """        IC.warn("IRON COURT: a starting lord for " .. slug .. " never arrived")
+        IC.seed_step(faction_key, plan, i + 1, made)""",
+     """        IC.warn("IRON COURT: a starting lord for " .. slug .. " never arrived")"""),
+    ("starting members: a lord landing after the watchdog gave up is wounded anyway", M,
+     """                if IC._seed_wait[faction_key] ~= token then return end
+""",
+     ""),
+    ("starting members: the turn-1 pool gift made beside the seeding", M,
+     """            elseif not house.stored and not IC.seeding(faction_key) then""",
+     """            elseif not house.stored then"""),
+    ("starting members: MCT's numbers read under Custom only", M,
+     """                and (preset == IC.PRESET_CUSTOM or IC.TUNE_START[key])""",
+     """                and preset == IC.PRESET_CUSTOM"""),
+    ("starting members: reversed numbers not swapped", M,
+     """    if t.seed_min > t.seed_max then t.seed_min, t.seed_max = t.seed_max, t.seed_min end
+""",
+     ""),
+    ("starting members: a hired starting lord not raised", M,
+     """    if not (house and (house.stored or was)) then return end""",
+     """    if not (house and house.stored) then return end"""),
+    ("starting members: a hired starting lord never struck off", M,
+     """        seeded[cqi] = nil
+        IC.save_seeded_lords(faction_key, seeded)""",
+     """        IC.save_seeded_lords(faction_key, seeded)"""),
+    # THE CARDS AND THE MID-SEEDING PASS.
+    ("starting members: a starting lord dealt and swapped like any recruit", M,
+     """            local seeded = IC._seed_bg[faction_key]
+            if seeded then""",
+     """            local seeded = nil
+            if seeded then"""),
+    ("starting members: the leader pass runs mid-seeding", M,
+     """    if IC._seeding[faction_key] then return 0 end
+    local R = IC.R(faction_key)""",
+     """    local R = IC.R(faction_key)"""),
+    ("starting members: the feed shut by category only", M,
+     """    for i = 1, #IC.SEED_QUIET_EVENTS do
+        cm:disable_event_feed_events(off, "", "", IC.SEED_QUIET_EVENTS[i])
+    end""",
+     ""),
+    ("starting members: the feed never shut before a lord", M,
+     """    if i > #plan then return IC.seed_finish(faction_key, made, #plan) end
+    IC.seed_quiet(true)""",
+     """    if i > #plan then return IC.seed_finish(faction_key, made, #plan) end"""),
+    ("starting members: the feed never opened again", M,
+     """    cm:callback(function() IC.seed_quiet(false) end, 2)""",
+     ""),
+    # THE PRICE: the normal recruit price, charged once and written in the
+    # panel.
+    ("starting members: a starting lord hired free", M,
+     """        if price then cm:treasury_mod(faction_key, -price) end""",
+     ""),
+    ("starting members: a starting lord paid for his hire", M,
+     """        if price then cm:treasury_mod(faction_key, -price) end""",
+     """        if price then cm:treasury_mod(faction_key, price) end"""),
+    ("starting members: the price written on every real man's card", U,
+     """        local price = cqi and seeded[cqi] and IC.seed_price(fk, cqi)""",
+     """        local price = cqi and IC.seed_price(fk, cqi)"""),
+    ("starting members: the price written with the cost left hidden", U,
+     """                holder:SetVisible(true)
+""",
+     ""),
+    ("starting members: the cards priced on every panel's opening", U,
+     """    if context.string ~= ICUI.POOL_PANEL then return end
+    ICUI.price_pool_later()""",
+     """    ICUI.price_pool_later()"""),
+    ("starting members: the cards never priced after a click", U,
+     """    if not comp(ICUI.POOL_PANEL) then return end
+    ICUI.price_pool_later()""",
+     """    if not comp(ICUI.POOL_PANEL) then return end"""),
+    # THE RECORD, READ AT A GLANCE.
+    ("record: the Crown named by the faction again", U,
+     """    if slug == IC.CROWN then
+        return loc(IC.key("party_name", IC.CROWN, ICUI.player()), "The Crown")
+    end
+    if who == "c" then""",
+     """    if who == "c" then"""),
+    ("record: an unseated party's deed reads like a seated one's", U,
+     """        local out = e.slug ~= IC.CROWN and not e.sw""",
+     """        local out = false"""),
+    ("record: a line drawn with no crest", U,
+     """                    icon = a.icon, icon_kind = a.icon and "crest" or nil, plate = a.slug}""",
+     """                    plate = a.slug}"""),
+    ("record: a line drawn on no plate", U,
+     """                    icon = a.icon, icon_kind = a.icon and "crest" or nil, plate = a.slug}""",
+     """                    icon = a.icon, icon_kind = a.icon and "crest" or nil}"""),
+    ("record: news drawn with no flag", U,
+     """                             icon = news[i].faction
+                                    and IC.house_icon(IC.CROWN, news[i].faction) or nil}""",
+     """                             icon = nil}"""),
+    ("record: a crest left at the porthole's height", U,
+     """        local dy = kind == "porthole" and b[2] or ICUI.ROW_CHILD_XY.ic_row_crest[2]""",
+     """        local dy = b[2]"""),
+    ("a garrison captain stamped with his cards showing", M,
+     """            local quiet = IC.is_colonel(character)""",
+     """            local quiet = false"""),
 ]
 
 
@@ -6096,9 +6173,9 @@ if __name__ == "__main__":
     if "--selftest" in sys.argv:
         selftest()
         sys.exit(0)
-    # An unknown flag used to fall through to the FULL suite (flags were dropped
-    # from the name filter), and a run killed midway leaves a mutant in the
-    # shipped Lua. Refuse instead.
+    # An unknown flag would otherwise fall through to the FULL suite (flags are
+    # dropped from the name filter), and a run killed midway leaves a mutant in
+    # the shipped Lua.
     flags = [a for a in sys.argv[1:] if a.startswith("-")]
     if flags:
         sys.exit("unknown flag %r; usage: mutate_iron_court.py [--selftest] "

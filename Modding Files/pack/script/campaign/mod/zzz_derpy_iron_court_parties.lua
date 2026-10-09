@@ -277,7 +277,7 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     if odds_div then
         chance = math.max(T.plot_chance_min, math.floor(chance / odds_div))
     end
-    -- THE ODDS BEFORE THE PRICE, as IC.plot reads them (sweep 2026-09-29).
+    -- THE ODDS BEFORE THE PRICE, as IC.plot reads them.
     IC.add_standing(faction_key, actor, -cost)
     local victim_house = IC.house_of_cqi(faction_key, target)
     local at_crown = victim_house == IC.CROWN
@@ -314,7 +314,7 @@ function IC.party_strike(faction_key, slug, move, actor, target, key, odds_div)
     if move == "sabotage" then
         IC.log(faction_key, "sabotage", slug, key, cost)
         -- EVERY SABOTAGE IN A HUMAN COURT: a feud never involves the Crown, so
-        -- gating this on the Crown as target meant it never fired.
+        -- a gate on the Crown as target would never fire.
         IC.feed(faction_key, "party_sabotage")
         return true
     end
@@ -339,12 +339,11 @@ function IC.party_warn(faction_key, slug, t)
 end
 
 -- PLACATED IS READ AS THE PLAYER LEFT IT. IC.turn calls this before the turn
--- moves any loyalty: the landing below runs after the drift, so a party lifted
--- one above its line on the player's turn drifted back onto it and the warned
--- move landed anyway (found 2026-09-25). Not saved: set and read in one turn.
--- SET AFRESH EVERY TURN START, never kept (audit 2026-09-29): an AI court lands
--- only on its rotation turn, and a mark from an earlier turn dropped the move
--- of a party that had since fallen back below its line.
+-- moves any loyalty: the landing runs after the drift, which would pull a party
+-- lifted one above its line back onto it. Not saved: set and read in one turn.
+-- SET AFRESH EVERY TURN START, never kept: an AI court lands only on its
+-- rotation turn, and a stale mark would drop the move of a party that has since
+-- fallen back below its line.
 function IC.party_placate(faction_key)
     local p = IC.agenda(faction_key).plot
     if not p then return end
@@ -491,7 +490,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     end,
 }
 
--- PUTTING A LAW TO THE COURT (spec 2026-10-02 laws section 3.2). It opens with
+-- PUTTING A LAW TO THE COURT. It opens with
 -- the Crown abstaining, and the panel's marker waits for the player's answer.
 IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     key = "law",
@@ -532,7 +531,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     end,
 }
 
--- SETTLE A FEUD (spec 2026-09-27 section 4). "back" sides with `slug`;
+-- SETTLE A FEUD. "back" sides with `slug`;
 -- "peace" pays a gift's price and pleases both. Either ends the feud with the
 -- same rest a feud that ran its course gets.
 function IC.can_arbitrate(faction_key, slug, side)
@@ -574,7 +573,7 @@ function IC.arbitrate(faction_key, slug, side)
     return true
 end
 
--- WITHHOLD (spec 2026-09-27 section 3). A party at or below the line stops its
+-- WITHHOLD. A party at or below the line stops its
 -- officers working: every office it holds loses its bonus for a few turns.
 function IC.withhold_target(faction_key, slug)
     local court = IC.court(faction_key)
@@ -639,9 +638,9 @@ end
 -- Rank is half of every office's bar; a governor serves at home and would
 -- otherwise never climb. One log line lists every governor's rank.
 -- A rank of 0 is a man the engine will not level: measured live, seven of nine
--- governors stayed at 0 through three grants while the lords with armies
--- climbed (garrison commanders and pool lords, the spec's two unknowns). The
--- post pays such a man a second governor wage instead, marked "+inf" in the log.
+-- governors (garrison commanders and pool lords) stayed at 0 through three
+-- grants while the lords with armies climbed. The post pays such a man a second
+-- governor wage instead, marked "+inf" in the log.
 function IC.governor_xp(faction_key)
     local given = {}
     for _province, cqi in pairs(IC.court(faction_key).govs) do
@@ -740,7 +739,7 @@ function IC.issue_demand(faction_key, slug, t)
     -- Saved before the engine call: a mission can raise its own events from
     -- inside the call that creates it.
     IC.save_agenda(faction_key)
-    -- AN AI RULER ANSWERS AT ONCE (spec 2026-09-27 section 5): no mission, a
+    -- AN AI RULER ANSWERS AT ONCE: no mission, a
     -- grant below ai_grant_line when the grant is possible, else a refusal
     -- with the refusal's full cost.
     if not IC.is_human(faction_key) then
@@ -796,7 +795,7 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
 -- Where a live demand stands: "met", "refused" or "void", or nil while it waits.
 function IC.demand_state(faction_key, d)
     local court = IC.court(faction_key)
-    -- A VOID DEMAND SAYS WHY (audit 2026-09-29): "gone", "lost" or "short",
+    -- A VOID DEMAND SAYS WHY: "gone", "lost" or "short",
     -- which settle_demand writes into its record line.
     if not court.houses[d.slug] then return "void", "gone" end
     if not IC.character_by_cqi(faction_key, d.cqi) then return "void", "gone" end
@@ -817,10 +816,9 @@ function IC.demand_state(faction_key, d)
     if holder and holder ~= d.was then return "refused" end
     if cm:model():turn_number() >= d.ends then
         -- A DEMAND NOBODY COULD GRANT LAPSES. Its man short of the office's bar
-        -- is exactly when ACCEPT is red (can_grant_demand), and running out
-        -- charged the refusal for a seat the player could never give (found
-        -- 2026-09-25). A man put in another post is still a refusal: that one
-        -- the player chose.
+        -- is exactly when ACCEPT is red (can_grant_demand); a refusal here would
+        -- charge for a seat the player could never give. A man put in another
+        -- post is still a refusal: that one the player chose.
         if d.kind == "office" and not IC.can_appoint(faction_key, d.key, d.cqi) then
             return "void", "short"
         end
@@ -840,8 +838,8 @@ function IC.settle_demand(faction_key, outcome, ended)
     local d = a.demand
     if not d then return false end
     a.demand = nil
-    -- A REFUSED PARTY WAITS before it asks again; nothing else stopped it
-    -- re-demanding the same post every turn (found live 2026-09-26).
+    -- A REFUSED PARTY WAITS before it asks again; without this it re-demands
+    -- the same post every turn.
     if outcome == "refused" then
         a.rest[d.slug] = cm:model():turn_number() + T.party_demand_rest
     end
@@ -886,10 +884,10 @@ function IC.check_demand(faction_key)
     return outcome
 end
 
--- ANSWERED FROM THE PETITIONS TAB (author, 2026-09-24). A demand is always a
--- seat, so granting it seats the man it names in the post it names - through
--- the same calls the Offices and Governors tabs make, so no rule of theirs is
--- skipped - and settles it now instead of at the next turn start.
+-- ANSWERED FROM THE PETITIONS TAB. A demand is always a seat, so granting it
+-- seats the man it names in the post it names, through the same calls the
+-- Offices and Governors tabs make (so no rule of theirs is skipped), and
+-- settles it now instead of at the next turn start.
 -- Returns ok, why, spare; the codes are the panel's to turn into sentences.
 -- THE QUESTION WITHOUT THE ACT, so the tab can draw ACCEPT red on exactly the
 -- demands the click would refuse. An open demand only: one the turn has
@@ -899,7 +897,7 @@ function IC.can_grant_demand(faction_key)
     if not d then return false, "no demand" end
     local state = IC.demand_state(faction_key, d)
     -- ANOTHER MAN HOLDS THE POST: Accept would settle it as the refusal it
-    -- has become (audit 2026-09-29). Freed again this turn, it is open again.
+    -- has become. Freed again this turn, it is open again.
     if state == "refused" then return false, "taken" end
     if state then return true end
     -- ONE POST PER MAN, which the pickers enforce by drawing him BUSY. The
@@ -943,8 +941,8 @@ function IC.refuse_demand(faction_key)
     local d = IC.agenda(faction_key).demand
     if not d then return false, "no demand" end
     local state = IC.demand_state(faction_key, d)
-    -- A POST GIVEN ELSEWHERE IS A REFUSAL, and Refuse says it worked (sweep
-    -- 2026-09-29: it charged the -10 and answered "gone").
+    -- A POST GIVEN ELSEWHERE IS A REFUSAL: Refuse charges it and reports
+    -- success, not "gone".
     if state and state ~= "refused" then
         IC.settle_demand(faction_key, state)
         return false, "gone"
@@ -1087,7 +1085,7 @@ end
 IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     key = "offer",
     can = function(faction_key, slug)
-        -- A HUMAN COURT'S ONLY (spec 2026-09-27 section 5).
+        -- A HUMAN COURT'S ONLY.
         if not IC.is_human(faction_key) then return nil end
         local house = IC.court(faction_key).houses[slug]
         if not house or (house.loyalty or 0) < T.party_offer_line then
@@ -1173,9 +1171,9 @@ function IC.decline_offer(faction_key, slug)
     return true
 end
 
--- A PARTY THAT LEAVES TAKES ITS BUSINESS WITH IT (audit 2026-09-29). The upkeep
--- below clears it at the next turn start; a purge, a dissolve or a secession in
--- between left it on the Petitions tab and in the court button's pulse.
+-- A PARTY THAT LEAVES TAKES ITS BUSINESS WITH IT. The upkeep below clears it
+-- only at the next turn start; until then a purge, dissolve or secession would
+-- leave it on the Petitions tab and in the court button's pulse.
 -- IC.remove_house calls this after the party is gone, and each line below ends
 -- it the way the upkeep would have, card and all.
 function IC.drop_party_business(faction_key, slug)
@@ -1198,9 +1196,9 @@ function IC.expire_offers(faction_key)
     local now = cm:model():turn_number()
     local gone = 0
     for slug, o in pairs(a.offers) do
-        -- ITS MAKER OR ITS TARGET GONE, both answered "gone" (sweep 2026-09-29:
-        -- a calm offer on a party that seceded stayed listed and blocked its
-        -- maker's next offer).
+        -- ITS MAKER OR ITS TARGET GONE, both answered "gone": otherwise a calm
+        -- offer on a party that seceded stays listed and blocks its maker's
+        -- next offer.
         local _ok, why = IC.can_accept_offer(faction_key, slug)
         if now >= o.ends or why == "gone" then
             a.offers[slug] = nil
@@ -1210,7 +1208,7 @@ function IC.expire_offers(faction_key)
     return gone
 end
 
--- WHICH AI COURTS TAKE A PARTY TURN THIS ROUND (spec 2026-09-27 section 5).
+-- WHICH AI COURTS TAKE A PARTY TURN THIS ROUND.
 -- The feud scoring is the expensive part, so ai_party_courts courts act per
 -- round, in the fixed order of IC.ORIGINS' and IC.REBEL_POOL's faction keys: deterministic, so
 -- both machines of a multiplayer game agree. A human court always acts.
@@ -1218,13 +1216,13 @@ function IC.party_turn_due(faction_key)
     if IC.is_human(faction_key) then return true end
     local per = T.ai_party_courts or 0
     if per <= 0 then return false end
-    -- LIVING AI COURTS ONLY: a dead one in the count stretched the period, so
-    -- late in a campaign the few left waited turns for courts that were gone.
+    -- LIVING AI COURTS ONLY: a dead one in the count stretches the period, so
+    -- late in a campaign the few left wait turns for courts that are gone.
     -- Whether a faction is dead is the same on every machine.
-    -- AND THE RISINGS, which run courts too: left out, every one of them took
-    -- position 0 and acted on the same turn (audit 2026-09-29).
-    -- EACH RACE KEEPS ITS OWN ROUND (phase 2 final review): one shared round let
-    -- the fourteen Dwarf holds stretch every Chaos Dwarf court's turn about 3.5x.
+    -- AND THE RISINGS, which run courts too: left out, every one of them takes
+    -- position 0 and acts on the same turn.
+    -- EACH RACE KEEPS ITS OWN ROUND: one shared round lets the fourteen Dwarf
+    -- holds stretch every Chaos Dwarf court's turn about 3.5x.
     -- The court's own race only; a race switched off holds no court to ask.
     local candidates = {}
     local R = IC.R(faction_key)
@@ -1272,14 +1270,14 @@ function IC.ai_placate(faction_key)
     return nil
 end
 
--- AN AI DWARF RULER PAYS WEREGILD (spec 2026-10-04 section 5): to the party
--- with the most grudges, lowest loyalty first, ties in present_houses' order,
--- through IC.plot - so every rule a player meets, the gold among them, holds.
+-- AN AI DWARF RULER PAYS WEREGILD: to the party with the most grudges, lowest
+-- loyalty first, ties in present_houses' order, through IC.plot, so every rule
+-- a player meets, the gold among them, holds.
 function IC.ai_weregild(faction_key)
     if IC.race_key(faction_key) ~= "dwf" then return nil end
     local court = IC.court(faction_key)
     -- EVERY PARTY WITH A GRUDGE, WORST FIRST, so one party whose man cannot be
-    -- reached does not stop the rest being paid (phase 4 final review). The
+    -- reached does not stop the rest being paid. The
     -- order is present_houses' where the two keys tie: the same on every machine.
     local owed = {}
     for i, slug in ipairs(IC.present_houses(faction_key)) do

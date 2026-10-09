@@ -18,83 +18,81 @@ if not mct then return end
 local m = mct:register_mod("derpy_iron_court")
 m:set_title("The Iron Court")
 m:set_author("derpy")
-m:set_description("Parties vie for the offices of your court. The difficulty, the "
-    .. "numbers and whether other factions have courts are read once, when a "
-    .. "campaign starts, and are then fixed for the life of that save. Change them "
+m:set_description("Parties compete for offices in your court. Difficulty, "
+    .. "numbers and courts in other factions are fixed when the "
+    .. "campaign starts. Change them "
     .. "from the main menu before starting a new campaign. The other switches can be "
-    .. "changed at any time. None of it is used in multiplayer, where every player "
-    .. "gets the defaults.")
+    .. "changed at any time. Multiplayer uses the original settings for every "
+    .. "player.")
 
 -- MCT HAS NO CAMPAIGN GATING OF ITS OWN: set_context_specific is an empty
 -- function. The copy frozen into the save is the real defence; the lock is the
 -- notice.
 local IN_CAMPAIGN = __game_mode == __lib_type_campaign
-local LOCK_REASON = "Fixed for the life of a campaign. Change it from the main "
+local LOCK_REASON = "Fixed when a campaign starts. Change it from the main "
     .. "menu before starting a new one."
-local MP_REASON = "Not used in multiplayer, where every player gets the defaults."
+local MP_REASON = "Multiplayer uses the original settings for every player."
 local LIVE_NOTE = " You can change this during a campaign."
 
 -- MULTIPLAYER IS MCT'S ANSWER, NEVER THE GAME'S. This file runs, and its
 -- MctInitialized listener fires, while the campaign is still loading, before
--- the model exists. Asking cm:is_multiplayer() there crashed the game on every
--- new campaign (build 226121E7, 2026-09-25) - a null read inside the engine,
--- which no pcall catches. MCT works the answer out itself before the load and
--- hands it over on MctInitialized; until then this reads single player.
+-- the model exists. Asking cm:is_multiplayer() there crashes the game on every
+-- new campaign: a null read inside the engine, which no pcall catches. MCT
+-- works the answer out itself before the load and hands it over on MctInitialized; until then this reads single player.
 local in_mp = false
 
 m:add_new_section("preset", "Difficulty")
+m:add_new_section("start", "Starting court")
 m:add_new_section("systems", "Systems")
 m:add_new_section("numbers", "Custom numbers")
 m:add_new_section("debug", "Debug")
 
--- ----------------------------------------------------------------- difficulty --
 -- ONE DROPDOWN THAT OWNS THE NUMBERS. Pick anything but Custom and it decides
--- all fourteen and greys them; each greyed slider's reason names its number,
+-- all eighteen and greys them; each greyed slider's reason names its number,
 -- since MCT cannot write one into a locked slider. The switches are read on
 -- every difficulty.
 local o_preset = m:add_new_option("preset", "dropdown")
 o_preset:set_text("Difficulty")
 o_preset:set_tooltip_text("How many rival parties your court starts with, how loyal "
-    .. "they are and how quickly they turn. Choose Custom to set each number "
-    .. "yourself. The switches under Systems are yours on every difficulty.")
+    .. "they are and how soon they leave. Choose Custom to set each number "
+    .. "yourself. You can change the Systems switches on any difficulty.")
 o_preset:set_assigned_section("preset")
 o_preset:add_dropdown_value("gentle", "Gentle",
-    "One rival party. Parties start more loyal, cool more slowly and give longer "
-    .. "warning before they leave. Gifts cost less, and influence comes faster.", false)
+    "One rival party. Loyalty falls more slowly, with longer "
+    .. "warning before parties leave. Parties start more loyal. Gifts cost less and influence comes faster.", false)
 o_preset:add_dropdown_value("default", "Default",
     "Two rival parties. The Iron Court as designed.", true)
 o_preset:add_dropdown_value("harsh", "Harsh",
-    "Three rival parties. Parties start less loyal and leave sooner, a weak Crown "
-    .. "loses its rivals sooner, influence comes more slowly and favours cost more.",
+    "Three rival parties. Parties start less loyal and leave sooner. A weak Crown "
+    .. "loses rivals sooner. Influence comes more slowly and favours cost more.",
     false)
 o_preset:add_dropdown_value("ruthless", "Political Chaos",
-    "Five rival parties, a full court. Every party is a threat. Loyalty falls "
-    .. "fast, a party gives three turns of warning before it leaves, and every "
-    .. "favour is dear.", false)
+    "Five rival parties fill the court. Loyalty falls "
+    .. "fast. Parties give three turns of warning before leaving. Every "
+    .. "favour costs dearly.", false)
 o_preset:add_dropdown_value("custom", "Custom",
     "Set every number under Custom numbers yourself.", false)
 o_preset:set_default_value("default")
 
--- ------------------------------------------------------------------- systems --
--- key, label, section, tooltip, live. Every switch defaults to on. A LIVE one
--- can be flipped in a running campaign; the eight are IC.LIVE_TUNE's.
+-- The Systems switches: key, label, section, tooltip, live. Every switch
+-- defaults to on. A LIVE one can be flipped in a running campaign and must be listed in IC.LIVE_TUNE.
 local SWITCHES = {
     {"parties_act", "Rival parties act on their own", "systems",
      "Parties scheme, feud, make demands and offer deals without being asked. "
-     .. "Off, they do none of this; overseers still gain experience and anything "
+     .. "Off, parties take no new actions. Governors still gain experience and anything "
      .. "already under way still settles.", true},
     {"ai_courts", "Other Chaos Dwarf and Dwarf factions have courts", "systems",
-     "Chaos Dwarf and Dwarf factions you do not play run courts of their own, and "
-     .. "theirs can split. Off, only your court runs.", false},
+     "Other Chaos Dwarf and Dwarf factions have their own courts, which "
+     .. "can split. Off, only your court runs.", false},
     {"secession", "Parties can secede", "systems",
-     "A powerful, angry party counts down and then leaves, taking provinces with "
-     .. "it. Off, no party ever leaves, and a countdown already running stops.", true},
+     "A party with a large share of the court and low loyalty gives warning, then leaves, taking provinces "
+     .. "with it. Off, parties cannot leave and existing countdowns stop.", true},
     {"pressure", "A weak Crown pushes rivals out", "systems",
      "When your own party's share of the court falls too low, the biggest rival "
      .. "party is pushed to leave. Off, it never is.", true},
     {"crown_split", "Your own party can split", "systems",
-     "A Crown whose loyalty runs out splits into a new party. Off, it never does, "
-     .. "and a countdown already running stops.", true},
+     "When your own party runs out of loyalty, it splits. Off, it cannot split "
+     .. "and existing countdowns stop.", true},
     {"all_cards", "Show routine event messages", "systems",
      "When off, routine news (empty seats, parties joining, feuds starting or "
      .. "ending, a party passed over for its own office) goes only to the court's "
@@ -113,8 +111,8 @@ local SWITCHES = {
      .. "you recruit. Off, nothing new is earned and nobody is drawn in; renown "
      .. "already earned fades away.", true},
     {"laws", "Laws", "systems",
-     "Your court passes laws by a vote of its men: four kinds, five laws each. "
-     .. "You and the parties propose them, and you can push, win men or overrule. "
+     "The court votes on laws: four kinds, five laws each. "
+     .. "You and the parties propose laws. You can push a law, win men over or overrule the vote. "
      .. "Off, no law applies and open votes end; the laws in force come back when "
      .. "you turn it on.", true},
     {"dwarf_courts", "Dwarf courts", "systems",
@@ -135,20 +133,20 @@ for i = 1, #SWITCHES do
     o:set_assigned_section(section)
 end
 
--- ------------------------------------------------------------------- numbers --
--- key, label, default, min, max, step, tooltip. The defaults are IC.TUNE's.
+-- The Custom numbers sliders: key, label, default, min, max, step, tooltip.
+-- The defaults are IC.TUNE's.
 local NUMBERS = {
     {"loyalty_start", "Starting loyalty", 55, 30, 80, 1,
      "The loyalty a party has when it first takes its place at court."},
     {"loyalty_drift_none", "Loyalty change each turn for a party with no office",
      -1, -5, 0, 1,
-     "What a party that holds no office loses every turn."},
+     "Loyalty lost each turn by a party with no office."},
     {"secede_loyalty", "Loyalty at which a party threatens to leave", 20, 0, 40, 1,
      "A party big enough to leave starts counting down at or below this loyalty."},
     {"secede_share", "Share of the court a party needs to leave", 25, 5, 50, 1,
-     "The share of the court, in percent, a party must hold before it can leave."},
+     "The percentage of the court a party needs before it can leave."},
     {"secede_turns", "Turns of warning before a party leaves", 5, 1, 10, 1,
-     "How many turns the countdown runs."},
+     "Turns between a party's warning and its departure."},
     {"pressure_below", "Crown share below which rivals are pushed out", 10, 0, 30, 1,
      "When your own party's share of the court falls below this, the biggest "
      .. "rival party can be pushed to leave."},
@@ -164,19 +162,19 @@ local NUMBERS = {
      "A party at or below this loyalty spreads rumours about your men and "
      .. "discredits them."},
     {"rivals_min", "Fewest rival parties", 2, 1, 5, 1,
-     "The fewest rival parties a new court starts with. Set both to the same "
-     .. "number for a court of exactly that size."},
+     "Fewest rivals in a new court. Set both limits to the same "
+     .. "number for exactly that many rivals."},
     {"rivals_max", "Most rival parties", 2, 1, 5, 1,
-     "The most rival parties a new court starts with. Five at most, which fills "
-     .. "the court. Only four parties can rise under a banner of their own; one "
-     .. "that leaves after that rises under a fallen house, or joins a rising "
-     .. "already under way if every house still stands."},
+     "The most rival parties a new court starts with, up to five, which fills the "
+     .. "court. There are only four rebel banners. Once all four are in use, a party "
+     .. "that leaves takes the banner of a fallen house, or joins a rebellion already "
+     .. "under way if no house has fallen."},
     {"term_turns", "Office term, in turns", 10, 2, 20, 1,
      "How many turns an appointment runs. Dismissing a man before his term is up "
      .. "angers his party. When a term ends, the same man cannot take that office "
      .. "again for 3 turns, and his party is not rewarded when he does."},
-    {"gov_levels_per_weight", "Settlement levels per point of governor weight", 2, 1, 5, 1,
-     "A governor's party gains one point of weight per this many settlement "
+    {"gov_levels_per_weight", "Settlement levels per point of governor strength", 2, 1, 5, 1,
+     "A governor's party gains one point of strength per this many settlement "
      .. "levels in his province, rounded up. Every governor is worth at least one."},
     {"gov_pressure_line", "Turns before a leading party asks for its government", 6, 2, 12, 1,
      "How many turns a rival party must lead the court before it asks for its own "
@@ -185,7 +183,7 @@ local NUMBERS = {
      "What refusing a party's government costs the first time. Each refusal after "
      .. "that costs this much more."},
     {"gov_force_cost", "Influence to change your government", 400, 100, 1500, 50,
-     "What changing your government by your own choice costs."},
+     "Influence spent when you choose a new government."},
 }
 
 for i = 1, #NUMBERS do
@@ -199,7 +197,31 @@ for i = 1, #NUMBERS do
     o:set_assigned_section("numbers")
 end
 
--- WHAT EACH DIFFICULTY SETS, said on the greyed slider (audit 2026-09-29).
+-- YOURS ON EVERY DIFFICULTY (IC.TUNE_START): no difficulty sets these, so they
+-- are never greyed from the main menu. Fixed once a campaign starts.
+local STARTS = {
+    {"seed_min", "Fewest members per party at the start", 3, 0, 8, 1,
+     "On the first turn, each party receives lords until it has "
+     .. "between this many and the number below. They wait in your lord "
+     .. "recruitment pool until you hire them, and are hired at the rank a new "
+     .. "lord would have. Set both to 0 to give none."},
+    {"seed_max", "Most members per party at the start", 6, 0, 8, 1,
+     "Most members a party can have after receiving starting lords. Each party "
+     .. "gets a number between these limits. Existing members are kept."},
+}
+
+for i = 1, #STARTS do
+    local key, label, def, lo, hi, step, tip = unpack(STARTS[i])
+    local o = m:add_new_option(key, "slider")
+    o:set_text(label)
+    o:set_tooltip_text(tip)
+    o:slider_set_min_max(lo, hi)
+    o:slider_set_step_size(step)
+    o:set_default_value(def)
+    o:set_assigned_section("start")
+end
+
+-- WHAT EACH DIFFICULTY SETS, said on the greyed slider.
 -- MCT will not write a value into a locked option, so the slider goes on
 -- showing its own number and the lock's reason carries the difficulty's. A copy
 -- of IC.PRESETS, which this file cannot see from the main menu; the court
@@ -234,7 +256,6 @@ local PRESET_VALUES = {
     },
 }
 
--- -------------------------------------------------------------------- locking --
 -- LAST: get_option_by_key answers nil for an option not yet registered, and the
 -- loop below would then lock nothing. Every number belongs to the difficulty
 -- unless it is Custom. In a campaign only the live switches stay open.
@@ -249,11 +270,17 @@ local function relock(preset)
                 local set = PRESET_VALUES[preset] or {}
                 local v = set[NUMBERS[i][1]]
                 if v == nil then v = NUMBERS[i][3] end
-                o:set_locked(true, string.format("The difficulty above sets this to "
+                o:set_locked(true, string.format("Your difficulty sets this to "
                     .. "%s. Choose Custom to edit it.", tostring(v)))
             else
                 o:set_locked(false)
             end
+        end
+    end
+    for i = 1, #STARTS do
+        local o = m:get_option_by_key(STARTS[i][1])
+        if o then
+            if IN_CAMPAIGN then o:set_locked(true, LOCK_REASON) else o:set_locked(false) end
         end
     end
     if IN_CAMPAIGN then o_preset:set_locked(true, LOCK_REASON) end
@@ -281,7 +308,7 @@ core:add_listener("derpy_ic_mct_ready", "MctFinalized", true, function()
     relock(o_preset:get_finalized_setting())
 end, false)
 -- MCT'S load_game PUTS BACK EVERY LOCK THE SAVE WAS WRITTEN WITH, after this
--- file has run - and every save before 2026-09-25 locked all seven switches.
+-- file has run, and older saves locked all seven switches.
 core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function(context)
     in_mp = type(context.is_multiplayer) == "function" and context:is_multiplayer() == true
     relock(o_preset:get_finalized_setting())

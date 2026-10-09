@@ -214,6 +214,10 @@ PALE, GOLD = (235, 225, 200, 255), (255, 211, 122, 255)
 DIM = (0xC9, 0xBF, 0xA8, 255)          # the card descriptions' and help lines' colour
 MARKUP = re.compile(r"\[\[(/?)col(?::([^\]]*))?\]\]")
 
+# --size small|large: the MCT Panel size to draw (gen_guilds_ui.SIZES); "" is Medium.
+DSIZE = ""
+
+
 def _setup(guild=None, tag="", size=None):
     """A canvas, and the means to paste any part of our four files onto it."""
     from PIL import Image, ImageDraw, ImageFont
@@ -249,11 +253,14 @@ def _setup(guild=None, tag="", size=None):
         # The race's own panel and card, as GGUI.frame_path creates them.
         fname = G.frame_file("derpy_gg_" + kind, tag) if kind in ("panel", "card") \
             else "derpy_gg_%s.twui.xml" % kind
+        fname = fname.replace(".twui.xml", DSIZE + ".twui.xml")
         d = model.Document(io.open(os.path.join(OURS, fname), encoding="utf-8").read())
         docs[kind] = d
         for c in d.components:
             named[(kind, c.get("id", c.tag))] = c
-    canvas = Image.new("RGBA", size or (G.PANEL_W, G.PANEL_H), (0, 0, 0, 255))
+    n, d = G.SIZES[DSIZE][:2] if DSIZE else (1, 1)
+    canvas = Image.new("RGBA", size or (int(G.PANEL_W * n / d + 0.5),
+                                        int(G.PANEL_H * n / d + 0.5)), (0, 0, 0, 255))
 
     def paste(kind, name, x, y, w=None, h=None, swap=None, crop=None, by_index=None):
         """`swap` maps an imagepath to the one the Lua puts there with SetImagePath.
@@ -494,7 +501,8 @@ def snapshot(tag="", help_page=None, page=None):
     import subprocess
     import tempfile
     out = tempfile.mkdtemp()
-    env = dict(os.environ, GG_DUMP=out.replace(os.sep, "/"), GG_DUMP_TAG=tag)
+    env = dict(os.environ, GG_DUMP=out.replace(os.sep, "/"), GG_DUMP_TAG=tag,
+               GG_DUMP_SIZE={"_sm": "small", "_lg": "large"}.get(DSIZE, "medium"))
     if help_page:
         env["GG_DUMP_HELP_PAGE"] = str(help_page)
     if page:
@@ -687,7 +695,8 @@ def render_tab(tab, rows, tag="", path=None):
     # THE HEADER'S TWO CELLS SHARE ONE BAR: the heading from the left, the figures from the
     # right. Each fits its own box, so OVER cannot see them run into each other.
     head, stats = rows.get("P/gg_rank_line"), rows.get("P/gg_rank_stats")
-    if head and stats and head["text"] and stats["text"]:
+    # Measured in Medium's design pixels and fonts, so only at Medium.
+    if head and stats and head["text"] and stats["text"] and not DSIZE:
         G = P.G
         x, y, w, h = G.PANEL_LAYOUT["gg_rank_line"]
         lx = float(G.frame(tag)["rank_tx"].split(",")[0])
@@ -697,7 +706,7 @@ def render_tab(tab, rows, tag="", path=None):
         if need > w:
             OVER.append("%s header: heading and figures need %dpx of %d  %s | %s"
                         % (VIEWS[tab], need, w, head["text"][:30], stats["text"][:40]))
-    return _save(P, "gg_%s%s.png" % (VIEWS[tab], tag), path)
+    return _save(P, "gg_%s%s%s.png" % (VIEWS[tab], tag, DSIZE), path)
 
 
 def selftest():
@@ -783,6 +792,10 @@ if __name__ == "__main__":
             print("PROBLEM: " + p)
         args = sys.argv[1:]
         tag = ""
+        if "--size" in args:
+            at = args.index("--size")
+            DSIZE = {"small": "_sm", "large": "_lg", "medium": ""}[args[at + 1]]
+            del args[at:at + 2]
         if "--flavour" in args:
             at = args.index("--flavour")
             tag = "_" + args[at + 1]
@@ -797,7 +810,7 @@ if __name__ == "__main__":
             page = int(args[at + 1])
             got = snapshot(tag, page)
             print("wrote %s" % render_tab(5, got[5], tag, os.path.join(
-                CACHE, "gg_help_p%d%s.png" % (page, tag))))
+                CACHE, "gg_help_p%d%s%s.png" % (page, tag, DSIZE))))
             for o in OVER:
                 print("  TOO WIDE " + o)
             for m in LOW:
@@ -806,10 +819,12 @@ if __name__ == "__main__":
         got = snapshot(tag, page=page)
         for tab in VIEWS:
             print("wrote %s" % render_tab(tab, got[tab], tag, None if not page else
-                  os.path.join(CACHE, "gg_%s%s_g%d.png" % (VIEWS[tab], tag, page))))
-        pick, lines = render_pick(tag=tag)
-        print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
-              % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...") else ""))
+                  os.path.join(CACHE, "gg_%s%s%s_g%d.png" % (VIEWS[tab], tag, DSIZE, page))))
+        if not DSIZE:   # the pick card is drawn from Medium's coordinates
+            pick, lines = render_pick(tag=tag)
+            print("wrote %s  (the instruction takes %d of the card's 2 lines%s)"
+                  % (pick, len(lines), ", CUT" if lines and lines[-1].endswith(" ...")
+                     else ""))
         for o in OVER:
             print("  TOO WIDE " + o)
         # AFTER EVERY RENDER, not after the first. Printed after the Leaderboard alone, the

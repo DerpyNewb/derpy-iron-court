@@ -55,19 +55,18 @@ function ICUI.map_outline(faction_key, slug)
     if not IC.secession_on() then
         local left = IC.grace_left()
         if IC.TUNE.secession ~= false and left > 0 then
-            return {}, string.format("No party can break with you for %d more turn%s.",
+            return {}, string.format("Parties cannot leave for %d more turn%s.",
                                      left, left == 1 and "" or "s")
         end
-        return {}, "Secession is switched off: no party can break with you."
+        return {}, "Secession is switched off. Parties cannot leave."
     end
     return IC.defecting_provinces(faction_key, slug) or {}, nil
 end
 
 -- WHAT THE TIPS SHARE, asked once a refresh: the parties each province would go
 -- with, each party's share and the settlement levels. The first two walk the
--- whole court (IC.share -> every man's party), so asking them once per pin and
--- once per row froze a mid-game realm for seconds a click (final review,
--- 2026-10-01).
+-- whole court (IC.share -> every man's party); asked per pin and per row they
+-- froze a mid-game realm for seconds a click.
 function ICUI.map_memo(faction_key)
     local memo = {goes = {}, share = {}, levels = IC.province_levels(faction_key)}
     if IC.secession_on() then
@@ -95,15 +94,14 @@ function ICUI.map_tip(faction_key, province, row, memo)
         lines[#lines + 1] = string.format("Governor: %s, rank %d", ICUI.character_name(man), rank)
         local slug = IC.house_of_cqi(faction_key, cqi)
         if slug then
-            -- WHAT THIS PROVINCE ADDS TO HIS PARTY (spec 2026-09-30 section 4):
-            -- what it adds NOW, since a governorship is earned a step a turn
+            -- WHAT THIS PROVINCE ADDS TO HIS PARTY: what it adds NOW, since a governorship is earned a step a turn
             -- (IC.grow_governors), and what it grows to while it is.
             local all = memo.levels
             local levels = all[province] or 0
             local now, worth = IC.gov_grown_weight(court, province, all), IC.gov_weight_of(levels)
             if memo.share[slug] == nil then memo.share[slug] = IC.share(faction_key, slug) end
             lines[#lines + 1] = string.format(
-                "%s: +%d weight from this province (%d settlement level%s%s), %d%% of the court",
+                "%s: +%d strength from this province (%d settlement level%s%s), %d%% of the court",
                 ICUI.house_name(slug, faction_key), now, levels, levels == 1 and "" or "s",
                 now < worth and string.format(", growing to +%d", worth) or "",
                 math.floor(memo.share[slug] + 0.5))
@@ -113,7 +111,7 @@ function ICUI.map_tip(faction_key, province, row, memo)
     end
     lines[#lines + 1] = string.format("Loyalty: %d", IC.province_loyalty(faction_key, province))
     for _, slug in ipairs(memo.goes[province] or {}) do
-        lines[#lines + 1] = string.format("Would go with %s if they walked out.",
+        lines[#lines + 1] = string.format("Would leave with %s.",
                                           ICUI.house_name(slug, faction_key))
     end
     -- A ROW CHOOSES; A PIN APPOINTS.
@@ -125,11 +123,11 @@ end
 -- A SELECTION LEAVES THE MAP: the player saw something and went to act on it.
 local function leave_on_select()
     -- THE GOVERNORS VIEW IS SEE-THROUGH, so a click through it can select what
-    -- stands under it: leave the player on what they clicked (spec section 2).
+    -- stands under it: leave the player on what they clicked.
     if ICUI.gm_on() then ICUI.close() end
 end
 
--- THE LISTENERS, registered with the court's (ruling 10): the panel file calls
+-- THE LISTENERS, registered with the court's: the panel file calls
 -- ICUI.register from its first tick, and this wraps it.
 function ICUI.map_register()
     core:add_listener("ic_map_click", "ComponentLClickUp", true, function(context)
@@ -161,15 +159,12 @@ function ICUI.map_register()
                             ICUI.GM_ZOOM_MS, "ic_gm_zoom")
 end
 
--- ---------------------------------------------------------------------------
--- THE GOVERNORS VIEW ON THE LIVE MAP (docs/superpowers/specs/2026-09-30-iron-
--- court-governors-map-design.md). On the Governors tab the court's backdrop
+-- THE GOVERNORS VIEW ON THE LIVE MAP. On the Governors tab the court's backdrop
 -- clears, the panel lets the map have the mouse, and each held province gets a
--- PIN, a FACE, a party BADGE and two PLATES - the name and the loyalty:
--- five siblings on one
--- settlement context, each anchored at its box's bottom centre, made in the
--- panel's first child so they draw under everything the panel file declares
--- (plan ruling 1).
+-- PIN, a FACE, a party BADGE and two PLATES (the name and the loyalty): five
+-- siblings on one settlement context, each anchored at its box's bottom centre,
+-- made in the panel's first child so they draw under everything the panel file
+-- declares.
 ICUI.PATH_GM_PIN = "ui/campaign ui/derpy_ic_gm_pin"
 ICUI.PATH_GM_FACE = "ui/campaign ui/derpy_ic_gm_face"
 ICUI.PATH_GM_NAME = "ui/campaign ui/derpy_ic_gm_name"
@@ -187,13 +182,12 @@ ICUI.GM_PIN_W, ICUI.GM_PIN_H = 180, 146
 ICUI.GM_NAME_H = 94
 ICUI.GM_LOYAL_W, ICUI.GM_LOYAL_H = 113, 30
 -- THE PLATE'S INSIDE, between its two caps: a name is cut to this, not to its
--- box (author, 2026-09-30). Must match GM_NAME_W in tools/gen_ic_ui.py.
+-- box. Must match GM_NAME_W in tools/gen_ic_ui.py.
 ICUI.GM_NAME_W = 156
 ICUI.GP_ART, ICUI.GP_PARTY, ICUI.GP_CAPITAL, ICUI.GP_OUTLINE = 0, 1, 2, 3
 ICUI.GF_PORT, ICUI.GF_CREST = 1, 2
 ICUI.GN_PLATE, ICUI.GN_WASH = 0, 1
--- THE GOVERNOR'S PARTY FLAG on the head (author, 2026-09-30: "no flag or
--- indication what the governer party is"). Must match GM_BADGE_LAYERS.
+-- THE GOVERNOR'S PARTY FLAG on the head. Must match GM_BADGE_LAYERS.
 ICUI.GB_CREST = 0
 -- THE THRONE ROOM, put back on every other view. Must be PANEL_BG (check_gm).
 ICUI.GM_BACKDROP = "ui/derpy_ic/panel_bg.png"
@@ -210,8 +204,7 @@ function ICUI.gm_ring_path(slug)
     return "ui/derpy_ic/gm_ring_" .. slug .. ".png"
 end
 
--- A PARTY'S COLOUR ACROSS THE NAME PLATE'S FACE, or none (author, 2026-09-30:
--- "the map doesnt show the political influence colors of each party").
+-- A PARTY'S COLOUR ACROSS THE NAME PLATE'S FACE, or none.
 function ICUI.gm_wash_path(slug)
     if not slug or slug == "" then return ICUI.MASK_NONE end
     return "ui/derpy_ic/gm_wash_" .. slug .. ".png"
@@ -221,7 +214,7 @@ end
 function ICUI.gm_on()
     -- EVERY OTHER PICKER opens from the Court or Intrigue tabs, and a tab
     -- clears ICUI.pick: on this view a picker is always the governor's, and it
-    -- is drawn in the column (plan ruling 16).
+    -- is drawn in the column.
     return (comp(ICUI.PANEL) and ICUI.view == "govs") and true or false
 end
 
@@ -312,9 +305,8 @@ function ICUI.gm_draw_pins(panel, faction, memo)
                                   ICUI.GF_CREST)
                 plate:SetImagePath(ICUI.gm_wash_path(slug), ICUI.GN_WASH)
                 badge:SetImagePath((slug and ICUI.crest(slug)) or ICUI.MASK_NONE, ICUI.GB_CREST)
-                -- ONE LINE ON EACH PLATE (author, 2026-09-30: "no text ... theres
-                -- '...'"), the name cut to the plate's inside; the pin's tooltip
-                -- carries it whole.
+                -- ONE LINE ON EACH PLATE, the name cut to the plate's inside; the
+                -- pin's tooltip carries it whole.
                 set_text(plate, ICUI.cut_text(plate, loc("provinces_onscreen_" .. province, province),
                                               ICUI.GM_NAME_W))
                 set_text(loyal, string.format("Loyalty %d%%", IC.province_loyalty(faction, province)))
@@ -372,8 +364,7 @@ function ICUI.refresh(...)
     if not ok then IC.warn("IRON COURT: the Governors map failed to draw: " .. tostring(err)) end
 end
 
--- A PIN: the governor picker for its province. PHASE 0 opens the court's own
--- (plan ruling 4); Task 5 moves it into the column.
+-- A PIN: the governor picker for its province, drawn in the column.
 function ICUI.gm_pin_click(index)
     local faction = ICUI.player()
     local province = ICUI.gm_keys[index]
@@ -384,11 +375,9 @@ function ICUI.gm_pin_click(index)
     ICUI.gm_open_picker(province)
 end
 
--- ---------------------------------------------------------------------------
--- THE COLUMN (spec 2026-09-30 sections 1 and 6): CA's Hell-Forge side panel on
--- the left, over the map. Its components are the panel's own, declared in
--- derpy_ic_panel.twui.xml and placed by ICUI.layout; its rows are one pool made
--- here, for all three pages.
+-- THE COLUMN: CA's Hell-Forge side panel on the left, over the map. Its
+-- components are the panel's own, declared in derpy_ic_panel.twui.xml and
+-- placed by ICUI.layout; its rows are one pool made here, for all three pages.
 ICUI.GM_PLATES = {"ic_gm_top", "ic_gm_foot", "ic_gm_col"}
 -- SHOWN WITH THE VIEW. ic_gm_foot is not here: it shows with the footer line.
 ICUI.GM_KEYS = {"ic_gm_top", "ic_gm_col", "ic_gm_head", "ic_gm_tog_1", "ic_gm_tog_2",
@@ -410,7 +399,7 @@ ICUI.GM_ROUND_ART = {
     live = {ROUND .. "active.png", ROUND .. "hover.png"},
     selected = {ROUND .. "selected.png", ROUND .. "selected_hover.png"},
 }
-ICUI.gm_page = "provinces"           -- plan ruling 15
+ICUI.gm_page = "provinces"
 ICUI.gm_party = nil                  -- the chosen Parties row, of the whole list
 ICUI.gm_rows = {}                    -- entry -> the row table drawn there
 ICUI.gm_was_on = false
@@ -439,25 +428,21 @@ function ICUI.gm_show_column(panel, on)
     if not on then show(comp("ic_gm_foot", panel), false) end
 end
 
--- THE COLUMN SCROLLS (author, 2026-10-01: "no scrollbar for selecting a
--- governor"; the mouse wheel and a slider, the pager gone). CA's own list, the
--- Great Guilds' proven shape (docs/CUSTOM_UI.md, "Scrolling lists"). A card has
--- six cells, and a row inside a list must have none, so list_box holds one EMPTY
--- row per entry: that gives the list its length, and it is what the engine
--- scrolls.
+-- THE COLUMN SCROLLS, by the mouse wheel and a slider. CA's own list, the Great
+-- Guilds' proven shape (docs/CUSTOM_UI.md, "Scrolling lists"). A card has six
+-- cells, and a row inside a list must have none, so list_box holds one EMPTY row
+-- per entry: that gives the list its length, and it is what the engine scrolls.
 --
--- DRAWN WHOLE (2026-10-02, docs/CUSTOM_UI.md "Drawn whole", the Zharr Exchange's
--- proven build). Every entry's card is made once, at its own index, under one
--- holder in list_clip; gm_scroll_poll puts the holder where list_box is, and the
--- holder's one MoveTo carries every card. Nothing is redrawn to scroll. The
--- column first drew seven cards and redrew them for each new scroll position,
--- which the Exchange measured at 25-200ms a redraw: it froze a drag and then
--- trailed the bar.
+-- DRAWN WHOLE (docs/CUSTOM_UI.md "Drawn whole"). Every entry's card is made once,
+-- at its own index, under one holder in list_clip; gm_scroll_poll puts the
+-- holder where list_box is, and the holder's one MoveTo carries every card.
+-- Nothing is redrawn to scroll: the Exchange measured a redraw at 25-200ms, which
+-- freezes a drag and then trails the bar.
 --
 -- REBUILT, NOT REWOUND: nothing documented scrolls a list from script, and moving
 -- list_box by hand is how a list scrolls to somewhere it is not. A new page, a
 -- new length or a re-sort makes the list again, at the top, and the cards with
--- it - they are inside it.
+-- it (they are inside it).
 ICUI.GM_SCROLL_MS = 16               -- every frame: the cards trail the bar by up to one tick
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_SCROLL_MS"
 ICUI.GM_HOLDER = "ic_gm_rows"
@@ -559,10 +544,10 @@ function ICUI.gm_scroll_poll()
 end
 
 -- EVERY CARD, from the holder's top at its own index, each made and placed once:
--- placed by hand, the holder's MoveTo carries it from then on. With no holder -
--- the list could not be made - the first GM_ROWS cards go into the panel,
--- unscrolled, and are placed every draw, as before the list. Returns where the
--- cards are and how many of them there are.
+-- placed by hand, the holder's MoveTo carries it from then on. With no holder
+-- (the list could not be made) the first GM_ROWS cards go into the panel,
+-- unscrolled, and are placed every draw. Returns where the cards are and how
+-- many of them there are.
 function ICUI.gm_make_rows(panel, n)
     local list = comp(ICUI.GM_LIST, panel)
     local holder = list and comp(ICUI.GM_HOLDER, list)
@@ -608,9 +593,8 @@ function ICUI.gm_fill_row(row, r)
         row:SetImagePath(ICUI.themed(art[2]), 1)
     end)
     -- NO PORTRAIT, NO PORTRAIT'S GAP: a Parties row's lines start beside its
-    -- crest, as far from it as it is from the frame (author, 2026-10-01:
-    -- "parties tab is not aligned properly"), and with no loyalty icon the
-    -- third line lines up with the other two (the picker's rows too). Placed
+    -- crest, as far from it as it is from the frame, and with no loyalty icon
+    -- the third line lines up with the other two (the picker's rows too). Placed
     -- from the row's own position each draw, so a scrolled card is right too.
     local xy, rx, ry = ICUI.GM_ROW_CHILD_XY, row:Position()
     local dx = r.face and 0 or (2 * xy.ic_gr_crest[1] + xy.ic_gr_crest[3] - xy.ic_gr_l1[1])
@@ -687,7 +671,7 @@ function ICUI.gm_party_rows(faction)
             local n = #list
             out[i] = {l1 = "No governor",
                       l2 = string.format("%d province%s", n, n == 1 and "" or "s"),
-                      tip = "Provinces with no governor. Click one's pin to choose a governor."}
+                      tip = "Provinces with no governor. Click a pin to appoint one."}
         end
     end
     return out
@@ -695,11 +679,10 @@ end
 
 ICUI.gm_sel = nil                    -- the chosen province on the Provinces page
 -- THE PROVINCES PAGE'S SORT: the court's own Governors modes (ICUI.SORTS.govs),
--- by column. Map order is what a third click returns to (plan ruling 13).
+-- by column. Map order is what a third click returns to.
 ICUI.GM_SORTS = {{"Province", 1}, {"Governor", 2}, {"Loyalty", 4}}
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_SORTS"
--- THE CANDIDATES' SORT (author, 2026-10-01: "theres no sorting of candidates"):
--- the court's own picker modes (ICUI.SORTS.pick), so a sort chosen on either
+-- THE CANDIDATES' SORT: the court's own picker modes (ICUI.SORTS.pick), so a sort chosen on either
 -- picker holds on both. Who can be appointed, then rank, then Influence.
 ICUI.GM_PICK_SORTS = {{"Available", 5}, {"Rank", 3}, {"Influence", 4}}
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_PICK_SORTS"
@@ -747,7 +730,7 @@ function ICUI.gm_live_page()
     return ICUI.gm_page
 end
 
--- THE PICKER PAGE: the court's own governor picker, as cards (spec section 3).
+-- THE PICKER PAGE: the court's own governor picker, as cards.
 -- A man the click would refuse is drawn inactive, with the refusal first.
 function ICUI.gm_picker_rows(faction)
     local rows = {}
@@ -779,8 +762,8 @@ local function pick_still_free(rows)
     return false
 end
 
--- THE PROVINCES PAGE: the Governors list, moved (spec section 1), in the order
--- the player asked for.
+-- THE PROVINCES PAGE: the Governors list, moved, in the order the player asked
+-- for.
 function ICUI.gm_province_rows(faction, memo)
     memo = memo or ICUI.map_memo(faction)
     local court = IC.court(faction)
@@ -803,8 +786,8 @@ function ICUI.gm_province_rows(faction, memo)
         rows[i] = {
             key = p, l1 = name, l2 = gov,
             l3 = (not cqi) and string.format("%d%%", loyal)
-                 or (now < worth) and string.format("%d%%, +%d of %d weight", loyal, now, worth)
-                 or string.format("%d%%, +%d weight", loyal, now),
+                 or (now < worth) and string.format("%d%%, +%d of %d strength", loyal, now, worth)
+                 or string.format("%d%%, +%d strength", loyal, now),
             -- HIS FACE; else his party's crest; else the empty seat.
             face = port or ((not cqi) and ICUI.SILHOUETTE or nil),
             vacant = cqi == nil, plate = slug,
@@ -862,7 +845,7 @@ function ICUI.gm_draw_column(panel, faction, memo)
         local chosen = ICUI.gm_party and rows[ICUI.gm_party]
         show(hint, true)
         if #IC.seats(faction) == 0 then
-            set_text(hint, "You hold no province.")
+            set_text(hint, "You hold no provinces.")
         else
             set_text(hint, (chosen and chosen.why) or "Click a party to see what it would take.")
         end
@@ -892,8 +875,8 @@ function ICUI.gm_draw_column(panel, faction, memo)
     local btns = page == "provinces"
     local ok_on, no_on = ICUI.gm_sel ~= nil, governed
     local no_shown = ICUI.gm_sel == nil or governed
-    local ok_tip = "Choose who governs the chosen province."
-    local no_tip = "Release the chosen province's governor."
+    local ok_tip = "Choose a governor for this province."
+    local no_tip = "Release this province's governor."
     if page == "picker" then
         -- THE PICKER'S: appoint the chosen man, or go back without one.
         btns, ok_on, no_on, no_shown = true, ICUI.gm_pick_sel ~= nil, true, true
@@ -951,13 +934,12 @@ function ICUI.gm_ring(panel, faction)
     end
 end
 
--- CA'S OWN REGION OVERLAY, LIT OVER WHAT THE CHOSEN PARTY GOVERNS (author,
--- 2026-10-01: "add back tinting CA's own region overlay by party colour").
--- The engine takes no colour: mode 13, TUTORIAL_REGION_HIGHLIGHT, is its one
--- plain highlight, and one set shows at a time. Probed in game 2026-10-01: it
--- lights exactly the regions handed to it, land only. "No governor" lights the
--- provinces nobody governs. Called only when the set changes, and turned off
--- only when this lit it, so the player's own overlay is left alone.
+-- CA'S OWN REGION OVERLAY, LIT OVER WHAT THE CHOSEN PARTY GOVERNS. The engine
+-- takes no colour: mode 13, TUTORIAL_REGION_HIGHLIGHT, is its one plain
+-- highlight, and one set shows at a time. Probed in game: it lights exactly the
+-- regions handed to it, land only. "No governor" lights the provinces nobody
+-- governs. Called only when the set changes, and turned off only when this lit
+-- it, so the player's own overlay is left alone.
 ICUI.GM_OVERLAY_MODE = 13
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_OVERLAY_MODE"
 ICUI.gm_lit = ""
@@ -993,10 +975,10 @@ function ICUI.gm_light(faction)
     ICUI.gm_lit_d = ICUI.gm_cam_d()
 end
 
--- A ZOOM DROPS IT (seen in play 2026-10-01: zoom out and back in and the
--- party's provinces show the plain map). The engine resets the overlay on a
--- zoom, raises no event and has no getter, so the poll re-lights once the
--- camera has come to rest at a distance other than the one it was lit at.
+-- A ZOOM DROPS IT: zoom out and back in and the party's provinces show the
+-- plain map. The engine resets the overlay on a zoom, raises no event and has
+-- no getter, so the poll re-lights once the camera has come to rest at a
+-- distance other than the one it was lit at.
 ICUI.GM_ZOOM_MS = 300
 ICUI.NOT_SCALED[#ICUI.NOT_SCALED + 1] = "GM_ZOOM_MS"
 function ICUI.gm_cam_d()

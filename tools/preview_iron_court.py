@@ -1,50 +1,27 @@
 # -*- coding: utf-8 -*-
-"""Render the Iron Court's COURT and INTRIGUE tabs to PNGs with the game shut, and
-validate their XML.
+"""Render every Iron Court view to PNGs with the game shut, and validate the XML.
 
-WHY THIS EXISTS. The court tab was rebuilt twice from screenshots the player took in a
-running campaign - once to put the party cards where the table was, once to put a plate
-behind the dial - and each loop cost a launch, a save load and a tab click. Everything in
-this mod is checked offline except the picture, which was the one thing being reported.
+Every view in VIEWS (plus DWF_VIEWS for the Dwarfs), at every size in SIZES, for both
+races, into .skilltree_cache/ui_preview/. A Chaos Dwarf view is drawn from gen_ic_ui.py's
+coordinates with its words parsed out of the shipped Lua; the laws views and every Dwarf
+view are what the shipped Lua itself left on the harness's fake tree (IC_DUMP and
+IC_DUMP_RACE, run under lua.exe). Our .twui.xml carries no offsets, because the Lua
+MoveTo's every piece, so the file alone would stack the panel in one corner.
 
-TWO INDEPENDENT THINGS HAPPEN HERE, exactly as in tools/preview_guilds_panel.py, whose
-validator, art extractor and TWUI Studio importer this reuses rather than copies:
+It reuses tools/preview_guilds_panel.py's two halves: TWUI Studio's reader validates the
+<hierarchy>/<components> links the way the engine does, and its rasteriser nine-slices
+CA's art. The demo court is the hardest one the model can roll: the Crown plus rivals_max
+rivals, each wearing the longest name its tail list allows. Text is PIL's font widened by
+GAME_FONT_WIDER, so wraps are faithful; whether a label fits is gen_ic_ui.py check 20g's
+question, not this one's.
 
-  1. VALIDATE. TWUI Studio's own document reader links <hierarchy> to <components> the way
-     the engine does. It has never heard of gen_ic_ui.py, so it is a second opinion on the
-     GUID discipline that the generator enforces from the inside.
-
-  2. DRAW. Its rasteriser nine-slices and tiles CA's art the way the game does, so the
-     plate, the pie, the Crown's block and the ten card slots can be looked at.
-
-WHAT IS EXACT AND WHAT IS NOT. Every POSITION and SIZE comes from gen_ic_ui.py, which is
-where the panel's coordinates actually live - our .twui.xml files carry no offsets, because
-the engine ignores them on a runtime-created component and zzz_derpy_iron_court_ui.lua
-MoveTo's every piece. So the geometry on screen is the geometry here.
-
-THE CONTENTS are not your save's - this runs no Lua - but they are not invented either:
-the court is the Crown plus rivals_max rivals, each wearing the LONGEST name its own tail
-list can roll, so the picture is the hardest case the model can produce rather than a
-comfortable one. The slice split is this file's own largest-remainder sum and not
-ICUI.bar_widths.
-
-THE TEXT IS PIL'S FONT, not the game's, and a 2026-09-13 screenshot of the shipped panel
-measured the gap: the game wrapped a name PIL calls 210px inside a 280px cell, so PIL
-understates width by between a third and four fifths. GAME_FONT_WIDER scales the two-line
-split by the low end of that, which makes the WRAP faithful and leaves everything else
-approximate. It still cannot answer "does that label fit" - gen_ic_ui.py's check 20g asks
-the engine's own TextDimensionsForText, and that is the only honest answer.
-
-THE SECOND TAB. The court tab is a card grid and the other four are the shared row pool,
-so INTRIGUE is drawn here as well - one picture per SHAPE, not one per tab. It is the
-list this mod has never looked at: nine moves, each a price, a name, a blurb and a
-button, three of them priced past what the demo court can pay and therefore red.
-
-    py tools/preview_iron_court.py             # render both to .skilltree_cache/ui_preview/
-    py tools/preview_iron_court.py --check     # validate the XML only, no PNG
+    py tools/preview_iron_court.py                 # every view, both races
+    py tools/preview_iron_court.py --race dwf      # one race
+    py tools/preview_iron_court.py --check         # validate the XML only, no PNG
     py tools/preview_iron_court.py --selftest
 
-Vendored source: TWUI_Studio/src (non-commercial licence, see its LICENSE.txt).
+Vendored source: TWUI_Studio/pyc, else TWUI_Studio/src (non-commercial licence, see its
+LICENSE.txt).
 """
 import collections
 import io
@@ -69,25 +46,24 @@ OUT_INTRIGUE = os.path.join(PG.CACHE, "ic_intrigue.png")
 # panel as it opens; the second is the same twelve men under AVAILABLE.
 OUT_PICK = os.path.join(PG.CACHE, "ic_pick.png")
 OUT_PICK_READY = os.path.join(PG.CACHE, "ic_pick_ready.png")
-# THE ZIGGURAT, which is the tab the panel opens on and the one shape here that
-# had never been drawn. Fourteen cards in four bands, half of them empty.
+# THE ZIGGURAT, the tab the panel opens on. Fourteen cards in four bands, half
+# of them empty.
 OUT_OFFICES = os.path.join(PG.CACHE, "ic_offices.png")
-# THE PETITIONS TAB (2026-09-24): the one list with two buttons on a row, and
-# the one whose worst line - the longest name demanding the longest province -
-# was measured over its column before the row was rearranged.
+# THE PETITIONS TAB: the one list with two buttons on a row. Its worst line is
+# the longest name demanding the longest province.
 OUT_PETITIONS = os.path.join(PG.CACHE, "ic_petitions.png")
-# THE GOVERNORS VIEW (plan 2026-09-30): the column over the live map, as two
+# THE GOVERNORS VIEW: the column over the live map, as two
 # pictures, one per page shape. The map is a flat stand-in - a shut game has no
 # campaign map to draw - and the pins stand on it in a sheet, not on
 # settlements, which is the engine's job.
 OUT_GM = os.path.join(PG.CACHE, "ic_gm_provinces.png")
 OUT_GM_PICK = os.path.join(PG.CACHE, "ic_gm_picker.png")
 GM_MAP_FILL = (46, 52, 38, 255)
-# THE LAWS TAB (plan 2026-10-02 laws): the board of twenty laws with the chosen
+# THE LAWS TAB: the board of twenty laws with the chosen
 # one read out on the right, and a vote's two sides of party blocks.
 OUT_LAW_BOARD = os.path.join(PG.CACHE, "ic_law_board.png")
 OUT_LAW_VOTE = os.path.join(PG.CACHE, "ic_law_vote.png")
-# THE GOVERNMENT CHOOSER (2026-10-03, design A): five cards, off the same dump.
+# THE GOVERNMENT CHOOSER: five cards, off the same dump.
 OUT_GOV_CARDS = os.path.join(PG.CACHE, "ic_gov_cards.png")
 VIEWS = ("court", "intrigue", "pick", "pick_ready", "offices", "petitions",
          "gm_provinces", "gm_picker", "law_board", "law_vote", "gov_cards")
@@ -180,7 +156,7 @@ def _header_row(ui, view):
 
 def _pick_d_fmt(ui):
     """The picker's fourth cell, read off ICUI.draw_picker's own format string."""
-    return re.search(r'string\.format\("(%d [a-z]+ - %s)"', ui).group(1)
+    return re.search(r'string\.format\("(%d [a-z]+: %s)"', ui).group(1)
 
 
 def lua_words(src, name):
@@ -193,12 +169,7 @@ def lua_words(src, name):
                       re.search(r"%s = \{(.*?)\}" % re.escape(name), src, re.S).group(1))
 
 
-# A MOVE, BY NAME AND NOT BY POSITION. It was a bare tuple and it GREW - icon
-# and cat arrived with the category columns - and every reader that unpacked a
-# fixed five went on reading five. The selftest did, which is how the one
-# instrument that would have said so became the thing that was broken.
-#
-# A namedtuple still indexes, so p[0] and p[4] keep working; what it stops is
+# A MOVE, BY NAME AND NOT BY POSITION. A namedtuple still indexes, so p[0] and p[4] keep working; what it stops is
 # the next field silently breaking a reader that spells the arity out.
 Move = collections.namedtuple(
     "Move", "key name blurb cost aimed icon cat effect race gold",
@@ -255,11 +226,10 @@ def read_plots():
         icon = re.search(r'icon = "([^"]+)"', chunk).group(1)
         cat = re.search(r'cat = "(\w+)"', chunk).group(1)
         # WHAT THE MOVE DOES, resolved. fill_plot draws effect .. " " .. blurb,
-        # so a picture that drew the blurb alone would be a picture of a panel
-        # that has not existed since 2026-09-16.
+        # so drawing the blurb alone would misdraw the panel.
         effect = _resolve_effect(
             chunk[chunk.index("effect = "):chunk.index("blurb =")], _tune(src))
-        # A RACE'S OWN MOVE, and one paid in gold (plan 2026-10-04 phase 4).
+        # A RACE'S OWN MOVE, and one paid in gold.
         race = re.search(r'race = "(\w+)"', chunk)
         out.append(Move(key, name, blurb, cost, "aimed = false" not in chunk,
                         icon, cat, effect, race.group(1) if race else None,
@@ -350,21 +320,15 @@ def validate():
     return problems
 
 
-# ---------------------------------------------------------------------------
-# THE WORST COURT THE MODEL CAN ROLL, not a comfortable one.
+# THE WORST COURT THE MODEL CAN ROLL, not a comfortable one. A real court's
+# names are ROLLED out of IC.NAME_HEADS and IC.NAME_TAILS ("The League of the
+# Ninth Furnace"), and an easier demo hides the case the card's two-line name
+# exists for.
 #
-# The first version of this file invented nine parties on a spread of shares
-# wearing the GENERIC interest names - "The Crown", "The Forge". A screenshot of
-# the shipped panel showed what a real one is: five parties on 20% each, every
-# name ROLLED out of IC.NAME_HEADS and IC.NAME_TAILS and half again as long
-# ("The League of the Ninth Furnace"). A demo easier than the real thing is a
-# preview that lies about the only question the card's two-line name exists for.
-#
-# So the court is derived: the Crown plus the LARGEST rivals_max in the model -
-# Ruthless's five, the most the roller ever seats, which fills the grid - each wearing the LONGEST name its own tail list can
-# produce, and the Crown wearing a faction display name, which this mod does not
-# write and cannot bound.
-# ---------------------------------------------------------------------------
+# So the court is derived: the Crown plus the LARGEST rivals_max in the model
+# (Ruthless's five, the most the roller ever seats, which fills the grid), each
+# wearing the LONGEST name its own tail list can produce, and the Crown wearing
+# a faction display name, which this mod does not write and cannot bound.
 # One loyalty in each mood band: the plate is the only cell whose text turns on a
 # threshold, so a demo where they all read LOYAL never draws the other two.
 DEMO_LOYALTY = (100, 57, 52, 21, 54, 38)
@@ -485,7 +449,7 @@ def race_dump(race, _cache={}):
     loc["factions_screen_name_wh_main_dwf_karak_kadrin"] = names[
         "factions_screen_name_wh_main_dwf_karak_kadrin"]
     loc["derpy_demo_dwf_fore"], loc["derpy_demo_dwf_sur"] = "Ungrim", "Ironfist"
-    # THE BOOK'S HARD CASE (plan 2026-10-04 phase 5): CA's three longest faction
+    # THE BOOK'S HARD CASE: CA's three longest faction
     # screen names, met and weighed by the dump's court - a picture of three short
     # names answers nothing about a cut cell.
     book = sorted(((k[len("factions_screen_name_"):], t) for k, t in names.items()
@@ -596,10 +560,9 @@ TAB_SELECTED = "ui/derpy_ic/chd_tab_selected.png"
 # ponytail: one ratio for one font at one size, measured from a single screenshot.
 # The real fix is the engine's TextDimensionsForText, which only runs in game -
 # gen_ic_ui.py check 20g already asks it, and that check owns the fit question.
-# THE GENERATOR'S NUMBER, not a second copy of it. It was 1.33 here, measured
-# against PIL's DEFAULT face; this file draws with Segoe UI Black now - the same
-# face gen_ic_ui measures with - so the factor had to be re-expressed against
-# that face or it double-counted, and two copies of one measurement drift.
+# THE GENERATOR'S NUMBER, not a second copy of it. This file draws with Segoe UI
+# Black, the face gen_ic_ui measures with, so the factor is expressed against
+# that face; a figure taken against PIL's default face would double-count.
 GAME_FONT_WIDER = _gen().GAME_FONT_WIDER
 
 # CA portholes, so the faces are real art at the real aspect rather than grey boxes.
@@ -673,16 +636,8 @@ def segments(s):
 # rich man is in the field can buy a knife and not a feast, and a single purse
 # could not draw that.
 #
-# Chosen to straddle the price list rather than to be comfortable, and RE-PICKED
-# on 2026-09-15 because the list moved and these did not.
-#
-# They were 250 and 90, picked when the tab held nine moves and Errands held two
-# - 90 bought the embezzlement at 60 and refused the feast at 100, which was one
-# of each. Errands is four moves now and 90 buys ONE of them, so that column drew
-# almost uniformly red and said as little as a column with no red at all. The
-# aimed half had drifted the other way: 250 refused only the purge, one row in
-# twelve.
-#
+# Chosen to straddle the price list rather than to be comfortable: a column that
+# draws all red, or none, says nothing. Re-pick them when the prices move.
 # 155 and 105 are each about the middle of their own list, so both columns draw
 # roughly half affordable and half refused:
 #
@@ -704,14 +659,10 @@ def red(s):
 def intrigue_lines(G, court):
     """The intrigue tab's WARNINGS, in ICUI.draw_intrigue's order and shape.
 
-    NOT ROWS ANY MORE, and the name is the last thing left of that. The tab is
-    four columns of cards and ICUI.rows_shown("intrigue") is 0; what these feed
-    is the alert bar, which takes the most urgent sentence and a count of the
-    rest. The moves are plot_cards().
-
-    The paragraph that used to be here said "three warnings plus nine moves is
-    exactly ICUI.MAX_ROWS", which stopped being true when the moves became cards
-    and stayed in the file until 2026-09-15.
+    NOT ROWS, despite the name. The tab is four columns of cards and
+    ICUI.rows_shown("intrigue") is 0; what these feed is the alert bar, which
+    takes the most urgent sentence and a count of the rest. The moves are
+    plot_cards().
 
     Both warning sentences are lifted out of the panel Lua rather than retyped.
     Lua's string.format and Python's % take the same %s and %d, so the format
@@ -729,15 +680,12 @@ def intrigue_lines(G, court):
     lines.append(["", clock_fmt % (court[2][1], 1, ""), "", "", ""])
     lines.append(["", snub_fmt % (court[3][1], G.IC.OFFICES[0]["name"]), "", "", ""])
 
-    # THE MOVES ARE NOT ROWS ANY MORE. They are a grid of cards below this band,
-    # drawn by plot_cards(); what is left here is the warnings, which is all the
-    # row pool carries on this tab now.
+    # The moves are a grid of cards below this band, drawn by plot_cards(); the
+    # row pool carries only the warnings on this tab.
     return lines
 
 
-# A DRAWN MOVE CARD. Named for the same reason Move is: this started as four
-# fields and is six, and its docstring was still promising four on 2026-09-15
-# while every reader indexed past them.
+# A DRAWN MOVE CARD, a namedtuple for the same reason Move is.
 Card = collections.namedtuple("Card", "name blurb price afford icon cat")
 
 
@@ -804,7 +752,7 @@ def petition_rows(G, court):
     tune = _party_tune()
     body = ui.split("function ICUI.draw_petitions(")[1].split("\nend")[0]
     oversee = re.search(r'"(Demands to oversee %s)"', body).group(1)
-    offers = re.search(r'"(Offers %s - %s)"', body).group(1)
+    offers = re.search('"(Offers %s: %s)"', body).group(1)
     what = ui.split("function ICUI.offer_what(")[1].split("\nend")[0]
     calm = re.search(r'"(calm %s \(\+%d loyalty\))"', what).group(1)
     troops = re.search(r'if row then return string\.format\("(%d %s)"', what).group(1)
@@ -856,7 +804,6 @@ def _asset(path):
     return Path(cached) if os.path.isfile(cached) else None
 
 
-# ---------------------------------------------------------------------------
 # The demo roster for the picker.
 #
 # TWELVE MEN, WHICH IS EXACTLY ICUI.MAX_ROWS, so the pool is full and the picture
@@ -906,8 +853,8 @@ DEMO_PICK = (
 # (name, overseer or None, house, away, loyalty). Six of them, and the mix is
 # the point rather than the count: a province with an overseer standing in it, a
 # province whose overseer has marched off, three houses so the crest column has
-# something to say now that the party COLUMN has gone, and two provinces with
-# nobody at all - which is the row this tab was redrawn for.
+# something to say (the row has no party column), and two provinces with
+# nobody at all, the row this tab exists to flag.
 #
 # THE LOYALTIES STRADDLE THE MOOD BANDS on purpose. A list where every number is
 # comfortable says nothing about whether the column reads at a glance, which is
@@ -965,13 +912,12 @@ def cut_words(width_of, s, cw):
 
     MIRRORED, NOT SHARED. The panel asks the ENGINE for the real width and this
     asks PIL, which is the same stand-in fit_two uses here and is OPTIMISTIC -
-    a string that just fits in the picture may still be cut on screen. What the
-    mirror is for is the opposite error, which is the one that shipped: a cell
-    drawn with no cut at all, straight out through the side of its card.
+    a string that just fits in the picture may still be cut on screen. The
+    mirror catches the opposite error: a cell drawn with no cut at all, straight
+    out through the side of its card.
 
-    ONE FUNCTION FOR TWO CALLERS. It was written inside the offices branch for
-    the card's two unmeasurable cells; the picker's first cell is cut in the
-    shipped Lua too, and a second copy of this is how the two would drift.
+    ONE FUNCTION FOR TWO CALLERS, the offices card's two unmeasurable cells and
+    the picker's first cell, so the two cannot drift.
     """
     s = s or ""
     if not s or width_of(s) <= cw:
@@ -1061,10 +1007,10 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     # why the newline is in the pattern.
     trait_icon = re.search(r'ICUI\.TRAIT_ICON\s*=\s*"([^"]+)"',
                            ui).group(1)
-    # AND THE CROWN BLOCK'S LINE ICONS (2026-09-28), the band's and each
+    # AND THE CROWN BLOCK'S LINE ICONS, the band's and each
     # effect's, named only in the Lua for the same reason.
     band_icon = re.search(r'ICUI\.BAND_ICON\s*=\s*"([^"]+)"', ui).group(1)
-    # AND EACH GOVERNMENT'S PICTURE (2026-10-02), out of IC.GOVS the way the
+    # AND EACH GOVERNMENT'S PICTURE, out of IC.GOVS the way the
     # generator reads it for the bundles.
     gov_icons = {k: "ui/campaign ui/effect_bundles/" + v
                  for k, v in G.IC.model_gov_icons().items()}
@@ -1175,13 +1121,11 @@ def render(path=None, view="court", box_w=1920, race="chd"):
 
     # THE SAME FACE gen_ic_ui MEASURES WITH, and not PIL's default.
     #
-    # The default is a wide bitmap face, so the picture broke lines where the
-    # engine will not: on the 2026-09-14 font pass it cut five of sixteen move
-    # blurbs mid-sentence while the generator's own check - Segoe UI Black, the
-    # heaviest desktop face on the machine and the conservative proxy - measured
-    # every one of them inside three lines. A preview that disagrees with the
-    # check about where a line ends cannot be used to answer a layout question,
-    # and answering layout questions is what it is for.
+    # The default is a wide bitmap face that breaks lines where the engine will
+    # not (five of sixteen move blurbs cut mid-sentence), while the generator's
+    # check measures with Segoe UI Black, the heaviest desktop face on the
+    # machine and the conservative proxy. A preview that disagrees with the check
+    # about where a line ends cannot answer a layout question.
     #
     # Still a PROXY. The engine's figure is TextDimensionsForText and needs the
     # game running; this only makes the picture agree with the check that refuses
@@ -1277,8 +1221,8 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         tc = st.child("component_text") if st is not None else None
         top, bot = model.pair(tc.get("textyoffset") if tc is not None else None, (0, 0))
         # CENTRED ON THE GLYPHS' MIDDLE (anchor "lm"), not on PIL's line box, which
-        # sits them ~5px low: measured against the 2026-09-26 in-game shot, where the
-        # column title's letters centre on their cell.
+        # sits them ~5px low: measured against an in-game shot, where the column
+        # title's letters centre on their cell.
         mid = y + top + (h - top - bot) / 2
         ty = mid - px / 2
         for kind, body, tint in parts:
@@ -1293,7 +1237,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                       anchor="lm")
             tx += draw.textlength(body, font=f)
 
-    # ---- A RACE OTHER THAN THE CHAOS DWARFS IS DRAWN FROM THE DUMP -----------
+    # A RACE OTHER THAN THE CHAOS DWARFS IS DRAWN FROM THE DUMP.
     #
     # Every visible component the shipped Lua left on the fake tree, at its MoveTo
     # position, with the pictures and words it set, painted with its own file's
@@ -1428,7 +1372,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                      % (view, box_w, p) for p in sorted(seen_art) if p and G.chd_art(p)]
         return out, n_art, missing + problems, drawn[0]
 
-    # ---- the panel, then the tab's own furniture -------------------------
+    # The panel, then the tab's own furniture.
     # ON THE GOVERNORS VIEW THE BACKDROP IS CLEARED (ICUI.gm_sync), so the
     # panel's own image 0 is left undrawn and the map shows through.
     paste(panel, named[("panel", "derpy_ic_panel")], 0, 0, G.PANEL_W, G.PANEL_H,
@@ -1465,7 +1409,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
 
         paste(panel, named[("panel", "ic_dial_rim")], *G.RIM_BOX)
 
-        # ---- the crests and the figures on the pie -----------------------
+        # The crests and the figures on the pie.
         def arc_box(radius, f, w, h):
             a = math.pi * (1 - f)
             return (int(math.floor(G.DIAL_CX + radius * math.cos(a) - w / 2.0 + 0.5)),
@@ -1487,7 +1431,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                 text(panel, named[("panel", "ic_barp_%02d" % i)], "%d%%" % share,
                      sx, sy, G.SHARE_W, G.SHARE_H)
 
-    # ---- every static cell the court view shows --------------------------
+    # Every static cell the court view shows.
     # THE BAND THE DEMO SHARE ACTUALLY LANDS IN, off the model's own table. Typed,
     # it said "Contested" beside effects belonging to a different band.
     # WHICH VIEW'S CHROME THIS PICTURE WEARS. A picker is a MODAL: ICUI.live_view
@@ -1502,7 +1446,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     # that stays lit under it.
     _lit_tab = "offices" if _base == "pick" else ("govs" if gm else view)
     if law:
-        # The government cards open from the Court tab's Change Doctrine button.
+        # The government cards open from the Court tab's New Government button.
         _lit_tab = "court" if view == "gov_cards" else "laws"
     _band = [b for b in G.IC.CONTROL_BANDS if court[0][2] >= b[1]][0]
     _sufferance = int(re.search(r"sufferance_share\s*=\s*(\d+)", lua("model")).group(1))
@@ -1530,12 +1474,12 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         # band's effects one to a line - what draw_court writes.
         "ic_control": "[[img:%s]][[/img]]%d%% of the court" % (cost_icon, court[0][2]),
         "ic_control_band": "[[img:%s]][[/img]]%s" % (band_icon, _band[2]),
-        # THE GOVERNMENT'S ROW (spec 2026-10-02): the LONGEST name, as draw_gov
+        # THE GOVERNMENT'S ROW: the LONGEST name, as draw_gov
         # writes it, since a picture of the easy case answers nothing.
-        "ic_gov": ("[[img:%s]][[/img]]Government: %s  ->  [[img:%s]][[/img]]%d/%d"
+        "ic_gov": ("[[img:%s]][[/img]]Government: %s [[img:%s]][[/img]]%d of %d"
                    % (gov_icons[longest_gov[0]], longest_gov[1],
                       gov_icons["conclave"], 5, 6)),
-        "ic_gov_btn": "Change Doctrine",
+        "ic_gov_btn": "New Government",
         "ic_leader_lbl": "The Crown",
         "ic_leader_name": DEMO_LEADERS[0],
         "ic_leader_party": "[[img:%s]][[/img]]%s" % (G.sigil_path("crown"), court[0][1]),
@@ -1578,7 +1522,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     # show rather than one it quietly avoids. Read out of the Lua, so a key added
     # to either list is hidden here too.
     hidden = set(("ic_page_prev", "ic_page_lbl", "ic_page_next"))    # see STRINGS
-    # THE BOOK'S LINE (plan 2026-10-04 phase 5) is a Dwarf court's only, and this
+    # THE BOOK'S LINE is a Dwarf court's only, and this
     # path draws the Chaos Dwarf court; the Dwarf one is the shipped Lua's dump.
     if not re.search(r'show\(comp\("ic_book", panel\), false\)', ui):
         raise SystemExit("ICUI.refresh no longer hides ic_book by name on a "
@@ -1591,9 +1535,8 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     if gm and STRINGS.get("ic_alert"):
         hidden.discard("ic_gm_foot")
     # THE HELP PAGE'S CELLS ARE THE HELP VIEW'S, and no picture here is of it;
-    # THE FILL BUTTON IS THE OFFICES TAB'S. Both off ICUI.refresh's own tests,
-    # which every picture drew past until the Governors view's map had to show
-    # through the help card (2026-09-30).
+    # THE FILL BUTTON IS THE OFFICES TAB'S. Both off ICUI.refresh's own tests;
+    # drawn anyway, the help card covers the Governors view's map.
     if not re.search(r'show\(comp\(name, panel\), view == "help" and not ICUI\.pick\)', ui) \
             or not re.search(r'show\(comp\("ic_fill", panel\), ICUI\.pick == nil and '
                              r'ICUI\.view == "offices"\)', ui):
@@ -1607,7 +1550,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         raise SystemExit("ICUI.refresh no longer gates ic_zig_bg as this reads it")
     if view != "offices":
         hidden.add("ic_zig_bg")
-    # AND THE TITLE ON ITS SHRINE (author, 2026-10-03), its words the Lua's own.
+    # AND THE TITLE ON ITS SHRINE, its words the Lua's own.
     if not re.search(r'show\(comp\("ic_off_title", panel\), view == "offices"\)', ui):
         raise SystemExit("ICUI.refresh no longer gates ic_off_title as this reads it")
     if view != "offices":
@@ -1677,9 +1620,9 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         if _i not in _cols or not (_heads or [""] * 5)[_i - 1]:
             hidden.add(_key)
     # THE MOVE GROUPS' HEADINGS ARE THE INTRIGUE TAB'S ALONE: ICUI.refresh shows
-    # each ic_plotcat_N only when view == "intrigue". Harmless to draw while
-    # they were bare text left blank; on a plate (2026-09-26) they drew four
-    # empty bars across the pie. Read off the Lua's own condition.
+    # each ic_plotcat_N only when view == "intrigue". On their plates, drawn
+    # elsewhere, they are four empty bars across the pie. Read off the Lua's own
+    # condition.
     if not re.search(r'show\(comp\("ic_plotcat_" \.\. i, panel\), view == "intrigue"\)', ui):
         raise SystemExit("ICUI.refresh no longer shows ic_plotcat_N on intrigue "
                          "alone - re-read it before trusting this picture")
@@ -1813,20 +1756,18 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         if s:
             text(panel, named[("panel", name)], s, x, y, w, h)
 
-    # ---- the list views: the header strip, then the shared row pool -------
+    # The list views: the header strip, then the shared row pool.
     #
-    # A VIEW WITH NO ENTRY IN ICUI.HEADERS DRAWS NO STRIP, and there are two of
-    # them now: the court has no row list, and intrigue has its own column
+    # A VIEW WITH NO ENTRY IN ICUI.HEADERS DRAWS NO STRIP. There are two: the court has no row list, and intrigue has its own column
     # headings over a grid of cards. Testing the table rather than naming the
     # views is what the dispatcher does - `ICUI.HEADERS[view]` nil hides all five.
     # AND A PICKER TAKES PICK_HEADERS, which is a separate table - ICUI.HEADERS
     # has no "pick" row at all, and refresh falls through to ICUI.PICK_HEADERS
     # for exactly that reason.
     # ONE READER FOR THE CAPTIONS, which is _header_row - the same one the arrow
-    # visibility above is decided by. There used to be a second regex here and it
-    # demanded exactly one space in front of the "=": ICUI.HEADERS pads its keys
-    # into a column, so `govs     = {` never matched and the governors tab drew
-    # three sort arrows over three headings that were not on the picture at all.
+    # visibility above is decided by. ICUI.HEADERS pads its keys into a column
+    # (`govs     = {`), so a second regex expecting one space before the "="
+    # would miss rows and draw arrows over headings that are not there.
     if _heads:
         for i, key in enumerate(lua_words(ui, "ICUI.HDR_KEYS")):
             if not _heads[i]:
@@ -1835,7 +1776,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             paste(panel, named[("panel", key)], hx, hy, hw, hh)
             text(panel, named[("panel", key)], _heads[i], hx, hy, hw, hh)
 
-    # ---- the Governors view: the column's rows, then pins on the map -------
+    # The Governors view: the column's rows, then pins on the map.
     if gm:
         def grow(i, r):
             """One row of the column's pool, as ICUI.gm_fill_row fills it."""
@@ -1884,7 +1825,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                     "look": "selected" if i == 1 else "active",
                     "l1": prov,
                     "l2": (who + " (away)") if (who and away) else (who or "None assigned"),
-                    "l3": ("%d%%, +%d weight" % (loyal, weight)) if who else "%d%%" % loyal,
+                    "l3": ("%d%%, +%d strength" % (loyal, weight)) if who else "%d%%" % loyal,
                     "face": DEMO_FACES[i % len(DEMO_FACES)] if who else G.SIL_PATH,
                     "vacant": who is None, "plate": slug,
                     "badge": G.sigil_path(slug) if who else None,
@@ -1954,7 +1895,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         canvas.convert("RGB").save(out)
         return out, n_art, missing, drawn
 
-    # ---- the character picker: the shared row pool, twelve men deep -----
+    # The character picker: the shared row pool, twelve men deep.
     if view in ("pick", "pick_ready"):
         rows = pick_lines(view == "pick_ready")
         _kw = _kind_words(ui)
@@ -2005,15 +1946,11 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             rcut("ic_row_a", "%s%s - %s"
                  % ((_kw[kind] + " ") if _kw else "", name, trade))
             rcell("ic_row_b", party_name)
-            # AND THE RANK CELL, A NUMBER AGAIN. It held "General 42" for
-            # exactly one build - 45px of column with the word drawn straight
-            # through the influence heading beside it, which is what this
-            # picture was looking at when it caught the change half-made.
+            # THE RANK CELL IS A NUMBER: 45px of column has no room for a word
+            # before it, which would run into the influence heading.
             rcell("ic_row_c", str(rank))
-            # THE PANEL'S OWN FORMAT, not a copy of it. This cell read
-            # "%d standing - %s" for as long as the model called it standing,
-            # and went on saying so after the panel was renamed to influence -
-            # a preview quietly showing a word the game does not use.
+            # THE PANEL'S OWN FORMAT, not a copy of it, so a renamed word in the
+            # panel reaches the picture.
             rcell("ic_row_d", _pick_d_fmt(ui)
                   % (standing, holds if holds else "None"))
             # RED ON EXACTLY THE ROWS THE CLICK WOULD REFUSE, which is the rule
@@ -2028,7 +1965,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         canvas.convert("RGB").save(out)
         return out, n_art, missing, len(rows)
 
-    # ---- the laws tab: the bar's pieces, then the two pools -------------
+    # The laws tab: the bar's pieces, then the two pools.
     if law:
         # THE SUPPORT BAR'S PIECES, where draw_law_bar MoveTo'd them on the
         # 1920 tree, scaled the way every layout number is.
@@ -2080,7 +2017,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         canvas.convert("RGB").save(out)
         return out, n_art, missing, drawn
 
-    # ---- the petitions: a demand, then the offers ----------------------
+    # The petitions: a demand, then the offers.
     if view == "petitions":
         rows = petition_rows(G, court)
         # COLUMN TWO RUNS TO REFUSE on this view, and the Lua scales that width
@@ -2102,7 +2039,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
 
             if r["face"]:
                 # HIS FACE ON HIS HOUSE'S PLATE and the crest beside his name,
-                # which is what says whose demand it is now that the party's
+                # which is what says whose demand it is, since the party's
                 # name is not on the row.
                 rcell("ic_row_port", repaint={0: G.plate_path(r["slug"]),
                                               1: r["face"], 2: None})
@@ -2132,7 +2069,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     _demo_kind = dict((r[0], r[7]) for r in DEMO_PICK)
     _kw = _kind_words(ui)
 
-    # ---- the offices: fourteen seats in four bands, half of them empty ----
+    # The offices: fourteen seats in four bands, half of them empty.
     if view == "offices":
         # THE TWO LADDERS, off the model's own TUNE rather than typed here - a
         # retuned tier reaches the picture the way a renamed column does.
@@ -2181,10 +2118,9 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             ccell("ic_card_name", office["name"])
             ccut("ic_card_holder", held[0] if held else "Vacant")
             # THE LINE UNDER HIM IS HIS POSITION, and the crest beside it is his
-            # party. Ruled 2026-09-17 on the measurements: the holder cell is
-            # 190px and a titled name wants 233 to 295, so the title cannot go
-            # in front of the name - and this line was cutting every party name
-            # the model can roll anyway.
+            # party. The holder cell is 190px and a titled name wants 233 to
+            # 295, so the title cannot go in front of the name, and this line is
+            # too narrow for a rolled party name anyway.
             #
             # The kind is looked up from the demo roster by NAME rather than
             # carried a second time here, so the two pictures cannot disagree
@@ -2194,20 +2130,21 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                  if held and _kw and held[0] in _demo_kind else "")
             # THE BAR THE SEAT ASKS, off the model's own ladder rather than
             # typed - a retuned tier reaches the picture.
-            _need = "%s%d / lvl %d" % (G.COST_MARKUP,
+            _need = "%s%d rank %d" % (G.COST_MARKUP,
                                        _bars[office["tier"] - 1],
                                        _ranks[office["tier"] - 1])
             ccell("ic_card_need", _need)
             if held:
                 _who, _slug, _influence, _left = held
-                ccell("ic_card_term", "%d influence - %d turn%s left"
+                ccell("ic_card_term", "%d influence; %d turn%s left"
                       % (_influence, _left, "" if _left == 1 else "s"))
                 ccell("ic_card_effect",
                       ", ".join(G.IC.effect_short(e, m, t)
                                 for e, m, t in office["effects"]))
             else:
-                ccell("ic_card_term", "Seat is vacant")
-                ccell("ic_card_effect", "Nothing while it stands empty.")
+                ccell("ic_card_term", "If filled:")
+                ccell("ic_card_effect", ", ".join(
+                    G.IC.effect_short(e, m, t) for e, m, t in office["effects"]))
             ccell("ic_card_button", "Dismiss" if held else "Appoint")
 
         out = path or sized(OUT_OFFICES, box_w)
@@ -2215,12 +2152,12 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         canvas.convert("RGB").save(out)
         return out, n_art, missing, len(G.IC.OFFICES)
 
-    # ---- the intrigue tab: four columns of move cards -------------------
+    # The intrigue tab: four columns of move cards.
     if view == "intrigue":
-        # ---- the warning, on the bar ---------------------------------
+        # The warning, on the bar.
         # draw_intrigue returns the most urgent sentence and the dispatcher
-        # writes it to ic_alert; the band of rows this tab used to carry is gone,
-        # because four cards deep leaves nothing to put it in.
+        # writes it to ic_alert. The tab has no band of rows: four cards deep
+        # leaves nothing to put it in.
         lines = intrigue_lines(G, court)
         if lines:
             ax, ay, aw, ah = G.PANEL_LAYOUT["ic_alert"]
@@ -2234,7 +2171,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                     more, "house is" if more == 1 else "houses are")
             text(panel, bar, warn, ax, ay, aw, ah)
 
-        # ---- the column headings -------------------------------------------
+        # The column headings.
         cats = plot_cats()
         for col, (_key, title) in enumerate(cats):
             hx, hy, hw, hh = G.PANEL_LAYOUT["ic_plotcat_%d" % (col + 1)]
@@ -2244,7 +2181,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             paste(panel, hc, hx, hy, hw, hh)
             text(panel, hc, title.upper(), hx, hy, hw, hh)
 
-        # ---- the move cards, one column per category -----------------------
+        # The move cards, one column per category.
         moves = plot_cards(G, race)
         by_cat = {}
         for m in moves:
@@ -2292,7 +2229,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         canvas.convert("RGB").save(out)
         return out, n_art, missing, len(lines) + len(moves)
 
-    # ---- the party cards -------------------------------------------------
+    # The party cards.
     # ICUI.trait_line's own rule: an empty cell stays empty rather than
     # carrying a picture of nothing.
     def trait_markup(name):
@@ -2352,8 +2289,8 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                                        2: DEMO_FACES[0] if slug == "crown" else None})
         cell("ic_party_leader", leader or "No one speaks for them")
         # DECORATED, because ICUI.trait_line is what the panel writes into
-        # these three. Drawing the bare name here would leave the picture the
-        # author asked for invisible in the one place it gets reviewed.
+        # these three. Drawing the bare name here would hide the decoration in
+        # the one place it gets reviewed.
         cell("ic_party_ltrait", trait_markup(ltrait))
         cell("ic_party_nums", "%d%% share - %d loyalty" % (share, loyalty))
         cell("ic_party_t1", trait_markup(DEMO_TRAITS[slug][0]))
@@ -2446,7 +2383,7 @@ def selftest():
             assert _asset(p), "the court tab paints %s and it is not on disk" % p
     assert _asset(G.div_path(1)), "the dial's walls are not on disk"
 
-    # ---- the intrigue view ------------------------------------------------
+    # The intrigue view.
     # THE MOVES MUST COME OUT OF THE MODEL, all of them and priced. A parse that
     # silently returned four of nine, or a cost of zero, would draw a list that
     # looked right and was a picture of a different panel.
@@ -2462,21 +2399,16 @@ def selftest():
                                                            declared))
     assert len(plots) >= 9, "the move list shrank to %d" % len(plots)
     assert all(p.cost > 0 for p in plots), "a move parsed at no price"
-    # A BLURB MUST PARSE WHOLE, which is not the same as being long. This read
-    # `len(p.blurb) > 30` until 2026-09-16, when the flavour was cut to make room
-    # for the effect line and "He comes under your standard." - a complete,
-    # deliberate, 29-character sentence - failed it. The length was never the
-    # property: what this guards is the regex picking up only the FIRST literal
-    # of a blurb written as several concatenated ones, and a truncated parse ends
-    # mid-sentence with no full stop.
+    # A BLURB MUST PARSE WHOLE, which is not the same as being long ("He comes
+    # under your standard." is a deliberate 29 characters). What this guards is
+    # the regex picking up only the FIRST literal of a blurb written as several
+    # concatenated ones, and a truncated parse ends mid-sentence with no full stop.
     for p in plots:
         assert p.blurb.strip().endswith("."), (
             "%s's blurb does not end in a full stop, so it parsed truncated: %r"
             % (p.key, p.blurb))
-    # AND EVERY LITERAL OF IT WAS READ: n literals joined by n - 1 "..". This was
-    # a four-word minimum until 2026-09-30, when the civil missions cut Purge's
-    # card to "The court watches." - three deliberate words - and failed it: the
-    # same mistake as the length rule above, one level down.
+    # AND EVERY LITERAL OF IT WAS READ: n literals joined by n - 1 "..". Not a
+    # word count: "The court watches." is three deliberate words.
     for chunk in re.split(r"\n    \{", _block(lua("model"), "IC.PLOTS"))[1:]:
         tail = chunk.split("blurb =")[1].split("}")[0]
         assert len(re.findall(r'"([^"]*)"', tail)) == tail.count("..") + 1, (
@@ -2496,14 +2428,9 @@ def selftest():
     # layout rests on: a move with nobody to aim at goes straight to the actor
     # picker, and the reader is told which those are by the column they sit in.
     #
-    # THIS COUNTED TO TWO until 2026-09-15, which was right when Errands held two
-    # moves and silently wrong from the day it held four. The invariant was never
-    # the number - it is that the unaimed moves are one category and that the
-    # category holds nothing else.
-    #
-    # AND NOT ONE COLUMN EITHER since 2026-09-29: the civil missions put Missions
-    # beside Errands, both with nobody to aim at, one naming a place or a faction
-    # instead. What the reader relies on is that no column MIXES the two kinds.
+    # NOT A COUNT, AND NOT ONE COLUMN: Missions and Errands both hold unaimed
+    # moves, one naming a place or a faction instead. What the reader relies on
+    # is that no column MIXES the two kinds.
     _unaimed = [p for p in plots if not p.aimed]
     assert _unaimed, "no move is unaimed, so the actor-only route is undrawn"
     for _civil_cat in sorted(set(p.cat for p in _unaimed)):
@@ -2532,14 +2459,10 @@ def selftest():
                                 "row of that column is red and says as little"
                                 % _what)
 
-    # THE WARNINGS FEED THE ALERT BAR and nothing else. These three assertions
-    # used to check that the warnings plus the moves filled the row pool exactly;
-    # the moves left the pool when the tab became four columns of cards, and
-    # ICUI.rows_shown("intrigue") has returned 0 ever since. They are re-aimed at
-    # what the warnings are now FOR rather than deleted, because the property
-    # that matters survived the change: the bar draws lines[0] and counts the
-    # rest, so an empty list draws no bar and a warning carrying a price or a
-    # button would draw a control the bar has no room for.
+    # THE WARNINGS FEED THE ALERT BAR and nothing else (ICUI.rows_shown("intrigue")
+    # is 0). The bar draws lines[0] and counts the rest, so an empty list draws no
+    # bar and a warning carrying a price or a button would draw a control the bar
+    # has no room for.
     lines = intrigue_lines(G, demo_court(G))
     assert lines, "the demo court raises no warning, so the alert bar is undrawn"
     assert all(l[1].strip() for l in lines), "a warning has no sentence to draw"
@@ -2639,7 +2562,7 @@ def selftest():
     assert Image.open(_out).convert("RGBA").getpixel((1800, 600)) == GM_MAP_FILL, (
         "the Governors picture drew the backdrop over the map")
 
-    # THE DWARF COURT'S DUMP (plan 2026-10-04 phase 3, Task 10).
+    # The Dwarf court's dump.
     D = race_dump("dwf")
     for bw in SIZES:
         for v in VIEWS + DWF_VIEWS:
@@ -2654,7 +2577,7 @@ def selftest():
     assert off["derpy_ic_card_1"].images.get(1) == "ui/derpy_ic/dwf_frame_364x184.png"
     assert off["ic_tab_offices"].text == "[[col:black]]Offices[[/col]]"
 
-    # THE DWARF PICTURES (plan 2026-10-04 phase 3, Task 11).
+    # The Dwarf pictures.
     assert INK_OF["black"] == (0, 0, 0, 255)
     assert segments("[[col:black]]Offices[[/col]]") == [("text", "Offices", "black")]
     assert raced(OUT_OFFICES, "dwf").endswith("ic_offices_dwf.png")

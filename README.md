@@ -3,7 +3,7 @@
 A campaign mod for **Total War: WARHAMMER III** that gives the Chaos Dwarfs a court. Your
 lords and heroes belong to parties: the Crown, which is yours, and one to five rival parties
 rolled at the start of each campaign (two on the default difficulty). You seat men in fourteen offices and make them
-overseers of provinces, and every seat you hand out moves a party's share of the court and
+governors of provinces, and every seat you hand out moves a party's share of the court and
 its loyalty. Hold enough of the court and the whole empire runs better. Let a party's
 loyalty run out and it secedes, taking provinces and lords with it and going to war under
 its own name.
@@ -15,14 +15,14 @@ changes, but a mod that edits those same four rows will conflict with this one.
 
 **Status:** playable, and tested live in Chaos Dwarf campaigns. It is not on the Steam
 Workshop yet. It needs no other mod; with MCT installed it has a settings page (below).
-Only Chaos Dwarf factions have a court.
+Chaos Dwarf and Dwarf factions have a court; no other race does.
 
 ## The parties
 
 Each rival party draws its men from one walk of Chaos Dwarf life, claims certain offices,
 and improves any province its man governs.
 
-| Party | Claims | Its overseer's province gets |
+| Party | Claims | Its governor's province gets |
 |---|---|---|
 | The Crown | nothing: it is you | control |
 | The Priesthood | High Priest of Hashut | control, from the slaves |
@@ -62,9 +62,9 @@ in as a party of their own.
   party's claimed office to an outsider angers the party every turn he sits there. Officers
   are recruited from the recruitment panel like any lord or hero, and Fill Empty Seats
   fills every empty seat by the court's own rules, listing its choices before you click.
-- **Overseers.** Any of your men can govern a province. A lord leading an army governs only
-  while he stands in it. Overseers gain experience every turn, and a party whose overseer
-  runs a province under the Military Doctrine commandment gains loyalty. An overseer's
+- **Governors.** Any of your men can govern a province. A lord leading an army governs only
+  while he stands in it. Governors gain experience every turn, and a party whose governor
+  runs a province under the Military Doctrine commandment gains loyalty. A governor's
   bonus grows with his rank: +1 control per five ranks and +1% income per two, on
   top of a base of +2 control and 5% less workload, in his province only.
 - **Loyalty.** Each party's loyalty, 0 to 100, moves every turn with its seats, its
@@ -84,7 +84,7 @@ in as a party of their own.
   your own men split off into a new party after a three-turn warning.
 - **A quiet start.** For the first 10 turns of a campaign no party can break with you and your
   own party cannot split. Provoke waits until then; the Court tab counts the turns down.
-- **Intrigue.** Sixteen moves in five columns: Against a Man, Against a House, Bonds,
+- **Intrigue.** Eighteen moves in five columns (nineteen on a Dwarf court): Against a Man, Against a House, Bonds,
   Errands and Missions. Bribes, rumours, a forge accident, a blood-oath, a feast of ash and
   more. Each is paid from the acting man's influence and each can fail; a failed move
   against a party costs loyalty with it.
@@ -94,10 +94,10 @@ in as a party of their own.
 - **The party bar.** Choose a rival's card and four buttons act on that party: Provoke and
   Purge the House (moves aimed at its leader), Send a Gift (600 gold, +2 loyalty, once per
   party per turn) and Secure Loyalty (2,500 gold, no countdown for five turns). A button the court will not allow is
-  red and says why.
+  greyed out and says why.
 - **The rivals act on their own.** In your court, one party does one thing a turn. It
   schemes against you (rumours and discredit, then unseating your men or recalling your
-  overseers, then murder; the serious moves are warned a turn ahead), feuds with another
+  governors, then murder; the serious moves are warned a turn ahead), feuds with another
   party, demands an office or a province for one of its men as a five-turn mission, or
   offers gold, backing, calm or troops when it is content. A feuding party can sabotage an
   office its enemy holds, switching its bonus off for three turns, and an angry party can
@@ -106,11 +106,11 @@ in as a party of their own.
 - **Petitions.** The live demand and every offer, each with Accept and Refuse. Accepting a
   demand seats the man in the post he asked for. Feuds between your parties are listed too:
   Back Them takes one side, Make Peace pays to calm both.
-- **The AI has courts too.** Every Chaos Dwarf faction runs the same offices, overseers,
-  loyalty and secession, so an AI Chaos Dwarf empire can split into a war on the map. Its
-  rival parties scheme, feud and make demands as well, three AI courts a round in a fixed
-  rotation, and its ruler answers demands at once and sends gifts to a party that is
-  counting down. The Record tab reports what happens in the courts of Chaos Dwarf factions
+- **Rival factions have courts too.** Every other Chaos Dwarf and Dwarf faction runs the same
+  offices, governors, loyalty and secession, so a rival empire can split into a war on the
+  map. Its parties scheme, feud and make demands as well, three of these courts a round in
+  a fixed rotation, and its ruler answers demands at once and sends gifts to a party that
+  is counting down. The Record tab reports what happens in the courts of factions
   you have met, and a card with a camera button shows where a rival court has split.
 - **Confederation.** A confederated Chaos Dwarf faction joins your court as a party, as
   loyal as its own court was (held between 25 and 75).
@@ -120,14 +120,14 @@ in as a party of their own.
   influence, cheaper plots, and so on) and gives a faction-wide effect. Each house starts
   with the government its lore gives it. When a rival party leads the court, it asks for its
   own government on the Petitions tab: accept it, or hold the old one at a rising price.
-  Change Doctrine on the Court tab opens five cards, one per other government, each showing
+  New Government on the Court tab opens five cards, one per other government, each showing
   its rule, its effect and who it pleases or angers. Changing costs 400 influence and the
   dropped government's parties' loyalty, and then cannot be done again for 15 turns.
 - **Deeds.** What you do moves the court. Battles, Hell-Forge work, Tower rites and temples,
   slaves taken and settlements razed, convoys and research each give the matching party
   renown that counts towards its share and fades over time. A party not yet at court that
   reaches 15 renown takes the next lord you recruit.
-- **Laws.** A Laws tab with four categories - Labour, Tribute, Worship and War - of five laws
+- **Laws.** A Laws tab with four categories (Labour, Tribute, Worship and War) of five laws
   each, one in force per category. Each law has real effects and a party for and against it.
   Proposing a law costs 150 influence and opens a two-turn vote that the parties can also
   start. Every man votes with his own influence on his party's line: push your side harder,
@@ -140,8 +140,8 @@ Offices, Governors, Intrigue, Petitions, Record and Laws. The Governors tab open
 campaign map with the court still open: every province you hold wears a Chaos Dwarf pin with
 its governor's face, his party's colour and flag, the province's name and its loyalty, and a
 column on the left lists your parties, your provinces and the candidates for a governorship.
-A governorship gives its party weight by how developed the province is - one for every two
-settlement levels by default, at least one - earned a step a turn. Choosing a party lights the
+A governorship gives its party weight by how developed the province is (one for every two
+settlement levels by default, at least one), earned a step a turn. Choosing a party lights the
 regions it governs with CA's own map highlight. It is sized to the screen, from 1600x900
 up to 2560x1440; below 1920 wide it uses a compact layout one font size down. A man's exact
 influence also shows beside his rank on the character details panel. Event cards raised
@@ -171,15 +171,15 @@ With the Mod Configuration Tool installed, the Iron Court page has:
 
 - **Difficulty:** Gentle, Default, Harsh, Political Chaos or Custom. It sets how many rival
   parties the court starts with (1, 2, 3 or 5), how loyal they are, how fast they turn, and
-  what favours and government changes cost. Custom opens seventeen numbers to edit, the
-  settlement levels per point of governor weight among them.
-- **Systems:** rival parties act on their own; other Chaos Dwarf factions have courts;
-  parties can secede; a weak Crown pushes rivals out; your own party can split; show routine
-  event messages; governments; governments change with the court; your deeds move the court;
-  laws. Plus a detailed log for bug reports.
+  what favours and government changes cost. Custom opens eighteen numbers to edit, the
+  settlement levels per point of governor strength among them.
+- **Systems:** rival parties act on their own; other Chaos Dwarf and Dwarf factions have
+  courts; parties can secede; a weak Crown pushes rivals out; your own party can split; show
+  routine event messages; governments; governments change with the court; your deeds move the
+  court; laws; Dwarf courts. Plus a detailed log for bug reports.
 
 The difficulty, the numbers and "other factions have courts" are fixed when a campaign
-starts. The other ten switches can be changed at any time in single player. Without MCT,
+starts. The other eleven switches can be changed at any time in single player. Without MCT,
 every campaign plays on Default.
 
 **Multiplayer:** supported but not yet tried on two machines. Every panel action is sent
@@ -192,7 +192,7 @@ multiplayer, so every player gets the defaults.
 2. Enable it in the launcher or in the WH3 Mod Manager.
 
 It can be added to a campaign already in progress: your court is rolled and your men are
-given backgrounds the first time the save loads. AI Chaos Dwarf courts roll on their next
+given backgrounds the first time the save loads. Other factions' courts roll on their next
 turn.
 
 ## This repository
@@ -202,10 +202,10 @@ mirrors the in-pack paths, so the tools run from the repo root unchanged.
 
 | Path | What it is |
 |---|---|
-| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, overseers, loyalty, intrigue, secession, save state |
+| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua` | the model: parties, influence, offices, governors, loyalty, intrigue, secession, save state |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua` | the Dwarf race: parties, offices, governments, laws, moves, deeds, rebels and tuning |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_parties.lua` | the rival parties' own acts, demands and offers |
-| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, the HUD opener and the influence plate |
+| `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua` | the panel, its top-bar button and the influence plate |
 | `Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui_map.lua` | the Governors tab: pins on the campaign map and the column beside them |
 | `Modding Files/pack/ui/campaign ui/` | the thirty `derpy_ic_*.twui.xml` layouts (generated): twenty-one layouts, nine of them with a `_compact` copy, the Dwarf panel pair among them |
 | `Modding Files/source/iron_court/` | the DB rows and loc as TSV (generated), except the `factions` override (see below) |

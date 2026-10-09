@@ -7,16 +7,13 @@
     py tools/deploy_iron_court.py --deploy-only [--wait]   # ship the last build
     py tools/deploy_iron_court.py --selftest
 
-THE AUTHOR'S RULE (2026-09-28): "always deploy it to data if the game is not
-running", then "automate if the game is not running then deploy it" - a build
-made while the game was up sat in Modpacks and the author played the old one.
---wait is that automation: run it in the background and it deploys the moment
+Deploy to data whenever the game is not running. A build made while the game is
+up waits in Modpacks; --wait run in the background deploys the moment
 Warhammer3 exits. Every deploy backs the live pack up first and byte-compares
 the copy.
 
-AN UNKNOWN FLAG IS REFUSED. It used to be ignored, and on 2026-09-28 a
---selftest passed to a copy of this file that had none built and deployed the
-pack twice.
+AN UNKNOWN FLAG IS REFUSED: ignoring it would let a mistyped --selftest build
+and deploy the pack.
 
 Needs RPFM OPEN - the MCP server only exists while it is. The registered MCP tools
 are often absent (the server starts after Claude Code); import_house_ancillaries.call
@@ -44,29 +41,20 @@ GAME_DATA = r"F:\SteamLibrary\steamapps\common\Total War WARHAMMER III\data"
 # (table name with its _tables suffix, schema version). Versions come from the
 # generator so the TSV metadata line and the created file cannot disagree.
 #
-# DERIVED FROM THE GENERATOR, NEVER TYPED. This was a hand-written list of five
-# until 2026-09-17, and the generator had been emitting nine for a month: the
-# whole event-feed chain - the groups, their members, the criteria value the
-# script passes as an index, and the message-event rows themselves - was written
-# to Modding Files/source/iron_court/ on every run and packed by nothing.
+# DERIVED FROM THE GENERATOR, NEVER TYPED: a table the generator writes is a
+# table this ships, and adding one needs no edit here. A hand list here once
+# left the whole event-feed chain unpacked.
 #
-# WHY IT COST SO MUCH TO FIND. An index with no event_feed_message_events row
-# behind it draws NOTHING, and the engine logs show_message_event and whitelists
-# the event type exactly as it does for one that works. So the log said the card
-# had been raised, every time, and no card ever appeared. Two separate player
-# reports - "no event when officers are removed from office" and "no event
-# showing when doing the intrigue" - were this, and both were chased into the Lua.
-#
-# A SECOND LIST IS HOW IT HAPPENED, so there is no longer a second list. A table
-# the generator writes is a table this ships, and adding one needs no edit here.
+# That fault is silent. An index with no event_feed_message_events row behind it
+# draws nothing, yet the engine logs show_message_event and whitelists the event
+# type exactly as it does for one that works.
 TABLES = [(G.TSV_META[t][0], G.TSV_META[t][1], t)
           for t in sorted(G.TSV_META) if t != "loc"]
 
 SCRIPTS = [
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court.lua",
      "script/campaign/mod/zzz_derpy_iron_court.lua"),
-    # THE DWARF RACE (plan 2026-10-04 phase 2): loads after the model, before
-    # the parties file.
+    # The Dwarf race loads after the model, before the parties file.
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_dwarf.lua",
      "script/campaign/mod/zzz_derpy_iron_court_dwarf.lua"),
     ("Modding Files/pack/script/campaign/mod/zzz_derpy_iron_court_ui.lua",
@@ -92,13 +80,10 @@ HUB = _HUB.pack_files("ic")
 # stray PNG in that folder must not ship, and a house whose plate was never
 # written must not be quietly skipped.
 #
-# art_paths(), NOT build_plates(). build_plates is the plates - the rim, the
-# walls, the sigils, the frames - and the 1,560 wedge pictures are not in it,
-# because they are generated per party and listed separately. Deploying
-# build_plates shipped a pack with a rim, walls and crests and no pie inside
-# them: 96 pictures where the pack built by hand had 1,656, and nothing said so
-# because every file it did name was present. art_paths() is the union and
-# rasterises nothing to answer.
+# art_paths(), NOT build_plates(). build_plates is only the plates (rim, walls,
+# sigils, frames); the 1,560 wedge pictures are generated per party and listed
+# separately, so deploying build_plates ships a dial with no pie (96 files of
+# 1,656) and nothing complains. art_paths() is the union and rasterises nothing.
 import gen_ic_ui as U                        # noqa: E402
 import make_ic_rebel_flags as F              # noqa: E402
 
@@ -270,22 +255,15 @@ def main(argv):
     call("save_pack_as", {"pack_key": key, "path": OUT})
     print("saved %s (%d bytes)" % (OUT, os.path.getsize(OUT)))
 
-    # WHAT WAS SAVED, READ BACK. Every art path above was added one call at a
-    # time and each said it succeeded, which is exactly what a pack missing
-    # 1,560 pictures also said - the list was short, not the adding. So the
-    # saved file is opened offline and asked for the generator's whole list.
+    # WHAT WAS SAVED, READ BACK. Each add call reports success even when the
+    # list it was given is short, so the saved file is opened offline and asked
+    # for the generator's whole list, DB and loc included.
     sys.path.insert(0, os.path.join(ROOT, "tools"))
     import read_pack_index as RPI            # noqa: E402
     saved = set(RPI.paths(OUT))
-    # THE DB AND THE LOC ARE IN THIS COUNT NOW. It asked only about the files
-    # added by hand, so a table missing from the list above was a table nobody
-    # ever asked the saved pack about.
-    #
-    # ASKED OF THE GENERATOR, NOT OF THE PLAN. The first version of this read the
-    # plan, which is built from the same list it was meant to police - drop a
-    # table and the check simply stopped asking about it, and it passed. Every
-    # name here comes from G.TSV_META, which is the generator's own account of
-    # what it writes, so nothing this deploy script does can quiet it.
+    # ASKED OF THE GENERATOR, NOT OF THE PLAN: a check built from the plan stops
+    # asking about a table the plan dropped. G.TSV_META is the generator's own
+    # account of what it writes, so nothing in this script can quiet it.
     want = [p for _src, p in SCRIPTS + UI + ART + HUB]
     want += ["db/%s/%s" % (G.TSV_META[t][0], G.PACK_NAME)
              for t in G.TSV_META if t != "loc"]

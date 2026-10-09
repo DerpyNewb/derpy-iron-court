@@ -30,37 +30,37 @@ derpy_ic_office_banners	Raiding is an accounting exercise, and he keeps the acco
 derpy_ic_vacant_banners	The raiders keep their own accounts, and most of the takings.	Keeper of the Banners (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_grip	Nothing moves in Zharr-Naggrund that the Crown did not set moving.	An Iron Grip on the Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_mastery	The parties argue, and then they do as they are told.	Master of the Court	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_control_command	The Crown is first among the parties, and no more than first.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_command	The Crown leads the parties but cannot command them.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_contested	No decree passes without a bargain struck.	A Contested Court	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_control_lost	The parties rule and the Crown is consulted, when there is time.	The Court Is Not Yours	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_lost	The parties rule. The Crown hears their decisions later.	The Court Is Not Yours	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_doctrine_conclave	No one rules Zharr-Naggrund. Its Sorcerer-Prophets sit in council.	The Conclave	faction	1	dlc23_region_action_gift_zhar.png	true	false	true
-derpy_ic_doctrine_priest	The eldest voice is the strongest, and it speaks for Hashut.	Rule of the High Priest	faction	1	chd_toz_district_sorcery.png	true	false	true
+derpy_ic_doctrine_priest	The eldest priest rules in Hashut's name.	Rule of the High Priest	faction	1	chd_toz_district_sorcery.png	true	false	true
 derpy_ic_doctrine_forge	The priest-artificers rule from the forges.	Rule of the Daemonsmiths	faction	1	chd_hellforge.png	true	false	true
 derpy_ic_doctrine_legion	Rank in the court is won in the field.	Command of the Legion	faction	1	chd_toz_district_military.png	true	false	true
 derpy_ic_doctrine_chain	Fear holds the court as the chain holds the slave.	Rule of the Slave-Lords	faction	1	chd_labour.png	true	false	true
 derpy_ic_doctrine_convoy	Everything in the Dark Lands has a price.	The Convoy Concern	faction	1	dlc23_region_action_sell_labour.png	true	false	true
-derpy_ic_law_labour_measure	The overseers work the stock as they always have.	The Measure	faction	1	chd_workload.png	true	false	true
-derpy_ic_law_labour_lash	More are taken and they are driven hard, and they break.	The Lash	faction	1	dlc23_region_action_set_example.png	true	false	true
-derpy_ic_law_labour_kept	The stock is fed and kept, and fewer are taken.	The Kept Stock	faction	1	slaves.png	true	false	true
-derpy_ic_law_labour_quota	Every forge has its quota, and the stock pays for it.	The Furnace Quota	faction	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
-derpy_ic_law_labour_ash	What cannot be held is burned, and its people with it.	The Ash Harvest	faction	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
-derpy_ic_law_tribute_tithe	The Crown takes its tithe, as it always has.	The Crown's Tithe	faction	1	edict_collect_tribute.png	true	false	true
-derpy_ic_law_tribute_roads	The roads are opened to more convoys, and the vassals pay less.	Open Roads	faction	1	convoy_icon.png	true	false	true
-derpy_ic_law_tribute_tariff	Every route pays the Ledger, and the cargo is worth less.	The Ledger's Tariff	faction	1	trade_agreement.png	true	false	true
-derpy_ic_law_tribute_mines	The mines come first, and the convoys carry less.	The Mines Before All	faction	1	chd_raw_materials.png	true	false	true
-derpy_ic_law_tribute_charter	The convoy overseers are chartered, and the other houses resent it.	The Overseers' Charter	faction	1	wh3_dlc23_edict_chd_architects.png	true	false	true
-derpy_ic_law_worship_rites	The rites are kept, as they always have been.	The Rites Kept	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_law_worship_fires	Hashut's fires are fed without stint, and building waits on them.	The Fires Fed	faction	1	wh3_dlc23_unit_passive_burning_bright.png	true	false	true
-derpy_ic_law_worship_seats	Seats in the Tower are sold, and the priests' favour cools.	Seats Bought in the Tower	faction	1	chd_toz_tier.png	true	false	true
-derpy_ic_law_worship_lore	The Lore of Hashut is taught more widely, and more carelessly.	The Lore Taught	faction	1	loremaster.png	true	false	true
-derpy_ic_law_worship_licence	The Daemonsmiths are licensed, and the priests resent it.	The Daemonsmiths' Licence	faction	1	hellforged.png	true	false	true
-derpy_ic_law_war_levy	The levy is raised as it always has been.	The Levy	faction	1	edict_levy_conscripts.png	true	false	true
-derpy_ic_law_war_hellforge	The Hell-Forge works without leave, and the infantry pays for it.	The Hell-Forge Unbound	faction	1	chd_armaments.png	true	false	true
-derpy_ic_law_war_legions	The legions stand ready, and the guns wait.	Standing Legions	faction	1	chd_toz_district_t3_military.png	true	false	true
-derpy_ic_law_war_grudge	The old grudge against the Dwarfs is fed, and the labour pays for it.	The Old Grudge	faction	1	wh3_dlc23_unit_passive_oath_of_contempt.png	true	false	true
-derpy_ic_law_war_gunnery	The guns come first, and every shooter costs more.	The Gunnery Doctrine	faction	1	artillery.png	true	false	true
-derpy_ic_gov_base	A governor of the court sits here, and the province knows it.	Governor of the Province	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_gov_house_crown	Your own men hold it, and they are watched.	Governor: The Crown	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_law_labour_measure	Keep the work gangs to their usual quotas.	The Measure	faction	1	chd_workload.png	true	false	true
+derpy_ic_law_labour_lash	More slaves are taken. The lash works them to death.	The Lash	faction	1	dlc23_region_action_set_example.png	true	false	true
+derpy_ic_law_labour_kept	Feed the stock. Keep it alive. Take fewer slaves.	The Kept Stock	faction	1	slaves.png	true	false	true
+derpy_ic_law_labour_quota	The stock pays for every forge's quota.	The Furnace Quota	faction	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
+derpy_ic_law_labour_ash	Burn what cannot be held, people and all.	The Ash Harvest	faction	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
+derpy_ic_law_tribute_tithe	The Crown collects its usual tithe.	The Crown's Tithe	faction	1	edict_collect_tribute.png	true	false	true
+derpy_ic_law_tribute_roads	More convoys use the roads. Vassals pay less tribute.	Open Roads	faction	1	convoy_icon.png	true	false	true
+derpy_ic_law_tribute_tariff	The Ledger takes more from each route. Cargo sells for less.	The Ledger's Tariff	faction	1	trade_agreement.png	true	false	true
+derpy_ic_law_tribute_mines	Supply the mines first. Convoys carry less.	The Mines Before All	faction	1	chd_raw_materials.png	true	false	true
+derpy_ic_law_tribute_charter	Charter the convoy overseers. The other houses resent their privilege.	The Overseers' Charter	faction	1	wh3_dlc23_edict_chd_architects.png	true	false	true
+derpy_ic_law_worship_rites	The priests keep the customary rites.	The Rites Kept	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_law_worship_fires	Feed Hashut's fires at the expense of building work.	The Fires Fed	faction	1	wh3_dlc23_unit_passive_burning_bright.png	true	false	true
+derpy_ic_law_worship_seats	Sell seats in the Tower. The priests withhold their favour.	Seats Bought in the Tower	faction	1	chd_toz_tier.png	true	false	true
+derpy_ic_law_worship_lore	Teach the Lore of Hashut widely, with less care.	The Lore Taught	faction	1	loremaster.png	true	false	true
+derpy_ic_law_worship_licence	License the Daemonsmiths. The priests resent their privilege.	The Daemonsmiths' Licence	faction	1	hellforged.png	true	false	true
+derpy_ic_law_war_levy	Raise the customary levy.	The Levy	faction	1	edict_levy_conscripts.png	true	false	true
+derpy_ic_law_war_hellforge	The Hell-Forge needs no leave to work. Infantry pays the bill.	The Hell-Forge Unbound	faction	1	chd_armaments.png	true	false	true
+derpy_ic_law_war_legions	Keep the legions ready. The guns must wait.	Standing Legions	faction	1	chd_toz_district_t3_military.png	true	false	true
+derpy_ic_law_war_grudge	Pursue the old grudge against the Dwarfs at the labourers' expense.	The Old Grudge	faction	1	wh3_dlc23_unit_passive_oath_of_contempt.png	true	false	true
+derpy_ic_law_war_gunnery	Supply the guns first. Shooters cost more to recruit.	The Gunnery Doctrine	faction	1	artillery.png	true	false	true
+derpy_ic_gov_base	The court's governor rules this province.	Governor of the Province	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_house_crown	Your retainers answer for this province.	Governor: The Crown	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_temple	The temples take the province in hand and it grows for Hashut.	Governor: The Priesthood	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_forge	Forge-guild overseers run the province like a workshop floor.	Governor: The Forge	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_chain	The slavers work the province to the bone and account for every hour.	Governor: The Chain	faction	1	chd_conclave_influence.png	true	false	true
@@ -69,80 +69,80 @@ derpy_ic_gov_house_ledger	Brokers keep the province's books, and the tribute arr
 derpy_ic_gov_house_tower	Tower clerks read everything that passes through, and pass it on.	Governor: The Tower	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_road	The caravan men keep the roads open whatever the season.	Governor: The Road	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_gov_house_hearth	The old clans hold it, and men come back to the muster faster.	Governor: The Hearth	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_envoy_ctl	An envoy of the court is keeping order here.	Envoy: Control	province	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
-derpy_ic_envoy_arm	An envoy of the court is driving the forges here.	Envoy: Armaments	province	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
-derpy_ic_envoy_raw	An envoy of the court is driving the mines here harder.	Envoy: Raw Materials	province	1	chd_toz_district_industry.png	true	false	true
-derpy_ic_envoy_lab	An envoy of the court is seeing that fewer Labourers are worked to death here.	Envoy: Labour	province	1	public_order_jubilant.png	true	false	true
-derpy_ic_office_dwf_priest	The Ancestors are honoured in every hall, and the hold is quiet.	High Priest of the Ancestors	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_envoy_ctl	The court's envoy keeps order here.	Envoy: Control	province	1	wh3_dlc23_edict_chd_smoke_stacks.png	true	false	true
+derpy_ic_envoy_arm	The court's envoy drives the forges here.	Envoy: Armaments	province	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
+derpy_ic_envoy_raw	The court's envoy drives the mines harder.	Envoy: Raw Materials	province	1	chd_toz_district_industry.png	true	false	true
+derpy_ic_envoy_lab	The court's envoy keeps more Labourers alive.	Envoy: Labour	province	1	public_order_jubilant.png	true	false	true
+derpy_ic_office_dwf_priest	He tends the clan shrines and settles disputes in their names.	High Priest of the Ancestors	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_priest	The shrines stand unattended and the old names go unspoken.	High Priest of the Ancestors (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_forge	Every forge in the hold answers to one hammer, and it is his.	Master Forgewright	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_forge	No master stands at the great anvil. The work slips and no one is blamed.	Master Forgewright (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_ledger	Every debt the hold is owed is written down, and he holds the book.	Keeper of the Reckoning	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_ledger	The books go unbalanced and the tithe arrives light.	Keeper of the Reckoning (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_warden	The gate is watched, and the watchers are paid on time.	Warden of the Gate	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_warden	The gate keeps itself, badly and at the hold's expense.	Warden of the Gate (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_forge	The master smiths accept his judgement at the anvil.	Master Forgewright	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_forge	The smiths dispute each other's work. No master settles the matter.	Master Forgewright (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_ledger	He makes each debtor pay what the hold is owed.	Keeper of the Reckoning	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_ledger	Unpaid debts gather in the hold's books.	Keeper of the Reckoning (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_warden	He assigns the gate watch and keeps the garrison supplied.	Warden of the Gate	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_warden	The clans dispute who owes the gate watch.	Warden of the Gate (Vacant)	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_office_dwf_hand	Every wrong is written in his hand. From the next Age of Reckoning, fewer grudges need settling.	Keeper of the Grudge-Book	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_hand	The Book goes unkept. From the next Age of Reckoning, more grudges need settling.	Keeper of the Grudge-Book (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_roads	The underways are his, and they are quicker than they were.	Warden of the Underway	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_roads	The underways go unwatched, and the traders take the long way round.	Warden of the Underway (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_chains	He counts every cart that comes up the shaft, and the miners know he counts.	Overseer of the Mines	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_chains	Uncounted, the miners dig at their own pace.	Overseer of the Mines (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_pits	What comes back from a battlefield is his to weigh and his to store.	Master of the Delvings	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_pits	The spoils are picked over by whoever reaches them first.	Master of the Delvings (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_quarry	Stone is cut to his measure, and the halls rise for less.	Master of the Stonecutters	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_quarry	The stonecutters work at the pace of the slowest of them.	Master of the Stonecutters (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_muster	He knows what a warrior costs, and he pays no more than that.	Thane of the Muster	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_muster	Every clan is mustered at whatever it asks for.	Thane of the Muster (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_kilns	The hold's ale is the best in the mountains, and the trade in its fine work follows it.	Brewmaster of the Hold	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_kilns	The brewhouse goes unkept, and the hold's fine work sells for less.	Brewmaster of the Hold (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_fields	The holdfarms are tended, and the hold grows.	Steward of the Holdfarms	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_fields	The holdfarms go untended, and the hold grows slowly.	Steward of the Holdfarms (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_scribes	The old books are kept and read, and new work comes quicker for it.	Keeper of the Lore	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_scribes	The lore goes unread, and new work comes slowly.	Keeper of the Lore (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_banners	Every clan banner is counted, and the Grudge Settlers march cheaper for it.	Keeper of the Clan Banners	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_vacant_dwf_banners	The banners go uncounted, and the Grudge Settlers ask more to march.	Keeper of the Clan Banners (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_control_dwf_grip	Nothing moves in the hold that the throne did not set moving.	An Iron Grip on the Court	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_control_dwf_mastery	The clans argue, and then they do as they are told.	Master of the Court	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_control_dwf_command	The throne is first among the clans, and no more than first.	In Command of the Court	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_control_dwf_contested	No decree passes without a bargain struck.	A Contested Court	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_control_dwf_lost	The clans rule and the throne is consulted, when there is time.	The Court Is Not Yours	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_doctrine_dwf_conclave	The eldest of the clans sit in council, and the throne hears them out.	The Council of Elders	faction	1	thane.png	true	false	true
-derpy_ic_doctrine_dwf_priest	The Ancestors set down how a hold is ruled, and the priests read it aloud.	The Ancestors' Writ	faction	1	edict_venerate_the_ancestors.png	true	false	true
-derpy_ic_doctrine_dwf_forge	The master smiths rule from the forge, and the anvil keeps the time.	The Forge-Throne	faction	1	wh_main_hero_passive_forgefire.png	true	false	true
-derpy_ic_doctrine_dwf_legion	The king rules from the shield wall, and so does every dwarf who would follow him.	The War-King	faction	1	army_morale.png	true	false	true
+derpy_ic_office_dwf_roads	He keeps the old routes through the Underway clear.	Warden of the Underway	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_roads	Blocked tunnels force traders over the mountain passes.	Warden of the Underway (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_chains	He inspects each seam and accounts for every ore cart.	Overseer of the Mines	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_chains	The mining clans quarrel over their claims.	Overseer of the Mines (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_pits	He sees that spoils reach the hold's vaults.	Master of the Delvings	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_pits	Warriors take spoils before the hold receives its share.	Master of the Delvings (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_quarry	His stonecutters waste little when they widen the halls.	Master of the Stonecutters	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_quarry	The clans cannot agree whose halls to cut first.	Master of the Stonecutters (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_muster	He ensures each clan equips its warriors at a fair price.	Thane of the Muster	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_muster	Each clan asks its own price to send warriors.	Thane of the Muster (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_kilns	Traders come for his ale and buy the hold's fine work beside it.	Brewmaster of the Hold	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_kilns	Poor ale drives traders away from the hold's wares.	Brewmaster of the Hold (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_fields	He brings in enough grain to feed new households.	Steward of the Holdfarms	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_fields	The holdfarms lack hands to feed new households.	Steward of the Holdfarms (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_scribes	He finds old designs the smiths can put to work.	Keeper of the Lore	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_scribes	The smiths repeat work from neglected old books.	Keeper of the Lore (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_banners	He gathers supplies for the Grudge Settlers from each clan.	Keeper of the Clan Banners	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_vacant_dwf_banners	The Grudge Settlers must buy their own supplies.	Keeper of the Clan Banners (Vacant)	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_control_dwf_grip	Every clan accepts the king's authority.	An Iron Grip on the Court	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_control_dwf_mastery	The elders grumble but honour the king's decisions.	Master of the Court	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_control_dwf_command	The king must hear the clans before he rules.	In Command of the Court	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_control_dwf_contested	The clans bargain over each royal decree.	A Contested Court	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_control_dwf_lost	The clan elders decide matters without the king.	The Court Is Not Yours	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_doctrine_dwf_conclave	The king hears each clan elder before the council decides.	The Council of Elders	faction	1	thane.png	true	false	true
+derpy_ic_doctrine_dwf_priest	The priests judge the hold by the laws of its Ancestors.	The Ancestors' Writ	faction	1	edict_venerate_the_ancestors.png	true	false	true
+derpy_ic_doctrine_dwf_forge	The master smiths govern the hold between shifts at the forge.	The Forge-Throne	faction	1	wh_main_hero_passive_forgefire.png	true	false	true
+derpy_ic_doctrine_dwf_legion	The king leads the shield wall. Clan thanes must fight beside him.	The War-King	faction	1	army_morale.png	true	false	true
 derpy_ic_doctrine_dwf_chain	An oath sworn in the hold is kept, or it is written down.	The Iron Law	faction	1	dwf_malakai_oaths_upgrades.png	true	false	true
-derpy_ic_doctrine_dwf_convoy	Every debt is counted, and the throne keeps the count.	The Reckoning-Throne	faction	1	edict_high_kings_tribute.png	true	false	true
+derpy_ic_doctrine_dwf_convoy	The king demands an account of every debt.	The Reckoning-Throne	faction	1	edict_high_kings_tribute.png	true	false	true
 derpy_ic_law_dwf_labour_measure	The clans work as their fathers worked.	The Old Ways	faction	1	angrund_ancestors.png	true	false	true
-derpy_ic_law_dwf_labour_lash	The miners go deeper, and the holdfarms go short of hands.	Deep Seams	faction	1	resource_gold.png	true	false	true
-derpy_ic_law_dwf_labour_kept	The holdfarms are tended first, and the mines wait.	Hearth and Holdfarm	faction	1	growth.png	true	false	true
-derpy_ic_law_dwf_labour_quota	Only marked work leaves the forge, and the forge eats the hours.	The Master's Mark	faction	1	oathgold.png	true	false	true
-derpy_ic_law_dwf_labour_ash	The halls are raised and widened, and the counting-houses pay.	Raise the Halls	faction	1	construction.png	true	false	true
-derpy_ic_law_dwf_tribute_tithe	The throne takes its tithe, as it always has.	The King's Tithe	faction	1	edict_collect_tribute.png	true	false	true
-derpy_ic_law_dwf_tribute_roads	The underways are opened to trade, and the vassal holds pay less.	Open Underways	faction	1	icon_underway_network.png	true	false	true
-derpy_ic_law_dwf_tribute_tariff	Every hall pays the Reckoners, and the traders pay more at the gate.	The Reckoners' Tariff	faction	1	trade_agreement.png	true	false	true
-derpy_ic_law_dwf_tribute_mines	The Oathgold is hoarded, and the roads are left to keep themselves.	The Oathgold Hoard	faction	1	oathgold_bundle.png	true	false	true
-derpy_ic_law_dwf_tribute_charter	The holds are chartered to trade their craft, and the warriors pay for it.	Hold Charters	faction	1	resource_gemstones.png	true	false	true
-derpy_ic_law_dwf_worship_rites	The rites are kept, as they always have been.	The Ancestors' Rites	faction	1	edict_venerate_the_ancestors.png	true	false	true
-derpy_ic_law_dwf_worship_fires	Valaya's hearths are kept warm, and the loremasters go short.	Valaya's Hearth	faction	1	god_effect_valaya.png	true	false	true
-derpy_ic_law_dwf_worship_seats	The runesmiths are given their head, and the shrines are given less.	Rune-Lore	faction	1	runesmith.png	true	false	true
-derpy_ic_law_dwf_worship_lore	The old books are opened, and the holdfarms lose their hands to them.	The Lore of the Book	faction	1	loremaster.png	true	false	true
+derpy_ic_law_dwf_labour_lash	Send more miners into the deep seams. The holdfarms lose hands.	Deep Seams	faction	1	resource_gold.png	true	false	true
+derpy_ic_law_dwf_labour_kept	The holdfarms get the hands they need before the mines.	Hearth and Holdfarm	faction	1	growth.png	true	false	true
+derpy_ic_law_dwf_labour_quota	Master smiths inspect every piece. Warriors wait for their equipment.	The Master's Mark	faction	1	oathgold.png	true	false	true
+derpy_ic_law_dwf_labour_ash	Widen the halls at the counting-houses' expense.	Raise the Halls	faction	1	construction.png	true	false	true
+derpy_ic_law_dwf_tribute_tithe	Each clan owes the king its customary tithe.	The King's Tithe	faction	1	edict_collect_tribute.png	true	false	true
+derpy_ic_law_dwf_tribute_roads	Clear the Underway for traders. Vassal holds owe less tribute.	Open Underways	faction	1	icon_underway_network.png	true	false	true
+derpy_ic_law_dwf_tribute_tariff	Every hall pays the Reckoners. Traders pay at the gate and come less often.	The Reckoners' Tariff	faction	1	trade_agreement.png	true	false	true
+derpy_ic_law_dwf_tribute_mines	Gather Oathgold for the hold. Repairs to the roads must wait.	The Oathgold Hoard	faction	1	oathgold_bundle.png	true	false	true
+derpy_ic_law_dwf_tribute_charter	Charter the holds to sell their craft. Warriors cost more to maintain.	Hold Charters	faction	1	resource_gemstones.png	true	false	true
+derpy_ic_law_dwf_worship_rites	The clans honour their Ancestors.	The Ancestors' Rites	faction	1	edict_venerate_the_ancestors.png	true	false	true
+derpy_ic_law_dwf_worship_fires	Supply Valaya's hearths before the loremasters' work.	Valaya's Hearth	faction	1	god_effect_valaya.png	true	false	true
+derpy_ic_law_dwf_worship_seats	Give the runesmiths leave to work. The shrines receive less.	Rune-Lore	faction	1	runesmith.png	true	false	true
+derpy_ic_law_dwf_worship_lore	Call clansmen from the holdfarms to study the old books.	The Lore of the Book	faction	1	loremaster.png	true	false	true
 derpy_ic_law_dwf_worship_licence	The forge is licensed to work without the priests' leave.	The Anvil's Licence	faction	1	god_effect_grungni.png	true	false	true
-derpy_ic_law_dwf_war_levy	The clans are mustered as they always have been.	The Muster	faction	1	edict_levy_conscripts.png	true	false	true
-derpy_ic_law_dwf_war_grudge	Grudge Settlers march at the throne's cost, and the counting-houses pay.	Grudge Settlers	faction	1	grudges.png	true	false	true
-derpy_ic_law_dwf_war_hellforge	The guns come first, and every warrior costs more.	Batteries of the Hold	faction	1	artillery.png	true	false	true
-derpy_ic_law_dwf_war_legions	The clans march in strength, and the guns wait.	Clan Hosts	faction	1	waaagh_reward_dwarfs.png	true	false	true
-derpy_ic_law_dwf_war_gunnery	The engineers drill the guns and the thunderers, and every recruit costs more.	Thunder and Iron	faction	1	engineer.png	true	false	true
-derpy_ic_gov_dwf_base	A governor of the throne sits here, and the province knows it.	Governor of the Province	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_crown	Your own men hold it, and they are watched.	Governor: The Throne-Sworn	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_temple	The priests keep the province, and every grudge in it is remembered.	Governor: The Ancestor Priesthood	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_forge	The Forgewrights run the province like a forge floor, and the Oathgold comes in.	Governor: The Forgewrights	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_chain	The Deepdelvers work the seams, and what the battlefields yield is counted.	Governor: The Deepdelvers	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_legion	A hold under a thane costs less to keep than it should.	Governor: The Clan Warriors	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_ledger	The Reckoners keep the province's books, and the tithe arrives whole.	Governor: The Reckoners	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_tower	The Runesmiths read everything that passes through, and pass it on.	Governor: The Runesmiths	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_road	The Underway Wardens keep the roads open whatever the season.	Governor: The Underway Wardens	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_hearth	The Hearth Clans hold it, and men come back to the muster faster.	Governor: The Hearth Clans	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_envoy_dwf_ctl	An envoy of the throne is keeping order here.	Envoy: Control	province	1	morale.png	true	false	true
-derpy_ic_envoy_dwf_oath	An envoy of the throne is seeing that the forges here pay their Oathgold.	Envoy: Oathgold	province	1	oathgold.png	true	false	true
-derpy_ic_envoy_dwf_grow	An envoy of the throne is seeing to the holdfarms here.	Envoy: Growth	province	1	growth.png	true	false	true
-derpy_ic_envoy_dwf_rec	An envoy of the throne is mustering the clans here for less.	Envoy: Recruitment	province	1	edict_state_troop_levy.png	true	false	true
+derpy_ic_law_dwf_war_levy	Each clan sends its customary muster.	The Muster	faction	1	edict_levy_conscripts.png	true	false	true
+derpy_ic_law_dwf_war_grudge	The king funds the Grudge Settlers from the counting-houses.	Grudge Settlers	faction	1	grudges.png	true	false	true
+derpy_ic_law_dwf_war_hellforge	Guns come first. Infantry costs more to recruit.	Batteries of the Hold	faction	1	artillery.png	true	false	true
+derpy_ic_law_dwf_war_legions	Equip the clan hosts. The gun batteries must wait.	Clan Hosts	faction	1	waaagh_reward_dwarfs.png	true	false	true
+derpy_ic_law_dwf_war_gunnery	Engineers train the gun crews and Thunderers. Recruits cost more.	Thunder and Iron	faction	1	engineer.png	true	false	true
+derpy_ic_gov_dwf_base	The king's governor answers for this province.	Governor of the Province	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_crown	The king's retainers answer for this province.	Governor: The Throne-Sworn	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_temple	The priests tend its clan shrines and keep its old grudges alive.	Governor: The Ancestor Priesthood	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_forge	The Forgewrights collect Oathgold from the province's workshops.	Governor: The Forgewrights	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_chain	The Deepdelvers weigh the spoils brought home by their warriors.	Governor: The Deepdelvers	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_legion	A thane knows what his clan needs to defend the hold.	Governor: The Clan Warriors	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_ledger	The Reckoners collect every debt owed to the hold.	Governor: The Reckoners	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_tower	The Runesmiths put the hold's old lore to use.	Governor: The Runesmiths	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_road	The Underway Wardens clear safe routes beneath the mountains.	Governor: The Underway Wardens	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_hearth	The Hearth Clans care for wounded warriors until they can march again.	Governor: The Hearth Clans	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_envoy_dwf_ctl	The king's envoy settles disputes here.	Envoy: Control	province	1	morale.png	true	false	true
+derpy_ic_envoy_dwf_oath	The king's envoy collects Oathgold from the forges.	Envoy: Oathgold	province	1	oathgold.png	true	false	true
+derpy_ic_envoy_dwf_grow	The king's envoy sees to the holdfarms.	Envoy: Growth	province	1	growth.png	true	false	true
+derpy_ic_envoy_dwf_rec	The king's envoy reduces the cost of the clan muster.	Envoy: Recruitment	province	1	edict_state_troop_levy.png	true	false	true

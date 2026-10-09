@@ -11,8 +11,8 @@ written in the repo itself and never touched here. The copying is sync_guilds_re
 
 Then commit and push from inside the repo folder.
 
-NOTHING OF CA'S OR GW'S IS PUBLISHED (the author's rule for every public repo from this
-workspace). No images - the backdrop, plates and rebel flags are all derived from CA art -
+NOTHING OF CA'S OR GW'S IS PUBLISHED, the rule for every public repo from this
+workspace. No images - the backdrop, plates and rebel flags are all derived from CA art -
 and no DB rows copied out of CA's db.pack. `refused()` checks the manifest for both before
 anything is copied, and the sync will not run while it reports anything.
 """
@@ -105,9 +105,9 @@ _DOCS = [
 ]]
 
 
-# THE DWARF WORK'S DOCS, found rather than typed (plan 2026-10-04 phase 6): six phase
-# plans and their handoffs, named by whoever wrote each. Every October court handoff
-# matches, the ones listed above too, so the list is de-duplicated in order.
+# The Dwarf work's docs are globbed rather than typed: their plans and handoffs were
+# named by whoever wrote each. The handoff glob also matches the October handoffs
+# listed above, so the list is de-duplicated in order.
 def _dated(folder, pattern):
     return sorted(os.path.relpath(p, ROOT).replace(os.sep, "/")
                   for p in glob.glob(os.path.join(ROOT, folder, pattern)))
@@ -132,8 +132,7 @@ def manifest(root=ROOT):
     ] + [_UI + "derpy_ic_%s%s.twui.xml" % (n, c)
          for n in ("panel", "card", "row", "party", "plot", "gm_row", "law", "lawblock")
          for c in ("", "_compact")] + [
-        # THE DWARF PANEL PAIR (plan 2026-10-04 dwarfs phase 3): a Dwarf court is
-        # created from these, so a clone without them builds no Dwarf court.
+        # THE DWARF PANEL PAIR: a Dwarf court is created from these, so a clone without them builds no Dwarf court.
         _UI + "derpy_ic_panel_dwf.twui.xml",
         _UI + "derpy_ic_panel_dwf_compact.twui.xml",
         _UI + "derpy_ic_opener.twui.xml",

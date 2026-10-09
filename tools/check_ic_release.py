@@ -1,16 +1,14 @@
 # -*- coding: utf-8 -*-
 """The Iron Court's release gate: both races, three screens, and the saved pack read back.
 
-WHY IT EXISTS (plan 2026-10-04, Iron Court for Dwarfs phase 6). gen_ic_ui.py --check and
-make_ic_backdrop.py --check each prove what they were written for. A release needs the
-matrix - Chaos Dwarf and Dwarf, at 1600x900, 1920x1080 and 2560x1440 - and a release that
-promised "the Chaos Dwarf court does not change" needs that measured on the pack that
-ships, not on the plan that built it.
+gen_ic_ui.py --check and make_ic_backdrop.py --check each cover one race at one size; a
+release needs the matrix (Chaos Dwarf and Dwarf at 1600x900, 1920x1080 and 2560x1440),
+measured on the pack that ships.
 
     py tools/check_ic_release.py            # fit and contrast, both races, three screens
     py tools/check_ic_release.py --pack     # and the saved Modpacks pack: every table read
                                             # back against gen_iron_court.build(), and every
-                                            # row and loc line of F4C63911 unchanged
+                                            # row and loc line of the reviewed text baseline unchanged
     py tools/check_ic_release.py --selftest
 
 Exit 1 on any finding. An unknown flag is refused.
@@ -36,9 +34,11 @@ import read_vanilla_loc as RVL        # noqa: E402
 BOXES = (1600, 1920, 2560)
 PACK_DIR = os.path.join(ROOT, "Modding Files", "pack")
 LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
-# F4C63911, the last build before phase 1 (HANDOFF_20261004_IRON_COURT_DWARFS_DESIGN.md s1).
-SNAPSHOT_MD5 = "f4c6391183a7aa76309558640068318b"
-SNAPSHOT_SIZE = 10914962
+# The reviewed build every later pack is compared against, found by MD5 under Backup/.
+# Re-pin only after reading every finding: the last re-pin's diff was three loc lines
+# and two mission rows, the "Its card names both" text rewritten.
+SNAPSHOT_MD5 = "14d517dd1951f8fdbc626706538718aa"
+SNAPSHOT_SIZE = 15185867
 
 
 def fit_problems():
@@ -56,7 +56,7 @@ def fit_problems():
 def grounds():
     """{race: [backdrop PNG on disk]}. The Chaos Dwarf one is PANEL_BG; the Dwarf one is
     every OTHER panel-sized picture gen_ic_ui ships - found, not named, so this does not
-    depend on what phase 3 called it. Exactly one is the only right answer."""
+    depend on its file name. Exactly one is the only right answer."""
     from PIL import Image
     found = {"chd": [os.path.join(PACK_DIR, *U.PANEL_BG.split("/"))], "dwf": []}
     for p in sorted(U.art_paths()):
@@ -72,9 +72,8 @@ def grounds():
 
 
 def contrast_problems(found=None, boxes=BOXES):
-    """make_ic_backdrop's per-cell measure (Rec.709, p95, MIN_RATIO) for each race's
-    ground at each screen. The picture is scaled to that screen's panel with LANCZOS, as
-    make_ic_backdrop's own 1600 leg does; the 2560 leg is new here."""
+    """make_ic_backdrop's per-cell measure (WCAG, every ink, p95) for each race's ground
+    at each screen, the picture scaled to that screen's panel with LANCZOS."""
     from PIL import Image
     found = grounds() if found is None else found
     out = []
@@ -92,11 +91,11 @@ def contrast_problems(found=None, boxes=BOXES):
             if not rows:
                 out.append("contrast %s at %d: no cell measured" % (race, bw))
                 continue
-            print("contrast  %s %4d: %d cells, worst %s %.2f:1"
-                  % (race, bw, len(rows), rows[-1][0], rows[-1][3]))
-            out += ["contrast %s at %dx%d: %s reads %.2f:1 (p95 %.0f), under %.1f:1"
-                    % (race, m.PANEL_W, m.PANEL_H, n, r, p, B.MIN_RATIO)
-                    for n, _mean, p, r in rows if r < B.MIN_RATIO]
+            print("contrast  %s %4d: %d cells, worst %s %.2f:1 (%s)"
+                  % (race, bw, len(rows), rows[-1][0], rows[-1][3], rows[-1][4]))
+            out += ["contrast %s at %dx%d: %s reads %.2f:1 in %s (p95 %.4f), under %.1f:1"
+                    % (race, m.PANEL_W, m.PANEL_H, n, r, ink, p, B.MIN_RATIO)
+                    for n, _mean, p, r, ink in rows if r < B.MIN_RATIO]
     return out
 
 
@@ -114,7 +113,7 @@ def pack_tables(pack):
 
 
 def find_snapshot():
-    """F4C63911 wherever a deploy backed it up under Modding Files/Backup, by MD5."""
+    """Reviewed text baseline under Modding Files/Backup, by MD5."""
     for top, _dirs, files in os.walk(os.path.join(ROOT, "Modding Files", "Backup")):
         for n in files:
             p = os.path.join(top, n)
@@ -126,7 +125,7 @@ def find_snapshot():
 
 def chd_unchanged(old, new):
     """Every row and loc line of the snapshot is in the new pack, unchanged. New rows are
-    allowed - they are the Dwarf ones; nothing the Chaos Dwarf court shipped may move."""
+    allowed; every existing row and line in the reviewed baseline must stay unchanged."""
     out = []
     for t in sorted(k for k in old if k != "loc"):
         ver, rows = old[t][0], old[t][1]
@@ -266,7 +265,7 @@ def main(argv):
             print("snapshot  %s" % snap)
             problems += chd_unchanged(pack_tables(snap), new)
         else:
-            problems.append("no F4C63911 snapshot (MD5 %s) under Modding Files/Backup"
+            problems.append("no reviewed text snapshot (MD5 %s) under Modding Files/Backup"
                             % SNAPSHOT_MD5)
     for p in problems:
         sys.stderr.write("FAIL %s\n" % p)

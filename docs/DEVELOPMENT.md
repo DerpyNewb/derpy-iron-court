@@ -21,14 +21,15 @@ entry to raise, a banner for a rebellion.
 | `zzz_derpy_iron_court_parties.lua` | `IC` (extends it) | The rival parties' own acts: intrigue against the Crown, feuds, demands, offers, and overseer experience. Loads after the model (`.` sorts before `_`) and changes nothing in the campaign at load. |
 | `zzz_derpy_iron_court_ui_map.lua` | `ICUI` (extends it) | The Governors tab: clears the court's backdrop so the live map shows through, pins five components per held province to its capital settlement through CA's own world-space callbacks (`ContextWorldSpaceComponent` on `CcoCampaignSettlement.Position`, copied from the Gardens of Morr), and draws the left column's Parties, Provinces and Candidates pages. What each party would take is asked once a redraw (`ICUI.map_memo`). Loads after `_ui.lua` (`.` sorts before `_`), so `ICUI` exists. |
 | `zzz_derpy_iron_court_ui.lua` | `ICUI` | The panel, its seven tabs, the character picker, the HUD opener and the influence plate on CA's character details panel. Every action it takes goes through `IC.mp_send`; it never calls a model mutator or writes court state directly. |
-| `script/mct/settings/derpy_iron_court.lua` | none (MCT's own environment) | The MCT page: a difficulty dropdown, seven switches and fifteen Custom numbers. Runs only when MCT is installed and calls nothing in the mod. |
+| `script/mct/settings/derpy_iron_court.lua` | none (MCT's own environment) | The MCT page: a difficulty dropdown, twelve switches and eighteen Custom numbers. Runs only when MCT is installed and calls nothing in the mod. |
 
 Every tunable is in `IC.TUNE` (the model) or at the top of the parties file, which appends
 its own keys to the same table. **The MCT settings are frozen into the save at the first
 tick** (`IC.freeze_tune`, saved value `derpy_ic_tuned`), because MCT gates nothing in a
-campaign by itself. A difficulty other than Custom sets all fifteen numbers
-(`IC.PRESETS`). Six switches stay live (`IC.LIVE_TUNE`: `parties_act`, `secession`,
-`pressure`, `crown_split`, `all_cards`, `detailed_log`). They are read again at every load
+campaign by itself. A difficulty other than Custom sets all eighteen numbers
+(`IC.PRESETS`). Eleven switches stay live (`IC.LIVE_TUNE`: `parties_act`, `secession`,
+`pressure`, `crown_split`, `all_cards`, `detailed_log`, `governments`, `gov_drift`, `deeds`,
+`laws`, `dwarf_courts`). They are read again at every load
 and on MCT's `MctFinalized`, and a countdown switched off ends at once. `ai_courts`, the
 difficulty and the numbers stay frozen. A new setting is appended to `IC.TUNE_ORDER`, never
 inserted. In multiplayer MCT is not read at all, because each machine's MCT is its own.

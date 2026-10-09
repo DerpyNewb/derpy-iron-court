@@ -1,51 +1,26 @@
 """Four rebel crests: our own devices on CA's own Chaos Dwarf rebel banner.
 
-WHY THIS EXISTS. All four dormant factions a secession can become share ONE
-flags_path in factions_tables:
+All four dormant factions a secession can become (wh3_dlc23_chd_chaos_dwarfs_qb1 to qb3 and
+wh3_dlc25_chd_chaos_dwarfs_invasion) share one flags_path, so two rebellions drew two
+identical banners. No script call sets a crest, so the factions override gives each its own
+folder: four crests at most, and a party that leaves once all four are flying takes a fallen
+house's or joins a rising (IC.rebel_faction).
 
-    wh3_dlc23_chd_chaos_dwarfs_qb1  ->  ui\\flags\\wh3_dlc23_chd_chaos_dwarfs_rebels
-    wh3_dlc23_chd_chaos_dwarfs_qb2  ->  the same
-    wh3_dlc23_chd_chaos_dwarfs_qb3  ->  the same
-    wh3_dlc25_chd_chaos_dwarfs_invasion -> the same
+The frame, rivets and plate stay CA's, so the rebels read as a real faction. CA's device is
+found by its hue band (SIGIL_HUE) and erased, the hole filled by diffusing the plate around
+it inward. The device lifted from Modding Files/source/ic_crests/ is then painted at the
+plate's centroid in its house's HOUSE_COLOUR hue (CREST_TINT). Read ERASE_SPECK before
+touching the erase thresholds.
 
-so two rebellions on one map are two identical green banners, which is what the
-author photographed on 2026-09-17: "the faction logo should also be the party
-faction logo".
-
-AND A CREST CANNOT BE SET AT RUNTIME. flags_path is a factions_tables column and
-nothing in CA's whole scripting reference writes one - searched, not assumed.
-cm:change_custom_faction_name fixes the NAME and has no counterpart for the
-picture. So the only lever is the DB, and the DB is read before the campaign
-rolls which parties it seats: the crest can be distinct per FACTION and can never
-be the specific party's own sigil. Four crests is the engine's ceiling. Ruthless
-seats five rivals (2026-09-25), and a fifth party that leaves joins a rising
-already under way instead of wanting a crest of its own - IC.rebel_faction.
-
-RECOLOURED, NOT DRAWN. The frame, the rivets, the scratched plate and the torn
-edge are CA's and stay CA's; only the sigil's hue moves. A hand-drawn crest beside
-fifty of CA's reads as a mod's crest, and the point is a faction the player takes
-as seriously as any other.
-
-THE SIGIL IS SELECTED BY HUE, NOT BY A MASK. CA's rebel sigil sits at hue ~100
-degrees (green) while the bronze frame is ~25 (orange) and the plate is almost
-unsaturated. So: rotate the hue of every pixel that is both saturated enough to
-be paint and inside the green band, and leave value and saturation alone - the
-scratches, the bevel and the grain all survive because they are value, not hue.
-Measured rather than guessed: report() prints the hue histogram of each file.
-
-SIX FILES PER FOLDER, because that is what CA ships and a missing one is a blank
-square with nothing in the log:
+Six files per folder, as CA ships them; a missing one is a blank square with nothing in the log:
 
     mon_24.png      24x24    RGBA   the framed banner, diplomacy list
     mon_64.png      64x64    RGBA   the framed banner, larger
     mon_256.png     256x256  RGBA   the framed banner, full
     mon_icon.png    256x256  RGBA   the bare sigil on transparency
     mon_rotated.png 112x90   RGBA   the banner in perspective
-    mon_banner.dds  256x256  BC3_UNORM, 9 mips - the BATTLE banner
-
-THE DDS IS THE ONE THAT NEEDS A TOOL. Pillow silently downgrades the format, so
-texconv does the encode: BC3_UNORM with a full mip chain, matching what texdiag
-reports for CA's own file.
+    mon_banner.dds  256x256  BC3_UNORM, 9 mips: the battle banner, encoded by texconv
+                                    because Pillow silently writes another format
 
     py tools/make_ic_rebel_flags.py --check      re-measure what ships
     py tools/make_ic_rebel_flags.py --write      rebuild the four folders
@@ -96,7 +71,7 @@ CREST = [
 ]
 
 # THE SUPPLIED ART. Whole flags - white device on CA's plate, in CA's frame.
-# Only the DEVICE is taken; see the module docstring for why not the frame.
+# Only the DEVICE is taken; the frame stays CA's.
 CREST_SRC = os.path.join(ROOT, "Modding Files", "source", "ic_crests")
 
 # A DEVICE PIXEL: bright, and barely coloured. The devices are white on near
@@ -124,9 +99,7 @@ ERASE_SPECK = 0.008
 # to False ships the devices in their own colour.
 CREST_TINT = True
 
-# ---------------------------------------------------------------------------
 # The supplied devices.
-# ---------------------------------------------------------------------------
 def plate_mask(im):
     """CA's stone field: everything inside the frame, holes filled.
 
@@ -322,9 +295,7 @@ def target_hue(slug):
     return colorsys.rgb_to_hsv(r, g, b)[0]
 
 
-# ---------------------------------------------------------------------------
 # CA's art, offline.
-# ---------------------------------------------------------------------------
 def _unwrap(raw):
     """ui/**/* in CA's packs is a u32 length then a zstd frame."""
     if len(raw) > 8 and raw[4:8] == b"\x28\xb5\x2f\xfd":
@@ -402,7 +373,7 @@ def restyle(im, src_name, hue):
     w, h = im.size
 
     # STRAYS FIRST, OR THE DILATION TURNS THEM INTO BLOCKS. A four-pixel speck
-    # of CA's hue band near the banner's edge grew into a 27px square of flat
+    # of CA's hue band near the banner's edge grows into a 27px square of flat
     # ring-grey on both battle banners. It also widened the box, which is what
     # sets the dilation radius and the ring the fill is averaged from, so the
     # box is taken again from the cleaned mask. See ERASE_SPECK for the numbers
@@ -412,7 +383,7 @@ def restyle(im, src_name, hue):
     if not n:
         return im, 0
 
-    # ---- 2. erase -------------------------------------------------------
+    # Erase CA's device.
     # THE MASK IS GROWN FIRST, and that is not a refinement - without it the old
     # device is still on the banner. The hue band selects CA's PAINT; the device
     # is also drawn with a pale outline sitting far below SIGIL_SAT, so erasing
@@ -452,7 +423,7 @@ def restyle(im, src_name, hue):
         base = Image.composite(
             base.filter(ImageFilter.GaussianBlur(radius)), im, mask)
 
-    # ---- 3. paint -------------------------------------------------------
+    # Paint ours.
     # PLACED AGAINST THE PLATE, NOT AGAINST CA'S DEVICE BOX. See the docstring
     # on crest_device: `box` above is CA's composition and is only used to
     # decide what to ERASE. Where OUR device goes is the plate's own centroid,
@@ -599,9 +570,7 @@ def build(out_root=None, verbose=True):
     return written
 
 
-# ---------------------------------------------------------------------------
 # Checks.
-# ---------------------------------------------------------------------------
 def check():
     """Every way these crests can be wrong and say nothing about it."""
     from PIL import Image
@@ -776,9 +745,8 @@ def selftest():
                                                   ERASE_SPECK))
             bad += 1
 
-    # CA'S DEVICE IS GONE AND OURS IS THERE. This is the pair that would have
-    # caught the first two builds: erasing only the hue band left the old
-    # sigil's pale outline on the banner, under ours.
+    # CA'S DEVICE IS GONE AND OURS IS THERE. Erasing only the hue band leaves
+    # the old sigil's pale outline on the banner, under ours.
     src = fetch()
     plate = Image.open(os.path.join(src, "mon_256.png"))
     before, box0 = sigil_box(plate)
@@ -826,8 +794,7 @@ def selftest():
         bad += 1
     # AND OURS IS ON IT, asked in OUR hue and not in CA's. sigil_box() searches
     # the green band, so after a successful restyle it finds nothing - that is
-    # the erase working, not the paint failing, and asserting it the other way
-    # round failed this selftest on its first run.
+    # the erase working, not the paint failing.
     mine = 0
     for pr, pg, pb, pa in out.convert("RGBA").getdata():
         if pa == 0:

@@ -1,7 +1,7 @@
--- Iron Court: the Dwarf race (plan 2026-10-04 phase 2; spec
--- docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md sections 2-4,
--- 7, 8). Loaded after zzz_derpy_iron_court.lua ("." sorts before "_") and
--- before the parties file ("d" before "p").
+-- Iron Court: the Dwarf race (spec
+-- docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md). Loaded after
+-- zzz_derpy_iron_court.lua ("." sorts before "_") and before the parties file
+-- ("d" before "p").
 --
 -- SLOTS, NOT NEW SLUGS: a Dwarf party, office, government and law keeps the
 -- Chaos Dwarf slot's slug, so every rule the model keys on them holds and only
@@ -21,14 +21,14 @@ DWF.infix = "dwf_"
 -- THE MCT SWITCH THAT TURNS THE RACE ON AND OFF; IC.has_court reads it.
 DWF.switch = "dwarf_courts"
 DWF.layout = "grid"
--- KINSHIP (spec 2026-10-04 section 5): a Dwarf party is slow to leave its
--- karak. Exactly the two countdowns; plan 2026-10-04 phase 4 ruling 7 names
--- what is not scaled and why.
+-- KINSHIP: a Dwarf party is slow to leave its karak. Only the two countdowns
+-- scale; docs/superpowers/plans/2026-10-04-iron-court-dwarfs-phase4-court-grudges.md
+-- says what is not scaled and why.
 DWF.tune = {
     secede_turns       = {mul = 1.5},
     plot_provoke_clock = {mul = 1.5},
 }
--- THE DWARF SKIN (plan 2026-10-04 phase 3). The panel is its own file pair (the
+-- THE DWARF SKIN. The panel is its own file pair (the
 -- caps are twui margins); the pooled cards' frame, the lit plates and the opener
 -- glyph are swapped at runtime. Must match gen_ic_ui.py: DWF_TAB, DWF_FRAME,
 -- DWF["title_cap"], DWF["heading_cap"], DWF_OPENER_ICON (import_iron_court checks).
@@ -51,9 +51,8 @@ DWF.art = {
     -- (must match gen_ic_ui.py DWF_THEME). The panel file is built with it; the
     -- files both races share are re-pointed by ICUI.skin_buttons.
     theme = "ui/skins/wh3_main_theme_caledor_sky/",
-    -- The Governors view's map (author, 2026-10-05: "change it to dwarf themed"):
-    -- CA's Dwarf skin pin, and the name and loyalty plates baked by
-    -- tools/gen_ic_ui.py out of that skin's strip at their 1920 boxes (DWF_STRIP).
+    -- The Governors view's map, Dwarf themed: CA's Dwarf skin pin, and the name
+    -- and loyalty plates baked by tools/gen_ic_ui.py out of that skin's strip at their 1920 boxes (DWF_STRIP).
     gm_pin = "ui/skins/wh_main_dwf_dwarfs/location_pin.png",
     gm_name = "ui/derpy_ic/dwf_strip_180x30.png",
     gm_loyal = "ui/derpy_ic/dwf_strip_113x30.png",
@@ -85,7 +84,7 @@ DWF.art = {
     },
 }
 
--- THE GREAT HALL (spec 2.5): rank falls with distance from the throne at
+-- THE GREAT HALL: rank falls with distance from the throne at
 -- column 2, row 0. One cell per office, in DWF.OFFICES order.
 DWF.grid = {cols = 5, rows = 4, throne = {2, 0}, cells = {
     {1, 0}, {3, 0},
@@ -94,7 +93,7 @@ DWF.grid = {cols = 5, rows = 4, throne = {2, 0}, cells = {
     {0, 2}, {4, 2}, {1, 3}, {3, 3},
 }}
 
--- THE HOLDS (spec section 3): the six majors and the eight Immortal Empires
+-- THE HOLDS: the six majors and the eight Immortal Empires
 -- minors, every key read out of db.pack factions_tables, plus four places.
 -- Clan Helhein, Karak Zorn, the Greybeards' Prospectors and the Spine of Sotek
 -- Dwarfs are in the DB but unconfirmed on the map, so they are no origin.
@@ -124,7 +123,7 @@ DWF.PARTIES = {
     "ledger", "tower", "road", "hearth",
 }
 
--- THE FOURTEEN SEATS (spec 2.2): affinity unchanged, tiers 2/4/4/4.
+-- THE FOURTEEN SEATS: affinity unchanged, tiers 2/4/4/4.
 DWF.OFFICES = {
     {slug = "priest",    affinity = "temple",    tier = 1},
     {slug = "forge",     affinity = "forge",     tier = 1},
@@ -187,57 +186,57 @@ DWF.NAME_TAILS = {
 -- THE SAME EIGHT RULES as the Chaos Dwarf traits, keyed alike, in Dwarf words.
 DWF.PARTY_TRAITS = {
     {key = "proud", name = "Proud",
-     blurb = "No reward ever satisfies them.",
+     blurb = "No honour is high enough for their clan.",
      rule = "-1 a turn",
      n = function() return -1 end},
     {key = "patient", name = "Patient",
-     blurb = "They have waited a hundred years before. They can wait again.",
+     blurb = "A hundred years is no long wait in these halls.",
      rule = "+1 a turn",
      n = function() return 1 end},
     {key = "grasping", name = "Grasping",
-     blurb = "They demand holds and resent every province denied them.",
+     blurb = "They keep a tally of the holds denied them.",
      rule = "+1 while they govern a province, -2 when they do not",
      n = function(ctx) return ctx.govs > 0 and 1 or -2 end},
     {key = "zealots", name = "Keepers of the Old Ways",
-     blurb = "They serve strength. A weak throne earns only contempt.",
+     blurb = "A king must command his hall.",
      rule = "+1 while your own party holds half the court, -2 below it",
      n = function(ctx) return ctx.control >= 50 and 1 or -2 end},
     {key = "ambitious", name = "Ambitious",
-     blurb = "Each office sharpens their appetite for the next.",
+     blurb = "One office is too little for a clan of their name.",
      rule = "0 with no seat, -1 with one, -2 with two or more",
      n = function(ctx) return -math.min(ctx.held, 2) end},
     {key = "dutiful", name = "Dutiful",
-     blurb = "They serve where ordered and ask for little.",
-     rule = "+2 with no seat, +1 with one",
+     blurb = "They took an oath to serve. No reward was promised.",
+     rule = "+2 with no seat, +1 with any",
      n = function(ctx) return ctx.held == 0 and 2 or 1 end},
     {key = "traditionalists", name = "Traditionalists",
-     blurb = "Their ancestral office belongs in their own hands.",
+     blurb = "Their forefathers held that office. They expect it back.",
      rule = "+1, or -2 while an outsider holds their seat",
      n = function(ctx) return ctx.snubbed and -2 or 1 end},
     {key = "venal", name = "Gold-Hungry",
-     blurb = "Gold is the only argument they respect.",
+     blurb = "Loyalty lasts while the king pays in gold.",
      rule = "+2 while secured, -1 otherwise",
      n = function(ctx) return ctx.sworn > 0 and 2 or -1 end},
 }
 
 DWF.LEADER_TRAITS = {
     {key = "thirst", name = "Thirst for the Throne",
-     blurb = "He wants the throne, and makes no secret of it."},
+     blurb = "He names the throne when asked what he is owed."},
     {key = "schemer", name = "Schemer",
-     blurb = "Every promise hides another bargain."},
+     blurb = "He makes bargains in the brewhouse before council sits."},
     {key = "brute", name = "Hard-Headed",
-     blurb = "He settles disputes with threats and iron."},
+     blurb = "He thumps the council table until the mugs jump."},
     {key = "steady", name = "Steady",
-     blurb = "Threats do not move him. Flattery fares no better."},
+     blurb = "He gives the same answer after threats or praise."},
     {key = "shrewd", name = "Shrewd",
-     blurb = "He sees which bargains will pay before others do."},
+     blurb = "He knows which oath is worth the gold behind it."},
     {key = "faithful", name = "Ancestor-Sworn",
-     blurb = "The Ancestors set the throne where it is. That settles it."},
+     blurb = "He swore to the king before the Ancestors. He keeps his oath."},
 }
 
--- THE GOVERNMENTS (spec 2.3): the six slots, each keeping its slot's rule but
+-- THE GOVERNMENTS: the six slots, each keeping its slot's rule but
 -- the Iron Law's. `icon` is a bare name under ui/campaign ui/effect_bundles/,
--- read by gen_iron_court. The Iron Law's broken-oath half is phase 4's.
+-- read by gen_iron_court.
 DWF.GOV_ORDER = {"conclave", "priest", "forge", "legion", "chain", "convoy"}
 DWF.GOVS = {
     conclave = {icon = "thane.png",
@@ -264,7 +263,7 @@ DWF.GOVS = {
                         plot_embezzle_loyalty = 12}},
 }
 
--- WHERE EACH HOLD STARTS (spec section 3; inference, as the Chaos Dwarfs').
+-- WHERE EACH HOLD STARTS (inferred, as the Chaos Dwarfs' are).
 DWF.START_GOV = {
     wh_main_dwf_dwarfs = "priest",
     wh_main_dwf_karak_kadrin = "legion",
@@ -282,7 +281,7 @@ DWF.START_GOV = {
     wh_main_dwf_karak_ziflin = "conclave",
 }
 
--- THE LAWS (spec section 7): the four slot categories (Craft, Tribute,
+-- THE LAWS: the four slot categories (Craft, Tribute,
 -- Ancestors, War), each option keeping its slot's pro and con parties. The
 -- first of each `order` is its start and has no effects.
 DWF.LAW_ORDER = {"labour", "tribute", "worship", "war"}
@@ -325,19 +324,18 @@ DWF.LAWS = {
     }},
 }
 
--- THE DEEDS (spec section 8). No temple deed: db.pack has no Dwarf temple
--- chain (plan ruling 3). Phase 5 adds the grudge deed.
+-- THE DEEDS. No temple deed: db.pack has no Dwarf temple chain.
 DWF.DEEDS = {
     battle    = {party = "legion", tune = "deed_battle"},
     research  = {party = "tower",  tune = "deed_research"},
-    -- A GRUDGE SETTLED (spec 2026-10-04 section 8), for two parties.
+    -- A GRUDGE SETTLED, for two parties.
     grudge    = {party = "legion", also = "temple", tune = "deed_grudge"},
 }
 DWF.TEMPLE_BUILDINGS = {}
 
--- THE RISINGS (spec section 3). Three dormant quest-battle factions no CA
--- script touches; the four separatist factions permit only a Slayer general
--- (plan ruling 4). gen_iron_court --check holds every key below to the DB.
+-- THE RISINGS. Three dormant quest-battle factions no CA script touches; the
+-- four separatist factions permit only a Slayer general. gen_iron_court --check
+-- holds every key below to the DB.
 DWF.REBEL_POOL = {
     "wh_main_dwf_dwarfs_qb2",
     "wh_main_dwf_dwarfs_qb3",
@@ -403,6 +401,12 @@ DWF.REBEL_HEROES = {
     ["wh_main_dwf_runesmith"] = "runesmith",
 }
 
+-- THE DWARF EVENT RECORDS sit this far above IC.EVENTS' numbers, each with the
+-- dwf/ picture of its Chaos Dwarf twin (tools/gen_iron_court.py
+-- RACE_EVENT_OFFSET, which import_iron_court holds to this). 2800-2899 is free
+-- across the 354 installed packs; Mixu holds three in the 2700s.
+DWF.EVENT_OFFSET = 200
+
 -- The lords a leaderless Dwarf party may be given.
 DWF.STORE_LORDS = {
     "wh_main_dwf_lord",
@@ -430,7 +434,7 @@ DWF.LEGEND_SUBTYPES = {
 DWF.MILITARY_DOCTRINE = "wh_main_edict_dwf_masters_of_steel_and_stone"
 DWF.MILITARY_DOCTRINE_NAME = "Masters of Steel and Stone"
 
--- EVERY MOVE IN IC.PLOTS, by key. Phase 4 appends "weregild".
+-- EVERY MOVE IN IC.PLOTS, by key.
 DWF.PLOT_KEYS = {
     "bribe", "discredit", "rumour", "murder", "provoke", "purge",
     "unseat", "recall", "oath", "patron", "kinsman", "pledge",
@@ -439,7 +443,7 @@ DWF.PLOT_KEYS = {
 }
 
 -- WHAT A DWARF PARTY OFFERS THE CROWN: one unit each, in the party's own
--- trade. Every key read out of db.pack main_units 2026-10-04.
+-- trade. Every key read out of db.pack main_units.
 DWF.PARTY_TROOPS = {
     temple = "wh_main_dwf_inf_hammerers",
     forge  = "wh_main_dwf_inf_thunderers_0",
@@ -453,7 +457,7 @@ DWF.PARTY_TROOPS = {
 -- A confederated house's slug is not one of the eight.
 DWF.TROOPS_DEFAULT = "wh_main_dwf_inf_dwarf_warrior_0"
 
--- THE ENVOY'S FOUR (spec section 4): Chaos Dwarf armaments, raw materials and
+-- THE ENVOY'S FOUR: Chaos Dwarf armaments, raw materials and
 -- labour do nothing for Dwarfs. The value is IC.TUNE[knob]; gen_iron_court
 -- reads both out of this table. `icon` is the bundle's.
 DWF.ENVOY_TASKS = {
@@ -467,7 +471,7 @@ DWF.ENVOY_TASKS = {
      bundle = "derpy_ic_envoy_dwf_rec", icon = "edict_state_troop_levy.png"},
 }
 
--- THE MOVES IN DWARF WORDS (spec 2.4): mechanics unchanged, so every number is
+-- THE MOVES IN DWARF WORDS: mechanics unchanged, so every number is
 -- the model's own knob, read at load as IC.PLOTS reads it.
 -- A move's icon, where the shared one is Chaos Dwarf (or Cathay) art: CA's
 -- Dwarf technology paintings, as the law cards use.
@@ -479,25 +483,25 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_bribe_standing,
          IC.TUNE.plot_bribe_loyalty)},
     discredit = {name = "Question His Work",
-     blurb = "His work is found wanting.",
+     blurb = "Find fault in his workmanship.",
      effect = string.format(
          "-%d influence for him. -%d influence from his party.",
          IC.TUNE.plot_discredit_standing,
          IC.TUNE.plot_discredit_weight)},
     rumour = {name = "Hall Whispers",
-     blurb = "Talk in the halls ruins one name.",
+     blurb = "Carry tales against him through the hold.",
      effect = string.format(
          "-%d influence for him. His party is unaffected.",
          IC.TUNE.plot_rumour_damage)},
     murder = {name = "The Slayer Oath",
      icon = "ui/campaign ui/technologies/wh_main_dwf_slayers_onslaught.png",
-     blurb = "His party will know.",
+     blurb = "His clan remembers.",
      effect = string.format(
          "He takes the Slayer Oath and leaves the court for good. -%d loyalty from his party.",
          IC.TUNE.plot_murder_loyalty - IC.TUNE.loyalty_member_died)},
     provoke = {name = "An Insult to the Clan",
      icon = "ui/campaign ui/technologies/wh_main_dwf_tales_of_many_wars.png",
-     blurb = "An insult they cannot ignore.",
+     blurb = "Their clan name is dragged through the muck.",
      effect = string.format(
          "-%d loyalty. Sets their secession countdown to %d turns.",
          IC.TUNE.plot_provoke_loyalty,
@@ -507,18 +511,18 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_provoke_loyalty)},
     purge = {name = "Cast Out the Clan",
      icon = "ui/campaign ui/technologies/wh_main_dwf_iron_price.png",
-     blurb = "The court watches.",
+     blurb = "The clans watch.",
      effect = string.format(
          "Removes the party. -%d loyalty to all others. Failure: another -%d to the target.",
          IC.TUNE.plot_purge_witness,
          IC.TUNE.plot_purge_backfire)},
     unseat = {name = "Bar the Doors",
-     blurb = "They keep only their name.",
+     blurb = "Their benches stand empty.",
      effect = string.format(
          "Empties every office they hold. -%d loyalty.",
          IC.TUNE.plot_unseat_loyalty)},
     recall = {name = "Recall Governors",
-     blurb = "The throne takes back its provinces.",
+     blurb = "The king recalls them from the holds.",
      effect = string.format(
          "Recalls every governor from their party. -%d loyalty.",
          IC.TUNE.plot_recall_loyalty)},
@@ -530,14 +534,14 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_oath_loyalty,
          IC.TUNE.plot_oath_min_loyalty)},
     patron = {name = "Stand His Patron",
-     blurb = "He will remember.",
+     blurb = "Vouch for him before the king.",
      effect = string.format(
          "+%d influence for him. +%d loyalty for his party.",
          IC.TUNE.plot_patron_standing,
          IC.TUNE.plot_patron_loyalty)},
     kinsman = {name = "Name Him Kinsman",
      icon = "ui/campaign ui/technologies/wh_main_dwf_retainers_vows.png",
-     blurb = "His party loses influence.",
+     blurb = "His old clan has less say in the hall.",
      effect = string.format(
          "Moves up to %d influence to your own party. Requires %d loyalty.",
          IC.TUNE.plot_kinsman_weight,
@@ -549,13 +553,13 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_pledge_loyalty,
          IC.TUNE.plot_pledge_weight)},
     embezzle = {name = "Skim the Tally",
-     blurb = "The court will still smell theft.",
+     blurb = "The missing gold will be counted.",
      effect = string.format(
          "+%d gold. -%d loyalty across the whole court.",
          IC.TUNE.plot_embezzle_gold,
          IC.TUNE.plot_embezzle_loyalty)},
     feast = {name = "Host a Feast",
-     blurb = "The court learns his name.",
+     blurb = "His name fills the hall.",
      effect = string.format(
          "+%d influence to the man you send. -%d loyalty across the court.",
          IC.TUNE.plot_feast_standing,
@@ -567,19 +571,19 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_audience_loyalty)},
     circuit = {name = "Walk the Holds",
      icon = "ui/campaign ui/technologies/wh_main_dwf_marching_songs.png",
-     blurb = "A ledger and an armed escort.",
+     blurb = "Hear the holds' grievances in person.",
      effect = string.format(
          "+%d control in every province you hold.",
          IC.TUNE.plot_circuit_prov)},
     envoy = {name = "Send an Envoy",
      icon = "ui/campaign ui/technologies/wh_main_dwf_dwarven_emissaries.png",
-     blurb = "He sees it done.",
+     blurb = "He answers for it.",
      effect = string.format(
          "One of your provinces, for %d turns: control, Oathgold, growth or "
          .. "recruitment cost.", IC.TUNE.mission_turns)},
     diplomats = {name = "Send Diplomats",
      icon = "ui/campaign ui/technologies/wh_main_dwf_dwarven_diplomats.png",
-     blurb = "Gifts and a long table.",
+     blurb = "Ale buys a hearing.",
      effect = string.format(
          "Improves relations with a faction you have met. Each faction once per %d turns.",
          IC.TUNE.diplomats_rest)},
@@ -587,9 +591,9 @@ DWF.PLOT_TEXT = {
 
 DWF.FAVOUR_TEXT = {
     gift = {name = "Send a Gift",
-     blurb = "Send gold, good ale and fine work. A small payment buys a little patience."},
+     blurb = "Gold, good ale and fine work buy patience."},
     secure = {name = "Secure Loyalty",
-     blurb = "Take oaths before the Ancestors and bind the party by them. This delays rebellion but cannot save loyalty at zero."},
+     blurb = "Oaths before the Ancestors delay rebellion. They will not stop it at zero loyalty."},
 }
 
 -- THE EVENTS THE DWARFS WORD THEIR OWN WAY: their loc carries the infix
@@ -599,36 +603,36 @@ DWF.EVENT_LOC = {
     realm_secede = true,
 }
 
--- THE HELP LINES THAT NAME CHAOS DWARF THINGS, in Dwarf words (phase 3, Task 13):
--- keyed by the shared line exactly as ICUI.HELP holds it; false drops the line.
--- The harness fails a key no shared line still reads. The deeds line names only
--- battle and research, the Dwarfs' two deeds - phase 5's grudge deed rewrites it.
+-- THE HELP LINES THAT NAME CHAOS DWARF THINGS, in Dwarf words: keyed by the
+-- shared line exactly as ICUI.HELP holds it; false drops the line. The harness
+-- fails a key no shared line still reads. The deeds line names battle and
+-- research only, not the grudge deed.
 DWF.HELP_SWAP = {
-    ["{@confed}A Chaos Dwarf house you confederate joins your court as a party of its own, keeping roughly the loyalty it had."] =
-        "{@confed}A Dwarf hold you confederate joins your court as a party of its own, keeping roughly the loyalty it had.",
-    ["{@crown}Your capital's province never leaves. {@circuit}Ride the Circuit, on the Intrigue tab, raises every province's loyalty at once."] =
-        "{@crown}Your capital's province never leaves. {@circuit}Walk the Holds, on the Intrigue tab, raises every province's loyalty at once.",
-    ["{@bullet}A court that no rival leads leans slowly toward the Conclave. While the Crown leads, nothing moves."] =
-        "{@bullet}A court that no rival leads leans slowly toward the Council of Elders. While the Crown leads, nothing moves.",
-    ["{@party}What you do moves your parties. Victories raise the Legion and the Hell-Forge the Forge."] =
-        "{@party}What you do moves your parties. Victories raise the warriors' party, and research the runesmiths'.",
-    ["{@bullet}The Tower's rites and temples raise the Priesthood, slaves and razing the Chain."] = false,
-    ["{@bullet}Convoys raise the Road, and research the Tower."] = false,
+    ["{@confed}A confederated Chaos Dwarf house joins as its own party, keeping roughly its former loyalty."] =
+        "{@confed}The thanes of a confederated hold sit as their own party, keeping roughly their former loyalty.",
+    ["{@crown}Your capital's province never leaves. {@circuit}Use Ride the Circuit on Intrigue to raise every province's loyalty at once."] =
+        "{@crown}Your capital's province never leaves. {@circuit}Use Walk the Holds on Intrigue to raise every province's loyalty at once.",
+    ["{@bullet}Without a leading rival, the court drifts toward the Conclave. A leading Crown stops the drift."] =
+        "{@bullet}Without a leading rival, the hall returns toward the Council of Elders. The Throne-Sworn stop this while they lead.",
+    ["{@party}Your deeds raise party renown. Victories raise the Legion; Hell-Forge rituals raise the Forge."] =
+        "{@party}Victories bring renown to the warriors' party. Research brings renown to the runesmiths'.",
+    ["{@bullet}Tower rites and temples raise the Priesthood. Slaves and razed settlements raise the Chain."] = false,
+    ["{@bullet}Convoys raise the Road. Research raises the Tower."] = false,
     ["{@bullet}Moves on a man: {@bribe}bribe him, {@discredit}discredit him, {@rumour}spread rumours, or {@murder}arrange an accident at the forge."] =
-        "{@bullet}Moves on a man: {@bribe}a gift of gold, {@discredit}question his work, {@rumour}whispers in the halls, or {@murder}drive him to the Slayer Oath.",
+        "{@bullet}Moves on a man: {@bribe}give him gold, {@discredit}question his work, {@rumour}spread hall gossip, or {@murder}drive him to the Slayer Oath.",
     ["{@bullet}Moves on a party: {@provoke}provoke it, or {@purge}purge it. Moves on its posts: {@unseat}strike its seats, or {@recall}recall its governors."] =
         "{@bullet}Moves on a party: {@provoke}insult it, or {@purge}cast it out. Moves on its posts: {@unseat}bar it from the hall, or {@recall}recall its governors.",
     ["{@bullet}Bonds: {@oath}swear a blood-oath, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}pledge the forge to his party."] =
         "{@bullet}Bonds: {@oath}swear on the ancestors, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}swear on the anvil to his party.",
     ["{@bullet}Errands: {@embezzle}embezzle from the vaults, {@feast}hold a feast, {@audience}hold court, or {@circuit}ride the circuit of your provinces."] =
         "{@bullet}Errands: {@embezzle}skim the tally, {@feast}host a feast, {@audience}hold court in the great hall, or {@circuit}walk the holds.",
-    ["{@rebel}The rebels declare war on you at once and march like an invading host. Every Chaos Dwarf court distrusts them."] =
-        "{@rebel}The rebels declare war on you at once and march like an invading host. Every Dwarf hold distrusts them.",
+    ["{@rebel}The rebels declare war at once and march against you. Every Chaos Dwarf court distrusts them."] =
+        "{@rebel}The rebels declare war at once and march against you. The other holds distrust these oathbreakers.",
     ["{@bullet}A bribe, the Pledge of the Forge, or another party's offer of calm stops a countdown. A purge ends the party, if it works."] =
-        "{@bullet}A Gift of Gold, an Oath on the Anvil, or another party's offer of calm stops a countdown. Casting it out ends the party, if it works.",
+        "{@bullet}A Gift of Gold, an Oath on the Anvil or a rival's offer of calm stops a countdown. Cast Out the Clan ends the party if it succeeds.",
 }
 
 -- REGISTERED LAST, once: IC.build_race derives TIERS, TIER_SEATS, PARTY_OF_BG
 -- and MAX_SEATS from the tables above, and register_race appends "dwf" to
--- IC.RACE_ORDER itself (phase 1) - never append it by hand.
+-- IC.RACE_ORDER itself, so never append it by hand.
 IC.register_race(DWF)

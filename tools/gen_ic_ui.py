@@ -1,14 +1,15 @@
-"""The Iron Court - UI generator.
+"""The Iron Court: UI generator.
 
-Writes the four .twui.xml files the panel is created from at runtime, built to
-docs/mockups/politics_panel.png.
+Writes every derpy_ic_*.twui.xml the panel is created from at runtime (a compact copy
+of each for screens under 1920 wide, and the Dwarf panel pair), and the pictures it
+draws from numbers: plates, dial wedges, rims and the silhouette.
 
     py tools/gen_ic_ui.py --check
     py tools/gen_ic_ui.py
     py tools/gen_ic_ui.py --selftest
 
-Read docs/CUSTOM_UI.md before editing. Every rule it records was measured in game,
-most of them after shipping the wrong thing first.
+In the workspace, read docs/CUSTOM_UI.md before editing: every rule it records was
+measured in game.
 """
 import io
 import math
@@ -28,14 +29,13 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # rewrites every layout global the way ICUI.apply_scale does in game - so check()
 # run on that copy is check() run on what a 1600x900 player sees.
 #
-# THE SCREEN A SCRIPT SEES IS THE WINDOW DIVIDED BY UI SCALE, FLOORED AT 1600x900
-# (HANDOFF_20260924_GUILDS_UI_SCALE.md section 1). The panel was a fixed 1920x1080
-# and a 1600x900 player lost 160px off each side. Text cannot be sized by script,
+# THE SCREEN A SCRIPT SEES IS THE WINDOW DIVIDED BY UI SCALE, FLOORED AT 1600x900.
+# A fixed 1920x1080 panel would lose 160px off each side on a 1600x900 screen. Text cannot be sized by script,
 # so below 1920 the panel is created from compact copies one CA size step down.
 BOX_W = globals().get("_BOX_W", 1920)
 COMPACT = BOX_W < 1920
 
-# THE RACE THIS COPY DRAWS (plan 2026-10-04 phase 3). The base module is the Chaos
+# THE RACE THIS COPY DRAWS. The base module is the Chaos
 # Dwarfs'; at_box(bw, "dwf") re-executes this file with _RACE injected beside
 # _BOX_W, so every layout number, layer list and check below is the race's own.
 RACE = globals().get("_RACE", "chd")
@@ -209,8 +209,8 @@ GUID_PREFIXES = {
     "derpy_ic_row_compact.twui.xml":   "IC42",
     "derpy_ic_party_compact.twui.xml": "IC43",
     "derpy_ic_plot_compact.twui.xml":  "IC44",
-    # IC45 and IC46 were the old party map's, retired 2026-09-30. Never reuse a prefix: a stale file in a player's data/ would collide.
-    # IC47-IC51 - THE GOVERNORS VIEW (spec 2026-09-30): the pin, the face, the
+    # IC45 and IC46 are retired (the old party map's). Never reuse a prefix: a stale file in a player's data/ would collide.
+    # IC47-IC51 - THE GOVERNORS VIEW: the pin, the face, the
     # two plates and the party badge, made once each per province into the
     # panel's first child. Never scaled.
     "derpy_ic_gm_pin.twui.xml":     "IC47",
@@ -222,16 +222,16 @@ GUID_PREFIXES = {
     "derpy_ic_gm_row.twui.xml":         "IC52",
     "derpy_ic_gm_row_compact.twui.xml": "IC53",
     # IC54-IC55 - THE COLUMN'S SCROLLING LIST and the empty row that gives it
-    # its length (author, 2026-10-01: "no scrollbar for selecting a governor").
+    # its length.
     "derpy_ic_gm_list.twui.xml":        "IC54",
     "derpy_ic_gm_sp.twui.xml":          "IC55",
-    # IC56-IC59 - THE LAWS TAB (spec 2026-10-02 laws): the law card, the party
+    # IC56-IC59 - THE LAWS TAB: the law card, the party
     # block on a vote, and their compact copies.
     "derpy_ic_law.twui.xml":                "IC56",
     "derpy_ic_lawblock.twui.xml":           "IC57",
     "derpy_ic_law_compact.twui.xml":        "IC58",
     "derpy_ic_lawblock_compact.twui.xml":   "IC59",
-    # IC60-IC61 - THE DWARF PANEL (plan 2026-10-04 phase 3) and its compact copy.
+    # IC60-IC61 - THE DWARF PANEL and its compact copy.
     # Its own file because the title's and the headings' end caps are twui
     # margins (111 -> 150, 34 -> 80), and SetImagePath cannot change a margin.
     "derpy_ic_panel_dwf.twui.xml":         "IC60",
@@ -266,7 +266,7 @@ CREST_BOX = (36, 36)     # a house flag; mon_64.png is square
 
 # HELL-FORGE SIZED. CA's hellforge_panel_main is a 1600x900 backdrop under a
 # 1612x912 frame; this matches that shape so the court is a screen rather than
-# a window. 15 rows now fit, so the court view never scrolls.
+# a window.
 PANEL_W, PANEL_H = 1920, 1080
 CONTENT_W = PANEL_W - 36
 
@@ -279,7 +279,6 @@ CONFED_SEATS = [h[0] for h in IC.ORIGINS if h[1]]
 MAX_HOUSES = len(IC.PARTIES) + len(CONFED_SEATS)
 OFFICE_COUNT = len(IC.OFFICES)
 
-# ---------------------------------------------------------------------------
 # Layout. name -> (x, y, w, h). ABSOLUTE OFFSETS ONLY: dockpoint is ignored on a
 # runtime-created component, and MoveTo is the only thing that positions one.
 #
@@ -287,52 +286,47 @@ OFFICE_COUNT = len(IC.OFFICES)
 # table names cannot draw at all once the hide pass walks their union - the fault
 # flips from "draws in the wrong place forever" to "never draws", which is
 # quieter still.
-# ---------------------------------------------------------------------------
-# 192, which is where it was before the dial existed. ROWS_Y is shared by every
-# view that draws a list - governors, intrigue, record - and the court is not one
-# of them any more: it is a dial and a grid of cards, in two columns, and it
-# hides the pool outright. So nothing here pays anything for the dial.
+
+# ROWS_Y is shared by every view that draws a list (governors, intrigue, record).
+# The court is a dial and a grid of cards and hides the row pool, so nothing here
+# pays for the dial.
 ROWS_X, ROWS_Y = 18, 192
 ROW_PITCH = 64
 # THE HEADER STRIP RIDES WITH THE ROWS, 30px above whichever row is first. Both
 # numbers are here because check 20 has to know the COURT one: off that view the
 # strip sits above the pie's box and nothing is drawn in it, but on the court
 # view a strip in the same place would be behind an opaque disc.
-# BACK TO 30. It was widened to 48 to stack the sort arrow UNDER its label;
-# the arrow sits BESIDE the label now and the strip needs no second row.
+# One row tall: the sort arrow sits beside its label, not under it.
 HDR_GAP = 30
-# 30px above whichever row is first, and derived from it: a header strip and
-# the list it labels are one decision.
+# Derived from the first row: a header strip and the list it labels are one
+# decision.
 HDR_Y = ROWS_Y - HDR_GAP
 
 PANEL_LAYOUT = {
     # FAR LEFT, and named for the god the court answers to. The middle of the
-    # top strip is the pie's column now, and a panel's own name belongs where a
+    # top strip is the pie's column, and a panel's own name belongs where a
     # reader starts rather than over the thing it is naming.
-    # ON THE CHAOS DWARF TITLE BANNER (2026-09-26), whose arrow ends take 165px
+    # ON THE CHAOS DWARF TITLE BANNER, whose arrow ends take 165px
     # a side - so 600 wide, which leaves the name 270 between them.
     "ic_title": (18, 4, 600, 56),
     # TOP RIGHT and 48px, where a close button belongs and where the cursor
-    # goes looking for it. It was 22px at the top left: wrong corner, and
-    # under half the size of any round button CA ships.
+    # goes looking for it, at the size of CA's own round buttons.
     "ic_close": (1854, 12, 48, 48),
-    # THE HELP BUTTON, beside the title (author, 2026-09-28). This is its place
+    # THE HELP BUTTON, beside the title. This is its place
     # when the plate fills its 600px box; the panel Lua moves it to the plate's
     # real end with the same 8px gap, because the plate is sized to its words.
     # Vertically centred on the 56px title.
     "ic_help": (626, 8, 48, 48),
-    # RIGHT-ANCHORED: its right edge is PANEL_W - 18, so it moved with the panel
-    # rather than staying at the 1600-wide x it was authored for.
-    # Ends at 1840, so it no longer runs under the close button at 1854.
-    # 300 WIDE since it gained a plate (2026-09-25): "99 of 99 seats filled"
-    # has to fit inside the frame, SEATS_PAD clear of each end.
+    # Ends at 1840, clear of the close button at 1854. 300 wide because
+    # "99 of 99 seats filled" has to fit inside its plate's frame, SEATS_PAD
+    # clear of each end.
     "ic_influence": (1540, 20, 300, 26),
-    # THE GOVERNORS VIEW'S PINS' HOLDER (spec 2026-09-30), the panel's FIRST
+    # THE GOVERNORS VIEW'S PINS' HOLDER, the panel's FIRST
     # child (check_gm): pins made in it draw under everything this file
     # declares. Moved to the screen's corner and sized to the screen at every
-    # draw, as the party map's layer was: a pin is placed in screen space.
+    # draw: a pin is placed in screen space.
     "ic_gm_pins": (0, 0, 1920, 1080),
-    # THE GOVERNORS VIEW'S PLATES AND COLUMN (spec 2026-09-30 section 6). Text
+    # THE GOVERNORS VIEW'S PLATES AND COLUMN. Text
     # on a live map has no reliable contrast, so every line this view keeps sits
     # on one of the three plates (check_gm_plates). The column is CA's
     # Hell-Forge side panel at its own 503x1080, opaque 0-443 then its fade,
@@ -358,29 +352,22 @@ PANEL_LAYOUT = {
     "ic_gm_btns": (0, 922, 444, 90),
     "ic_gm_ok": (150, 939, 56, 56),
     "ic_gm_no": (238, 939, 56, 56),
-    # THE COURT'S PAGER, same sizes, under the seventh row (330 + 6 * 80 + 76 = 886).
-    # THE SORT CONTROL, on the tab row's far right and ending where the close
-    # button ends (1902). The row is free from 784 to 1596, but the control is
-    # right-aligned instead: it belongs to the list below it rather than to the
-    # tabs beside it, and the panel's other two right-hand cells - ic_close and
-    # ic_influence - already set that edge.
-    # 240 WIDE since they wear CA's skull-capped tab (2026-09-26): its caps
-    # take 45px a side, so a 150 tab left "Governors" 60px of bar.
+    # 240 WIDE for CA's skull-capped tab: its caps take 45px a side, and a
+    # 150 tab leaves "Governors" 60px of bar.
     "ic_tab_court": (18, 62, 240, 32),
     "ic_tab_offices": (262, 62, 240, 32),
     "ic_tab_govs": (506, 62, 240, 32),
     "ic_tab_intrigue": (750, 62, 240, 32),
-    # WHAT THE PARTIES ASK OF YOU, on a tab of its own (author, 2026-09-24).
-    # Offers were answered from a party's favour list and demands from nowhere
-    # at all - the player had to find the seat and fill it by hand.
+    # WHAT THE PARTIES ASK OF YOU, on a tab of its own, so an offer or a
+    # demand is answered here rather than by finding the seat and filling it
+    # by hand.
     "ic_tab_petitions": (994, 62, 240, 32),
-    # The RECORD, on its own tab, and LAST (author, 2026-09-24): it is the one
-    # tab with nothing to act on. It shared the Intrigue list with the live
-    # secession clocks, and a page of history pushed the one thing a player
-    # can still act on off the screen.
+    # The RECORD, on its own tab, and LAST: it is the one tab with nothing to
+    # act on. On the Intrigue list, a page of history pushes the live
+    # secession clocks off the screen.
     "ic_tab_log": (1238, 62, 240, 32),
     "ic_tab_laws": (1482, 62, 240, 32),
-    # THE ATTENTION MARKERS (spec 2026-09-28 section 4.4): a heat glow over
+    # THE ATTENTION MARKERS: a heat glow over
     # each tab's right-hand skull, the cap's centre 20px in from the end
     # (TAB_CAP 40), shown by ICUI.draw_marks while that tab has business.
     "ic_mark_court": (18 + 240 - 34, 64, 28, 28),
@@ -391,22 +378,19 @@ PANEL_LAYOUT = {
     # ITS BOTTOM EDGE CAPS THE PIE, not its width: the pie may not rise above
     # this line, so it grows DOWNWARD and the list pays for it in rows.
     #
-    # THE WIDTH IS THE PANEL'S. It was 900 for the 874px the longest picker
-    # question measured, and 20e caught that question at 897px the moment a
-    # cost inside it gained an icon - three pixels, on a heuristic that is a
-    # desktop face standing in for the game's. Nothing else is on this row:
-    # ic_close and ic_influence are both above it and the pie starts 16px
-    # below, so the honest width is the one the frame band leaves, and a
-    # reworded title never has to come back here again.
+    # THE WIDTH IS THE PANEL'S. The longest picker question measures 897px
+    # once a cost in it wears an icon (20e), on a desktop face standing in for
+    # the game's. Nothing else is on this row: ic_close and ic_influence are
+    # above it and the pie starts 16px below, so it takes the width the frame
+    # band leaves and a reworded title never needs a new number.
     "ic_lbl_section": (18, 98, 1884, 22),
     # y 302 and 24 tall: header_16 needs the height, and the block has to
     # finish above the first row AND start below the pie, whose flat side is
-    # at DIAL_CY. 222 put the middle three headers underneath it.
-    # 502 AND 35px LEFT OF WHERE THEY WERE. See check 20k: the Rank heading
-    # and the arrow beside it ran 24px into the Influence heading, because the
-    # arrow is MoveTo'd past the caption and a 45px column cannot hold a
-    # four-letter word. Character is the only column with room to give - 468
-    # measured against 537 - and Party moves without narrowing.
+    # at DIAL_CY. At 222 the middle three headers sit underneath it.
+    # CHARACTER IS 502 WIDE so the Rank heading, and the arrow MoveTo'd past
+    # its caption, clear the Influence heading (check 20k): a 45px column
+    # cannot hold a four-letter word. Character is the only column with room
+    # to give (468 measured against 537), and Party moves without narrowing.
     "ic_hdr_a": (146, HDR_Y, 502, 24),
     "ic_hdr_b": (708, HDR_Y, 360, 24),
     "ic_hdr_c": (1088, HDR_Y, 45, 24),
@@ -432,16 +416,12 @@ PANEL_LAYOUT = {
     "ic_hsort_c": (1088, HDR_Y + 3, 17, 18),
     "ic_hsort_d": (1188, HDR_Y + 3, 17, 18),
     "ic_hsort_e": (1698, HDR_Y + 3, 17, 18),
-    # The scroll column is the last 18px of the content width. At 1600 wide this
-    # sat at 1564, which on a centred panel is screen x 1724 - under the campaign
-    # HUD's event feed, where it could not be clicked. That is the whole of "the
-    # scroll does not work".
+    # Nothing clickable may sit at panel x 1564 on a 1600 panel: on a centred
+    # panel that is screen x 1724, under the campaign HUD's event feed.
     # The pager sits BELOW the last row and above the alert bar. A scrollbar
-    # needed a drag CA does not expose to Lua; two buttons and a caption need
-    # only the click event that exists.
-    # Six pixels lower than they were, which is what the row pool needed to
-    # keep ten rows under a pie that starts 80px further down the panel.
-    # SIZED TO THEIR LABELS (2026-09-24), not 150 apiece: "NEXT" does not
+    # needs a drag CA does not expose to Lua; two buttons and a caption need
+    # only the click event that exists. Its y keeps ten rows under the pie.
+    # SIZED TO THEIR LABELS, not 150 apiece: "NEXT" does not
     # need 150px, and the party action bar shares this row on the court tab.
     # PREVIOUS is 107px at BODY and 96 at the compact size, plus the plate's
     # two 8px caps, so 136 holds it at 1600; the caption holds "Page 99 of 99".
@@ -451,15 +431,11 @@ PANEL_LAYOUT = {
     "ic_alert": (18, 1018, 1884, 44),
 }
 
-# ---------------------------------------------------------------------------
 # THE COURT TAB IS TWO COLUMNS. Nothing else on the panel is.
 #
-# It used to be stacked: the dial across the top of the panel, the party cards
-# in a band underneath it. That wasted the whole right-hand half of the dial's
-# row - 590px of backdrop with nothing on it - and paid for the waste twice
-# over, because the cards then had to fit five across and a party's name got a
-# 280px cell it could not hold. Side by side, each half gets the panel's full
-# height and the cards get half its width instead of a fifth.
+# Side by side, each half gets the panel's full height and the cards get half
+# its width. Stacked under the dial, the cards fit five across and a party's
+# name gets a 280px cell it cannot hold.
 #
 # ONLY THIS TAB. The offices tab is a card grid, the other three are lists, and
 # all four still use the full width - so every component declared here is
@@ -485,11 +461,10 @@ COL_BOTTOM = PANEL_LAYOUT["ic_alert"][1] - 8
 PANEL_LAYOUT["ic_col_left"] = (COL_L_X, COL_TOP, COL_W, COL_HDR_H)
 PANEL_LAYOUT["ic_col_right"] = (COL_R_X, COL_TOP, COL_W, COL_HDR_H)
 
-# THE HELP PAGE (author, 2026-09-28: "doesnt look very user friendly", then chose
-# a topic list and a page). The first build borrowed the list rows: 64px apart,
-# a portrait's height, and a pager to reach topic eight. This is its own page -
-# one card under all of it, the topics down the left in the tabs' own plates,
-# a rule, and the chosen topic's heading and lines at 34px. HELP_SLOTS topic
+# THE HELP PAGE: a topic list and a page, not the list rows (64px apart and a
+# pager to reach topic eight). One card under all of it, the topics down the
+# left in the tabs' own plates, a rule, and the chosen topic's heading and
+# lines at 34px. HELP_SLOTS topic
 # buttons and as many lines; the harness fails a topic or a line past them.
 # The card is NOT one of _panel_order's tier -1 plates: make_ic_backdrop drops a
 # cell from its contrast measurement once a tier -1 plate covers it, and this
@@ -512,8 +487,8 @@ def help_layout():
 
 PANEL_LAYOUT.update(help_layout())
 
-# THE LAWS TAB (spec 2026-10-02 laws section 4; the approved pictures are
-# .skilltree_cache/ui_preview/ic_law_board.png and ic_law_vote.png). The board:
+# THE LAWS TAB (preview_iron_court.py draws it as ic_law_board.png and
+# ic_law_vote.png). The board:
 # four column heads over LAW_GRID's twenty cards, and the chosen law's pane.
 LAW_W, LAW_H = 306, 150
 LAWS_X, LAWS_Y = 18, 186
@@ -521,14 +496,14 @@ LAW_GAP_X, LAW_GAP_Y = 12, 8
 LAW_COLS, LAW_ROWS = 4, 5
 LAW_LINES = 5
 LAW_PBAR_H = 14
-# THE PANE BAR'S SIDES: green for, red against, through plate_pixels' own
-# gradient, which darkens each to about two thirds at the top.
-LAW_PBAR_COLOUR = {"aye": "#5FB04AFF", "nay": "#D2412FFF"}
+# THE PANE BAR'S SIDES: CA's own green and red (db/ui_colours_tables), through
+# plate_pixels' gradient, which darkens each to about two thirds at the top.
+LAW_PBAR_COLOUR = {"aye": "#A0FF37FF", "nay": "#FF2D2DFF"}
 
 
 def law_pbar_path(side):
     return "%s/law_bar_%s.png" % (PLATE_DIR, side)
-# THE PANE BAR'S BORDER (author, 2026-10-03: "add borders to the bar"): the
+# THE PANE BAR'S BORDER: the
 # portrait frame's bronze thinned to two pixels between two dark lines, drawn
 # over both sides. LAW_PBAR_RIM_OUT of it lies outside the bar, so only the
 # inner dark line covers the bar's own 14px.
@@ -536,23 +511,22 @@ LAW_PBAR_RIM_BAND = [(26, 14, 6, 255), (190, 128, 66, 255), (130, 78, 36, 255),
                      (20, 10, 4, 255)]
 LAW_PBAR_RIM_OUT = 3
 LAW_PBAR_RIM_PX = 16
-# SIZED BY 20k, not by eye (Task 10). The first cut put the effect lines beside
-# the picture at 204px, and the engine's face needs 274 for the longest: the
-# picture now sits beside the NAME, which ICUI.fit_two splits over two lines,
-# and the effects run the card's width. The vote marker moved to the foot row,
-# where it no longer narrows the name.
+# SIZED BY 20k, not by eye. The longest effect line needs 274px in the engine's
+# face, so the picture sits beside the NAME (which ICUI.fit_two splits over two
+# lines) and the effects run the card's width. The vote marker is on the foot
+# row so it does not narrow the name.
 LAW_LAYOUT = {
     "ic_law_icon": (12, 10, 44, 44),
     "ic_law_name": (60, 8, 240, 22),
     "ic_law_name2": (60, 30, 240, 22),
-    # 14 IN, NOT 10 (2026-10-04): at 10 the lines sat 3px off the frame's
+    # 14 IN, NOT 10: at 10 the lines sit 3px off the frame's
     # inner edge. The width stays 290 because 20k needs it at 1600x900, where
     # the longest line measures 234px; left-aligned, only that line reaches.
     "ic_law_fx1": (14, 56, 290, 18),
     "ic_law_fx2": (14, 74, 290, 18),
     "ic_law_fx3": (14, 92, 290, 18),
     # CLEAR OF THE IN-FORCE FRAME, whose bottom band covers the card's last
-    # ~12px (seen on the preview, 2026-10-02).
+    # ~12px.
     "ic_law_foot": (14, 114, 238, 20),
     "ic_law_mark": (266, 110, 28, 28),
 }
@@ -572,7 +546,7 @@ def law_board_cells():
     out = {}
     for i in range(LAW_COLS):
         x = LAWS_X + i * (LAW_W + LAW_GAP_X)
-        # A TITLE ON THE HEADING PLATE (author, 2026-10-03), as the Intrigue
+        # A TITLE ON THE HEADING PLATE, as the Intrigue
         # tab's move groups are: the cell is the most room, fit_plate centres it.
         out["ic_law_head_%d" % (i + 1)] = (x, 133, LAW_W, HEADING_H)
     px = LAWS_X + LAW_COLS * (LAW_W + LAW_GAP_X) + 6
@@ -589,7 +563,7 @@ def law_board_cells():
         "ic_law_p_con": (px + 24, 526, pw - 48, 26),
         "ic_law_p_nowh": (px + 24, 562, pw - 48, 26),
         "ic_law_p_now": (px + 24, 588, pw - 48, 26),
-        # THE PROJECTION AS A BAR (author, 2026-10-03): the vote bar's idiom,
+        # THE PROJECTION AS A BAR: the vote bar's idiom,
         # aye from the left and nay from the right over a grey ground. The two
         # sides are MoveTo'd and resized by ICUI.draw_law_pbar.
         "ic_law_p_bar": (px + 24, 618, pw - 48, LAW_PBAR_H),
@@ -613,7 +587,7 @@ def law_board_cells():
 LAW_SEGS = 12
 LB_W, LB_H = 880, 104
 LB_X, LB_Y, LB_SIDE_DX, LB_GAP = 38, 396, 950, 4
-# THREE MEN A BLOCK, not four (Task 10, 20k): "Mulagunnar - 9999" is 201px
+# THREE MEN A BLOCK, not four (20k): "Mulagunnar - 9999" is 201px
 # against a 116px cell. A man is his forename over his influence, or over the
 # Win button that would buy him - the two share a line.
 LB_PER_SIDE, LB_MEN = 4, 3
@@ -662,9 +636,8 @@ def law_vote_cells():
         "ic_lv_barrim": (18, 266, 1884, 34),     # _panel_order: over the segments
         "ic_lv_abstain": (18, 870, 1884, 26),
         "ic_lv_hand": (18, 906, 1884, 96),
-        # TWO ROWS, EACH HEADING ON ITS LEFT (author, 2026-10-03: "texts are going
-        # out of the UI buttons"). The tab art's skull caps take 46px a side, so
-        # the eight buttons with their prices need about 2040px and one row has
+        # TWO ROWS, EACH HEADING ON ITS LEFT. The tab art's skull caps take 46px
+        # a side, so the eight buttons with their prices need about 2040px and one row has
         # 1848: the side and the overrule on the first row, the support below.
         "ic_lv_sideh": (36, 918, 164, 26),
         "ic_lv_supph": (36, 962, 164, 26),
@@ -693,7 +666,7 @@ def law_vote_cells():
 PANEL_LAYOUT.update(law_board_cells())
 PANEL_LAYOUT.update(law_vote_cells())
 
-# THE GOVERNMENT CHOOSER (author, 2026-10-03, design A of three previews): five
+# THE GOVERNMENT CHOOSER: five
 # cards in one centred row instead of the picker's list, each a picture, its
 # name over two lines, its rule over GC_RULE_LINES, its effect, who it pleases
 # or angers in this court (at most three lines: the Convoy Concern has two
@@ -703,8 +676,8 @@ GOV_CARDS, GC_RULE_LINES, GC_LOY_LINES = 5, 4, 3
 
 
 def gov_card_cells():
-    # CENTRED DOWN THE PAGE (2026-10-04): the block ran 134..850 and left
-    # 230px of bare backdrop over the footer. DY puts the same space above
+    # CENTRED DOWN THE PAGE: without dy the block runs 134..850 and leaves
+    # 230px of bare backdrop over the footer. dy puts the same space above
     # the heading as below the cards' foot.
     w, gap, h, dy = 340, 22, 600, 84
     y = 250 + dy
@@ -744,7 +717,7 @@ LAW_PAGE_BUTTONS = ("ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2"
 PANEL_LAYOUT["ic_divider"] = (COL_L_X + COL_W + (COL_GUTTER - DIVIDER_W) // 2,
                               COL_TOP, DIVIDER_W, COL_BOTTOM - COL_TOP)
 
-# THE PARTY ACTION BAR, under the cards (author, 2026-09-24): click a party,
+# THE PARTY ACTION BAR, under the cards: click a party,
 # then act on it here. It rides the pager's row, so the card grid keeps its
 # height and a confederate court can still page. Each width is its label
 # measured at BODY plus the plate's two 8px end caps, with a few pixels over;
@@ -752,13 +725,10 @@ PANEL_LAYOUT["ic_divider"] = (COL_L_X + COL_W + (COL_GUTTER - DIVIDER_W) // 2,
 #
 # TWO HOMES. CENTRED UNDER THE GRID, which is where it almost always is: the
 # court pages only when confederates push it past the grid's slots, and a bar
-# hugging the left edge to leave room for a pager that was not there read as
-# misaligned (author, "why is the three buttons not center aligned?").
+# hugging the left edge to leave room for an absent pager reads as misaligned.
 #
-# AND CENTRED UNDER THE CROWN'S BOX - ACT_PAGED - while the pager is on screen.
-# It sat beside the pager until SEND A GIFT came back as a fourth button
-# (author, 2026-09-25): four buttons are 630px and the pager 456, and the grid
-# column is 926. The left column's bottom row is empty on the court tab, level
+# AND CENTRED UNDER THE CROWN'S BOX (ACT_PAGED) while the pager is on screen:
+# four buttons are 630px and the pager 456, and the grid column is 926. The left column's bottom row is empty on the court tab, level
 # with the pager, and nothing else ever draws there. ICUI.draw_actions moves all
 # five between the two homes; check 9c holds each one where it belongs.
 #
@@ -788,14 +758,11 @@ PANEL_LAYOUT["ic_act_hint"] = (COL_R_X, PANEL_LAYOUT["ic_page_lbl"][1], COL_W,
 ACT_PAGED["ic_act_hint"] = (COL_L_X, PANEL_LAYOUT["ic_page_lbl"][1], COL_W,
                             PANEL_LAYOUT["ic_page_lbl"][3])
 
-# THE PIE: a FILLED half disc, one court's worth of it, in the middle of the
-# panel. It replaced a ring of pips, which replaced a 1884px bar of per-party
-# segments, and neither replacement is decoration - the engine has no rotation
-# and no runtime colour, so a shape has to be built out of rectangles PLACED
-# inside it, and a rectangle that is placed can also be handed any party's
-# picture. The segments could not: their colour was baked into this file by
-# index, which is why a party had to keep the same segment for the life of a
-# campaign.
+# THE PIE: a FILLED half disc, one court's worth of it. The engine has no
+# rotation and no runtime colour, so a shape is built out of rectangles PLACED
+# inside it, and a placed rectangle can be handed any party's picture. A colour
+# baked into this file by index would tie a party to one segment for the life
+# of a campaign.
 #
 # A RING IS ONE RADIUS AND A PIE IS AN AREA. The Lua rasterises it in
 # horizontal STRIPS - the only way an axis-aligned rectangle can carry a
@@ -804,32 +771,27 @@ ACT_PAGED["ic_act_hint"] = (COL_L_X, PANEL_LAYOUT["ic_page_lbl"][1], COL_W,
 # colours as many of them as the court needs. Every number here is in the Lua
 # too and import_iron_court.py refuses to pack when they disagree.
 DIAL_SLICES = 60     # three degrees each - the quantum AND the picture count
-# 340, not 210. The dial is the court: it is the one thing on the panel that
-# answers "who holds this faction" without reading a word, and at 420px across
-# it was a diagram beside a list rather than the subject of the tab.
+# THE DIAL IS LARGE because it is the court: the one thing on the panel that
+# answers "who holds this faction" without reading a word. Small, it reads as a
+# diagram beside a list rather than the subject of the tab.
 #
 # WHAT THE SIZE COSTS, and where. The pie is opaque, so nothing may share its
-# box - but it has a COLUMN of its own now rather than a band across the panel,
-# so what it costs is paid in that column alone: the Crown's block goes under it
+# box, but it has a COLUMN of its own, so what it costs is paid in that column
+# alone: the Crown's block goes under it
 # instead of beside it. Nothing outside the left column pays anything.
 # THE DEPTH OF THE FIRE, on all four sides. This is the one number in the dial
 # that is chosen rather than derived, because it is the only one that is about
 # how the thing should look: sixteen pixels of ember round the metal.
 #
-# IT USED TO BE DERIVED and DIAL_R chosen, which worked while the fire burned
-# on three sides only - the pad was whatever happened to be left between the
-# pie and the label above it. The flat side has no such gap to inherit: under
-# it is the court's header strip, six pixels down. So the dependency is the
-# other way round now and DIAL_R takes what is left.
+# DIAL_R takes what is left, not the other way round: the flat side has no gap
+# to inherit a pad from, because the court's header strip is six pixels under it.
 RIM_PAD = 16
-# THE MIDDLE OF THE LEFT COLUMN, not of the panel. It was 960 while the dial
-# spanned the whole width; the column is what it spans now, and every crest and
-# figure on the pie is placed by trigonometry off this, so it is the one number
-# that has to move for the dial to move at all.
+# THE MIDDLE OF THE LEFT COLUMN, not of the panel. Every crest and figure on the
+# pie is placed by trigonometry off this, so it is the one number that has to
+# move for the dial to move at all.
 DIAL_CX = COL_L_X + COL_W // 2
-# WHAT THE COLUMN LEAVES, on the WIDTH. This used to be derived downward from
-# the section label above the dial, because height was the scarce thing on a
-# panel-wide dial. In a column the scarce thing is width: the plate is
+# WHAT THE COLUMN LEAVES, on the WIDTH: in a column the scarce thing is width.
+# The plate is
 # 2R + 2 RIM_PAD + 2 DIAL_PAD_X across and may not leave the column, so R takes
 # what that allows and the Crown's box below gets the height that is left.
 DIAL_PAD_X, DIAL_PAD_TOP, DIAL_PAD_BOT = 16, 0, 10
@@ -858,15 +820,13 @@ SHARE_R = int(round(DIAL_R * 186 / 324.0))
 SHARE_W, SHARE_H = 72, 24
 
 PIE_BOX = (DIAL_CX - DIAL_R, DIAL_CY - DIAL_R, 2 * DIAL_R, DIAL_R)
-# THE RIM IS THE ONE THING BIGGER THAN THE PIE. Its fire burns outward now, and
+# THE RIM IS THE ONE THING BIGGER THAN THE PIE. Its fire burns outward, and
 # outward is off the edge of a picture that was exactly the pie box - so the
 # rim gets RIM_PAD of margin on the arc's three sides and keeps its baseline
 # exactly where the pie's is. Nothing else in the dial moves.
 # RIM_PAD ON ALL FOUR SIDES, so the box is two pads taller than the pie and two
-# pads wider. It was one pad taller while the baseline burned nothing, and the
-# fire under the flat side was drawn off the bottom of its own picture - which
-# clips to nothing with no error, the same way a wall with no image slot draws
-# nothing with no error.
+# pads wider. Fire drawn off the bottom of its own picture clips to nothing with
+# no error, the same way a wall with no image slot draws nothing.
 RIM_BOX = (DIAL_CX - DIAL_R - RIM_PAD, DIAL_CY - DIAL_R - RIM_PAD,
            2 * DIAL_R + 2 * RIM_PAD, DIAL_R + 2 * RIM_PAD)
 for _i in range(DIAL_SLICES):
@@ -893,22 +853,9 @@ for _i in range(MAX_HOUSES):
     PANEL_LAYOUT["ic_barp_%02d" % _i] = (DIAL_CX - SHARE_W // 2,
                                          DIAL_CY - SHARE_R - SHARE_H // 2,
                                          SHARE_W, SHARE_H)
-# WHAT THE PIE MEANS, IN WORDS, in the column the title starts: the band the
-# faction is wearing and the effects that come with it. LEFT of the pie rather
-# than under it - under it is the header strip, and what the vertical budget is
-# actually for is the list below that.
-# 600 WIDE, not 700. The pie box now starts at x=620 and these two lines sit
-# beside it; at 700 they ran 98px under it, which is a sentence whose end is
-# behind an opaque disc. Check 20 refuses that, and it is the reason this
-# number is not free to be whatever reads best.
-# DERIVED FROM WHATEVER THE DIAL REACHES, not counted by hand. This was 600
-# with a note reading "600 not 700: pie box starts at x=620" - correct on the
-# day it was written and eight pixels too wide the moment the rim grew a
-# margin to burn into.
 # THE PLATE BEHIND THE DIAL - Rome 2's Government Overview box, which is a
-# framed rectangle with the half-disc sitting inside it. The dial has been
-# floating on the panel's background art since it shipped; a frame is what makes
-# it read as a readout rather than as decoration painted on the wall.
+# framed rectangle with the half-disc sitting inside it. A frame is what makes
+# the dial read as a readout rather than as decoration painted on the wall.
 #
 # ITS TOP IS THE RIM'S TOP, with no padding at all: the plate begins exactly at
 # COL_BODY_Y and the column header sits above that, so top padding would only
@@ -920,16 +867,10 @@ DIAL_BOX = (RIM_BOX[0] - DIAL_PAD_X, RIM_BOX[1] - DIAL_PAD_TOP,
             RIM_BOX[3] + DIAL_PAD_TOP + DIAL_PAD_BOT)
 PANEL_LAYOUT["ic_dial_box"] = DIAL_BOX
 
-# ---------------------------------------------------------------------------
-# THE CROWN'S BOX, under the dial in the same column.
-#
-# These lines used to sit BESIDE the dial, in the strip of panel the pie did not
-# cover, and their width was whatever the dial left - DIAL_BOX[0] - 18 - 2. The
-# dial fills its column now and leaves nothing beside it, so the block moved
-# under it and took the column's full width instead. It is a framed box rather
-# than loose text because it is the one part of this tab that is about YOU
-# rather than about the court, and on a backdrop the frame is what says so.
-# ---------------------------------------------------------------------------
+# THE CROWN'S BOX, under the dial in the same column, at the column's full width.
+# It is a framed box rather than loose text because it is the one part of this
+# tab that is about YOU rather than about the court, and on a backdrop the frame
+# is what says so.
 CROWN_Y = DIAL_BOX[1] + DIAL_BOX[3] + 16
 # The same 9-slice band the cards wear, because it is the same frame texture -
 # see PARTY_BAND, and check 18, which holds every use of it to the corner it
@@ -942,30 +883,27 @@ _CROWN_Y0 = CROWN_Y + CROWN_BAND
 # all five views and keeps its full-width home at the top of the panel for the
 # other four; the dispatcher moves it here when the court is up, the same way it
 # already moves the row pool's own furniture between views.
-# THE BOX IS TWO HALVES AGAIN (author, 2026-09-24): "the Crown panel should
-# display the character portrait, traits and party trait on the right side, and
-# the left side the faction effects of getting the influence".
+# THE BOX IS TWO HALVES: on the left, the faction effects of holding the
+# influence; on the right, the Crown's portrait, traits and party trait.
 #
-# IT WAS SPLIT ONCE AND STACKED WHEN THE FONTS GREW, because each half was asked
-# for a one-line sentence it could not hold: "100% of the court - An Iron Grip on
-# the Court" (475px at BODY) on the left, and the Crown's party name beside a
-# 183px portrait on the right. Neither is asked of a half now. The left half
-# breaks the band into its share, its name and one line per effect; the right
-# half puts the name and the party ABOVE the portrait at the half's full width,
-# and only the traits - 213px at most, icon and all - go beside it.
+# Neither half is asked for a one-line sentence it cannot hold ("100% of the
+# court - An Iron Grip on the Court" is 475px at BODY). The left half breaks the
+# band into its share, its name and one line per effect; the right half puts the
+# name and the party ABOVE the portrait at the half's full width, and only the
+# traits (213px at most, icon and all) go beside it.
 _CROWN_GAP = 24
 # THE LEFT HALF IS SIZED OFF ITS WIDEST LINE: the band name, 275px at BODY, and
 # the section label, 249 at TITLE, plus the cell inset and headroom. Everything
 # else it holds is shorter, and 20g measures every line against it.
-# 322, NOT 316 (2026-09-28): the band line wears an icon now, and at 1600x900
-# "An Iron Grip on the Court" behind it measured 260px in a 257px cell.
+# 322, NOT 316: the band line wears an icon, and at 1600x900 "An Iron Grip on
+# the Court" behind it measures 260px, against the 257px cell 316 gives.
 _CROWN_LEFT_W = 322
 _CROWN_RIGHT_X = _CROWN_X + _CROWN_LEFT_W + _CROWN_GAP
 _CROWN_RIGHT_W = _CONTROL_W - _CROWN_LEFT_W - _CROWN_GAP
 
 COURT_SECTION_XY = (_CROWN_X, _CROWN_Y0, _CROWN_LEFT_W, 26)
 
-# ---- the left half: what holding the court is worth -------------------------
+# The left half: what holding the court is worth.
 # The share, the band it lands in, then the band's effects one to a line - four
 # at most (IC.CONTROL_BANDS); a band with fewer leaves the rest empty.
 _CTL_H = 26
@@ -981,9 +919,9 @@ for _i, _name in enumerate(FX_KEYS):
 del _i, _name
 _LEFT_BOTTOM = _FX_Y + len(FX_KEYS) * _CTL_H
 
-# ---- the right half: who sits on the throne ------------------------------------
-# THE CROWN, WITH A FACE ON IT. Everything else on this tab is a party; the one
-# party the player IS had nothing but a wedge and a row like any other.
+# The right half: who sits on the throne.
+# THE CROWN, WITH A FACE ON IT. Everything else on this tab is a party; this is
+# the one the player IS.
 #
 # 183x100 and not 180x100: the porthole is 300x164 and check 8c refuses a cell
 # that drifts more than 6% off that aspect, because SetImagePath makes the image
@@ -1004,8 +942,7 @@ PANEL_LAYOUT["ic_leader_t1"] = (_LEADER_TX, _LEADER_ROW_Y + 42, _LEADER_TW, 26)
 PANEL_LAYOUT["ic_leader_t2"] = (_LEADER_TX, _LEADER_ROW_Y + 68, _LEADER_TW, 26)
 _LEADER_BOTTOM = _LEADER_ROW_Y + _PORT_H
 
-# THE CROWN'S THREE RULES (author, 2026-09-28: "no icons or separation in the
-# crown panel, use lines or icons to show what they mean"): a line under each
+# THE CROWN'S THREE RULES, so the halves read as separate: a line under each
 # half's heading, in the 6px between the heading and the first line under it,
 # and one down the gap between the halves. The column divider's own flat fill.
 CROWN_RULE_W = 2
@@ -1017,10 +954,10 @@ PANEL_LAYOUT["ic_crown_rule_v"] = (_CROWN_X + _CROWN_LEFT_W
                                    CROWN_RULE_W,
                                    max(_LEFT_BOTTOM, _LEADER_BOTTOM) - _CROWN_Y0)
 
-# THE GOVERNMENT (spec 2026-10-02 section 8): one row under both halves -
-# "Government: <name>" from the box's left edge to a gap short of Change
-# Doctrine, which sits at the right half's right end. The label is the
-# author's (2026-10-02): a bare "The Conclave" read as one more party name.
+# THE GOVERNMENT: one row under both halves, "Government: <name>" from the
+# box's left edge to a gap short of Change Doctrine, which sits at the right
+# half's right end. The label is there because a bare "The Conclave" reads as
+# one more party name.
 _GOV_Y = max(_LEFT_BOTTOM, _LEADER_BOTTOM) + 8
 GOV_BTN_W = 220
 PANEL_LAYOUT["ic_gov"] = (_CROWN_X, _GOV_Y + 4,
@@ -1028,7 +965,7 @@ PANEL_LAYOUT["ic_gov"] = (_CROWN_X, _GOV_Y + 4,
                           - _CROWN_X, _CTL_H)
 PANEL_LAYOUT["ic_gov_btn"] = (_CROWN_RIGHT_X + _CROWN_RIGHT_W - GOV_BTN_W, _GOV_Y,
                               GOV_BTN_W, 34)
-# THE GOVERNMENT IN FORCE BREATHES (2026-10-04): CA's Hell-Forge heat glow under
+# THE GOVERNMENT IN FORCE BREATHES: CA's Hell-Forge heat glow under
 # the government's own picture, which is the first thing ic_gov writes - the
 # look of the Hell-Forge's active category block (MARK_LAYERS, glow_pulse_t0 at
 # 0.80,1.50,0.80). 48px square, centred 6px of LABEL_TX plus the 18px icon's
@@ -1053,7 +990,7 @@ CROWN_CELLS = (("ic_control", "ic_control_band") + FX_KEYS
 # that failed.
 CROWN_H = max(_LEFT_BOTTOM, _LEADER_BOTTOM, _GOV_BOTTOM) + CROWN_BAND - CROWN_Y
 PANEL_LAYOUT["ic_crown_box"] = (COL_L_X, CROWN_Y, COL_W, CROWN_H)
-# THE BOOK OF GRUDGES (plan 2026-10-04 phase 5): "The Book names: ..." on a Dwarf
+# THE BOOK OF GRUDGES: "The Book names: ..." on a Dwarf
 # court, one line under the Crown's box at the box's inner width. OUTSIDE the
 # box so the Chaos Dwarf box keeps its height; the panel hides it on a Chaos
 # Dwarf court and on every other tab. Cut to fit (CUT_CELLS): CA's three longest
@@ -1062,56 +999,35 @@ BOOK_GAP = 8
 PANEL_LAYOUT["ic_book"] = (_CROWN_X, CROWN_Y + CROWN_H + BOOK_GAP,
                            _CROWN_RIGHT_X + _CROWN_RIGHT_W - _CROWN_X, _CTL_H)
 
-# 1542 not 1560: the last 18px of the list area is the scrollbar column.
-# 61 tall, not 40, to carry a 104x57 face instead of a 66x36 one. Every text
-# cell's y is recentred on the new height rather than left where it was - a
-# 20-tall cell at y=10 was centred in a 40 row and sits near the top of a 61.
+# The last 18px of the list area is the scrollbar column.
+# 61 tall to carry a 104x57 face; every text cell's y is centred on that height.
 ROW_W, ROW_H = 1866, 61
 ROW_LAYOUT = {
     "ic_row_port": (12, 2, 104, 57),
     "ic_row_e": (1680, 15, 170, 32),
-    # 382 wide, not 420: the portrait cell now ends at 116 rather than 78, so the
-    # name column starts 38px later and keeps its right edge where it was. Widening
-    # the cell without narrowing this one runs it into the House column, which is
-    # check 9 and would have refused the build.
-    # REBALANCED. These widths were set while the panel was drawing 12px text
-    # by accident: Standing and Loyalty had 300px each to hold "14%" and
-    # "54", while the Effect column had 340 for a whole sentence and the
-    # engine clipped it ("...the province kno..."). twui text never wraps, so
-    # a column either fits its content or loses the end of it.
+    # twui text never wraps, so a column either fits its content or loses the
+    # end of it. Check 9 refuses a column that reaches the next one's x.
     # The candidate's HOUSE CREST, beside the House column. A name in the
     # panel's one text colour is not a faction colour; the faction's own flag
     # is. Square, and fed per line so the Court tab - whose main row icon is
     # already this same crest - does not draw the flag twice.
     "ic_row_crest": (638, 12, 36, 36),
-    # 380, not 420: the 40px buys the crest cell its slot without moving the
-    # House column off 568.
-    # 537, AND IT WAS 380. It carries a position name in front of the man now
-    # - "General Zaul Zhufbarden, Overseer" - and it was ALREADY too narrow
-    # without one: "Amarudz Grimtidesson, Daemonsmith" measures 406 and nothing
-    # had ever measured this cell, so it has been cutting mid-word in silence.
-    # See CUT_CELLS: even 537 does not reach the worst case, so it is cut.
+    # The character column carries a position name in front of the man
+    # ("General Zaul Zhufbarden, Overseer"); "Amarudz Grimtidesson, Daemonsmith"
+    # alone measures 406. No width here reaches the worst case, so it is one of
+    # CUT_CELLS.
     "ic_row_a": (128, 18, 502, 26),
-    # RANK GAVE PARTY 180px AND HOLDS GAVE IT ANOTHER. Sized by MEASUREMENT
-    # and not by character count: all 672 names IC.party_name can build,
-    # rendered at BODY's 18px and scaled by GAME_FONT_WIDER, top out at 342px
-    # ("Assembly of the Closed Account"). 260 was chosen against a 16px
-    # estimate and clipped 82 of them.
-    #
-    # RANK KEEPS 120 rather than the 52 its own header needs, because the
-    # General / Lord / Hero cell measures 81px and that column is where it goes.
-    # 360 AND UNCHANGED. Its widest rolled party name is 342 - it has 12px to
-    # spare and no more, which is why the rebalance took nothing from here. The
-    # 2026-09-16 build took 40, and that is what made every party name clip.
+    # PARTY IS SIZED BY MEASUREMENT, not by character count: all 672 names
+    # IC.party_name can build, rendered at BODY's 18px and scaled by
+    # GAME_FONT_WIDER, top out at 342px ("Assembly of the Closed Account").
+    # So 360 has 12px to spare and no more; 40px less clips every party name.
     "ic_row_b": (690, 18, 360, 26),
-    # 45. It held "General 40" for one build and holds "40" again - the kind is
-    # a position name in front of the man now, not a statistic beside his rank.
-    # "88" measures 26 and this leaves the same 6px on each side of it that
-    # every other cell on this row is held to.
+    # 45: it holds the rank figure alone (the kind is a position name in front
+    # of the man). "88" measures 26 and this leaves the same 6px on each side of
+    # it that every other cell on this row is held to.
     "ic_row_c": (1070, 18, 45, 26),
-    # 490, and the 30 went to the Character column. Its widest string is
-    # "1722 influence - Grand Overseer of the Forge" at 475, so this is the same
-    # 6px margin as everything else here rather than a cell kept wide by habit.
+    # 490: its widest string is "1722 influence - Grand Overseer of the Forge"
+    # at 475, the same 6px margin as everything else here.
     "ic_row_d": (1170, 18, 490, 26),
     # A SECOND BUTTON, for the one list whose rows are a yes-or-no: the
     # Petitions tab's REFUSE, beside its ACCEPT. It sits over column four's
@@ -1120,7 +1036,7 @@ ROW_LAYOUT = {
     "ic_row_f": (1520, 15, 156, 32),
 }
 
-# THE GOVERNORS VIEW'S COLUMN ROW (spec 2026-09-30 section 6): ONE pool for the
+# THE GOVERNORS VIEW'S COLUMN ROW: ONE pool for the
 # column's three pages, as the Intrigue views share one. The body is CA's
 # Hell-Forge unit block, which stretches between 16px caps. Must match
 # ICUI.GM_ROW_* and ICUI.GM_ROW_CHILD_XY in the panel Lua (import_iron_court).
@@ -1139,14 +1055,13 @@ GM_ROW_LAYOUT = {
     "ic_gr_icon": (124, 47, 16, 16),    # CA's loyalty icon
     "ic_gr_l3": (144, 47, 234, 16),
 }
-# THE COLUMN SCROLLS (author, 2026-10-01: "no scrollbar for selecting a
-# governor"; the wheel and a slider, the pager gone). CA's own list, the Great
+# THE COLUMN SCROLLS, by the wheel and a slider. CA's own list, the Great
 # Guilds' proven shape (docs/CUSTOM_UI.md, "Scrolling lists"): listview >
 # list_clip > list_box, and vslider > handle. The cards are made INTO
 # list_clip, over list_box: a card is a parent of six cells and a row inside a
 # list must have none, so list_box holds GM_ROWS-pitch EMPTY rows (GM_SP_FILE)
 # that give the list its length, and the engine scrolls those. DRAWN WHOLE
-# (2026-10-02, docs/CUSTOM_UI.md): every entry's card is made once under one
+# (docs/CUSTOM_UI.md): every entry's card is made once under one
 # holder in list_clip - made from GM_SP_FILE too, the empty one-component shape -
 # and ICUI.gm_scroll_poll moves the holder to list_box; nothing is redrawn.
 GM_LIST_FILE = "derpy_ic_gm_list.twui.xml"
@@ -1155,8 +1070,8 @@ GM_SLIDER_W, GM_SLIDER_GAP, GM_HANDLE_H = 16, 4, 40
 GM_LIST_SILENT = ("listview", "list_clip", "list_box", "vslider")
 GM_LIST_W = GM_ROW_W + GM_SLIDER_GAP + GM_SLIDER_W
 GM_LIST_H = GM_ROWS * GM_ROW_PITCH
-# THE OTHER VIEWS' LIST (author, 2026-10-05: "use the scrollbar implemented by
-# zharr exchange or the derpy great guilds"): the row lists and the Court's party
+# THE OTHER VIEWS' LIST, on the Zharr Exchange's and the Great Guilds' scrollbar:
+# the row lists and the Court's party
 # cards scroll in a list made at runtime from GM_LIST_FILE, its slider at the
 # window's right edge. Must match ICUI.LIST_* (import_iron_court compares).
 LIST_SLIDER_W, LIST_SLIDER_GAP, LIST_HANDLE_H = 16, 2, 40
@@ -1166,8 +1081,7 @@ GM_ROW_ART = GM_HF + "button_square_extra_large_%s.png"
 # 0-11 and 69-81 and columns 0-10 and 111-121. The art stretches vertically with
 # no caps (margin (0, 16)), so the top and bottom rails scale with the row; the
 # side ones sit in the 16px caps and never do. A line or the loyalty icon laid
-# over one has the frame - and the chosen row's gold edge - run through it
-# (final review, 2026-10-01: the third line sat on the bottom rail).
+# over one has the frame (and the chosen row's gold edge) run through it.
 GM_ROW_ART_H = 82
 GM_ROW_RAIL = (12, 11, 13, 11)      # top, right, bottom, left, in the art's pixels
 GM_ROW_CLEAR = ("ic_gr_l1", "ic_gr_l2", "ic_gr_l3", "ic_gr_icon")
@@ -1179,8 +1093,7 @@ GM_COL_ART_W, GM_COL_ART_H = 503, 1080
 GM_HEAD_ART_H = 90
 GM_TOG_LABEL_ART = "ui/skins/default/dlc23_tower_of_zharr/tab_sub_title.png"
 GM_ROUND = "ui/skins/default/button_round_medium_%s.png"
-# THE DWARF BUTTONS ARE BLUE (author, 2026-10-05: "blue buttons, didnt i sake make
-# it thematic?"): the same files out of CA's own blue colour theme, so every plate
+# THE DWARF BUTTONS ARE BLUE: the same files out of CA's own blue colour theme, so every plate
 # keeps its geometry and only its colour changes. Rebound in the Dwarf copy only,
 # before any layer is built from them; the pooled files the races share keep CA's
 # red and the panel Lua re-points their buttons (ICUI.skin_buttons, DWF.art.theme).
@@ -1193,21 +1106,19 @@ GM_TOG_ICONS = {
 }
 GM_PLATES = ["ic_gm_top", "ic_gm_foot", "ic_gm_col"]
 
-# 230 TALL, not 200. The frame 9-slice margin went from 18 to 30 (see
-# CARD_LAYERS), because 18 cut through panel_back_border.png own corner
-# ornament - measured 27px across and 28 down on the 256x256 source. The
-# thicker band eats 60px of height between the rails, so the card has to give
-# it back or the name line draws on top of the rail.
+# The frame's 9-slice margin is 30 (see CARD_LAYERS): 18 cuts through
+# panel_back_border.png's own corner ornament, measured 27px across and 28 down
+# on the 256x256 source. The band eats 60px of height between the rails, and a
+# card without that height draws its name line on top of the rail.
 #
 # THE ZIGGURAT. Fourteen seats in four bands of 2 / 3 / 4 / 5, each band
 # CENTRED, so the tab draws the shape of the court rather than a list of it.
 #
-# BOTH NUMBERS ARE DERIVED, and that is the whole reason they are not the
-# numbers they used to be. The widest band is the bottom one, so the card width
+# BOTH NUMBERS ARE DERIVED. The widest band is the bottom one, so the card width
 # is whatever five of them plus their gaps make of the content width; the four
 # bands have to finish above the pager, so the height is whatever four of them
 # plus their gaps make of the room between the first row and it. Retuning the
-# ziggurat is now a change to IC.OFFICES and nothing else.
+# ziggurat is a change to IC.OFFICES and nothing else.
 CARDS_X, CARDS_Y = 18, 192
 CARD_GAP_X, CARD_GAP_Y = 16, 14
 CARD_TIERS = sorted(IC.tier_seats(RACE))
@@ -1219,7 +1130,7 @@ CARD_H = ((PANEL_LAYOUT["ic_page_prev"][1] - 6 - CARDS_Y
 # tiers to be contiguous. A band's x is whatever centres it under the one below.
 # BUILT ONCE, AT 1920. The scale pass then scales each point on its own, as
 # ICUI.apply_scale does in game: rebuilding the grid from a card width rounded
-# down once and multiplied by five ran a tier 2-4px past its column at some
+# down once and multiplied by five runs a tier 2-4px past its column at some
 # widths. The packing gate compares the two sides point by point.
 def _grid_xy(cols, c, r):
     """(x, y) of grid cell (c, r): the band of `cols` cards centred in the content."""
@@ -1257,7 +1168,7 @@ def throne_box():
 
 CARD_GRID = card_grid(RACE)
 
-# THE FILL BUTTON, on the offices tab (author, 2026-09-25): the pager's row,
+# THE FILL BUTTON, on the offices tab: the pager's row,
 # which that tab never uses - fourteen seats never page - centred under the
 # ziggurat, on the pager's plate like the court tab's action bar. Its width is
 # its label at BODY plus the plate's end caps and some over; check 20g2 holds
@@ -1266,8 +1177,7 @@ FILL_W = 220
 PANEL_LAYOUT["ic_fill"] = (CARDS_X + (CONTENT_W - FILL_W) // 2,
                            PANEL_LAYOUT["ic_page_prev"][1], FILL_W,
                            PANEL_LAYOUT["ic_page_prev"][3])
-# THE ZIGGURAT THE SEATS STAND ON (author, 2026-10-01: "the silhouette im
-# talking about is the background ziggurat"). A tier behind each row of cards,
+# THE ZIGGURAT THE SEATS STAND ON: a tier behind each row of cards,
 # reaching ZIG_PAD past them, and a two-step shrine above the top one, up to
 # just under the section line. The cards cover its middle; what shows is its
 # stepped outline, which is the point. check_ziggurat.
@@ -1276,17 +1186,12 @@ PANEL_LAYOUT["ic_zig_bg"] = (
     0, PANEL_LAYOUT["ic_lbl_section"][1] + PANEL_LAYOUT["ic_lbl_section"][3] + 4, PANEL_W,
     CARD_GRID[-1][1] + CARD_H + ZIG_PAD_Y
     - (PANEL_LAYOUT["ic_lbl_section"][1] + PANEL_LAYOUT["ic_lbl_section"][3] + 4))
-# ---------------------------------------------------------------------------
 # THE INTRIGUE TAB: ONE COLUMN PER CATEGORY OF MOVE.
 #
-# The moves used to be rows in a five-column list this view used three of, with
-# the name and the blurb concatenated into a cell widened to 1102 for this tab
-# alone. The content is a name, a paragraph, a price and a button; the table was
-# fighting it.
+# A move is a name, a paragraph, a price and a button: cards, not table rows.
 #
-# A COLUMN PER CATEGORY, read top to bottom. Nine cards in undifferentiated
-# bands said nothing about which moves are alternatives to each other; a column
-# per category says "these four do the same kind of thing to a man" without a
+# A COLUMN PER CATEGORY, read top to bottom, so the moves that are alternatives
+# to each other stand together. A column per category says "these four do the same kind of thing to a man" without a
 # word of explanation.
 #
 # THE DEEPEST CATEGORY SETS THE CARD HEIGHT, so moving a move between categories
@@ -1310,8 +1215,8 @@ def plot_counts(race="chd"):
     """How many moves each category holds for one race, in plot_cats() order.
 
     Read out of IC.PLOTS' own `cat` fields. A move with `race = "x"` counts for
-    race x only, so the Chaos Dwarf grid stays the one PLOT_COUNTS lays out
-    (plan 2026-10-04 phase 4). A category with no moves counts 0 and draws no
+    race x only, so the Chaos Dwarf grid stays the one PLOT_COUNTS lays out.
+    A category with no moves counts 0 and draws no
     column, which is what keeps this honest when one is emptied.
     """
     src = _model_src()
@@ -1332,7 +1237,7 @@ PLOT_COUNTS = plot_counts()
 PLOT_COLS = len(PLOT_CATS)
 PLOT_DEPTH = max(PLOT_COUNTS)
 # THE HEADER STRIP IS THE CATEGORY NAMES. It sits where the row list's headers
-# sat, so nothing else on the panel moved to make room for it.
+# sit, so nothing else on the panel makes room for it.
 PLOTS_X = CARDS_X
 # 20 ABOVE THE ROWS, so the taller plate costs the cards nothing.
 PLOTS_HDR_Y = ROWS_Y - 20
@@ -1379,7 +1284,7 @@ for _i in range(PLOT_COLS):
 # rolled party name.
 # FOUR LINES, NOT THREE. Six of the nine blurbs want a fourth at the panel's one
 # content size, measured against the engine's width rather than the desktop
-# face's - see GAME_FONT_WIDER, which is the correction that surfaced them. The
+# face's (see GAME_FONT_WIDER). The
 # line is paid for out of the foot pad and the four pixels between the icon and
 # the first line, not out of the card, which is derived from the deepest column
 # and cannot grow.
@@ -1401,10 +1306,9 @@ for _i in range(PLOT_BLURB_LINES):
 # THE PRICE AND THE BUTTON SHARE THE LAST LINE, the price where a reader starts
 # and the button where a thumb goes. Bottom-anchored off PLOT_H so the blurb
 # above can grow a line without moving either by hand.
-# A SMALLER PAD AT THE FOOT than at the sides: at PLOT_PAD the price row started
-# at y=122 and the third blurb line ends at 126, so the two overlapped by four
-# pixels - which draws as a price through a sentence and errors nowhere.
-# check_plot_cells() below refuses any overlap now, so this cannot come back.
+# A SMALLER PAD AT THE FOOT than at the sides: at PLOT_PAD the price row
+# overlaps the blurb's last line, which draws as a price through a sentence and
+# errors nowhere. check_plot_cells() below refuses any overlap.
 PLOT_FOOT_PAD = 10
 PLOT_LAYOUT["ic_plot_cost"] = (PLOT_PAD, PLOT_H - PLOT_FOOT_PAD - 22, 110, 22)
 PLOT_LAYOUT["ic_plot_go"] = (PLOT_W - PLOT_PAD - 90,
@@ -1428,11 +1332,9 @@ CELL_OVERLAP_OK = frozenset([
 def check_card_cells(layout, w, h, what):
     """No two cells of a card may share a pixel, and none may leave it.
 
-    THE OFFICE CARD IS IN THIS NOW, and was the reason for widening it. Its
-    term line was moved to the card's full width on 2026-09-14 to fit the
-    panel's one content size, which put it straight through the portrait beside
-    it - and the only checks the office card had were the frame-band ones, which
-    an overlap in the middle of the card passes cleanly.
+    THE OFFICE CARD IS IN THIS: its term line runs the card's full width under
+    the portrait, and the frame-band checks pass an overlap in the middle of a
+    card cleanly.
 
     A card's cells are all derived from its height, which is derived from the
     shape of the thing it draws - the ziggurat's tiers, the deepest move
@@ -1458,7 +1360,7 @@ def check_plot_depths():
 
     The Chaos Dwarf grid sets the card (PLOT_COUNTS); a race's own move adds a
     card to one column of that race's grid only, and a column deeper than
-    PLOT_DEPTH would draw its last card under the pager (plan 2026-10-04 phase 4).
+    PLOT_DEPTH would draw its last card under the pager.
     """
     out = []
     for race in ("chd", "dwf"):
@@ -1474,8 +1376,8 @@ def check_plot_cells():
     return check_card_cells(PLOT_LAYOUT, PLOT_W, PLOT_H, "move card")
 
 # WHAT STANDING LOOKS LIKE IN A STRING. CA's own inline image markup, and
-# BOTH HALVES OF WHAT THIS DOES ARE VANILLA - measured 2026-09-13 over every
-# .loc in every pack in the game's data folder, and over CA's shipped Lua:
+# BOTH HALVES OF WHAT THIS DOES ARE VANILLA, measured over every .loc in every
+# pack in the game's data folder, and over CA's shipped Lua:
 #
 #   - 5001 loc rows use [[img:]], naming 503 distinct registry keys and 156
 #     distinct FULL PATHS. The path form is not a trick: it is how CA draws
@@ -1484,8 +1386,7 @@ def check_plot_cells():
 #     string in Lua, at runtime, exactly as ICUI.cost does.
 #
 # The loc rows alone would only prove the renderer takes a path; that one CA
-# script is what proves it takes the markup from Lua. Neither half was worth
-# guessing at when both read offline.
+# script is what proves it takes the markup from Lua.
 #
 # The panel Lua declares the same path as ICUI.COST_ICON and check 23 holds the
 # two against each other, because 20c measures the string this constant builds
@@ -1494,8 +1395,8 @@ COST_ICON = "ui/skins/default/icon_secure_loyalty.png"
 COST_MARKUP = "[[img:%s]][[/img]]" % COST_ICON
 
 # AND THE EFFECT ICON THE THREE TRAIT CELLS WEAR. A party's two traits and its
-# leader's one are terms in IC.loyalty_terms - they move the drift every turn -
-# and they drew as bare words among other bare words.
+# leader's one are terms in IC.loyalty_terms (they move the drift every turn),
+# so they wear an effect icon rather than drawing as bare words.
 #
 # THE SAME FILE AS gen_iron_court.BUNDLE_ICON, which every effect bundle this mod
 # mints already wears, and 24x24 at full bleed - a line box exactly. NOT named
@@ -1516,41 +1417,29 @@ CARD_LAYOUT = {
     # THE CARD THAT CANNOT GROW, and everything below follows from that.
     #
     # 364x184, and both numbers are the ziggurat's: fourteen seats whose widest
-    # band is five sets the width, four bands set the height. Reshaping the
-    # court to fit a font was put to the author on 2026-09-14 and declined, so
-    # this card carries the panel's content size nowhere - it is the one tab
-    # that keeps a smaller pair, and the cells are dealt to make the most of
-    # 298x124 rather than to match the other four tabs.
-    #
-    # WHAT THE MEASUREMENT CHANGED. Under GAME_FONT_WIDER the old deal clipped
-    # in two places nobody had seen: the term line wanted 201px of the 184 the
-    # column beside the face leaves, and the price wanted 102 of its 90. Both
-    # were passing only because the check measured a desktop face at face value.
+    # band is five sets the width, four bands set the height. The court is not
+    # reshaped to fit a font, so this card carries the panel's content size
+    # nowhere: it is the one tab that keeps a smaller pair, and the cells are
+    # dealt to make the most of 298x124 rather than to match the other four tabs.
     #
     # THREE CELLS NEED THE FULL WIDTH and the card has exactly three rows that
-    # can give it - the name at the top, the strip under the face, and the
-    # effect line at the floor. The name and the effect already had theirs. The
-    # strip under the face is the one that was empty, and the term is what goes
-    # in it, because the term is the string with no other home: at 190px it does
-    # not fit at any size a player can read.
+    # can give it: the name at the top, the strip under the face, and the
+    # effect line at the floor. The term goes under the face because it is the
+    # string with no other home: under GAME_FONT_WIDER it wants 201px, and
+    # beside the face it does not fit at any size a player can read.
     #
-    # THE PRICE AND ITS BUTTON take the term's old place beside the face, split
-    # 74/112 rather than 90/96 - "APPOINT" wants 66px and the price, icon and
-    # all, wants 102, so the wide half goes to the price. That is the opposite
-    # of the old split and the old split is why the price clipped.
+    # THE PRICE AND ITS BUTTON sit beside the face, the wide half to the price:
+    # "APPOINT" wants 66px and the price, icon and all, wants 102.
     "ic_card_name": (30, 30, 304, 20),
-    # THE FACE PAYS FOR IT, being the only cell on this card with room to give:
-    # 106x58 is a portrait drawn half again as wide as it is tall, and this is
-    # nearer the shape a porthole is. Everything right of it moves 26px left.
+    # THE FACE PAYS FOR IT, being the only cell on this card with room to give,
+    # and 86x47 is still a porthole's shape.
     "ic_card_port": (30, 54, 86, 47),
     "ic_card_holder": (124, 52, 210, 20),
     "ic_card_crest": (124, 74, 16, 16),
     "ic_card_house": (144, 74, 190, 16),
-    # 106 AND NOT 74, because 74 was never the label's to spend. The plate is a
-    # 9-slice with an 8px cap at each end, so "APPOINT" had 58px of flat middle
-    # and measures 67 - it drew across both corners of its own frame, which is
-    # the 2026-09-17 screenshot. See BTN_CELLS: the rule that says so is now a
-    # check, and it fails on the old number.
+    # The button's plate is a 9-slice with an 8px cap at each end, so the label
+    # gets the flat middle only: "APPOINT" measures 67, and at 74 wide it draws
+    # across both corners of its own frame. BTN_CELLS holds every button to it.
     "ic_card_button": (124, 90, 100, 22),
     "ic_card_need": (228, 90, 106, 22),
     "ic_card_term": (30, 114, 304, 18),
@@ -1560,46 +1449,29 @@ CARD_LAYOUT = {
 # Rows are created into the PANEL itself - that is what both shipped mods do, and
 # a holder buys nothing when every child has to be MoveTo'd by hand anyway. These
 # are the row origin, panel-relative, and the Lua declares the same two numbers.
-# 332, not 252: the pie is 144px tall where the ring of pips was 94, and the
-# rows start under it and under the header strip. The list loses one of its
-# eleven rows to that and the pager moves down six pixels - check 15 and check
-# 16 are what decide which of those gives.
-# ROW_PITCH and VISIBLE_ROWS are ONE decision, not two. ROWS_Y is 192 and
-# ic_alert's top is 838, so the pool has 646px whatever it does with them: 15 rows
-# spends that at pitch 43, which caps the face at 36px tall, and 10 rows at pitch
-# 64 buys a 57px one. Check 15 below re-derives the arithmetic and refuses if a
-# future edit overruns the alert bar.
-# How many row components exist. The list scrolls an offset through this fixed
-# pool rather than creating and destroying components, because neither shipped
-# mod destroys a component at all and re-creating one that exists is how you get
-# two. Fifteen is the house count, so the court view never needs to scroll; the
-# governors view does, because a large empire holds far more provinces than this.
-# NOT MAX_HOUSES. The court view lists 15 houses in a 10-row pool and therefore
-# SCROLLS; that is the price of a face big enough to recognise, and the scrollbar
-# it needs was built and mutation-tested when the rows first grew.
+# ROW_PITCH and VISIBLE_ROWS are ONE decision, not two: the pool's height
+# between ROWS_Y and the alert bar is fixed, so more rows means a smaller face.
+# Check 15 re-derives the arithmetic and refuses a pool that overruns the bar.
+# VISIBLE_ROWS is how many row components exist. The list scrolls an offset
+# through this fixed pool rather than creating and destroying components:
+# neither shipped mod destroys a component at all, and re-creating one that
+# exists is how you get two.
 VISIBLE_ROWS = 12
 
-# ---------------------------------------------------------------------------
-# The party card
-# ---------------------------------------------------------------------------
-# ONE CARD PER PARTY, where the court's list used to be. A party now has to show
-# its name, its leader's face, its leader's name, his trait and its own two
-# traits - six lines and a picture - and a row has five text cells shared with
-# every other view in the panel.
+# The party card.
+# ONE CARD PER PARTY, not a row. A party shows its name, its leader's face, its
+# leader's name, his trait and its own two traits (six lines and a picture), and
+# a row has five text cells shared with every other view in the panel.
 #
-# TWO ACROSS, IN THE RIGHT COLUMN. It was five across the whole panel, which is
-# what a band under the dial could hold; a column half the panel's width holds
-# two, and each card is a hundred pixels wider for it - the name cell went from
-# 280 to 371, which is most of the reason a rolled name needed two lines.
+# TWO ACROSS, IN THE RIGHT COLUMN: a column half the panel's width holds two.
 #
-# DERIVED FROM COL_W, exactly as the five were derived from CONTENT_W. The
-# office card's grid is still the panel-wide sum and the two no longer agree,
-# because they are no longer the same question.
+# DERIVED FROM COL_W. The office card's grid is the panel-wide sum; the two
+# answer different questions.
 PARTY_COLS = 2
 PARTY_GAP_X, PARTY_GAP_Y = CARD_GAP_X, CARD_GAP_Y
 PARTY_W = (COL_W - (PARTY_COLS - 1) * PARTY_GAP_X) // PARTY_COLS
-# THE TOP OF THE COLUMN'S BODY. The grid no longer waits for the dial: the dial
-# is beside it, not above it, so the only thing overhead is the column header.
+# THE TOP OF THE COLUMN'S BODY. The dial is beside the grid, not above it, so
+# the only thing overhead is the column header.
 PARTIES_X = COL_R_X
 PARTIES_Y = COL_BODY_Y
 # ABOVE THE PAGER, not above the alert bar: a court can hold more parties than
@@ -1626,39 +1498,28 @@ PARTY_GRID = party_grid()
 PARTY_BAND = 30
 _PIW = PARTY_W - 2 * PARTY_BAND
 _PB = PARTY_BAND
-# THE FACE'S SIZE, AND THE TEXT COLUMN DERIVED FROM IT. The column was a typed
-# 114 and 20g caught the result at ONE PIXEL over: the longest character name
-# the game can hand this cell measured 185px in the 184 that left. A typed
-# offset cannot follow the picture it sits beside, so it does not stay typed.
+# THE FACE'S SIZE, AND THE TEXT COLUMN DERIVED FROM IT: a typed offset cannot
+# follow the picture it sits beside, and 20g holds the longest character name
+# the game can hand this cell to a single pixel.
 #
-# 120x66 is the porthole's 300x164 to within 0.6%, which is inside what check 8c
-# allows before SetImagePath starts visibly stretching a face.
-#
-# IT GREW WITH THE TEXT. The card is 455x266 and its contents used to stop at
-# y=162 with the footer pinned at 214 - fifty-two pixels of nothing across the
-# middle of six cards, with 12px text either side of it. Every line on this card
-# is BODY now (16, the largest body size the game has) and the face grew to match,
-# because a 98px porthole beside 16px text reads as a thumbnail rather than a man.
-# 100x55, not 120x66. Same aspect - check 8c refuses a portrait cell more than
-# 6% off 300x164, because SetImagePath makes the image take the CELL's shape -
-# and the 20px it gives back go to the three text cells beside it, where
-# "Drazhoath the Ashen of Hashut" wants 278px of the 261 it had at the panel's
-# one content size.
+# 100x55 keeps the porthole's aspect (check 8c refuses a portrait cell more than
+# 6% off 300x164, because SetImagePath makes the image take the CELL's shape).
+# 120x66 would take 20px from the three text cells beside it, where "Drazhoath
+# the Ashen of Hashut" wants 278px. Every line on this card is BODY (16, the
+# largest body size the game has).
 _PPW, _PPH = 100, 55
 _PTX = _PB + _PPW + 8
 _PTW = _PIW - (_PTX - _PB)
-# THE LOWER HALF IS TWO COLUMNS (author, 2026-09-24: "add more party
-# statistics"). The traits keep the left one at a width their longest name and
-# its icon fit; the right one takes the three counts that had no cell at all.
-# 225 is "Zealots of Hashut" (188 at BODY) plus the icon's line box plus the
-# label inset, and the right column is whatever is left after an 8px gutter.
+# THE LOWER HALF IS TWO COLUMNS. The traits keep the left one at a width their
+# longest name and its icon fit; the right one takes the three counts.
+# _PLW fits "Zealots of Hashut" (188 at BODY) with the icon's line box and the
+# label inset; the right column takes what is left after a 4px gutter.
 _PLW = 236
 _PRX = _PB + _PLW + 4
 _PRW = _PB + _PIW - _PRX
-# THE MOOD, AS WORDS, beside the second name line. It was the label on the
-# card's one button, and that button opened the favour list; the author asked
-# for the reading and the control to be separate, so the word stays on the card
-# and the control became clicking the card itself.
+# THE MOOD, AS WORDS, beside the second name line. The reading and the control
+# are separate: the word stays on the card, and clicking the card itself opens
+# the favour list.
 _PSW = 166
 PARTY_LAYOUT = {
     # THE NAME GETS TWO LINES because it has to. The longest rolled name
@@ -1667,7 +1528,7 @@ PARTY_LAYOUT = {
     # is a string this mod does not write and cannot bound. So the Lua measures
     # with the engine's own TextDimensionsForText and spills what will not fit
     # onto the second line; a card whose name is short simply leaves it empty.
-    # THE SECOND LINE SHARES ITS ROW WITH THE MOOD now, so it is the name's
+    # THE SECOND LINE SHARES ITS ROW WITH THE MOOD, so it is the name's
     # tail and not a whole second line. What spills is a word or two.
     "ic_party_crest": (_PB, _PB, 24, 24),
     "ic_party_name": (_PB + 30, _PB, _PIW - 30, 24),
@@ -1690,7 +1551,7 @@ PARTY_LAYOUT = {
     # breakdown behind it is the same tooltip ic_party_nums carries.
     "ic_party_trend": (_PB, _PB + 180, _PLW, 22),
     # THE THREE COUNTS: its men, the seats they hold, the provinces they
-    # oversee. "N seats at court" was the only one of them the card showed.
+    # oversee.
     "ic_party_members": (_PRX, _PB + 132, _PRW, 22),
     "ic_party_offices": (_PRX, _PB + 156, _PRW, 22),
     "ic_party_govs": (_PRX, _PB + 180, _PRW, 22),
@@ -1703,16 +1564,8 @@ if RACE == "dwf":
     PLATE = DWF_THEME + "button_round_medium_%s.png"
 OPENER_SOUND = "UI_GBL_TMP_Round_Medium_Button"
 
-# Body then border: the border draws over the body's edge, so filling the whole
-# component cannot leave a bare strip. Both tile - a stretched plate is a smear.
-# CA's own Hell-Forge backdrop, measured at exactly 1920x1080 in ui2.pack - the
-# design size, so it neither stretches nor tiles. ONE layer and no frame: the
-# Tower of Zharr has no outer border either, and a frame around a full-bleed
-# background just draws a box round the screen.
-#
-# margin 0 with tile OFF. It is a PICTURE, not a 9-slice: tiling it would repeat
-# the furnace across the panel, which is exactly what a frame at margin 0 did on
-# 2026-09-11.
+# ONE layer and no frame: the Tower of Zharr has no outer border either, and a
+# frame around a full-bleed background just draws a box round the screen.
 # Literal, not "%s/panel_bg.png" % PLATE_DIR: PLATE_DIR is declared 150 lines
 # below this, with the plate builders that use it.
 PANEL_BG = "ui/derpy_ic/panel_bg.png"
@@ -1729,40 +1582,33 @@ PANEL_LAYERS = [
     # scaled to fill 1920x1080 and centre-cropped 77px a side, which the
     # composition survives because it is symmetric about the throne.
     #
-    # margin 0 with tile OFF, exactly as CA's was. It is a PICTURE, not a
+    # margin 0 with tile OFF. It is a PICTURE, not a
     # 9-slice: tiling it would repeat the throne room across the panel.
     {"path": PANEL_BG,
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "dock": None},
 ]
 
+# The lightest wash under which CA's red still reads 4.5:1 on every row of both
+# backdrops (make_ic_backdrop.py; #8D fails one cell).
 ROW_LAYERS = [
     {"path": "ui/skins/default/1x1_blank_white.png",
-     "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#00000055",
+     "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#0000008E",
      "dock": None},
 ]
 
 CARD_LAYERS = [
     # MARGIN 4, not 2. panel_back_tile.png is a 4px TRANSPARENT ring round an
-    # rgb(11,11,11) field; sliced at 2 the tiled centre carried that ring and
-    # repeated it every 252px across the card - visible vertical banding.
+    # rgb(11,11,11) field; sliced at 2 the tiled centre carries that ring and
+    # repeats it every 252px across the card, as visible vertical banding.
     # AND STRETCHED, NOT TILED. At 4 the centre is one flat colour, which tiles
     # cleanly only at 1:1: on a scaled UI a seam can sample the alpha-0 ring.
     # A flat colour stretched has no seam. See FLAT_CENTRE.
     {"path": "ui/skins/default/panel_back_tile.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 4, "dock": None},
-    # MARGIN 30, not 18. A 9-slice margin has to clear the ornament in the
-    # SOURCE texture, which is a different question from whether it fits the
-    # box - and the box question was the only one being asked. Measured on the
-    # 256x256 panel_back_border.png: the corner runs 27px in from the left and
-    # 28 down from the top, so an 18 slice halves the corner and stretches the
-    # offcut along the rails. Corners that do not meet their own edges.
-    #
-    # THE CHAOS DWARF FRAME SINCE 2026-09-26 (author: "use more of the chaos
-    # dwarf ui borders and elements"): the Hell-Forge's own name holder, a
-    # bronze rim round a dark field, trimmed out of CA's 144x51
-    # cap_group_name_holder.png to its 114x51 alpha box (CHD_CUTS). STRETCHED:
-    # its field is not flat, and a tiled one repeats. It was CA's generic
-    # panel_back_border.png at margin 30, tiled.
+    # THE CHAOS DWARF FRAME: the Hell-Forge's own name holder, a bronze rim
+    # round a dark field, trimmed out of CA's 144x51 cap_group_name_holder.png
+    # to its 114x51 alpha box (CHD_CUTS). STRETCHED: its field is not flat, and
+    # a tiled one repeats.
     {"path": "ui/derpy_ic/chd_frame.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 8, "dock": None},
 ]
@@ -1785,29 +1631,23 @@ BORDER_CORNER = 6
 #   panel_back_tile.png    256x256, a 4px pure-black border round rgb(11,11,11)
 #
 # margin 0 is NOT in scope: that is the no-9-slice mode, a different thing.
-# THE SEATS COUNTER'S PLATE (author, 2026-09-25: "add background ui for the
-# number of seats present"). CA's frame_text.png out of ui2.pack - a dark field
-# inside a thin gold rule, 27px tall at native size, which is the counter's own
-# height, so it draws near 1:1. Its text is centred and kept SEATS_PAD clear of
-# each end, and check 20g measures it there.
-# THE HELL-FORGE'S OWN SUBTITLE PLATE SINCE 2026-09-26, the same idea in the
-# race's bronze: dlc23_chd_hell_forge/sub_title.png, 113x30, a 3px rim round a
-# near-black field whose corners round off by 6.
+# THE SEATS COUNTER'S PLATE: the Hell-Forge's own subtitle plate,
+# dlc23_chd_hell_forge/sub_title.png, 113x30, a 3px bronze rim round a
+# near-black field whose corners round off by 6. Its text is centred and kept
+# SEATS_PAD clear of each end, and check 20g measures it there.
 SEATS_FRAME = "ui/skins/default/dlc23_chd_hell_forge/sub_title.png"
 SEATS_PAD = 10
 SEATS_LAYERS = [{"path": SEATS_FRAME, "offset": (0, 0), "dw": 0, "dh": 0,
                  "margin": 6, "dock": None}]
 
-# THE TITLES SIT ON THE HELL-FORGE'S SECTION TITLE (author, 2026-09-26:
-# "parties of the court and control of the court doesnt have any background").
-# side_panel_title.png, the spiked bar with arrow ends, SHRUNK to HEADING_H by
+# THE TITLES SIT ON THE HELL-FORGE'S SECTION TITLE, so no heading draws bare
+# on the backdrop. side_panel_title.png, the spiked bar with arrow ends, SHRUNK to HEADING_H by
 # cut_chd_art rather than squashed by the engine: its dark field is rows 17-66
 # of 90, so at 44px the field is 24px and a 20px heading sits INSIDE it.
 #
-# NOT sub_title, which this was for one build: a 3px rim round a field as dark
-# as the backdrop reads as an outline, and in a 24px cell the 20px text covered
-# both rims, so every heading looked struck through (author: "it looks poorly
-# implemented"). And NOT on every heading: the list's column headings and the
+# NOT sub_title: a 3px rim round a field as dark as the backdrop reads as an
+# outline, and in a 24px cell 20px text covers both rims, so every heading looks
+# struck through. And NOT on every heading: the list's column headings and the
 # sentence under the tabs stay bare - a plate per table column, or one 1884px
 # wide under a sentence, is a row of boxes, not a title.
 HEADING_ART = "ui/derpy_ic/chd_heading.png"
@@ -1828,9 +1668,8 @@ TEXTURE_MIN_MARGIN = {
 # Such a centre STRETCHES rather than tiles: stretched it is the same picture,
 # and tiled, a repeat drawn at anything but 1:1 samples the alpha-0 ring round
 # panel_back_tile's field. A bilinear model at 0.8 puts a faint seam at some
-# repeats. NOT the light lines seen in game 2026-09-24 - those crossed opaque
-# frames and bare backdrop, which a fill seam cannot - so this is hygiene, not
-# the fix for them.
+# repeats. Light lines that cross opaque frames and bare backdrop are not this:
+# a fill seam cannot reach them.
 FLAT_CENTRE = {"ui/skins/default/panel_back_tile.png"}
 
 # SetImagePath(path, 0) REPLACES an existing image layer; it does not create one.
@@ -1844,15 +1683,11 @@ PORT_LAYERS = [
 ]
 
 # The office card's portrait, same idea one size up: a blank plate at index 0 for
-# the face to replace, and the frame at index 1 so it survives the swap. The card
-# cell cannot reuse CARD_LAYERS, whose index 0 is panel_back_tile at
+# the face to replace. The card cell cannot reuse CARD_LAYERS, whose index 0 is panel_back_tile at
 # 9-slice margin 4 - a portrait written over that gets 9-sliced, which stretches
 # the middle of a face and leaves its edges at native scale.
-# ONE LAYER, not two. The second was panel_back_border at 9-slice margin 18 -
-# the SAME ornate frame the card itself already draws, redrawn 12px inside it. On
-# a vacant card you see one border; the moment an officer is appointed a second
-# nested border appears around the face, which is what "the portrait is doubled
-# when assigned" is. The card's own frame is the frame; the portrait needs none.
+# ONE LAYER: the card's own frame is the frame. A border here would draw a
+# second, nested one round the face the moment an officer is appointed.
 CARD_PORT_LAYERS = [
     {"path": "ui/skins/default/1x1_blank_white.png",
      "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0, "colour": "#FFFFFFFF",
@@ -1860,18 +1695,15 @@ CARD_PORT_LAYERS = [
 ]
 
 
-# One colour per house, INDEXED BY HOUSE, not by position in the court. All ten
-# segments shipped the same red on 2026-09-11, so the bar read as one solid block
-# and told the player nothing. There is no runtime colour API - nothing in CA's
-# docs, nothing in either shipped mod - so the colour is baked per component here,
+# One colour per house, INDEXED BY HOUSE, not by position in the court: segments
+# in one colour read as one solid block. There is no runtime colour API (nothing
+# in CA's docs, nothing in either shipped mod), so the colour is baked per component here,
 # and the Lua must address a segment by HOUSE index so a house keeps its colour
 # when a house ahead of it leaves the court.
 #
-# KEYED BY SLUG, not ordered. This was a list of fifteen colours whose pairing
-# with IC.HOUSES lived in the comment at the end of each line, and the only thing
-# checked was that the two were the same LENGTH - so adding a house anywhere but
-# the bottom would have moved every colour below it onto the wrong house, with
-# nothing to say so. A missing slug is now a KeyError at import.
+# KEYED BY SLUG, not ordered: a list paired with IC.HOUSES by position moves
+# every colour below an inserted house onto the wrong one, with nothing to say
+# so. A missing slug is a KeyError at import.
 HOUSE_COLOUR = {
     "crown":  "#8C2F26FF",   # bull-cult red - the player's own
     "temple": "#B8862BFF",   # brass
@@ -1911,9 +1743,7 @@ CONFED_COLOUR = {
 BAR_COLOURS = ([HOUSE_COLOUR[p[0]] for p in IC.PARTIES]
                + [CONFED_COLOUR[slug] for slug in CONFED_SEATS])
 
-# ---------------------------------------------------------------------------
 # The house plate: what is BEHIND the character's face.
-# ---------------------------------------------------------------------------
 # A porthole is a CUT-OUT - measured across the shipped art, 27% to 54% of every
 # one is fully transparent with a soft 1-3% edge - so whatever sits under it
 # shows through, and that is the only way a house colour can reach a portrait.
@@ -1927,9 +1757,8 @@ BAR_COLOURS = ([HOUSE_COLOUR[p[0]] for p in IC.PARTIES]
 #
 # THE GRADIENT IS TOP-WEIGHTED because that is the part of the plate a porthole
 # does not cover: the body fills the bottom of the frame and the head the middle,
-# leaving the top edge and the upper corners. A bottom-weighted gradient - the
-# first thing tried - put the colour exactly where the shoulders are and read as
-# a plain black box.
+# leaving the top edge and the upper corners. A bottom-weighted gradient puts
+# the colour exactly where the shoulders are and reads as a plain black box.
 GAME_DATA = os.path.join("F:" + os.sep, "SteamLibrary", "steamapps",
                          "common", "Total War WARHAMMER III", "data")
 PLATE_DIR = "ui/derpy_ic"
@@ -1938,6 +1767,8 @@ PLATE_BASE = (14, 12, 11)          # near-black, warm, the panel's own ground
 # No house: a plate, not a hole. A portrait with no house behind it still wants
 # something to sit on, or the cell reads as a missing image.
 PLATE_NONE_COLOUR = "#2A2622FF"
+# The flat rules between columns and under the Crown's box: dull bronze.
+RULE_COLOUR = "#6A5A3CFF"
 
 
 def plate_path(slug):
@@ -1953,7 +1784,7 @@ def sigil_path(slug):
     return "%s/party_sigil_%s.png" % (PLATE_DIR, slug)
 
 
-# A PARTY NOT AT COURT (author, 2026-10-03): its sigil in grey, dimmed, for the
+# A PARTY NOT AT COURT: its sigil in grey, dimmed, for the
 # laws tab's For/Against crests. An inline [[img:]] cannot be tinted at runtime,
 # so the grey is a picture. ICUI.ABSENT_SIGIL names the same pattern.
 ABSENT_DIM = 0.6
@@ -1963,7 +1794,7 @@ def absent_sigil_path(slug):
     return "%s/party_sigil_%s_absent.png" % (PLATE_DIR, slug)
 
 
-# THE GOVERNMENT CARDS' PICTURES, UPSCALED (author, 2026-10-03, route A). CA ships
+# THE GOVERNMENT CARDS' PICTURES, UPSCALED. CA ships
 # its Chaos Dwarf tech icons at 72px only, and the card draws them at 112 (149 at
 # 2560), where the engine's own scaling is soft. Each is written at GOV_ART_PX in
 # two Lanczos steps with an unsharp pass between. The source names are the panel
@@ -2027,9 +1858,8 @@ def div_path(i):
 
 # A PARTY HAS NO FLAG TO BORROW.
 #
-# A house was a faction and its crest was that faction's own mon_64.png, read
-# off flag_path at runtime. A party is an interest inside one faction, so there
-# is nothing to ask - and the crest column is how a player tells two parties
+# A party is an interest inside one faction, so there is no faction flag_path
+# to read a crest from, and the crest column is how a player tells two parties
 # apart at a glance on the bar, on a card and on every row.
 #
 # NO PIL. The plate above is a pure function of a colour and this is a pure
@@ -2040,27 +1870,26 @@ def div_path(i):
 # Each emblem is a predicate over normalised coordinates - u and v both run -1
 # to 1 - which is a rasteriser small enough to read and exact enough to compare
 # byte for byte.
-# 128, not 64. An emblem is drawn inside a FLAG now - see FLAG_SRC - and the
+# 128, not 64. An emblem is drawn inside a FLAG (see FLAG_SRC), and the
 # frame's rails and corner studs are what a downscale eats first: measured at
 # row size, a 64px source loses them and a 128px one keeps them. Nothing on this
 # panel draws a crest above 40px, so 256 buys nothing but aliasing.
 SIGIL = 128
-# CA'S OWN FLAG FRAME, prepared once to SIGIL by scratchpad/prep_frame.py off
-# the 256px master in Modding Files/source/flags/. THE FIELD IS PAINTED WHITE in
+# CA'S OWN FLAG FRAME, prepared once to SIGIL off the 256px master in
+# Modding Files/source/flags/. THE FIELD IS PAINTED WHITE in
 # that file and that is the whole contract: white is the field this generator
 # fills, opaque-and-not-white is the frame it must not touch, and transparent is
 # outside the flag. The frame could not be lifted out of the shipped Chaos Dwarf
-# flags instead - measured 2026-09-13, ZERO pixels are identical across the
+# flags instead: measured, ZERO pixels are identical across the
 # seven of them, because the metal is painted per faction.
 FLAG_SRC = os.path.join(ROOT, "Modding Files", "source", "ic_frame",
                         "flag_frame_%d.png" % SIGIL)
 FLAG_WHITE = 232                   # a field pixel is at least this in all three
 FLAG_CLEAR = 24                    # below this alpha it is outside the flag
 # THREE SAMPLES PER PIXEL PER AXIS, so an edge that is not axis-aligned is a
-# ramp and not a staircase. The first set of emblems was one sample per pixel
-# and a hard boolean: every diagonal in them - the crown's spires, the wheel's
-# spokes - came out as a flight of steps, and then the engine scaled that 64px
-# staircase down to a 36px cell and to a 28px crest on the dial.
+# ramp and not a staircase. At one sample per pixel every diagonal (the crown's
+# spires, the wheel's spokes) is a flight of steps, which the engine then scales
+# down to a 36px cell and a 28px crest on the dial.
 SIGIL_FINE = 3
 # The outline, in FINE cells: a bit over one finished pixel. It is what lets a
 # bronze emblem sit on a plate of any colour - including the pale ones, where
@@ -2069,7 +1898,7 @@ SIGIL_HALO = 4
 SIGIL_EDGE = (10, 9, 8)            # the outline, one pixel of the panel ground
 # BRONZE, NOT THE PARTY'S OWN COLOUR. Every place an emblem is drawn - the row
 # crest, the office card, the crest ring on the dial - the ground behind it is
-# already that party's colour, so painting the emblem in it too left a shape
+# already that party's colour, so painting the emblem in it too leaves a shape
 # picked out by nothing but a one-pixel dark line. These two are CA's own: the
 # outer pixel of panel_back_border.png's top rail and of its bottom rail, so an
 # emblem is lit from above in the same metal as the dial's rim.
@@ -2091,11 +1920,7 @@ def _box(u, v, u0, u1, v0, v1):
 
 
 def _seg(u, v, x0, y0, x1, y1, w):
-    """Within w of the segment: a thick line with round caps.
-
-    The one primitive the first set did not have, and the reason its chain was
-    two circles side by side and its hammer a capital T.
-    """
+    """Within w of the segment: a thick line with round caps."""
     dx, dy = x1 - x0, y1 - y0
     span = dx * dx + dy * dy
     t = 0.0 if span < 1e-12 else ((u - x0) * dx + (v - y0) * dy) / span
@@ -2226,7 +2051,7 @@ def _sigil_hearth(u, v):
         return True                                   # the head
     if -0.64 <= v <= -0.32 and u >= 0.20:
         # THE PEEN, tapering off the far side: without it a square head on a
-        # straight haft is a capital T, which is what the first set drew.
+        # straight haft is a capital T.
         t = abs(v + 0.48) / 0.16
         if u <= 0.20 + 0.40 * (1.0 - t):
             return True
@@ -2413,11 +2238,9 @@ def sigil_pixels(slug, hexcol=None):
 SIL_PATH = PLATE_DIR + "/portrait_silhouette.png"
 # A DARK FILL WITH A LIGHT RIM, and it needs both.
 #
-# THE FILL ALONE WAS ENOUGH while the figure only ever sat on house_plate_none -
-# an opaque brown box built to go behind it. A vacant seat's plate is transparent
-# now, so it lands on whatever is under the cell: the office card's own art,
-# measured at (11, 11, 10) in the rendered preview against an ink of (18, 14, 11).
-# Seven levels. The offices tab drew fourteen cards and half of them were empty.
+# A vacant seat's plate is transparent, so the figure lands on whatever is under
+# the cell: the office card's own art, measured at (11, 11, 10) in the rendered
+# preview against an ink of (18, 14, 11). Seven levels: the fill alone vanishes.
 #
 # A FLAT LIGHTER INK CANNOT FIX IT. The silhouette still draws on a HOUSE PLATE
 # in two places - the Crown's block and a party card whose leader is dead - and
@@ -2433,7 +2256,7 @@ SIL_RIM_PX = 2
 SIL_ALPHA = 210
 # THE SMALLEST LUMINANCE STEP THAT READS. The figure is a shape and not text, so
 # this is not a 4.5:1 contrast bar - it is the distance at which an edge is an
-# edge. 24 is what the 2026-09-17 preview pass showed; below it the head stops
+# edge. 24 is what the preview shows; below it the head stops
 # separating from the bottom of a house plate, which fades to PLATE_BASE.
 SIL_MIN_STEP = 24
 # Head: centre and radius. Shoulders: an ellipse whose centre is BELOW the
@@ -2441,7 +2264,7 @@ SIL_MIN_STEP = 24
 SIL_HEAD_CY, SIL_HEAD_R = 0.37, 0.22
 SIL_NECK_HW, SIL_NECK_TOP = 0.05, 0.50
 # RX IS A FRACTION OF THE WIDTH and the shoulders have to leave the frame, not
-# float in the middle of it: at 0.27 they reached half the picture and read as a
+# float in the middle of it: at 0.27 they reach half the picture and read as a
 # small figure standing far back rather than as a portrait.
 SIL_SHOULDER_CY, SIL_SHOULDER_RX, SIL_SHOULDER_RY = 1.14, 0.42, 0.62
 
@@ -2471,11 +2294,6 @@ def silhouette_pixels():
     # COVERAGE FIRST, THEN INK. The rim is "a covered pixel with an uncovered
     # one near it", which cannot be answered while the rows are being written -
     # it needs the pixels below this one, and they do not exist yet.
-    #
-    # OFF THE EDGE OF THE PICTURE COUNTS AS COVERED. The shoulders are an
-    # ellipse centred below the frame and they leave it at full width; treating
-    # the border as empty would draw a rim along the bottom of the cell, which
-    # is a line under the figure and not an outline of it.
     # SUPERSAMPLED 3x3. A hard edge on a circle at this size reads as a cog,
     # and there is no blur to hide it behind - the cell is drawn at 98x54 and
     # the engine's downscale is not kind to a stair-stepped outline.
@@ -2549,8 +2367,7 @@ def ziggurat_boxes(race="chd"):
     return out
 
 
-# THE ZIGGURAT'S TITLE (author, 2026-10-03: "a title on top of the ziggurat on
-# the office panel"), on the shrine: the cell is the shrine's lower step, the
+# THE ZIGGURAT'S TITLE, on the shrine: the cell is the shrine's lower step, the
 # heading plate hugs its words inside it (FIT_PLATES), lifted 4px off the top.
 def off_title_box():
     zb = ziggurat_boxes()
@@ -2559,7 +2376,7 @@ def off_title_box():
 
 if RACE == "chd":
     PANEL_LAYOUT["ic_off_title"] = off_title_box()
-# THE DWARF LAYOUT (plan 2026-10-04 phase 3): the lintel and its help button, the
+# THE DWARF LAYOUT: the lintel and its help button, the
 # hall's title, the throne and its three lines. Everything else is the Chaos Dwarf
 # panel's own cell. The hall picture takes ic_zig_bg's box, from the section line
 # to the lowest card's foot.
@@ -2751,7 +2568,7 @@ def plate_pixels(hexcol):
 # <porthole>_mask1.png, same pixel size, ~82% fully transparent - whose opaque
 # region is the heraldry cloth: the hat band and the beard cover. That cloth is
 # painted neutral light grey in the base art on purpose, so a colour reads true
-# on it. Measured 2026-09-12: the mask has exactly ONE distinct opaque colour,
+# on it. Measured: the mask has exactly ONE distinct opaque colour,
 # pure white, which is what makes a multiply give the colour back unchanged.
 #
 # The colour arrives through a ContextColourSetter declared on the cell (see
@@ -2768,7 +2585,7 @@ def plate_pixels(hexcol):
 MASK_DIR = PLATE_DIR
 MASK_NONE = "%s/mask_none.png" % MASK_DIR
 
-# THE SEAT'S RIM (spec 2026-09-28 section 4.1). CA's completed-district glow off
+# THE SEAT'S RIM. CA's completed-district glow off
 # the Tower of Zharr, 9-sliced at 40 - the Great Guilds' measured value, and it
 # fits MASK_NONE (300x164) as well as the rim (299x877), so no layer can sample
 # outside its texture whichever of the two it holds.
@@ -2776,9 +2593,8 @@ MASK_NONE = "%s/mask_none.png" % MASK_DIR
 # ONE LAYER PER LOOK, each shipping MASK_NONE. ICUI.set_rim writes the rim into
 # the look's layer and MASK_NONE into the others. A layer's colour multiplies
 # its image, so the dim and red looks are the same CA art under another colour
-# rather than derived files (ruling 1 of the 2026-09-28 plan).
-# OUR OWN TEXTURE, NOT CA'S FILE (author, 2026-09-28, of CA's rim in game: "the
-# corners are not filled"). CA's district_complete_glow_02.png is a ROUNDED
+# rather than derived files.
+# OUR OWN TEXTURE, NOT CA'S FILE. CA's district_complete_glow_02.png is a ROUNDED
 # rectangle - its glow peaks 10px in along an edge and 20px in along the
 # diagonal, a corner radius near 30px - so no margin can take it into a square
 # card's corner, and pushing the layer out past the card to hide the curve
@@ -2790,10 +2606,9 @@ RIM_PX = 128
 # Measured off CA's rim at x=150, every 2px in from the edge: its colour holds
 # near (176, 5, 5) and only the alpha changes.
 RIM_RGB = (176, 5, 5)
-# A FAILED PLOT'S RIM, in ash (leftover M5 of the 2026-09-28 review). The fail
-# look used to be RIM_ART under a red colour, and a layer colour multiplies:
-# over a picture that is already pure red it can only draw a darker red, so a
-# failure looked like a success bar the flicker. Same edge profile, own colour.
+# A FAILED PLOT'S RIM, in ash. A layer colour multiplies: over RIM_ART, which is
+# already pure red, it can only draw a darker red, so a failure would look like a
+# success but for the flicker. Same edge profile, own colour.
 RIM_FAIL_ART = "%s/seat_rim_fail.png" % PLATE_DIR
 RIM_FAIL_RGB = (200, 196, 188)
 RIM_ALPHA = [2, 8, 21, 37, 50, 55, 53, 48, 42, 37, 32, 28, 24, 21, 18, 16, 14,
@@ -2802,6 +2617,8 @@ RIM_LOOKS = {
     # CA's ToZ furnace glow_01 values.
     "lit": {"shader": "glow_pulse_t0", "shader_vars": "1.00,1.30,0.80,0.00"},
     "dim": {"colour": "#FFFFFF66"},
+    # A held seat: the lit rim, still. Only a seat whose term is ending breathes.
+    "held": {"colour": "#FFFFFFFF"},
     # A fast flicker: a failure is short and sharp, not a slow breath. Drawn
     # over RIM_FAIL_ART, so no tint.
     "fail": {"colour": "#FFFFFFFF", "shader": "glow_pulse_t0",
@@ -2819,10 +2636,11 @@ def rim_layers(looks, margin=RIM_MARGIN):
     return out
 
 
-OFFICE_CARD_LAYERS = CARD_LAYERS + rim_layers(["lit", "dim"])
+OFFICE_CARD_LAYERS = CARD_LAYERS + rim_layers(["lit", "dim", "held"])
 # Which layer holds each look, per component kind. Must match ICUI.RIMS;
 # check_rim_slots() holds the two together.
-CARD_RIM = {"lit": len(CARD_LAYERS), "dim": len(CARD_LAYERS) + 1}
+CARD_RIM = {"lit": len(CARD_LAYERS), "dim": len(CARD_LAYERS) + 1,
+            "held": len(CARD_LAYERS) + 2}
 # The tab marker: CA's Hell-Forge heat glow, breathing at the Hell-Forge
 # category block's own values.
 MARK_LAYERS = [{"path": "ui/skins/default/dlc23_chd_hell_forge/heat_glow.png",
@@ -2879,7 +2697,7 @@ def frame_pixels(px=None, band=None):
 
 def check_portrait_frame(rows=None, layer=None):
     """Opaque from its first pixel, FRAME_BRONZE px of bronze, a clear middle,
-    and drawn FRAME_OUT px past the cell - the two faults the author saw."""
+    and drawn FRAME_OUT px past the cell: the two faults seen in game."""
     rows = rows or frame_pixels()
     layer = layer or FACE_LAYERS[FRAME_INDEX]
     out = []
@@ -3084,16 +2902,14 @@ RIM_SS = 3                      # samples per axis - the whole picture is edge
 # UNDER THE BRONZE, not over it: the rim's own branches are tested first below,
 # so the fire licks out from beneath a frame that stays crisp.
 EMBER = ((255, 236, 196), (255, 146, 40), (168, 38, 6))
-# AS DEEP AS THE RIM PICTURE HAS ROOM FOR - see RIM_PAD, which is itself the
-# gap between the pie and the label above it. Deriving it means the fire cannot
+# AS DEEP AS THE RIM PICTURE HAS ROOM FOR (see RIM_PAD). Deriving it means the fire cannot
 # be drawn deeper than the picture that holds it, which would clip it flat at
 # the edge with nothing to say so.
 EMBER_DEPTH = RIM_PAD
 EMBER_PEAK = 0.85
-# 1.8, not 2.6. The steep falloff was chosen when the glow lay over the party
-# colours, where anything gentler washed them out; over the panel it puts the
-# whole glow in the first three pixels and draws a bright line round the rim
-# instead of a heat haze coming off it.
+# 1.8, not 2.6. The glow lies over the panel, not the party colours, and a
+# steep falloff puts the whole glow in the first three pixels: a bright line
+# round the rim instead of a heat haze coming off it.
 EMBER_FALLOFF = 1.8
 
 
@@ -3102,10 +2918,10 @@ EMBER_FALLOFF = 1.8
 # reads as one frame with spokes rather than as a rail with lines drawn on it.
 # 4, NOT 3, AND THE DARK EDGE CARRIES IT. The bronze core tops out at
 # (169,138,96), which is most of the way to the gold party's own fill - so at
-# three pixels with a 60-alpha edge the wall read on the red boundary and
-# vanished on the gold one. What reads on ANY colour is the dark line either
+# three pixels with a 60-alpha edge the wall reads on the red boundary and
+# vanishes on the gold one. What reads on ANY colour is the dark line either
 # side of the metal, and four with a firm edge matches the rim's own weight;
-# five was heavier than the frame, which makes the divisions louder than the
+# five is heavier than the frame, which makes the divisions louder than the
 # thing they divide.
 DIV_W = 4                       # bronze pixels across
 DIV_EDGE_A = 150                 # the dark edge either side, out of 255
@@ -3166,7 +2982,7 @@ def div_pixels(i):
                         # ONE METAL FOR EVERY WALL. Lighting each by its own
                         # angle is the rim's rule, and the rim earns it: every
                         # point of an arc faces somewhere different. A spoke
-                        # does not, and by-angle lighting made the upright wall
+                        # does not, and by-angle lighting makes the upright wall
                         # gold and the diagonals nearly black - three different
                         # things where the eye wants one frame. The band still
                         # runs across the bar, so it keeps its roundness.
@@ -3224,21 +3040,16 @@ def rim_pixels():
     """RGBA rows for the rim box: the arc, the flat baseline, and the fire.
 
     The BASELINE IS AN EDGE TOO. A half disc has two of them, and a rim that
-    stops at the arc leaves the pie sitting on nothing - which is what the
-    panel drew before, and what the border was asked for.
+    stops at the arc leaves the pie sitting on nothing.
 
     RIM_PAD BIGGER THAN THE PIE, on all four sides. The fire burns outward and
-    a half disc has a flat side, so "outward" includes straight down - the
-    court's header strip was moved out of the way by bringing the baseline up
-    to it rather than by leaving the flat side unlit.
+    a half disc has a flat side, so "outward" includes straight down.
     """
     r = DIAL_R
-    # RIM_BOX's OWN SIZE, not a second copy of the arithmetic. The ember below
-    # the baseline was written before this line was, and the picture stayed one
-    # pad tall instead of two - so the fire under the flat side was drawn off
-    # the bottom edge of its own canvas, which clips silently. Reading the box
-    # the layout declares means the picture and the component that shows it
-    # cannot disagree about how big it is.
+    # RIM_BOX's OWN SIZE, not a second copy of the arithmetic: fire drawn off
+    # the bottom edge of its own canvas clips silently. Reading the box the
+    # layout declares means the picture and the component that shows it cannot
+    # disagree about how big it is.
     w, h = RIM_BOX[2], RIM_BOX[3]
     assert (w, h) == (2 * r + 2 * RIM_PAD, r + 2 * RIM_PAD), (w, h)
     rows = []
@@ -3363,7 +3174,7 @@ def art_paths():
     return out
 
 
-# CA'S CHAOS DWARF ART, TRIMMED TO ITS OWN ALPHA BOX (2026-09-26). our path ->
+# CA'S CHAOS DWARF ART, TRIMMED TO ITS OWN ALPHA BOX. our path ->
 # (CA's path in ui2.pack, crop box). Each box is the art's alpha > 8 bounding
 # box, measured, so a trimmed picture fills its component exactly and no layer
 # has to be larger than its box. The selected tab loses the glow under its bar;
@@ -3429,10 +3240,8 @@ def cut_chd_art(quiet=False):
     return written
 
 
-# ---------------------------------------------------------------------------
-# THE DWARF PLATES (plan 2026-10-04 phase 3; spec 2.6). Cut from CA's Book of
-# Grudges kit and baked to their components' exact 1920 sizes, the way the approved
-# mockup dwf_skin_mockup2.py builds them: caps and corners at a UNIFORM scale, runs
+# THE DWARF PLATES. Cut from CA's Book of Grudges kit and baked to their
+# components' exact 1920 sizes, the way the mockup dwf_skin_mockup2.py builds them: caps and corners at a UNIFORM scale, runs
 # mirror-tiled, nothing stretched. The game's own art, read offline.
 DWF_SRC = "ui/skins/default/dlc25_book_of_grudges/"
 DWF_BACKDROP_SRC = "ui/loading_ui/load_images/campaign_dwarfs1.png"
@@ -3789,8 +3598,7 @@ def dwf_seats(w=None, h=None, chamfer=None):
     return im
 
 
-# THE GOVERNORS VIEW IN CA'S DWARF SKIN (author, 2026-10-05, of the Governors view:
-# "change it to dwarf themed, then approved"). Thorek's forge panel is the Dwarf
+# THE GOVERNORS VIEW IN CA'S DWARF SKIN. Thorek's forge panel is the Dwarf
 # twin of the Hell-Forge side panel, and its leather strip with knot corners plates
 # every band, label and holder the Hell-Forge's sub_title plated - baked to each
 # cell's 1920 box, the corners whole and the runs mirror-tiled, as every Dwarf
@@ -3807,8 +3615,8 @@ DWF_GM_PIN = DWF_SKIN + "location_pin.png"
 DWF_TOG_ICON = DWF_SKIN + "icon_oaths.png"
 DWF_MARK = PLATE_DIR + "/dwf_mark.png"
 # THE READOUTS BESIDE CA'S PANELS (the influence plate on the character panel,
-# the governor note by the edicts) on the seats counter's Dwarf plate (phase 3
-# final review). Their files are shared and slice with SEATS_LAYERS' margin, so
+# the governor note by the edicts) on the seats counter's Dwarf plate. Their
+# files are shared and slice with SEATS_LAYERS' margin, so
 # the chamfer is that margin and the corners stay whole however wide the words.
 DWF_NOTE = PLATE_DIR + "/dwf_note.png"
 DWF_MARK_PX = 128
@@ -4141,12 +3949,11 @@ def check_dwf_frame_ink(images=None):
 
 
 
-# CHAOS DWARF ART STILL REACHABLE FROM A DWARF COURT - each one the author's to rule
-# on at the preview (Task 15). Anything Chaos Dwarf outside these is a fault.
-# NOTHING IS KEPT (author, 2026-10-05, of the Governors view: "change it to dwarf
-# themed, then approved"): every Chaos Dwarf picture the Dwarf court drew has a
-# Dwarf one - CA's Dwarf skin (wh_main_dwf_dwarfs), its blue theme, or a bake.
-# The set stays so a deliberate keep can be ruled one at a time again.
+# CHAOS DWARF ART STILL REACHABLE FROM A DWARF COURT, each a deliberate keep.
+# Anything Chaos Dwarf outside these is a fault. NOTHING IS KEPT: every Chaos
+# Dwarf picture the Dwarf court draws has a Dwarf one (CA's Dwarf skin
+# wh_main_dwf_dwarfs, its blue theme, or a bake). The set stays so a keep can be
+# added one at a time.
 DWF_KEEPS = set()
 DWF_KEEP_PREFIXES = ()
 CHD_ART = re.compile(r"chd|dlc23|hell_forge|hashut|zharr|ziggurat")
@@ -4166,8 +3973,7 @@ def check_race_art(text=None):
     Lua actually draws (preview_iron_court.py --race dwf)."""
     text = build_xml()[PANEL_FILE] if text is None else text
     paths = sorted(set(re.findall(r'imagepath="([^"]+)"', text)))
-    # AND NO RED BUTTON (author, 2026-10-05: "blue buttons, didnt i sake make it
-    # thematic?"): CA's default plates are red; the Dwarf panel wears the same
+    # AND NO RED BUTTON: CA's default plates are red; the Dwarf panel wears the same
     # files out of CA's blue colour theme, DWF_THEME.
     return (["the Dwarf panel draws Chaos Dwarf art %s" % p for p in paths if chd_art(p)]
             + ["the Dwarf panel draws CA's red button %s" % p for p in paths
@@ -4271,16 +4077,16 @@ def build_plates():
     # THE WEDGES ARE NOT HERE. There are 1560 of them at 320KB apiece and this
     # function returns a dict; wedge_art() yields them one at a time instead,
     # and art_paths() is what anything needing only the NAMES should ask.
-    # THE PINS' CAPITAL AND OUTLINE RINGS (spec 2026-09-29).
+    # THE PINS' CAPITAL AND OUTLINE RINGS.
     out[MAP_RING_CAPITAL] = map_ring_pixels(MAP_RING_CAPITAL_COLOUR)
     out[MAP_RING_OUTLINE] = map_ring_pixels(MAP_RING_OUTLINE_COLOUR)
-    # THE GOVERNORS VIEW'S PARTY RINGS AND THE FACE'S GROUND (plan ruling 6):
+    # THE GOVERNORS VIEW'S PARTY RINGS AND THE FACE'S GROUND:
     # one ring per party and per absorbed faction, painted by SetImagePath.
     for p in IC.PARTIES:
         out[gm_ring_path(p[0])] = map_ring_pixels(HOUSE_COLOUR[p[0]], GM_RING, 4)
     for slug in CONFED_SEATS:
         out[gm_ring_path(slug)] = map_ring_pixels(CONFED_COLOUR[slug], GM_RING, 4)
-    # AND ITS COLOUR ACROSS THE NAME PLATE (author, 2026-09-30).
+    # AND ITS COLOUR ACROSS THE NAME PLATE.
     for slug, hexcol in gm_wash_colours().items():
         out[gm_wash_path(slug)] = gm_wash_pixels(hexcol)
     out[GM_FACE_GROUND] = map_disc_pixels(GM_FACE_GROUND_COLOUR, GM_HEAD[2])
@@ -4289,7 +4095,7 @@ def build_plates():
     out[RIM_FAIL_ART] = seat_rim_pixels(rgb=RIM_FAIL_RGB)
     out[FRAME_ART] = frame_pixels()
     out[SIL_PATH] = silhouette_pixels()
-    # THE ZIGGURAT IS THE CHAOS DWARFS' (plan 2026-10-04 phase 3): a Dwarf copy
+    # THE ZIGGURAT IS THE CHAOS DWARFS': a Dwarf copy
     # names it, for art_paths, and never draws it.
     out[ZIG_PATH] = ziggurat_pixels() if RACE == "chd" else None
     return out
@@ -4349,17 +4155,14 @@ def masked_portraits(quiet=False):
 # Index 0 ships pointing at the vacant plate rather than at 1x1_blank_white,
 # because a cell that has never had its plate set must not flash white.
 #
-#   3  the frame (author, 2026-09-28: "add portrait borders") - never swapped,
-#      on top of all three so nothing the Lua writes can cover it. NOT the
-#      card's panel_back_border, which is what "the portrait is doubled when
-#      assigned" was.
+#   3  the frame, never swapped, on top of all three so nothing the Lua writes
+#      can cover it. NOT the card's panel_back_border, which draws a second
+#      border nested inside the card's.
 #
-# OUR OWN ART IN CA's BRONZE, not CA's file (author, same day, of CA's
-# Hell-Forge unit_card_frame in game: "make the borders thicker, the character
-# portrait permeates thru the border"). CA's frame is 2px of bronze, and its
-# outermost pixel is TRANSPARENT and the next a near-black line at 65% - so the
-# visible bronze began 2px inside the cell, and the portrait's own outer 2px
-# showed round it. This one is opaque from its first pixel, carries 4px of
+# OUR OWN ART IN CA's BRONZE, not CA's Hell-Forge unit_card_frame. CA's frame is
+# 2px of bronze, and its outermost pixel is TRANSPARENT and the next a
+# near-black line at 65%, so the visible bronze begins 2px inside the cell and
+# the portrait's own outer 2px shows round it. This one is opaque from its first pixel, carries 4px of
 # bronze (CA's measured 161,102,52 -> 102,57,23, lit one step brighter at the
 # outside), and is pushed FRAME_OUT px past the cell on every side so the
 # portrait's edge is under the frame and not beside it.
@@ -4423,10 +4226,8 @@ def wedge_layers(i):
 #
 # WHY IT IS NOT OPTIONAL. Without it the opener is two generic plates and nothing
 # else - a featureless disc, measured 56.7% opaque at rgb(68,26,15). Both
-# neighbours on the strip carry a glyph, and after the revert all three sit in a
-# row; the unmarked one is the one nobody finds.
-# The opener had no tooltip at all - hovering it said nothing about what it
-# opened. Both neighbours on the strip carry one.
+# neighbours on the strip carry a glyph, and the unmarked one in a row of three
+# is the one nobody finds. Both carry a tooltip too.
 OPENER_TIP = ("The Iron Court||The great houses, the offices of state and "
               "the governors of your provinces.")
 OPENER_ICON = "ui/skins/default/icon_wh_main_lore_hashut.png"
@@ -4446,11 +4247,9 @@ OPENER_LAYERS = [
 ]
 # A state with no transitionmap edge pointing at it is never entered, so a hover
 # authored without one is dead art.
-# The close button is NOT the opener. The two shared OPENER_LAYERS, which was
-# harmless while both were bare plates and became wrong the moment the opener
-# gained the Hashut bull: the close button would have worn the same face as
-# the button that opens the panel. CA icon_cross.png is a 56x56 gold X on the
-# same plate size.
+# The close button is NOT the opener: on OPENER_LAYERS it would wear the Hashut
+# bull, the face of the button that opens the panel. CA's icon_cross.png is a
+# 56x56 gold X on the same plate size.
 CLOSE_ICON = "ui/skins/default/icon_cross.png"
 CLOSE_INSET = 12                      # a 48px button, so a 24px X
 
@@ -4470,9 +4269,9 @@ def plated(icon, inset, state):
 CLOSE_LAYERS = plated(CLOSE_ICON, CLOSE_INSET, "active")
 CLOSE_HOVER = plated(CLOSE_ICON, CLOSE_INSET, "hover")
 
-# THE HELP BUTTON WEARS THE CLOSE BUTTON'S PLATE and CA's gold question mark.
-# The Tower of Zharr's bronze "i" came first and was a dark mark on a dark
-# plate that nobody saw (author, 2026-09-28). icon_question_mark.png is 38x38,
+# THE HELP BUTTON WEARS THE CLOSE BUTTON'S PLATE and CA's gold question mark,
+# not the Tower of Zharr's bronze "i", a dark mark on a dark plate that goes
+# unseen. icon_question_mark.png is 38x38,
 # so a 6px inset draws it at 36 - near native, not stretched.
 HELP_ICON = "ui/skins/default/icon_question_mark.png"
 HELP_LAYERS = plated(HELP_ICON, 6, "active")
@@ -4491,12 +4290,10 @@ OPENER_HOVER = [
      "margin": 0, "dock": "Center"},
 ]
 
-# Tabs and text buttons are tiled plate plus border, NOT a stretched button
-# Tabs wear CA's own button plate, 9-sliced, exactly as the Great Guilds' tabs do.
-# The first draft dressed them in panel_back_tile + panel_back_border instead, on
-# the theory that stretched button art is a smear - but a 9-SLICED plate does not
-# stretch its ends, and a panel FRAME at margin 0 tiled four little frames onto
-# every tab. button_square_medium_text_*.png is verified present in ui2.pack;
+# Text buttons wear CA's own button plate, 9-sliced, exactly as the Great Guilds'
+# tabs do: a 9-SLICED plate does not stretch its ends, and a panel FRAME at
+# margin 0 tiles four little frames onto every button.
+# button_square_medium_text_*.png is verified present in ui2.pack;
 # button_square_medium_*.png (no _text_) is the one that does not exist.
 BTN_PLATE = "ui/skins/default/button_square_medium_text_%s.png"
 if RACE == "dwf":
@@ -4518,9 +4315,8 @@ TAB_H = PANEL_LAYOUT["ic_tab_court"][3]
 BTN_LAYERS = plate(TAB_H, "active")
 BTN_HOVER = plate(TAB_H, "hover")
 
-# THE TABS WEAR CA'S SKULL-CAPPED TAB (author, 2026-09-26: "use more of the
-# chaos dwarf ui borders and elements", pointing at the Hell-Forge's Armoury
-# tab), and the panel's name sits on the Chaos Dwarf title banner.
+# THE TABS WEAR CA'S SKULL-CAPPED TAB, the Hell-Forge's Armoury tab, and the
+# panel's name sits on the Chaos Dwarf title banner.
 #
 # TRIMMED COPIES, NOT CA'S FILES. tab_square_large_text_*.png is 354x103 with
 # the bar in rows 8-43 and the selected glow under it; fitted to a 32px tab
@@ -4533,7 +4329,7 @@ TAB_ART = PLATE_DIR + "/chd_tab_%s.png"
 # THE CAPS, MEASURED ON THE TRIMMED ART: the skull and its bronze bezel end at
 # column 38 and the bar's rounded end at 45. CA slices this art at 65
 # ("0,65,0,65" in hellforge_panel_main.twui.xml), which is generous on a 334px
-# tab and left "Petitions" 72px of a 200px tab at 1600 - 40 keeps the whole
+# tab and leaves "Petitions" 72px of a 200px tab at 1600 - 40 keeps the whole
 # skull in the corner, and a label clears the rounded end at 46.
 TAB_CAP = 40
 TAB_TEXT_INSET = 46
@@ -4554,12 +4350,12 @@ TAB_HOVER = tab_plate("hover")
 TITLE_ART = PLATE_DIR + "/chd_title.png"
 TITLE_CAP = 111
 # THE BANNER'S FIELD IS ROWS 12-40 OF 56, so it is drawn at 56 - squashed to 44
-# the field was 22px and the game's 24px title ran over both rims - and the
+# the field is 22px and the game's 24px title runs over both rims - and the
 # words are lifted 2px onto the field's middle (row 26, not the box's 28).
 TITLE_TY = "0.00,4.00"
 
-# A PLATE HUGS ITS WORDS (author, 2026-09-26, on the column titles: "why is it all
-# stretched to the corners?"). The cell is the most room a plate may take, not its
+# A PLATE HUGS ITS WORDS rather than stretching to the corners. The cell is the
+# most room a plate may take, not its
 # size: ICUI.fit_plate shrinks each of these to its text's width plus a cap and
 # PLATE_GAP either side, measured by the engine, and centres it in the cell - or,
 # for the banner, keeps its left end where the panel's corner is. fit_plate() is
@@ -4585,9 +4381,9 @@ def fit_plate(name, x, w, text_w):
     return (x if left else x + (w - want) // 2), want
 TITLE_LAYERS = [{"path": TITLE_ART, "offset": (0, 0), "dw": 0, "dh": 0,
                  "margin": (0, TITLE_CAP), "dock": None}]
-# THE DWARF SKIN'S PANEL LAYERS (plan 2026-10-04 phase 3; spec 2.6). Rebound here,
-# in the Dwarf copy only, after every Chaos Dwarf value they replace is defined.
-# Every picture is baked to its 1920 cell (Task 4), named by that size even in a
+# THE DWARF SKIN'S PANEL LAYERS. Rebound here, in the Dwarf copy only, after
+# every Chaos Dwarf value they replace is defined.
+# Every picture is baked to its 1920 cell, named by that size even in a
 # compact copy, whose cells are smaller and whose pictures scale with them.
 if RACE == "dwf":
     _old = {TITLE_CAP: DWF["title_cap"], HEADING_CAP: DWF["heading_cap"]}
@@ -4650,8 +4446,8 @@ BTN_PLATE_MARGIN = max([ly["margin"] for ly in BTN_LAYERS] or [0])
 # THE CELLS THAT WEAR ONE. Each is built with layers=BTN_LAYERS and centred text
 # at tx="0.00,0.00" - no inset at all - so LABEL_TX is the wrong allowance for
 # them in both directions: it takes off 6px they do not spend and leaves on the
-# 16px they do. "APPOINT" fit ic_card_button's 74px box by 7px and drew over both
-# ends of the plate, which is the 2026-09-17 report.
+# 16px they do. "APPOINT" fits a 74px box by 7px and still draws over both ends
+# of the plate.
 # WHICH ROW BUTTON EACH PETITION LABEL GOES ON (check 20k): the answer a row
 # asks for on the main button, the other on the second.
 PETITION_BTN_CELL = {"accept": "ic_row_e", "back": "ic_row_e",
@@ -4670,8 +4466,8 @@ def usable_w(box_w, name):
     if name in BTN_CELLS:
         return box_w - 2 * BTN_PLATE_MARGIN
     if name in LAW_TAB_BUTTONS:
-        # THE SKULL CAPS (author, 2026-10-03): LABEL_TX let "Strongly favour 250"
-        # pass in a 270px tab whose bar between the caps is 178.
+        # THE SKULL CAPS: LABEL_TX alone passes "Strongly favour 250" in a
+        # 270px tab whose bar between the caps is 178.
         return box_w - 2 * TAB_TEXT_INSET
     if name == "ic_influence":
         return box_w - 2 * SEATS_PAD
@@ -4682,83 +4478,64 @@ def usable_w(box_w, name):
 
 # FONT CATEGORY IS THE UNIT, NOT PIXELS. EU.fontcat() rounds a requested size
 # to the nearest category the game HAS, and the body family is only (10, 12,
-# 16). Every label here asked for 14 - equidistant from 12 and 16, so min()
-# took 12 - and the whole panel shipped at body_12 on a 1920x1080 screen.
-# That is the "fonts are small and barely readable" report, and check 6 could
-# not see it because body_12 is a perfectly real category; it just was not the
-# one anyone chose.
+# 16). A request for 14 is equidistant from 12 and 16 and min() takes 12, which
+# check 6 cannot see because body_12 is a perfectly real category.
 #
 # So the category is NAMED, and the size beside it is the one that category
-# actually is. Nothing rounds any more.
-# TWO SIZES FOR THE WHOLE PANEL, and everything else is derived from them.
-#
-# It used to be five: 24, 18, 16, 14 and 12, chosen cell by cell as each one was
-# built, so an office card's detail was body_12 while a party card's was body_16
-# and a move card's blurb defaulted to something nobody had picked. Read from
-# across a desk that is not a hierarchy, it is noise - and the smallest of them
-# was unreadable at 1080p.
+# actually is. Nothing rounds.
+# TWO SIZES FOR THE WHOLE PANEL, and everything else is derived from them: sizes
+# chosen cell by cell read as noise, not a hierarchy.
 #
 # CONTENT IS header_18 AND NOT A BODY FACE, because it cannot be: the engine's
-# body family is 10, 12 and 16 and stops there (see FONTCATS in the emitter), so
-# 16 was already the ceiling on three of the five tabs. Anything larger has to
+# body family is 10, 12 and 16 and stops there (see FONTCATS in the emitter).
+# Anything larger has to
 # come from the header family, and header_18 is the largest face in it that is
 # not bold.
 # HOW MUCH WIDER THE ENGINE DRAWS THAN THE DESKTOP FACE THIS MEASURES WITH.
 #
-# Measured from a screenshot of the shipped panel on 2026-09-13: the game wrapped
-# a name that PIL's DEFAULT face calls 210px inside a 280px cell, so the engine is
+# Measured from a screenshot of the panel in game: the game wraps a name that
+# PIL's DEFAULT face calls 210px inside a 280px cell, so the engine is
 # about 1.33x that face. The checks below measure with Segoe UI Black instead,
 # which is itself 1.115x the default face - so against seguibl the engine is
-# 1.33 / 1.115 = 1.19, and a check that applied no factor at all was measuring
-# 19% narrow. That is the dangerous direction: it passes a string the engine then
-# cuts, which is how a clip reaches a player's screen with a green build behind
-# it.
+# 1.33 / 1.115 = 1.19, and a check with no factor measures 19% narrow. That is
+# the dangerous direction: it passes a string the engine then cuts, which is how
+# a clip reaches a player's screen with a green build behind it.
 #
 # ONE NUMBER, HERE. preview_iron_court.py imports it rather than keeping its own,
-# so the picture and the check cannot disagree about where a line ends - they did
-# on 2026-09-14, and the picture was the one telling the truth.
+# so the picture and the check cannot disagree about where a line ends.
 #
 # STILL A PROXY. The engine's own figure is TextDimensionsForText and needs the
 # game running; this is the best a shut-game instrument can do, and it is
 # deliberately the pessimistic side of it.
 GAME_FONT_WIDER = 1.19
 
-TITLE = (20, "header_20_bold")         # every heading and every card's name
+SECTION = (24, "header_24_bold")       # a section's or column's own heading
+TITLE = (20, "header_20_bold")         # column headers and every card's name
 BODY = (18, "header_18")               # every line of content, everywhere
 PANEL_TITLE = (24, "header_24_bold")   # the panel's own name, once
 
 # CELLS THE PANEL CUTS RATHER THAN FITS, and the only ones 20g may let past.
 #
-# A cell is here when its content is a CHARACTER's name, it has his picture
-# beside it, and the card has no second line to spill onto. That is one cell:
-# the party card's leader line, 281px beside a 100px face on a card packed to
-# its own floor, against a 331px worst-case name at the panel's content size.
-# The choice was put to the author on 2026-09-14 - cut it, shrink that one cell
-# to 14, or take a fit with zero pixels to spare - and cutting won, so the panel
-# keeps one content size everywhere.
+# The party card's leader line: a CHARACTER's name with his picture beside it
+# and no second line to spill onto, 281px beside a 100px face on a card packed
+# to its own floor, against a 331px worst-case name at the panel's content size.
+# It is cut rather than shrunk, so the panel keeps one content size everywhere.
 #
 # THIS IS A WEAKENING OF 20g AND IT IS PAID FOR. Check 20h asserts the panel Lua
 # declares the named helper and calls it on this cell; an exemption that only
 # silences a check is how a clip ships with a green build behind it.
 #
-# THE OFFICE CARD'S TWO JOINED IT ON 2026-09-17, and for a stronger reason than
-# the party card's: ic_card_holder draws a character's name off the campaign and
+# THE OFFICE CARD'S TWO, for a stronger reason than the party card's:
+# ic_card_holder draws a character's name off the campaign and
 # ic_card_house a party name rolled at run time, so neither string exists when
 # this file runs and there is nothing here to measure even in principle. 20c's
 # list of measured cells covers five of the card's seven and these are the two
-# it leaves out.
+# it leaves out. Uncut, "Covenant of the Ninth Furnace" leaves its card through
+# the side and crosses the card beside it.
 #
-# THE OFFICES PREVIEW IS WHAT FOUND THEM. ic_card_house is 170px against a name
-# that reaches about 285 at the size it was drawing, and the picture showed
-# "Covenant of the Ninth Furnace" leaving its card through the side and crossing
-# the card beside it. Nothing else here had ever looked.
-#
-# AND THE PICKER'S NAME CELL JOINED THEM ON 2026-09-17. It is the oldest of the
-# three faults and the one nothing had ever looked at: a man's name has carried
-# his TRADE behind it since the backgrounds arrived, so the cell has been drawing
-# "Amarudz Grimtidesson, Daemonsmith" - 406px - into 380 and cutting it mid-word
-# in silence. It takes a position name in front of that now, and 20j holds the
-# NAME half to the width while the cut takes the trade.
+# AND THE PICKER'S NAME CELL: a man's name carries a position name in front and
+# his TRADE behind ("Amarudz Grimtidesson, Daemonsmith" alone is 406px). 20j
+# holds the NAME half to the width while the cut takes the trade.
 CUT_CELLS = {"ic_party_leader": "ICUI.fit_cut",
              "ic_book": "ICUI.fit_cut",
              "ic_card_holder": "ICUI.fit_cut",
@@ -4770,9 +4547,9 @@ TEXT_STYLE = {
 
     # HEADINGS. The column headers of every tab, the section label, the standing
     # figure, and the name at the top of every card - office, party and move.
-    # ic_plotcat_* is in this list now and was in NO list before: it fell through
-    # to the default and drew the intrigue tab's four column headers at the
-    # content size, which is why they read as captions rather than as headings.
+    # ic_plotcat_* must be listed: falling through to the default draws the
+    # intrigue tab's column headers at the content size, as captions rather
+    # than headings.
     "ic_influence": TITLE,
     "derpy_ic_gm_name": (12, "body_12"),
     "derpy_ic_gm_loyal": (12, "body_12"),
@@ -4780,24 +4557,24 @@ TEXT_STYLE = {
     "ic_gr_l1": (16, "header_16"),
     "ic_gr_l2": (12, "body_12"),
     "ic_gr_l3": (12, "body_12"),
-    "ic_lbl_section": TITLE,
+    "ic_lbl_section": SECTION,
     "ic_hdr_a": TITLE,
     "ic_hdr_b": TITLE,
     "ic_hdr_c": TITLE,
     "ic_hdr_d": TITLE,
     "ic_hdr_e": TITLE,
-    "ic_col_left": TITLE,
-    "ic_col_right": TITLE,
-    "ic_plotcat_1": TITLE,
-    "ic_plotcat_2": TITLE,
-    "ic_plotcat_3": TITLE,
-    "ic_plotcat_4": TITLE,
-    "ic_law_head_1": TITLE,
-    "ic_law_head_2": TITLE,
-    "ic_law_head_3": TITLE,
-    "ic_law_head_4": TITLE,
-    "ic_off_title": TITLE,
-    "ic_gc_now": TITLE,
+    "ic_col_left": SECTION,
+    "ic_col_right": SECTION,
+    "ic_plotcat_1": SECTION,
+    "ic_plotcat_2": SECTION,
+    "ic_plotcat_3": SECTION,
+    "ic_plotcat_4": SECTION,
+    "ic_law_head_1": SECTION,
+    "ic_law_head_2": SECTION,
+    "ic_law_head_3": SECTION,
+    "ic_law_head_4": SECTION,
+    "ic_off_title": SECTION,
+    "ic_gc_now": SECTION,
     "ic_card_name": TITLE,
     "ic_party_name": TITLE,
     "ic_party_name2": TITLE,
@@ -4819,22 +4596,22 @@ TEXT_STYLE = {
     #   ic_card_name    "Warden of the Caravan Roads"          276 of 298
     #   ic_card_term    "4000 standing - 99 turns left"        268 of 298
     #   ic_card_effect  "Armaments +15%, Raw Materials +12%"   277 of 298
-    #   ic_card_need    "[icon]400 / lvl 30"                    94 of 100
+    #   ic_card_need    "[icon]400 rank 30"                    101 of 106
     #   ic_card_button  "APPOINT"                               67 of  84
     #
     # THE BUTTON'S FIGURE IS NOT ITS CELL. It is a centred label on a 9-sliced
     # plate, so what it may occupy is the width less the two 8px end caps - see
-    # usable_w. Measured against the box instead, 67 of 68 read as a fit and drew
-    # over both corners of the frame.
+    # usable_w. Measured against the box instead, 67 of 68 reads as a fit and
+    # draws over both corners of the frame.
     #
     # THE TWO 12s ARE THE TIGHT ONES, and they are tight because they sit beside
     # the face rather than across the card. Anything larger clips; the next step
-    # down is body_10, which is the size this whole pass set out to get rid of.
+    # down is body_10, which is too small to read.
     "ic_card_name": (16, "header_16"),
-    # THE HOLDER AT THE CARD'S OWN SIZE. It was in no list at all, so it fell
-    # through to BODY - 18px, LARGER than the 16 of the card title above it, in
-    # a 190px box beside a portrait. Even cut, that read as three words and an
-    # ellipsis; at 16 most Chaos Dwarf names fit whole.
+    # THE HOLDER AT THE CARD'S OWN SIZE. Unlisted, it falls through to BODY,
+    # 18px, LARGER than the 16 of the card title above it, in a 190px box beside
+    # a portrait; even cut that reads as three words and an ellipsis. At 16 most
+    # Chaos Dwarf names fit whole.
     "ic_card_holder": (16, "header_16"),
     # AND THE PARTY AT THE EFFECT LINE'S. 170px is the widest this cell can ever
     # be - it runs from the crest beside it to the card's frame band - and a
@@ -4848,13 +4625,11 @@ TEXT_STYLE = {
     "ic_card_button": (12, "body_12"),
 
     # EVERYTHING ELSE IS BODY, and is not listed. style() falls through to it,
-    # so a cell added later is content unless somebody says otherwise - which is
-    # the right default and was not the old one.
+    # so a cell added later is content unless somebody says otherwise.
 }
 if RACE == "dwf":
     # THE THRONE'S THREE LINES: its prefix and its king at 16, the faction at the
-    # headings' 20. (Task 8 makes the name and the king cut cells, with the Lua
-    # that cuts them.)
+    # headings' 20.
     TEXT_STYLE["ic_throne_of"] = (16, "header_16")
     TEXT_STYLE["ic_throne_name"] = TITLE
     TEXT_STYLE["ic_throne_leader"] = (16, "header_16")
@@ -4885,12 +4660,9 @@ TAB_TEXT = {"text": True, "size": BODY[0], "fontcat": BODY[1], "align": "Center"
 RIBBON_TEXT = dict(TAB_TEXT, ty=DWF["tab_ty"]) if RACE == "dwf" else TAB_TEXT
 
 
-# ---------------------------------------------------------------------------
-# Builders
-# ---------------------------------------------------------------------------
-# The scroll track is a recessed well, the thumb a lit plate, so the thumb reads
-# as the thing that moves. Both are flat fills: a frame texture at this width has
-# nowhere to put its corners.
+# Builders.
+# The pager's plate, which the action bar, the fill button and the laws tab's
+# page buttons wear too.
 PAGE_LAYERS = plate(PANEL_LAYOUT["ic_page_prev"][3], "active")
 PAGE_HOVER = plate(PANEL_LAYOUT["ic_page_prev"][3], "hover")
 
@@ -4928,9 +4700,8 @@ def _panel_order(name):
 
     Children draw in declaration order and the panel propagates ONE priority
     over the whole tree at runtime, so a priority attribute cannot lift a crest
-    above the cells it labels - only its place in the panel can. It did not
-    matter while the dial was a ring of pips at radius 84 and the crests a ring
-    at 62: the two never touched. A FILLED pie touches everything inside it.
+    above the cells it labels - only its place in the panel can. A FILLED pie
+    touches everything inside it.
 
     Sorted by name otherwise, because a GUID is derived from the name and its
     position and an unstable order is a file that differs from itself.
@@ -4969,11 +4740,22 @@ def _panel_order(name):
     return (tier, name)
 
 
+# INTERACTIVE BUT NOT BUTTONS: the Governors view's plates take the click so it
+# cannot fall through to the map, and the dial's crests only carry a tooltip.
+# A click on either does nothing, so it makes no sound.
+def panel_silent(name):
+    return name in ("ic_gm_col", "ic_gm_top", "ic_gm_foot") or name.startswith("ic_barc_")
+
+
 def _panel():
     root = EU.C("root", PANEL_W, PANEL_H)
     panel = root.add(EU.C("derpy_ic_panel", PANEL_W, PANEL_H, layers=PANEL_LAYERS))
     for name in sorted(PANEL_LAYOUT, key=_panel_order):
         _x, _y, w, h = PANEL_LAYOUT[name]
+        if name in ("ic_page_prev", "ic_page_next"):
+            # Every list scrolls, so the pager's buttons are never shown; their
+            # boxes stay in PANEL_LAYOUT because the layout is measured from them.
+            continue
         if name == "ic_zig_bg":
             # A PICTURE AND NOTHING ELSE: not interactive, or it eats the cards' gaps.
             panel.add(EU.C(name, w, h, layers=[
@@ -4993,7 +4775,8 @@ def _panel():
                        else [_gm_full(DWF_STRIP % tuple(PANEL_LAYOUT_1920[name][2:]))])
             else:
                 lay = [_gm_full(art, margin)]
-            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND, layers=lay))
+            # No sound: it is not a button, only a floor under the cursor.
+            panel.add(EU.C(name, w, h, interactive=True, layers=lay))
             continue
         if name == "ic_gm_head":
             head = (_gm_full(DWF_GM_HEAD, (0, DWF_GM_HEAD_CAP)) if RACE == "dwf"
@@ -5094,9 +4877,11 @@ def _panel():
                            layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
             continue
         if name.startswith("ic_gc_") and name != "ic_gc_now":
-            # THE GOVERNMENT CARDS' WORDS, centred on their card (design A).
-            panel.add(EU.C(name, w, h, align="Center", valign="Center",
-                           tx="0.00,0.00", ty=LABEL_TY, **style(name)))
+            # THE GOVERNMENT CARDS' WORDS: the name centred under its picture,
+            # the heads and the lines under them read from a left edge.
+            centred = name.startswith(("ic_gc_name", "ic_gc_nowrule"))
+            panel.add(EU.C(name, w, h, align="Center" if centred else "Left",
+                           valign="Center", tx="0.00,0.00", ty=LABEL_TY, **style(name)))
             continue
         if name.startswith("ic_mark_") or name == "ic_gov_glow":
             panel.add(EU.C(name, w, h, layers=MARK_LAYERS))
@@ -5105,13 +4890,13 @@ def _panel():
             # to replace, and no text - it is a picture cell.
             # INTERACTIVE, because a tooltip can only be reached on an
             # interactive component, and this is the only thing on the dial a
-            # player can hover to find out whose colour that is.
-            panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
-                           layers=PORT_LAYERS))
+            # player can hover to find out whose colour that is. No sound: a
+            # click on it does nothing.
+            panel.add(EU.C(name, w, h, interactive=True, layers=PORT_LAYERS))
         elif name in ("ic_col_left", "ic_col_right", "ic_help_head"):
             # CENTRED OVER ITS OWN COLUMN, which is what makes the two columns
             # read as two columns rather than as one wide tab with a rule in it.
-            # ON A PLATE since 2026-09-26: see HEADER_LAYERS. HEADING_TY lifts
+            # ON A PLATE: see HEADER_LAYERS. HEADING_TY lifts
             # the words onto the field, which sits 2px above the art's middle.
             panel.add(EU.C(name, w, h, layers=HEADER_LAYERS,
                            **dict(TAB_TEXT, size=COL_HDR_FONT[0],
@@ -5157,15 +4942,13 @@ def _panel():
             panel.add(EU.C(name, w, h, layers=[
                 {"path": "ui/skins/default/1x1_blank_white.png",
                  "offset": (0, 0), "dw": 0, "dh": 0, "margin": 0,
-                 "colour": "#6A5A3CFF", "dock": None}]))
+                 "colour": RULE_COLOUR, "dock": None}]))
         elif name == "ic_leader_port":
-            # A FACE, NOT A LABEL. Without this branch it fell through to the
-            # text cell at the bottom of the chain, which carries no
-            # <componentimages> - so there is no image slot zero, SetImagePath
-            # writes into nothing, and the pcall around it eats the error. The
-            # cell then draws NOTHING, with every path correct and every other
-            # check green. Check 24 below is what stops that being a branch
-            # somebody has to remember.
+            # A FACE, NOT A LABEL. The text cell at the bottom of the chain
+            # carries no <componentimages>, so there is no image slot zero,
+            # SetImagePath writes into nothing, and the pcall around it eats the
+            # error: the cell draws NOTHING with every path correct. Check 24
+            # below keeps this from being a branch somebody has to remember.
             panel.add(EU.C(name, w, h, layers=FACE_LAYERS,
                            colour_from=FACE_COLOUR_FROM))
         elif name.startswith("ic_wedge_"):
@@ -5174,15 +4957,11 @@ def _panel():
             panel.add(EU.C(name, w, h,
                            layers=wedge_layers(int(name[-2:]))))
         elif name.startswith("ic_div_"):
-            # IT NEEDS A PICTURE EVEN THOUGH EVERY DRAW REPLACES IT. This
-            # branch did not exist and the walls fell through to the text cell
-            # at the bottom of this chain, which carries no <componentimages> -
-            # so there was no image slot zero, SetImagePath(path, 0) had
-            # nothing to write into, and the pcall the draw wraps it in ate the
-            # error. Twenty-five walls were created, moved and made visible
-            # with nothing on them, and no check here could see it because
-            # every check here was about the pictures, which were all present
-            # and correct and unreachable.
+            # IT NEEDS A PICTURE EVEN THOUGH EVERY DRAW REPLACES IT. The text
+            # cell at the bottom of this chain carries no <componentimages>, so
+            # SetImagePath(path, 0) has no slot zero to write into and the pcall
+            # the draw wraps it in eats the error: the walls draw with nothing
+            # on them while every picture is present and correct.
             #
             # SLICE ONE'S PICTURE, arbitrarily: a wall is re-pointed before it
             # is ever shown. Slice zero has no picture at all, because a wall
@@ -5222,14 +5001,14 @@ def _panel():
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=HELP_LAYERS, hover=HELP_HOVER,
                            tooltip="How the court works"))
-        elif name in ("ic_page_prev", "ic_page_next", "ic_fill", "ic_gov_btn") \
+        elif name in ("ic_fill", "ic_gov_btn") \
                 or name.startswith("ic_act_") and name != "ic_act_hint":
             # THE ACTION BAR WEARS THE PAGER'S PLATE: same row, same height,
             # and a button beside a button of another shape reads as two bars.
             panel.add(EU.C(name, w, h, interactive=True, sound=OPENER_SOUND,
                            layers=PAGE_LAYERS, hover=PAGE_HOVER, **TAB_TEXT))
         elif name in ("ic_lv_abs", "ic_lv_nay"):
-            # OVER ITS OWN PART OF THE BAR (author, 2026-10-03): nay ends where the
+            # OVER ITS OWN PART OF THE BAR: nay ends where the
             # bar ends; abstaining is centred, and ICUI.draw_law_bar moves it over
             # the abstaining gap.
             panel.add(EU.C(name, w, h, align="Right" if name == "ic_lv_nay" else "Center",
@@ -5283,12 +5062,10 @@ def _tog_icon(name):
 
 
 def _gm_full(path, margin=0):
-    """One layer filling its component."""
     return {"path": path, "offset": (0, 0), "dw": 0, "dh": 0, "margin": margin, "dock": None}
 
 
 def _gm_inset(path, px):
-    """One layer `px` in from every edge."""
     return {"path": path, "offset": (px, px), "dw": -2 * px, "dh": -2 * px,
             "margin": 0, "dock": None}
 
@@ -5297,7 +5074,7 @@ def _gm_row():
     root = EU.C("root", GM_ROW_W, GM_ROW_H)
     # THE ROW TAKES THE CLICK AND THE TOOLTIP; its cells take neither, so a
     # click anywhere on it reports the row. Its look is CA's art in layers 0
-    # (standard) and 1 (hover), swapped by ICUI.gm_fill_row (plan ruling 6).
+    # (standard) and 1 (hover), swapped by ICUI.gm_fill_row.
     row = root.add(EU.C("derpy_ic_gm_row", GM_ROW_W, GM_ROW_H, interactive=True,
                         sound=OPENER_SOUND,
                         layers=[_gm_full(GM_ROW_ART % "active", (0, 16))],
@@ -5307,7 +5084,7 @@ def _gm_row():
     for name in GM_ROW_LAYOUT:
         _x, _y, w, h = GM_ROW_LAYOUT[name]
         if name == "ic_gr_face":
-            # THE COURT'S OWN FACE STACK (plan ruling 14): plate, face, mask, frame.
+            # THE COURT'S OWN FACE STACK: plate, face, mask, frame.
             row.add(EU.C(name, w, h, layers=FACE_LAYERS, colour_from=FACE_COLOUR_FROM))
         elif name in ("ic_gr_crest", "ic_gr_badge", "ic_gr_icon"):
             row.add(EU.C(name, w, h, layers=PORT_LAYERS))
@@ -5404,10 +5181,9 @@ def _card():
             card.add(EU.C(name, w, h, layers=PORT_LAYERS))
         else:
             # NEVER SPLIT, which is the default and the only one of CA's three
-            # values that keeps a label on one line. "Resize" was tried and it
-            # WRAPS - a 27-character name in a component declaring width="304"
-            # came out one word per line, drawing down across every cell under
-            # it. Fitting is the layout's job, not the engine's: check 20c
+            # values that keeps a label on one line. "Resize" WRAPS: a
+            # 27-character name in a component declaring width="304" comes out
+            # one word per line, drawing down across every cell under it. Fitting is the layout's job, not the engine's: check 20c
             # below measures every string this card can draw.
             card.add(EU.C(name, w, h, align="Left", valign="Center",
                           tx=LABEL_TX, ty=LABEL_TY, **style(name)))
@@ -5427,7 +5203,7 @@ def _card():
 PARTY_SELECTED = "ui/skins/default/dlc25_gunnery_school/frame_unit_card_selected.png"
 TEXTURE_MIN_MARGIN[PARTY_SELECTED] = 24
 PARTY_SEL_INDEX = 2
-# THE CHOSEN CARD BREATHES (2026-10-04): CA puts glow_pulse_t0 on what a panel
+# THE CHOSEN CARD BREATHES: CA puts glow_pulse_t0 on what a panel
 # has selected - the Skull Throne's chosen ritual plate, the Hell-Forge's lit
 # torch - and the seat rim's ToZ furnace values are already this panel's breath.
 SELECTED_PULSE = {"shader": "glow_pulse_t0", "shader_vars": RIM_LOOKS["lit"]["shader_vars"]}
@@ -5437,7 +5213,7 @@ PARTY_LAYERS = CARD_LAYERS + [
 ] + rim_layers(["lit", "fail"])
 # The flash's two looks, after the chosen frame. Must match ICUI.RIMS.party.
 PARTY_RIM = {"lit": PARTY_SEL_INDEX + 1, "fail": PARTY_SEL_INDEX + 2}
-# THE WHOLE CARD IS THE CONTROL NOW, so it says what a click does. Static text
+# THE WHOLE CARD IS THE CONTROL, so it says what a click does. Static text
 # in the file rather than a SetTooltipText, because it never changes.
 PARTY_TIP = ("Choose this party||Click once to act on it with the buttons "
              "under the cards. Click it again to see who belongs to it.")
@@ -5454,7 +5230,7 @@ def _party():
                     "ic_party_govs"):
             # RIGHT-ALIGNED, so the word ends where the card's content ends
             # and a short name's second line leaves a gap, not a collision.
-            # THE THREE COUNTS TOO: left-aligned they began 3px after the
+            # THE THREE COUNTS TOO: left-aligned they begin 3px after the
             # longest trait at 1600 and read as one run of words.
             card.add(EU.C(name, w, h, align="Right", valign="Center",
                           tx="0.00,0.00", ty=LABEL_TY, **style(name)))
@@ -5471,7 +5247,7 @@ def _party():
     return root
 
 
-# THE LAW CARD (spec 2026-10-02 laws section 4.1): the card plate, then two
+# THE LAW CARD: the card plate, then two
 # swapped slots - LAW_GLOW_INDEX the chosen card's red row art, LAW_SEL_INDEX
 # the gold frame on the law in force - each MASK_NONE until the Lua paints it,
 # the trick PARTY_LAYERS plays with PARTY_SELECTED.
@@ -5551,10 +5327,8 @@ def _opener():
 # this file has to know what CA's panel looks like.
 #
 # ON THE HELL-FORGE PLATE the court panel's own "137 influence" sits on
-# (SEATS_LAYERS), 26 tall like ic_influence: one figure, one look. It was CA's
-# ROUND button underlay pulled to 190x22 - a squashed ellipse (author,
-# 2026-09-28: "the influence in the character has the background stretched
-# out"). Text LEFT: ICUI.fit_words sizes the plate to its words at runtime and
+# (SEATS_LAYERS), 26 tall like ic_influence: one figure, one look. Not CA's
+# ROUND button underlay, which pulled to 190x22 is a squashed ellipse. Text LEFT: ICUI.fit_words sizes the plate to its words at runtime and
 # holds them in with SetTextXOffset. STANDING_W is only the widest it gets.
 STANDING_W, STANDING_H = 190, 26
 STANDING_LAYERS = SEATS_LAYERS
@@ -5571,10 +5345,9 @@ def _standing():
     return root
 
 
-# THE EDICT NOTE (author, 2026-09-28: "no warning or feedback that it needs a
-# governor", then "the ui is not good" of the first one, which borrowed the
-# standing plate and drew bare letters on the HUD's trim). The seats counter's
-# own plate, the Hell-Forge's sub_title.png at its native 30px height, text
+# THE EDICT NOTE: why a province's edicts are grey (it needs a governor). On
+# a plate, because bare letters on the HUD's trim do not read: the seats
+# counter's own plate, the Hell-Forge's sub_title.png at its native 30px height, text
 # LEFT: ICUI.edict_note sizes it to its words' WidthOfTextLine plus a tenth and
 # holds them that far in with SetTextXOffset, so centring never moves them. It
 # makes it a child of CA's edict stack and MoveTo's it against the frame.
@@ -5642,7 +5415,6 @@ LAYOUT_TABLES[GM_LIST_FILE] = {
 LAYOUT_TABLES[GM_SP_FILE] = {"derpy_ic_gm_sp": (0, 0, GM_ROW_W, GM_ROW_PITCH)}
 
 
-# ---------------------------------------------------------------------------
 # THE SCALE PASS. Everything above is typed for a 1920 box; at_box(bw) runs it
 # again with every layout number rewritten the way ICUI.apply_scale rewrites the
 # Lua's copy at open. The two sides must land on the same pixels, and
@@ -5654,7 +5426,6 @@ LAYOUT_TABLES[GM_SP_FILE] = {"derpy_ic_gm_sp": (0, 0, GM_ROW_W, GM_ROW_PITCH)}
 #     from the scaled card size;
 #   * below 1920 every font steps down one CA size - the compact copies of the
 #     panel files are built from this module at 1600.
-# ---------------------------------------------------------------------------
 COMPACT_FONTS = {
     "header_24_bold": (20, "header_20_bold"),
     "header_20_bold": (18, "header_18_bold"),
@@ -5671,7 +5442,7 @@ COMPACT_FONTS = {
 # A cell takes (dx, dy, dw, dh); a scaled number takes one delta. A delta on a
 # card size (CARD_W) resizes the cards and does NOT move them - the grid points
 # scale on their own - so widening one needs its gap narrowed to match, or the
-# cards overlap. Measured 2026-09-24 with check() at 1600.
+# cards overlap. Measured with check() at 1600.
 COMPACT_OVERRIDES = {
     # THE GOVERNORS STRIP AND FOOT keep CA's 4px top rail at its own size while
     # their boxes shrink, so the title and the footer line, 4px in at 1920, round
@@ -5683,6 +5454,11 @@ COMPACT_OVERRIDES = {
     # frame band on each side - 24 in from the edge, where the frame's ink
     # stops at 10.
     "ic_card_name": (-1, 0, 2, 0),
+    # "[icon]400 rank 30" measures 83px at 10px and the cell had 82; it takes
+    # two pixels of the 30px right margin.
+    "ic_card_need": (0, 0, 2, 0),
+    # "99 governors" measures 124px at 16px and the cell had 123.
+    "ic_party_govs": (-2, 0, 2, 0),
     # THE MOVE CARD'S PAD GOES FROM 25 TO 20. Three blurbs need a 337px line
     # to fit four lines at 16px ("-90 influence for him. -8 influence from his
     # party..." is the widest) and the card had 327. The frame's ink reaches
@@ -5709,8 +5485,8 @@ COMPACT_OVERRIDES = {
     "ic_row_d": (-4, 0, 24, 0),
     "ic_hdr_d": (-4, 0, 0, 0),
     "ic_hsort_d": (-4, 0, 0, 0),
-    # The button column. "Available" and its arrow ran 1px past the row's
-    # right edge, so it is 2px wider as well as 7px further right; it still
+    # The button column. Unmoved, "Available" and its arrow run 1px past the
+    # row's right edge, so it is 2px wider as well as 7px further right; it still
     # ends 4px inside the row.
     "ic_row_e": (7, 0, 2, 0),
     "ic_hdr_e": (7, 0, 0, 0),
@@ -5750,9 +5526,9 @@ SCALED_BOX_TABLES = ["PANEL_LAYOUT", "ROW_LAYOUT", "PLOT_LAYOUT", "CARD_LAYOUT",
                      "PARTY_LAYOUT", "ACT_PAGED", "GM_ROW_LAYOUT", "LAW_LAYOUT",
                      "LB_LAYOUT"]
 # PER POINT, not rebuilt from the scaled card size: a card size rounded down
-# once and multiplied by five ran a tier 2-4px past its column at some widths.
+# once and multiplied by five runs a tier 2-4px past its column at some widths.
 SCALED_GRIDS = ["CARD_GRID", "PARTY_GRID", "LAW_GRID", "LB_GRID"]
-FONT_GLOBALS = ["TITLE", "BODY", "PANEL_TITLE", "COL_HDR_FONT", "TEXT_STYLE",
+FONT_GLOBALS = ["TITLE", "SECTION", "BODY", "PANEL_TITLE", "COL_HDR_FONT", "TEXT_STYLE",
                 "TAB_TEXT", "RIBBON_TEXT"]
 # NOT GEOMETRY: counts, source-art sizes, the art generators' own numbers, the
 # image layers INSIDE a component (the engine stretches those with their box),
@@ -5899,7 +5675,7 @@ def _scale_pass(g, bw):
         return list(_plots)
     g["plot_grid"] = _scaled_plot_grid
     if bw < 1920:
-        for n in ("TITLE", "BODY", "PANEL_TITLE", "COL_HDR_FONT"):
+        for n in ("TITLE", "SECTION", "BODY", "PANEL_TITLE", "COL_HDR_FONT"):
             g[n] = _font(g[n])
         for name in list(g["TEXT_STYLE"]):
             g["TEXT_STYLE"][name] = _font(g["TEXT_STYLE"][name])
@@ -5912,7 +5688,7 @@ def _scale_pass(g, bw):
                 (g["RIBBON_TEXT"]["size"], g["RIBBON_TEXT"]["fontcat"]))
 
 
-# HOW FAR THE CARD FRAME'S INK REACHES IN FROM AN EDGE, measured 2026-09-24 off
+# HOW FAR THE CARD FRAME'S INK REACHES IN FROM AN EDGE, measured off
 # panel_back_border.png: 10px, at the corner curl. The sweep holds every card
 # cell 2px clear of it at every box width; check() holds the design band at the
 # three sizes it runs at.
@@ -6063,11 +5839,9 @@ def ui_file_names():
             + sorted(COMPACT_FILES.values()) + (list(RACE_PANEL_FILES) if RACE == "chd" else []))
 
 
-# FIRE ON A HELD SEAT (author, 2026-09-26: "active seats should also have the
-# background have effects, similar to the commission mod"). The commission's own
-# ember drift - derpy_chd_rite_fire.twui.xml's `embers` emitter, which the author
-# has seen running - cloned under this mod's own prefix and sprite, so the court
-# never depends on the commission pack being loaded.
+# FIRE ON A HELD SEAT. The commission's own ember drift (the `embers` emitter in
+# derpy_chd_rite_fire.twui.xml), cloned under this mod's own prefix and sprite,
+# so the court never depends on the commission pack being loaded.
 #
 # A TEMPLATE, NOT AN EU.C TREE: the emitter needs the ParticleEmitter and Particle
 # callbacks, a userproperties block and a three-frame particle_move animation, and
@@ -6077,7 +5851,7 @@ def ui_file_names():
 #
 # THE PARTICLE IS NAMED template_particle AND NOTHING ELSE. The emitter resolves it
 # by that literal name; any other is a null the game dereferences on panel open,
-# with no Lua error first (memory: wh3-particle-child-must-be-template-particle).
+# with no Lua error first.
 # check_fire() holds that.
 #
 # #RRGGBBAA, not ARGB: settled against CA's own particle_blood_red.png. And
@@ -6279,12 +6053,12 @@ def check_fire(text):
     return out
 
 
-# THE CLAIM BURST (spec 2026-09-28 section 4.1). CA's own seat-claimed starburst,
+# THE CLAIM BURST. CA's own seat-claimed starburst,
 # in the SHAPE of the Hell-Forge's unlock burst (hellforge_panel_unit_caps_tab,
 # sprite_progression_celebration): SpriteAnimation with no `paused`, one blank
 # image slot, hidden in the file. ICUI.burst creates it into the card, shows it,
 # and destroys it after ICUI.BURST_SECONDS - a new one per claim, so whether a
-# finished sprite replays when shown again never arises (ruling 2).
+# finished sprite replays when shown again never arises.
 BURST_FILE = "derpy_ic_burst.twui.xml"
 BURST_FRAMES = "UI/sprite_anims/warband_upgrade_starburst/starburst_"
 BURST_LAST = 19
@@ -6404,9 +6178,8 @@ def check_burst(text, assets=None):
     return out
 
 
-# ---------------------------------------------------------------------------
-# WHAT THE GOVERNORS MAP BORROWED FROM THE PARTY MAP IT REPLACED (plan
-# 2026-09-30 Task 6): CA's world-space pin, and the two rings the pins wear.
+# THE GOVERNORS MAP'S PIN PARTS: CA's world-space pin, and the two rings the
+# pins wear.
 MAP_RING = 60                       # both rings' default size
 MAP_RING_CAPITAL = PLATE_DIR + "/map_ring_capital.png"
 MAP_RING_OUTLINE = PLATE_DIR + "/map_ring_outline.png"
@@ -6467,9 +6240,8 @@ def _lua_map_tables():
     return io.open(ui, encoding="utf-8").read()
 
 
-# ---------------------------------------------------------------------------
-# THE GOVERNORS VIEW'S PINS (spec 2026-09-30 sections 1 and 6). Four files, made
-# at runtime into the panel's first child and never scaled (plan ruling 1):
+# THE GOVERNORS VIEW'S PINS. Four files, made at runtime into the panel's first
+# child and never scaled:
 # a PIN - CA's Chaos Dwarf map pin, the party ring, the capital and outline
 # rings; it takes the click and carries the tooltip - a FACE - the governor's
 # portrait or his party's crest, masked round in the pin's head - and two
@@ -6490,22 +6262,20 @@ GM_HEAD = (_GM_CX - 19, 9, 38, 38)          # its head: CA's 38x38 image at 6,5
 GM_RING = 46                                # the party ring, 4px, round the head
 GM_RING_OUTER = 54                          # the capital and outline rings
 GM_PORT_BOX = (_GM_CX - 35, 9, 70, 38)      # a porthole at its own aspect across the head
-# THE GOVERNOR'S PARTY FLAG (author, 2026-09-30: "no flag or indication what
-# the governer party is"): his party's crest over the head's lower right, the
+# THE GOVERNOR'S PARTY FLAG: his party's crest over the head's lower right, the
 # way CA badges a portrait. Its own component, the pin's box, made after the
 # face: in the face it would be cut round by the face's mask.
 GM_BADGE_BOX = (_GM_CX + 8, 28, 26, 26)
-# CA'S PLATE AT ITS OWN HEIGHT (author, 2026-09-30: "the ui is stretched, use
-# the default borders"). sub_title.png is 113x30: a bronze rim at rows 2-3 and
+# CA'S PLATE AT ITS OWN HEIGHT, not stretched. sub_title.png is 113x30: a bronze rim at rows 2-3 and
 # 23-24, a flat #141414 face between them from x 5, a shadow under. Only its
 # middle stretches sideways, between the two caps its margin keeps whole.
 GM_PLATE = "ui/skins/default/dlc23_chd_hell_forge/sub_title.png"
 # ITS RAILS, and the toggle labels' tab_sub_title.png has the same profile: both
 # are 113x30, frame in rows 0-3, a dark field in rows 4-22, frame and shadow in
 # rows 23-29 (measured off CA's art). Sliced with no vertical margin they SCALE:
-# at 124px the strip's bottom rail and shadow ran 29px and the section line sat
-# on them, and at 26px a toggle's field was 15px under an 18px word (author,
-# 2026-10-01: "the ui is stretched and the ui is cut off"). check_gm_plates.
+# at 124px the strip's bottom rail and shadow run 29px and the section line sits
+# on them, and at 26px a toggle's field is 15px under an 18px word.
+# check_gm_plates.
 GM_PLATE_RAIL = (4, 7)                  # top, bottom, in the art's own pixels
 GM_PLATE_MARGIN = (8, 12)               # vertical, horizontal
 GM_PLATE_H = 30
@@ -6514,18 +6284,18 @@ GM_PLATE_GAP = 2
 # THE LOYALTY PLATE, at the point: CA's plate at its native 113x30, whole.
 GM_LOYAL_W, GM_LOYAL_H = 113, GM_PLATE_H
 # THE NAME PLATE, on it. Its box is as far below the plate as above it, so text
-# centred in the box - no padding, which the engine does not honour the way the
-# second build assumed - lands on the plate's own centre.
+# centred in the box lands on the plate's own centre (padding is not a reliable
+# way to place it: the engine does not honour it so).
 GM_NAME_PLATE_Y = GM_LOYAL_H + GM_PLATE_GAP         # the plate's bottom, above the point
 GM_NAME_H = 2 * GM_NAME_PLATE_Y + GM_PLATE_H
 GM_NAME_PLATE_BOX = (0, GM_NAME_PLATE_Y, GM_PIN_W, GM_PLATE_H)
 # THE PARTY'S COLOUR, over the plate's dark face and nothing else, so CA's rim
-# stays CA's (author, 2026-09-30: "the map doesnt show the political influence
-# colors of each party").
+# stays CA's and the map shows which party holds each province.
 GM_WASH_BOX = (5, GM_NAME_PLATE_Y + 4, GM_PIN_W - 10, 19)
-# DARKENED TO KEEP THE TEXT READABLE: the brightest ground under which GM_INK
-# keeps 4.5:1 by make_ic_backdrop's own measure (Rec.709 on the stored values),
-# which is 45. A party colour brighter than that keeps its hue and loses light.
+# DARKENED TO KEEP THE TEXT READABLE: Rec.709 luma of the stored values, kept under
+# 45, which keeps GM_INK above 5:1 in WCAG terms for any hue (pure red is the worst,
+# 5.4:1). A party colour brighter than that keeps
+# its hue and loses light.
 GM_INK = (0xFF, 0xF8, 0xD7)
 GM_WASH_LUM = 44
 # THE PIN, above both: its point ends where the name plate begins.
@@ -6533,8 +6303,8 @@ GM_PIN_H = GM_PIN_ART_BOX[1] + GM_PIN_ART_BOX[3] + GM_NAME_PLATE_Y + GM_PLATE_H
 GM_FACE_GROUND = PLATE_DIR + "/gm_face_ground.png"
 GM_FACE_GROUND_COLOUR = "#1A1410FF"
 GM_MASK = "ui/skins/default/porthole_mask.png"
-# THE PLATE'S INSIDE, between its caps: the name is cut to it (author,
-# 2026-09-30: "the text are going out of the ui"). Must match ICUI.GM_NAME_W in
+# THE PLATE'S INSIDE, between its caps: the name is cut to it so no text leaves
+# the plate. Must match ICUI.GM_NAME_W in
 # zzz_derpy_iron_court_ui_map.lua (check_gm).
 GM_NAME_W = GM_PIN_W - 2 * GM_PLATE_CAP
 # CA'S MAP-PIN ANCHOR, the box's bottom centre (worldroots_forest and
@@ -6689,9 +6459,8 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
     by their pool: the pool must lie inside the column.
 
     AND A ROW'S BADGE AND CREST DRAW OVER ITS FACE. Children draw in the order
-    the hierarchy declares them, and the face is opaque: declared first, as a
-    sorted walk put it, the badge on the face's corner never showed (preview,
-    2026-09-30).
+    the hierarchy declares them, and the face is opaque: declared before it, as
+    a sorted walk puts it, the badge on the face's corner never shows.
     """
     lay = layout or PANEL_LAYOUT
     text = panel_text if panel_text is not None else EU.layout(
@@ -6714,11 +6483,10 @@ def check_gm_plates(layout=None, panel_text=None, row_text=None, row_layout=None
     pool = (GM_ROW_X, GM_ROW_Y, GM_LIST_W, GM_LIST_H)
     if not inside(pool, col):
         out.append("the column's list %r runs outside the column %r" % (pool, col))
-    # CA'S ART AT ITS OWN SIZE (author, 2026-10-01: "the left panel is still
-    # cutting off on the top and bottom"). The column art is a whole screen's
-    # side: ended at the footer's top, the map showed under it whenever the
-    # footer was hidden. The title squeezed to 60 had its spikes flattened
-    # against the strip.
+    # CA'S ART AT ITS OWN SIZE. The column art is a whole screen's side: ended
+    # at the footer's top, the map shows under it whenever the footer is
+    # hidden. The title squeezed to 60 has its spikes flattened against the
+    # strip.
     s = PANEL_H / float(GM_COL_ART_H)       # the art's scale on this screen
     if (col[1], col[3]) != (0, PANEL_H) or abs(col[2] - GM_COL_ART_W * s) > 1:
         out.append("ic_gm_col %r is not CA's %dx%d column from the screen's top to its "
@@ -6859,19 +6627,18 @@ def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
             out.append("%s: not pinned on CcoCampaignSettlement" % fname)
         if 'name="depth_disabled"' not in t:
             out.append("%s: the pin lost depth_disabled" % fname)
-        # NO FADE. In game on 2026-09-29 (build A06C68A6) the old party map's
-        # marker tracked its settlement and took clicks but drew nothing. CA's
-        # fade reads the component's OWN screen y, and one made from Lua starts
+        # NO FADE: a faded pin tracks its settlement and takes clicks but draws
+        # nothing. CA's fade reads the component's OWN screen y, and one made from Lua starts
         # at its parent's corner, y = 0: 0/50 = 0, fully transparent. 26 of CA's
         # 28 pinned layouts carry no fade.
         if 'callback_id="ContextOpacitySetter"' in t:
             out.append("%s: carries a ContextOpacitySetter - it drew nothing in game" % fname)
-        # ROOT AND ONE COMPONENT (plan ruling 1): a child would draw at the corner.
+        # ROOT AND ONE COMPONENT: a child would draw at the corner.
         ids = re.findall(r'\n\t\t\tid="([^"]+)"', t)
         want = ["root", fname.replace(".twui.xml", "")]
         if ids != want:
             out.append("%s: components %r - a pin may have no children" % (fname, ids))
-        # ABOVE ITS SETTLEMENT (author, 2026-09-30: "make it higher"): every one
+        # ABOVE ITS SETTLEMENT: every one
         # of the four stands its bottom centre on the point.
         if 'component_anchor_point="%.2f,%.2f"' % GM_ANCHOR not in t:
             out.append("%s: not anchored at its bottom centre, so the pin does not "
@@ -6888,9 +6655,8 @@ def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
             out.append("%s: takes clicks, so the pin under it never gets one" % fname)
     if 'maskimage="' not in ft:
         out.append("%s: the face has no maskimage, so it draws square" % GM_FACE_FILE)
-    # THE PIN CARRIES NO TEXT. Padded down to its plate, the third build's drew
-    # above the plate and cut every name, however short (author, 2026-09-30:
-    # "no text", "theres '...'").
+    # THE PIN CARRIES NO TEXT. Padded down to its plate, the pin's text draws
+    # above the plate and cuts every name, however short.
     if "<component_text" in pt:
         out.append("%s: the pin carries text again - padded, it drew off its plate "
                    "and measured every name too long" % GM_PIN_FILE)
@@ -6901,8 +6667,7 @@ def check_gm(pin_text=None, face_text=None, panel_text=None, lua_text=None,
         if not m or m.groups() != ("Center", "Center", "0.00,0.00", "0.00,0.00"):
             out.append("%s: the text is not centred with no padding (%s) - padding "
                        "moves it off its plate" % (fname, m and m.groups()))
-    # CA'S PLATE AT ITS OWN HEIGHT (author, 2026-09-30: "the ui is stretched,
-    # use the default borders").
+    # CA'S PLATE AT ITS OWN HEIGHT.
     name_box = _gm_box(nt, "derpy_ic_gm_name") or (0, 0)
     loyal_box = _gm_box(lt, "derpy_ic_gm_loyal") or (0, 0)
     name_layers = _gm_images(nt, "derpy_ic_gm_name")
@@ -7245,9 +7010,7 @@ def _assets():
     return paths
 
 
-# ---------------------------------------------------------------------------
-# check - each of these is a silent non-draw, not an error
-# ---------------------------------------------------------------------------
+# The checks: each of these is a silent non-draw, not an error.
 def check_paint_layers(files):
     """Check 21b: every (helper, cell) pair the panel writes must have that layer."""
     out = []
@@ -7348,8 +7111,8 @@ def check():
     out.extend(check_gm_plates())
     # 1d. The rim layers the Lua writes are the ones the files emit.
     out.extend(check_rim_slots())
-    # 1e. The rim's corners are as bright as its edges (author, 2026-09-28:
-    # "the corners are not filled" on CA's rounded one).
+    # 1e. The rim's corners are as bright as its edges, which CA's rounded rim's
+    # are not.
     out.extend(check_seat_rim())
     out.extend(check_portrait_frame())
     out.extend(check_ziggurat() if RACE == "chd" else check_hall())
@@ -7394,6 +7157,8 @@ def check():
             # a click on one is a drag or a wheel, not a choice.
             if fname == GM_LIST_FILE and name.group(1) in GM_LIST_SILENT:
                 continue
+            if panel_silent(name.group(1)):
+                continue
             if 'interactive="true"' in block and "soundcategory=" not in head:
                 out.append("%s: %s is interactive with no soundcategory"
                            % (fname, name.group(1)))
@@ -7415,7 +7180,7 @@ def check():
 
     # 6. fontcat_name must be a real category. An unknown one is not an error and
     #    not a blank: the engine falls back and every label draws at a size nobody
-    #    chose. This shipped across two mods before it was noticed.
+    #    chose.
     for fname, text in files.items():
         for value in sorted(set(re.findall(r'fontcat_name="([^"]+)"', text))):
             if value not in EU.FONTCATS:
@@ -7457,23 +7222,13 @@ def check():
                        % (hdr, got, row, want))
 
     # 8b. The crest cell has no header of its own, but it must not run into the
-    #     first text column either - check 9 covers that below, and it now has one
-    #     more column to walk.
+    #     first text column either: check 9 covers that below.
 
     # 8c. Every cell that draws a PORTHOLE must share the porthole's aspect.
     #     SetImagePath gives the incoming image the CELL's size, so a mismatched
-    #     box does not letterbox - it stretches the face, silently. Both cells
-    #     were wrong when this check was written: the card was portrait-shaped
-    #     (56x72) for a landscape source and the row was square.
-    #     Each cell is checked against the art IT actually draws, which is not
-    #     the same art in both places: the rows draw a PORTHOLE (landscape) and
-    #     the office cards draw a UNIT CARD (tall). Checking both against one
-    #     constant is how the card came to be portrait-shaped for a landscape
-    #     source in the first place.
-    #     Both cells draw a PORTHOLE now. ic_card_port was measured against the
-    #     unit card's aspect while it drew a unit card; leaving that entry alone
-    #     would have passed a 238x130 landscape cell against a 0.462 target and
-    #     reported a fault on the correct layout.
+    #     box does not letterbox: it stretches the face, silently.
+    #     Each cell is checked against the art IT actually draws; every cell
+    #     here draws a PORTHOLE.
     for name, box, want, what in (
             ("ic_row_port", PORT_BOX, PORTHOLE_ASPECT, "porthole"),
             ("PORT_BOX", PORT_BOX, PORTHOLE_ASPECT, "porthole"),
@@ -7555,8 +7310,8 @@ def check():
 
     # 9c. THE ACTION BAR'S TWO HOMES. Centred it stays under the card grid; with
     #     the pager up it moves to the left column, under the Crown's box and
-    #     clear of both the box and the pager - the pager's three cells are the
-    #     ones it was moved to get out of the way of.
+    #     clear of both the box and the pager: the pager's three cells are what
+    #     it moves to clear.
     _pager = [PANEL_LAYOUT[n] for n in ("ic_page_prev", "ic_page_lbl", "ic_page_next")]
     _crown_bottom = PANEL_LAYOUT["ic_crown_box"][1] + PANEL_LAYOUT["ic_crown_box"][3]
     for _an in [n for n, _w in ACT_BUTTONS] + ["ic_act_hint"]:
@@ -7578,8 +7333,8 @@ def check():
                 out.append("%s beside the pager spans x %d..%d and crosses the "
                            "pager at %d..%d" % (_an, _px_, _px_ + _pw_, _qx, _qx + _qw))
                 break
-    # AND IT IS CENTRED, to the pixel the integer arithmetic allows: the author
-    # asked for exactly this, and a bar a few pixels off reads as a mistake.
+    # AND IT IS CENTRED, to the pixel the integer arithmetic allows: a bar a few
+    # pixels off reads as a mistake.
     _al = PANEL_LAYOUT[ACT_BUTTONS[0][0]][0]
     _ar = PANEL_LAYOUT[ACT_BUTTONS[-1][0]][0] + PANEL_LAYOUT[ACT_BUTTONS[-1][0]][2]
     if abs((_al - COL_R_X) - (COL_R_X + COL_W - _ar)) > 1:
@@ -7617,7 +7372,7 @@ def check():
     crests = [k for k in PANEL_LAYOUT if k.startswith("ic_barc_")]
     if len(crests) != MAX_HOUSES:
         out.append("%d dial crests for %d seats" % (len(crests), MAX_HOUSES))
-    #     AND EVERY CREST IS DECLARED AFTER EVERY CELL. The pie is filled now,
+    #     AND EVERY CREST IS DECLARED AFTER EVERY CELL. The pie is filled,
     #     so a crest declared first is a crest painted over by the wedge it is
     #     naming - which draws, logs nothing, and simply is not there.
     #     IN THE HIERARCHY, which is the section that says what contains what
@@ -7706,7 +7461,7 @@ def check():
             # view shows it", "...on the offices tab alone").
             continue
         if name.startswith("ic_throne"):
-            # THE DWARF HALL'S THRONE (plan 2026-10-04 phase 3), offices tab only:
+            # THE DWARF HALL'S THRONE, offices tab only:
             # the harness holds ICUI.THRONE_KEYS hidden on the court tab
             # ("...shows on the court tab").
             continue
@@ -7717,7 +7472,7 @@ def check():
             # exemption rests on.
             continue
         if name.startswith(("ic_law_", "ic_lv_", "ic_gc_")):
-            # THE LAWS TAB (spec 2026-10-02 laws), a view of its own that draws
+            # THE LAWS TAB, a view of its own that draws
             # no pie. The harness holds every one hidden off the laws view. And
             # the government cards, the doctrine picker's, which hides the pie.
             continue
@@ -7727,13 +7482,13 @@ def check():
 
     # 12. A FRAME texture with no 9-slice margin repeats the whole frame across
     #     the component instead of stretching its edges. Nothing errors - it just
-    #     draws a grid of little frames, which is exactly what shipped.
+    #     draws a grid of little frames.
     for label, layers in (("panel", PANEL_LAYERS), ("card", CARD_LAYERS),
                           ("row", ROW_LAYERS), ("tab", BTN_LAYERS),
                           ("tab hover", BTN_HOVER)):
         for layer in layers:
             # BY PATH AS WELL AS BY NAME: the card frame is the Hell-Forge's
-            # name holder now, and its filename says nothing about borders.
+            # name holder, and its filename says nothing about borders.
             if "border" not in layer["path"] and layer["path"] != BORDER_TEXTURE:
                 continue
             if not layer.get("margin"):
@@ -7742,12 +7497,9 @@ def check():
 
     # 13. Nothing may 9-slice a margin wider than half the box it fills, or the
     #     opposing corners overlap and there is no middle left to stretch.
-    #     AND EVERY RIM, on the component it is drawn on (author, 2026-09-28,
-    #     of the Governors tab: "there's glitches ... if there is someone in
-    #     position"). The seat rim's 40px margin went onto a 61px list row, so
-    #     its top and bottom slices overlapped: a red wash over the whole row
-    #     and a full-strength corner block at each end. This loop only knew
-    #     the panel, the card and the tabs.
+    #     AND EVERY RIM, on the component it is drawn on: the seat rim's 40px
+    #     margin on a 61px list row overlaps its top and bottom slices, a red
+    #     wash over the whole row and a full-strength corner block at each end.
     for name, layers, box in (
             ("panel", PANEL_LAYERS, (PANEL_W, PANEL_H)),
             ("card", CARD_LAYERS, (CARD_W, CARD_H)),
@@ -7767,7 +7519,7 @@ def check():
     # 21. Every house has a plate on disk and it is the colour this file says.
     #     A missing plate is an imagepath that resolves to nothing, which draws a
     #     blank square and logs nothing; a STALE one is worse, because it draws
-    #     the colour a house used to have.
+    #     a house's old colour.
     def _compare(path, want):
         disk = os.path.join(ROOT, "Modding Files", "pack", *path.split("/"))
         if not os.path.isfile(disk):
@@ -7813,10 +7565,9 @@ def check():
     if FRAME_MARGIN * 2 > _smallest:
         out.append("the portrait frame's margin %d is over half the %dpx of the "
                    "smallest face cell" % (FRAME_MARGIN, _smallest))
-    # 21c. THE SILHOUETTE MUST BE VISIBLE ON EVERY GROUND IT NOW LANDS ON.
-    #     It used to have one ground - house_plate_none, an opaque box built to
-    #     go behind it - and a vacant seat clears its plate to a TRANSPARENT png
-    #     now, so the figure sits on whatever is behind the cell. That is two
+    # 21c. THE SILHOUETTE MUST BE VISIBLE ON EVERY GROUND IT LANDS ON.
+    #     A vacant seat clears its plate to a TRANSPARENT png, so the figure
+    #     sits on whatever is behind the cell. That is two
     #     ends at once: the darkest is PLATE_BASE, which every plate fades to at
     #     its foot and which is within three levels of the office card's own
     #     art; the brightest is a house plate's lit top, where the Crown's block
@@ -7824,7 +7575,7 @@ def check():
     #
     #     A SHAPE, NOT TEXT, so this is a luminance STEP and not a contrast
     #     ratio - but it is measured, and an ink chosen for one ground and
-    #     silently wrong on the other is exactly what this caught.
+    #     silently wrong on the other is what this catches.
     def _lum(rgb):
         return 0.2126 * rgb[0] + 0.7152 * rgb[1] + 0.0722 * rgb[2]
 
@@ -7841,7 +7592,7 @@ def check():
                    % (SIL_INK, SIL_RIM, round(abs(_fill - _rim)), SIL_MIN_STEP))
     #     THE OFFICE CARD'S OWN ART IS NOT MEASURED HERE and is why PLATE_BASE
     #     stands in for it: it comes out of CA's ui pack, not this generator, and
-    #     it read (11, 11, 10) under the 2026-09-17 preview - within three levels
+    #     it reads (11, 11, 10) on the preview - within three levels
     #     of PLATE_BASE, which is the darkest ground this file can produce.
     _grounds = [("the foot of every plate", PLATE_BASE)]
     for _slug, _hex in sorted(HOUSE_COLOUR.items()):
@@ -7859,13 +7610,11 @@ def check():
 
     # 21b. AND THE CELL BEING PAINTED MUST HAVE THAT LAYER. 21 holds the three
     #     indices against the layer count of a FACE cell; it says nothing about
-    #     the cell any given call is aimed at, and that gap shipped: all sixteen
-    #     move cards drew a white square for a whole build because
-    #     ICUI.set_face - which writes layer 1, right for a porthole's
-    #     plate/face/mask stack - was called on ic_plot_icon, which carries ONE
-    #     layer because an icon needs neither a plate nor a mask. SetImagePath to
-    #     a layer that is not there writes nowhere, the pcall swallows it, and
-    #     the .twui.xml's own 1x1_blank_white default stays on screen.
+    #     the cell any given call is aimed at. ICUI.set_face writes layer 1,
+    #     right for a porthole's plate/face/mask stack and wrong on
+    #     ic_plot_icon, which carries ONE layer. SetImagePath to a layer that is
+    #     not there writes nowhere, the pcall swallows it, and the .twui.xml's
+    #     own 1x1_blank_white default stays on screen.
     #
     #     BOTH HALVES ARE READ, neither typed: which layer each helper writes
     #     comes out of the helper's own body, and how many layers each cell has
@@ -7906,13 +7655,11 @@ def check():
         _code = [_ln for _ln in _uisrc.splitlines()
                  if not _ln.lstrip().startswith("--")]
         # EVERY ICON THE PANEL DECLARES, by the shape of its name rather than
-        # one at a time. This knew about ICUI.COST_ICON alone and refused the
-        # build the moment a second currency arrived: gold needed its own
-        # picture, because quoting it under the standing icon is worse than
-        # quoting it bare.
+        # one at a time. Gold has its own picture: quoting it under the
+        # standing icon is worse than quoting it bare.
         _icons = dict(re.findall(r'ICUI\.(\w+_ICON)\s*=\s*"([^"]+)"', _uisrc))
-        # AND EVERY ICON TABLE, one path per entry (ICUI.FX_ICONS, 2026-09-28:
-        # an effect's icon is chosen by its label at draw time). Each path is
+        # AND EVERY ICON TABLE, one path per entry (ICUI.FX_ICONS: an effect's
+        # icon is chosen by its label at draw time). Each path is
         # held to a pack like a single declaration; a line naming the table or
         # the house crest is an indirection like one naming a declared icon.
         for _t, _body in re.findall(r'ICUI\.(\w+_ICONS)\s*=\s*\{(.*?)\n\}', _uisrc, re.S):
@@ -8054,10 +7801,8 @@ def check():
     #     call fails, the pcall every draw wraps it in eats the failure, and
     #     the component is created, moved and made visible with nothing on it.
     #
-    #     THIS IS THE CHECK THE WALLS NEEDED. ic_div_* had no branch in
-    #     build_xml and fell through to the text cell at the end of the chain;
-    #     every other check passed, because all fifty-nine pictures were
-    #     generated, packed and byte-correct - and unreachable.
+    #     Every other check passes such a component: its pictures are
+    #     generated, packed and byte-correct, and unreachable.
     #
     #     WHAT IT CANNOT SEE: a receiver whose name is a PARAMETER, such as
     #     ICUI.set_plate(parent, name, ...), where the caller decides the
@@ -8083,13 +7828,10 @@ def check():
         # widest slot any namesake elsewhere writes.
         #
         # AND A PARAMETERISED ASSIGNMENT POISONS THE NAME rather than
-        # being invisible. The comment above has said since it was written
-        # that a receiver named by a parameter is out of reach here - but
-        # the pattern only matched LITERALS, so `local ic = comp(name,
-        # parent)` recorded nothing at all and the nearest preceding
-        # literal somewhere else in the file answered for it. ICUI.set_face
-        # is that helper, and it reported ic_row_crest - a component it
-        # never touches - as re-pointed at a slot it does not have.
+        # being invisible: `local ic = comp(name, parent)` is recorded with no
+        # literal, so the nearest preceding literal elsewhere in the file
+        # cannot answer for it (ICUI.set_face would report ic_row_crest, a
+        # component it never touches, at a slot it does not have).
         _codesrc = "\n".join(_code)
         _made = []
         for _m in re.finditer(r"local\s+(\w+)\s*=\s*comp\(", _codesrc):
@@ -8154,9 +7896,8 @@ def check():
     # 24b. AND EVERY PARTY FLIES A FRAMED FLAG. The frame is CA's, laid over
     #      the field wherever the source file is not white, so the count is
     #      exact rather than a threshold: every pixel the source frames, the
-    #      flag must draw. A glyph on a bare square of colour is what this
-    #      panel drew before, and it reads as a missing picture beside the
-    #      real faction mons the court list draws next to it.
+    #      flag must draw. A glyph on a bare square of colour reads as a missing
+    #      picture beside the real faction mons the court list draws next to it.
     _frame, _field, _fbox = flag_frame()[0]
     _framed = sum(1 for _y in range(SIGIL) for _x in range(SIGIL)
                   if _field[_y][_x] == 0
@@ -8174,8 +7915,7 @@ def check():
                        % (_slug, _drawn, _framed))
 
     # 15. The whole row pool must fit between the header strip and the alert bar.
-    #     These are four numbers multiplied together and it was done on paper once;
-    #     a row pool that overruns draws its tail underneath the alert, where it is
+    #     A row pool that overruns draws its tail underneath the alert, where it is
     #     still interactive and still reads as part of the list.
     last_row_bottom = ROWS_Y + (VISIBLE_ROWS - 1) * ROW_PITCH + ROW_H
     alert_top = PANEL_LAYOUT["ic_alert"][1]
@@ -8216,10 +7956,9 @@ def check():
 
     # 18. A 9-slice margin must clear the ornament in the SOURCE texture, not
     #     merely fit the box. panel_back_border.png is 256x256 with a corner
-    #     28px deep; sliced at 18 each corner drew a fragment and the offcut
-    #     was stretched along the rails, which is a frame whose corners do not
-    #     meet their own edges. Check 8 asked only about the box, so it passed
-    #     this for as long as it shipped.
+    #     28px deep; sliced at 18 each corner draws a fragment and the offcut
+    #     is stretched along the rails: a frame whose corners do not meet their
+    #     own edges.
     #     EVERY layer list, not a hand-written three. A list left out of the
     #     tuple is a list nothing checks, and the fault this catches is not a
     #     property of any particular one of them.
@@ -8241,14 +7980,8 @@ def check():
                            "stretch it, a scaled seam samples its alpha-0 ring"
                            % (tag, ly["path"].rsplit("/", 1)[-1]))
 
-    # 16b. THE TWO COLUMNS, and that nothing leaves the one it belongs to.
-    #
-    #      THIS USED TO BE A STACK, and its two rules were "the grid starts
-    #      below the dial" and "the Crown's block ends above the grid". Side by
-    #      side those are not merely wrong, they are INVERTED - and a check that
-    #      is the opposite of the layout fails forever on correct data until
-    #      somebody deletes it. What is being asked has not changed: nothing may
-    #      draw on top of anything else. Only the direction has.
+    # 16b. THE TWO COLUMNS, and that nothing leaves the one it belongs to:
+    #      nothing may draw on top of anything else.
     _COLS = {"left": (COL_L_X, COL_L_X + COL_W),
              "right": (COL_R_X, COL_R_X + COL_W)}
     _IN_COLUMN = [
@@ -8276,7 +8009,7 @@ def check():
     if COL_L_X + COL_W > COL_R_X:
         out.append("the left column ends at %d and the right starts at %d"
                    % (COL_L_X + COL_W, COL_R_X))
-    # COL_L_X AND NOT 18: at a 2560 box the margin is 24, and a literal read the
+    # COL_L_X AND NOT 18: at a 2560 box the margin is 24, and a literal reads the
     # right column as running 6px past a content edge it ends exactly on.
     if COL_R_X + COL_W > COL_L_X + CONTENT_W:
         out.append("the right column ends at %d, past the content width's %d"
@@ -8314,10 +8047,9 @@ def check():
     if len(PARTY_GRID) != PARTY_SLOTS:
         out.append("the party grid has %d slots and PARTY_SLOTS says %d"
                    % (len(PARTY_GRID), PARTY_SLOTS))
-    # EVERY CELL OF THE CROWN'S BLOCK INSIDE THE BOX THAT FRAMES IT. This
-    # replaces "the leader lines must not reach the dial": they are UNDER the
-    # dial now, and what they have to stay inside is the frame band of their own
-    # plate - the same rule check 20f gives the party card's cells.
+    # EVERY CELL OF THE CROWN'S BLOCK INSIDE THE BOX THAT FRAMES IT. They are
+    # UNDER the dial, and what they have to stay inside is the frame band of
+    # their own plate: the same rule check 20f gives the party card's cells.
     for _ln in CROWN_CELLS:
         _lx, _ly, _lw, _lh = PANEL_LAYOUT[_ln]
         if (_lx < _kx + CROWN_BAND or _lx + _lw > _kx + _kw - CROWN_BAND
@@ -8337,20 +8069,18 @@ def check():
 
     # 19. No text may ask for a body size the game does not have. EU.fontcat()
     #     silently rounds to the nearest real one, so a request for 14 becomes
-    #     body_12 with no error anywhere - which is how a full-screen panel
-    #     came to be written in 12px. Check 6 cannot see it: the category it
+    #     body_12 with no error anywhere. Check 6 cannot see it: the category it
     #     lands on is real, just not the one asked for.
     #
     #     NOT "does this category exist" - the emitter asserts on an unknown
     #     one while building, and check() builds on its first line, so that
-    #     branch could never be reached here. The reachable fault, and the
-    #     one that shipped, is a size that DISAGREES with a category that is
+    #     branch could never be reached here. The reachable fault is a size
+    #     that DISAGREES with a category that is
     #     perfectly real: nothing asserts, and the engine draws the category
     #     while the layout was measured for the number.
-    # OVER LAYOUT_TABLES, not over three named tables. Naming them one by one
-    # meant a fifth file's styles were checked against the other four's cells
-    # and reported as orphans - the check failing on correct data, which is the
-    # fastest way to get a check deleted.
+    # OVER LAYOUT_TABLES, not over three named tables: named one by one, a
+    # fifth file's styles are checked against the other four's cells and
+    # reported as orphans, a check failing on correct data.
     _known = set()
     for _table in LAYOUT_TABLES.values():
         _known.update(_table)
@@ -8369,12 +8099,7 @@ def check():
             out.append("%s text is size %d under category %r; they disagree"
                        % (tag, size, cat))
 
-    # 19z. NO TWO CELLS OF A CARD MAY SHARE A PIXEL. check_plot_cells() has
-    #      existed since the move card was built and the comment above
-    #      PLOT_FOOT_PAD says it "refuses any overlap now, so this cannot come
-    #      back" - and nothing in this file, or any other, ever called it. It
-    #      could refuse nothing. This is the call, and it covers the office and
-    #      party cards too, neither of which ever had one.
+    # 19z. NO TWO CELLS OF A CARD MAY SHARE A PIXEL, on every kind of card.
     out.extend(check_card_cells(CARD_LAYOUT, CARD_W, CARD_H, "office card"))
     out.extend(check_card_cells(LAW_LAYOUT, LAW_W, LAW_H, "law card"))
     out.extend(check_card_cells(LB_LAYOUT, LB_W, LB_H, "party block"))
@@ -8385,12 +8110,11 @@ def check():
     # 20. No card child may sit under the card's own frame band. The band is
     #     the frame layer's 9-slice margin, on all four sides, and a label
     #     drawn across it reads as a broken frame rather than as a misplaced
-    #     label. This was hand-arithmetic when the margin went 18 -> 30, which
-    #     is precisely why it is not hand-arithmetic any more.
+    #     label.
     band = max([ly["margin"] for ly in CARD_LAYERS
                 if ly["path"] == BORDER_TEXTURE] or [0])
     # SCALED WITH THE BOX, although the 9-slice margin itself is not. The band
-    # is spacing, not a collision: measured 2026-09-24, panel_back_border.png's
+    # is spacing, not a collision: measured, panel_back_border.png's
     # ink reaches at most 10px in from any edge (the corner curl), so a cell 25px
     # in on a 1600 box is still 15px clear of the frame.
     # LESS ONE PIXEL: the office name spends one on each side at 1600 (see
@@ -8419,10 +8143,9 @@ def check():
             out.append("%s ends at %d,%d, inside the party card's %dpx frame "
                        "band on a %dx%d card"
                        % (name, x + w, y + h, band, PARTY_W, PARTY_H))
-    #      AND NO TWO CELLS MAY OVERLAP. The office card was laid out by hand
-    #      and its cells were checked against the band and against nothing else;
-    #      two labels in one place is a cell drawing over a cell, which looks
-    #      exactly like a cell that failed to draw.
+    #      AND NO TWO CELLS MAY OVERLAP: two labels in one place is a cell
+    #      drawing over a cell, which looks exactly like a cell that failed to
+    #      draw.
     _cells = sorted(PARTY_LAYOUT.items())
     for _i in range(len(_cells)):
         _n1, (_x1, _y1, _w1, _h1) = _cells[_i]
@@ -8432,11 +8155,8 @@ def check():
                     and _y1 < _y2 + _h2 and _y2 < _y1 + _h1):
                 out.append("%s and %s overlap on the party card" % (_n1, _n2))
 
-    # 20b2. AND THE CROWN'S BOX, for the same reason and it is a newer one. Every
-    #       cell on this panel used to be a full-width band at its own y, so two
-    #       of them could not cross. The box has a left half and a right half now
-    #       and they share every row, which is a way to be wrong that the panel
-    #       has never had before.
+    # 20b2. AND THE CROWN'S BOX, for the same reason: it has a left half and a
+    #       right half that share every row, so two of its cells can cross.
     _kcells = sorted((n, PANEL_LAYOUT[n]) for n in CROWN_CELLS)
     _kcells.append(("ic_lbl_section", tuple(COURT_SECTION_XY)))
     for _i in range(len(_kcells)):
@@ -8447,8 +8167,8 @@ def check():
                     and _y1 < _y2 + _h2 and _y2 < _y1 + _h1):
                 out.append("%s and %s overlap in the Crown's box" % (_n1, _n2))
 
-    # 20c. EVERY STRING THIS CARD CAN DRAW MUST FIT ITS CELL. The card is a
-    #      quarter of the width it was, the office names and buff lines are
+    # 20c. EVERY STRING THIS CARD CAN DRAW MUST FIT ITS CELL. The card is
+    #      narrow, the office names and buff lines are
     #      generated, and "Never split" clips silently - so the fit is measured
     #      here rather than eyeballed.
     #
@@ -8482,14 +8202,14 @@ def check():
             # asks for it measures nothing at all. Charging the markup's own
             # characters would read ~50px for a picture that draws ~17, and
             # charging nothing would let a cost cell clip the moment it gained
-            # an icon - which is exactly the change that brought this branch.
+            # an icon.
             # ascent + descent is the line box, and it is charged whole
             # because the engine's real figure is TextDimensionsForText and
             # that needs the game running.
             shown = re.sub(r"\[\[/?img[^\]]*\]\]", "", text)
             # A COLOUR TAG DRAWS NOTHING: it tints the characters between its
-            # two halves and takes no width of its own (the change figures,
-            # spec 2026-09-28 section 4.5, were measured as 819px of markup).
+            # two halves and takes no width of its own (counted as text, the
+            # change figures' markup alone measures 819px).
             shown = re.sub(r"\[\[/?col[^\]]*\]\]", "", shown)
             pics = len(re.findall(r"\[\[img:", text))
             width = ImageDraw.Draw(Image.new("RGB", (8, 8))).textlength(
@@ -8499,7 +8219,7 @@ def check():
             # the engine then cuts. The inline picture is a line box either way.
             return width * GAME_FONT_WIDER + pics * sum(font.getmetrics())
 
-        # 20c-help. EVERY HELP LINE FITS ITS ROW (2026-09-28). The row cuts a
+        # 20c-help. EVERY HELP LINE FITS ITS ROW. The row cuts a
         #      long line to an ellipsis, which on a help page is a rule the
         #      player never reads the end of. A {name} is a number filled at
         #      draw time and is measured as four digits, wider than any the
@@ -8520,7 +8240,7 @@ def check():
                 _px = style("ic_help_line_1")["size"]
                 _help_lines = re.findall(r'^\s*"((?:[^"\\]|\\.)*)",\s*$',
                                          _hm.group(1), re.M)
-                # A RACE'S OWN LINES (phase 3, Task 13): DWF.HELP_SWAP's values draw
+                # A RACE'S OWN LINES: DWF.HELP_SWAP's values draw
                 # on the Dwarf page, in the same row, so they are measured alike.
                 _sw = re.search(r"^DWF\.HELP_SWAP = \{\n(.*?)^\}",
                                 io.open(DWARF_LUA, encoding="utf-8").read(), re.S | re.M)
@@ -8534,7 +8254,7 @@ def check():
                     out.append("ICUI.HELP holds no line this check can read, so "
                                "no help line is measured")
                 for _line in _help_lines:
-                    # A {@name} IS A PICTURE (2026-09-29), one line box wide
+                    # A {@name} IS A PICTURE, one line box wide
                     # like any other [[img:]], and never a number.
                     _shown = re.sub(r"\{@\w+\}", "[[img:x]][[/img]]", _line)
                     _shown = re.sub(r"\{\w+\}", "9999", _shown)
@@ -8552,21 +8272,15 @@ def check():
         # THEY ARE NOT UNCHECKED, THEY ARE CUT. ICUI.draw_offices runs both
         # through ICUI.fit_cut, which asks the engine for the real width and
         # ends on an ellipsis; check 25b below holds that call in place, because
-        # a cell dropped back to set_text overflows its card silently and the
-        # 2026-09-17 preview is the only thing that has ever caught it.
+        # a cell dropped back to set_text overflows its card silently.
         _strings = {"ic_card_name": [], "ic_card_effect": [], "ic_card_need": [],
                     "ic_card_term": [], "ic_card_button": []}
         for _o in _G.OFFICES:
             _strings["ic_card_name"].append(_o["name"])
-            for _w in ("office", "vacant"):
-                _strings["ic_card_effect"].append(
-                    _loc["derpy_ic_effects_" + _G.bundle_key(_w, _o["slug"])])
-        # THE STRINGS THE PANEL DRAWS, not samples of them. These three cells
-        # carried a hand-written list - "400", "Vacant", "Term ends now" - and
-        # the Lua emits "400 / lvl 30", "Seat is vacant" and "Term ends this
-        # turn". A sample list is a second copy of the panel's text and it had
-        # drifted from the first in three cells out of five, which is the exact
-        # failure this check exists to catch, one level up.
+            _fx = _loc["derpy_ic_effects_" + _G.bundle_key("office", _o["slug"])]
+            _strings["ic_card_effect"].append(_fx)
+        # THE STRINGS THE PANEL DRAWS, not samples of them: a hand-written
+        # sample list drifts from the panel's text.
         #
         # The tier tables come out of IC.TUNE in the model Lua, because that is
         # where they live: a copy of them here would be the same drift again.
@@ -8585,7 +8299,7 @@ def check():
         # WEARING ITS ICON, because that is what the Lua draws. ICUI.cost puts
         # the same markup in front of the same number, and check 23 pins the
         # path in both files to one value.
-        _strings["ic_card_need"] = [COST_MARKUP + "%d / lvl %d" % (b, r)
+        _strings["ic_card_need"] = [COST_MARKUP + "%d rank %d" % (b, r)
                                     for b, r in zip(_bars, _levels)]
         # THE OLD HOLDER'S WAIT, at its longest - read out of the model, the
         # number being IC.TUNE.renew_wait there and nowhere else.
@@ -8594,11 +8308,11 @@ def check():
             out.append("cannot read renew_wait out of the model Lua, so the "
                        "card's waiting line is unmeasured")
         _strings["ic_card_term"] = [
-            "Seat is vacant", "Term ends this turn",
-            "%d influence - 1 turn left" % (max(_bars or [0]) * 10),
-            "%d influence - %d turns left" % (max(_bars or [0]) * 10, 99),
-            "Vacant - holder waits %d turns" % int(_wait.group(1) if _wait else 99),
-            "Vacant - holder waits 1 turn"]
+            "If filled:", "Term ends this turn",
+            '%d influence; 1 turn left' % (max(_bars or [0]) * 10),
+            '%d influence; %d turns left' % (max(_bars or [0]) * 10, 99),
+            "Last holder waits %d turns" % int(_wait.group(1) if _wait else 99),
+            "Last holder waits 1 turn"]
         _strings["ic_card_button"] = ["Appoint", "Dismiss"]
         for _name, _texts in sorted(_strings.items()):
             _w = usable_w(CARD_LAYOUT[_name][2], _name)
@@ -8609,8 +8323,7 @@ def check():
                     out.append("%s would clip: %r measures %.0fpx at %dpx in a "
                                "%dpx cell" % (_name, _t, _got, _px, _w))
 
-        # 20k. EVERY PETITION BUTTON'S LABEL FITS ITS BUTTON (author,
-        #      2026-09-30: "button size doesnt accomodate 'make peace'"). The
+        # 20k. EVERY PETITION BUTTON'S LABEL FITS ITS BUTTON. The
         #      labels are ICUI.PETITION_BTN, read out of the panel Lua; which
         #      button each goes on is typed here, and a label this does not
         #      place is a failure rather than a label nobody measured.
@@ -8671,9 +8384,7 @@ def check():
             "ic_party_t1": [TRAIT_MARKUP + _t for _t in _party_traits],
             "ic_party_t2": [TRAIT_MARKUP + _t for _t in _party_traits],
             # THE LONGEST IT DRAWS, both figures coloured as they are after a
-            # change (spec 2026-09-28 section 4.5). The old sample, "100% -
-            # 100 loyalty", was shorter than the "of the court" line the panel
-            # really wrote, which measured 322px in this 281px cell.
+            # change.
             "ic_party_nums": ["[[col:green]]100%[[/col]] share - "
                               "[[col:red]]100[[/col]] loyalty"],
             # EVERY WORD ICUI.card_mood CAN ANSWER, the Crown's three included.
@@ -8684,7 +8395,7 @@ def check():
             # (fourteen seats) and few reach for men or provinces.
             "ic_party_members": ["No members", "1 member", "99 members"],
             "ic_party_offices": ["No office", "1 office", "14 offices"],
-            "ic_party_govs": ["No overseer", "1 overseer", "99 overseers"],
+            "ic_party_govs": ["No governor", "1 governor", "99 governors"],
             "ic_party_trend": ["Loyalty -99 a turn", "Loyalty +99 a turn",
                                "Loyalty steady"],
         }
@@ -8699,9 +8410,7 @@ def check():
                 if _got > _w and _name not in CUT_CELLS:
                     out.append("%s would clip: %r measures %.0fpx at %dpx in a "
                                "%dpx cell" % (_name, _t, _got, _px, _w))
-        # 20g2. THE ACTION BAR AND THE PETITIONS TAB, whose labels nothing
-        #      measured: the tabs were sized by eye when they were five. The
-        #      bar's labels and its hints are read out of the panel Lua, so a
+        # 20g2. THE ACTION BAR AND THE PETITIONS TAB. The bar's labels and its hints are read out of the panel Lua, so a
         #      reworded one is measured here and not a copy of it.
         def _block_of(src, name):
             return re.search(r"%s = \{(.*?)\n\}" % re.escape(name), src,
@@ -8756,9 +8465,8 @@ def check():
         else:
             for _cell, _fn in sorted(CUT_CELLS.items()):
                 # A SUBSTRING TEST IS NOT A DECLARATION TEST: renaming the
-                # helper to ICUI.fit_cutx still contains "function ICUI.fit_cut"
-                # and the mutant survived on 2026-09-14. The open bracket is the
-                # boundary.
+                # helper to ICUI.fit_cutx still contains "function ICUI.fit_cut".
+                # The open bracket is the boundary.
                 if not re.search(r"function\s+" + re.escape(_fn) + r"\s*\(",
                                  _cutsrc):
                     out.append("%s is exempt from 20g because %s cuts it, and "
@@ -8786,21 +8494,19 @@ def check():
                 out.append("ic_party_name would clip even over two lines: %r "
                            "measures %.0fpx at %dpx in %d + %d"
                            % (_t, _measure(_t, _npx), _npx, _n1, _n2))
-        # AND THE TWO CONTROL LINES, which were measured by NOTHING until the
-        # Crown's block moved beside them and took half the box. At full width
-        # they could not clip; at 372 they can, and twui text does not wrap - it
-        # stops. Both strings are built the way the panel builds them, off
+        # AND THE CONTROL LINES, in half the Crown's box: twui text does not
+        # wrap, it stops. Both strings are built the way the panel builds them, off
         # IC.CONTROL_BANDS, so a band renamed in the model is measured here.
         _bands = getattr(_G, "CONTROL_BANDS", None)
         if not _bands:
             out.append("cannot read IC.CONTROL_BANDS, so the control lines are "
                        "unmeasured - and they are no longer full width")
-        # ONE EFFECT A LINE since 2026-09-24, so every effect of every band is
-        # a candidate for every effect line; and the traits wear their icon,
-        # because ICUI.trait_line is what draw_leader writes now.
+        # ONE EFFECT A LINE, so every effect of every band is a candidate for
+        # every effect line; and the traits wear their icon, because
+        # ICUI.trait_line is what draw_leader writes.
         _effects = [_G.effect_short(_e, _m, _i)
                     for _b in (_bands or ()) for _e, _m, _i in _b[4]]
-        # EVERY LINE WEARS AN ICON NOW (2026-09-28), measured as the trait's:
+        # EVERY LINE WEARS AN ICON, measured as the trait's:
         # every inline icon is drawn at the line's own height.
         _leader_strings = {
             "ic_control": [TRAIT_MARKUP + "100% of the court"],
@@ -8874,15 +8580,13 @@ def check():
             out.append("cannot read the panel Lua to measure its rows: %r"
                        % (exc,))
         else:
-            # THE MOVES ARE CARDS NOW, so this measures a card's cells and not
-            # a row's. It used to read ICUI.COL_W's intrigue override - column
-            # two widened to 1102 to hold "name - blurb" in one cell - and both
-            # that override and the row are gone.
+            # THE MOVES ARE CARDS, so this measures a card's cells and not a
+            # row's.
             #
             # THE NAME AND THE BLURB ARE SEPARATE CELLS, so they are separate
             # measurements: a name must fit ic_plot_name on ONE line beside its
             # icon, and a blurb must fit PLOT_BLURB_LINES lines of ic_plot_b*.
-            # A blurb that needs a fourth line loses its tail silently, because
+            # A blurb that needs one line more loses its tail silently, because
             # fit_lines has nowhere to put it - which is the fault this catches.
             # IC.TUNE, so the effect lines can be RESOLVED rather than measured
             # with their placeholders still in. "%d gold" is nine characters
@@ -8922,9 +8626,8 @@ def check():
                 _b = _chunk[_chunk.index("blurb"):]
                 # WHAT THE CARD ACTUALLY DRAWS is the effect line and the blurb
                 # in one string - fill_plot concatenates them before it calls
-                # fit_lines - so that is what has to fit the four cells. Measuring
-                # the blurb alone was correct until 2026-09-16 and is now an
-                # under-measurement of the whole mechanical half.
+                # fit_lines - so that is what has to fit the four cells. The
+                # blurb alone under-measures it by the whole mechanical half.
                 if "effect = " not in _chunk:
                     out.append("move %r has no effect line, so its card says "
                                "what it feels like and never what it does"
@@ -8945,7 +8648,7 @@ def check():
             if not _plots:
                 out.append("no plots found in the model - 20d measured nothing")
 
-            # A RACE'S OWN WORDS (phase 3, Task 14): DWF.PLOT_TEXT's name, blurb
+            # A RACE'S OWN WORDS: DWF.PLOT_TEXT's name, blurb
             # and effect draw on a Dwarf court's cards in the same cells, each
             # falling back to the model's where the race leaves it out - so each
             # card is measured as IC.plot_text assembles it.
@@ -9016,10 +8719,7 @@ def check():
                                % (_cur,))
 
             # The longest target a label can name. A house name comes out of
-            # the generator; a character name cannot - CA's names are in the
-            # game's own loc and a legendary lord's is the longest thing that
-            # can land here, so this is a deliberately generous stand-in.
-            # Read by 20e below, which measures the picker's title line.
+            # the generator; a character name cannot.
             # CA'S LONGEST CHAOS DWARF NAME, and a deliberately generous
             # stand-in: a character's name is the game's own loc and not this
             # build's, so there is no list here to take a maximum of. Read by
@@ -9028,19 +8728,12 @@ def check():
             _house = max([r["text"] for r in _built["loc"]
                           if r["key"].startswith("derpy_ic_house_name_")]
                          or [""], key=len)
-            # 20j. THE CHARACTER CELL, WHICH NOTHING HAD EVER MEASURED.
-            #      It is the widest cell on the row and the one most likely to
-            #      clip since a man's TRADE was appended to his name - "Amarudz
-            #      Grimtidesson, Daemonsmith" measures 406 in what was a 380px
-            #      cell - and no check here ever looked at it. It carries a
-            #      position name in front of all that now.
+            # 20j. THE CHARACTER CELL, the widest on the row and the one most
+            #      likely to clip: a position name, a man's name, and his TRADE
+            #      after it ("Amarudz Grimtidesson, Daemonsmith" alone is 406px).
             #
-            #      RE-AIMED 2026-09-17 from ic_row_c, where the kind label lived
-            #      for exactly one build before it became a title.
-            #
-            #      FOUR CELLS, because the rebalance that made room for the
-            #      title moved width BETWEEN them: what each one gave up is only
-            #      defensible if something says it still fits.
+            #      FOUR CELLS, because width moves BETWEEN them: what each one
+            #      gives up is only defensible if something says it still fits.
             _kinds = re.findall(r'\w+ = "([^"]+)"',
                                 re.search(r"ICUI\.KIND_NAME = \{([^}]*)\}",
                                           _utext).group(1))
@@ -9074,11 +8767,10 @@ def check():
                 out.append("no background names in the loc, so the character "
                            "cell's trade half is unmeasured")
             else:
-                #  A COURT-SIZED NAME. Read off the author's own court in the
-                #  2026-09-17 screenshot - Ghorth the Cruel, Zaul Zhufbarden,
-                #  Sisuthrus Burrdrik, Tordrek Hackhart - and the longest of
-                #  those is taken, so this is an ordinary row at its worst and
-                #  not an average of one.
+                #  A COURT-SIZED NAME, the longest of an ordinary court's
+                #  (Ghorth the Cruel, Zaul Zhufbarden, Sisuthrus Burrdrik,
+                #  Tordrek Hackhart), so this is an ordinary row at its worst
+                #  and not an average of one.
                 _ord = "%s Sisuthrus Burrdrik, %s" % (
                     _title, _trades[len(_trades) // 2])
                 _got = _measure(_ord, _px)
@@ -9088,7 +8780,7 @@ def check():
                                "the extremes; a picker that ellipsises every "
                                "row is one the player cannot choose from"
                                % (_ord, _got, _name_w))
-            #      THE RANK CELL, a number again. "88" and not "99" because this
+            #      THE RANK CELL, a number. "88" and not "99" because this
             #      face draws 8 wider than 9.
             _rank_w = ROW_LAYOUT["ic_row_c"][2] - _pad
             _got = _measure("88", _px)
@@ -9097,8 +8789,7 @@ def check():
                            "%.0fpx in a %dpx cell, inside the %dpx margin a "
                            "string needs behind it" % (_got, _rank_w, _pad))
             #      THE INFLUENCE CELL, whose widest string is a seat's full name
-            #      behind a four-figure bar. It gave 30px to the character
-            #      column and this is what says it had them to give.
+            #      behind a four-figure bar.
             _inf = "1722 influence - %s" % max(
                 [_o3["name"] for _o3 in _G.OFFICES], key=len)
             _inf_w = ROW_LAYOUT["ic_row_d"][2] - _pad
@@ -9106,22 +8797,18 @@ def check():
             if _got + _pad > _inf_w:
                 out.append("the influence cell would clip: %r measures %.0fpx "
                            "in a %dpx cell" % (_inf, _got, _inf_w))
-            #      AND THE PARTY CELL, which gave NOTHING and is the reason: the
-            #      2026-09-16 rebalance funded itself out of this column and
-            #      clipped every rolled party name on screen.
+            #      AND THE PARTY CELL, which has no width to give: 40px less
+            #      clips every rolled party name.
             _party_w = ROW_LAYOUT["ic_row_b"][2] - _pad
             _got = _measure(_house, _px)
             if _got + _pad > _party_w:
                 out.append("the party cell would clip: %r measures %.0fpx in a "
                            "%dpx cell" % (_house, _got, _party_w))
 
-            #      AND THE OFFICE CARD'S SECOND LINE, which carries a
-            #      POSITION now rather than a party name. It is in CUT_CELLS and
-            #      therefore exempt from 20g, which was right while it held a
-            #      rolled party name that does not exist at build time - a
-            #      position is one word out of ICUI.KIND_NAME and can be
-            #      measured, so it is, and a kind renamed to something long is
-            #      exactly the edit this is here to stop.
+            #      AND THE OFFICE CARD'S SECOND LINE, which carries a POSITION.
+            #      It is in CUT_CELLS and so exempt from 20g, but a position is
+            #      one word out of ICUI.KIND_NAME and can be measured, so it is:
+            #      a kind renamed to something long is the edit this stops.
             _house_w = CARD_LAYOUT["ic_card_house"][2] - _pad
             _px_house = TEXT_STYLE.get("ic_card_house", BODY)[0]
             for _k in _kinds:
@@ -9132,15 +8819,14 @@ def check():
                                % (_k, _got, _house_w))
 
             # 20k. A HEADING PLUS THE ARROW BESIDE IT, which is a different
-            #      question from 20g and is why 20g did not catch it.
+            #      question from 20g.
             #
             #      THE ARROW IS NOT TEXT. ICUI.refresh MoveTo's it to its
             #      header's x plus the MEASURED width of that header's caption,
             #      so it leaves its own cell whenever the caption is wider than
             #      the column - and the Rank column is 45px wide holding a
-            #      two-digit number under a four-letter word. On 2026-09-17 that
-            #      put the picker's rank arrow on top of the "I" of "Influence /
-            #      Holds", with every check in this file green.
+            #      two-digit number under a four-letter word: the picker's rank
+            #      arrow can land on top of the "I" of "Influence".
             #
             #      EVERY VIEW, because the captions differ per view: "Character"
             #      on the picker and "Province" on the governors sit in the same
@@ -9220,14 +8906,14 @@ def check():
 
             # 20e. AND THE TITLE LINE, which is where the victim's name went.
             #      It is a different component from the rows and a third of
-            #      their width, and it now carries the longest string the panel
+            #      their width, and it carries the longest string the panel
             #      composes: a move, a legendary lord's full name and a price.
             _tw = PANEL_LAYOUT["ic_lbl_section"][2] \
                 - int(float(LABEL_TX.split(",")[0]))
             #      READ OUT OF ICUI.pick_title, not retyped: a fit check that
             #      carries its own copy of the string measures whatever it was
             #      last told, and a reworded title is then measured in its old
-            #      words - which is this very failure mode, one level up.
+            #      words.
             #
             #      Every %s gets the longest thing that can land in one and
             #      every %d four digits, so the figure is an over-estimate on
@@ -9242,10 +8928,9 @@ def check():
             def _fmt_calls(body):
                 """(format, [argument text]) for every string.format in body.
 
-                EVERY HOLE PAIRED WITH WHAT FILLS IT. Substituting the longest
-                name in the panel for every %s was a fair over-estimate while
-                every %s held a name; a cost is a %s now, and a price is not a
-                long name badly guessed - it is four digits and a picture.
+                EVERY HOLE PAIRED WITH WHAT FILLS IT. A cost is a %s too, and a
+                price is not a long name badly guessed: it is four digits and a
+                picture.
                 """
                 calls, i = [], 0
                 while True:
@@ -9308,7 +8993,7 @@ def check():
                                "in a %dpx cell" % (_t, _got, _tw))
 
             # 20e2. AND THE PETITIONS TAB'S LABEL, which states the terms once
-            #       for every row (2026-09-24). A function builds it, so no
+            #       for every row. A function builds it, so no
             #       table above ever sees it; its literals are joined here and
             #       every %d is two digits, which is what the T.party_* terms
             #       it prints are.
@@ -9329,8 +9014,7 @@ def check():
     #     against it writes into nothing, the pcall every call site wraps it in
     #     eats the error, and the cell draws NOTHING - not a blank square, not a
     #     wrong picture, nothing at all - while every path resolves, every
-    #     position is right and every other check here passes. Twenty-five
-    #     dividing walls shipped that way, and the Crown's portrait was about to.
+    #     position is right and every other check here passes.
     #
     #     The three helpers that paint a cell all take its name as a LITERAL at
     #     every call site, so the set of painted names is readable off the Lua
@@ -9434,7 +9118,7 @@ def check():
                 out.append("the panel Lua sets an imagepath not in any pack: %s"
                            % path)
 
-    # 22. THE TWO HOUSE LISTS ARE ONE LIST, and nothing made them agree. This
+    # 22. THE TWO HOUSE LISTS ARE ONE LIST. This
     #     file's HOUSES comes from gen_iron_court.py and the model's comes from
     #     the Lua, and every colour, bar segment and loc key here is positional:
     #     a house added to one list and not the other shifts every colour after
@@ -9471,10 +9155,9 @@ def check():
                 for _s in sorted(set(_lua_origins) - set(_py_origins)):
                     out.append("the model Lua has an origin the generator does "
                                "not: %s" % _s)
-        # THE ONE THAT ACTUALLY DRIFTED. Both files carry the office list, and
-        # only the generator's affinities were repointed at the parties - so the
-        # model went on paying the doubled appointment to a house that no longer
-        # existed, which is a rule silently not applying rather than an error.
+        # THE OFFICE LIST, which both files carry: an affinity that disagrees
+        # pays the doubled appointment to the wrong party, a rule silently not
+        # applying rather than an error.
         _m = re.search(r"IC\.OFFICES\s*=\s*\{(.*?)\n\}", _mtext2, re.S)
         if not _m:
             out.append("cannot find IC.OFFICES in the model Lua")
@@ -9539,10 +9222,7 @@ def measure_text(text, px):
     return (width + pics * (asc + desc)) * GAME_FONT_WIDER
 
 
-# 20k. EVERY STRING THE LAWS TAB CAN DRAW FITS ITS CELL (plan 2026-10-02 laws,
-#      Task 10). The preview drew the card's effect lines leaving the card and a
-#      man's name running into the next face, and nothing here had measured
-#      either. The words come out of the generator's own loc and the model's
+# 20k. EVERY STRING THE LAWS TAB CAN DRAW FITS ITS CELL. The words come out of the generator's own loc and the model's
 #      own tables; the panel's format strings are copied, so each copy is first
 #      asserted to be IN the panel Lua - a reworded one fails here rather than
 #      being measured stale. The one string with no source is a man's forename,
@@ -9594,7 +9274,7 @@ def check_law_text():
     need("Vote open: %d turn%s", "The old way", "For [[img:%s]][[/img]]   Against [[img:%s]][[/img]]",
          "In force: %s.", "None. This is the old way.", " (absent)",
          "[[img:%s]][[/img]]%s: %s", "and %d more parties",
-         "Aye %d%%  -  Nay %d%%  -  %d%% would abstain", "Nobody at court has influence to vote.",
+         'Aye %d%%; Nay %d%%; %d%% would abstain', "Nobody at court has influence to vote.",
          "Vote open: %s.",
          "Proposing costs [[img:%s]][[/img]]%d of your men's influence.",
          "Go to the vote", "Proposed by ", "%d turn%s left", "Back to the laws",
@@ -9655,7 +9335,7 @@ def check_law_text():
         "ic_lb_win_1": ["Win: %s%d" % (pic, 9999)],
         "ic_lb_more": ["+99 more"], "ic_lb_total": ["99999"],
     }
-    # THE GOVERNMENT CARDS (2026-10-03, design A): every government's words in
+    # THE GOVERNMENT CARDS: every government's words in
     # its card's cells, and the refusals the button can wear.
     govs = re.findall(r'"(\w+)"', re.search(r"IC\.GOV_ORDER = \{([^}]*)\}", model).group(1))
     gname = [loc["derpy_ic_doctrine_name_" + g] for g in govs]
@@ -9738,10 +9418,9 @@ def write_ui(outdir=None):
 def write_plates():
     """The plates are a BUILD PRODUCT of this file, like the .twui.xml is.
 
-    IT ALSO PRUNES. A png that stops being generated does not stop existing: the
-    sixteen flat tint washes sat in this folder after the mask layer replaced
-    them. deploy_iron_court.py ships off build_plates() so a stray file could
-    never reach the pack, but _assets() walks this FOLDER to prove that every
+    IT ALSO PRUNES. A png that stops being generated does not stop existing.
+    deploy_iron_court.py ships off build_plates() so a stray file never reaches
+    the pack, but _assets() walks this FOLDER to prove that every
     imagepath resolves - so a dead file left here can bless a path that would
     draw a blank white square in game.
     """
@@ -9847,10 +9526,9 @@ def selftest_compact():
     # and every text cell exactly one CA size step below its base twin.
     files = build_xml()
     assert set(race_xml()) == set(ui_file_names()), "race_xml and ui_file_names disagree"
-    # +7: FIRE_FILE and BURST_FILE, which hold no text and so have no compact
-    # twin, and the Governors view's pin, face, two plates and badge, never
-    # scaled (2026-09-30 ruling 1). +8: and the column's list, whose size the
-    # Lua sets (ICUI.gm_list).
+    # +8, the files with no compact twin: FIRE_FILE and BURST_FILE, which hold
+    # no text; the Governors view's pin, face, two plates and badge, which are
+    # never scaled; and the column's list, whose size the Lua sets (ICUI.gm_list).
     assert len(files) == len(FILES) + len(COMPACT_FILES) + 8
     assert GM_LIST_FILE not in COMPACT_FILES
     assert FIRE_FILE not in COMPACT_FILES and BURST_FILE not in COMPACT_FILES
@@ -9868,7 +9546,8 @@ def selftest_compact():
 
 
 def selftest_race():
-    """THE RACE COPIES (plan 2026-10-04 phase 3, Task 2)."""
+    """THE RACE COPIES: a Dwarf copy is Dwarf at every box, and its panel pair is
+    built, listed and on its own GUID prefix."""
     d = at_box(1920, "dwf")
     assert d.RACE == "dwf" and d.PANEL_FILE == "derpy_ic_panel_dwf.twui.xml", d.PANEL_FILE
     assert d._small().RACE == "dwf", "a Dwarf copy's compact source is not Dwarf"
@@ -9883,7 +9562,7 @@ def selftest_race():
     bad["derpy_ic_panel_dwf.twui.xml"] = files[PANEL_FILE]
     assert any("GUID" in p for p in check_race_files(bad)), "a GUID collision passed"
 def selftest_hall():
-    """THE HALL (spec 2.5 layout E; plan 2026-10-04 phase 3, Task 3)."""
+    """THE HALL (spec 2.5 layout E)."""
     d = _dwf()
     # Measured against the spec's picture, not re-derived: cell (1, 0) and the throne.
     assert d.CARD_GRID[0] == (398, 192), d.CARD_GRID[0]
@@ -9902,7 +9581,7 @@ def selftest_hall():
 
 
 def selftest_dwf_art():
-    """THE DWARF PLATES (plan 2026-10-04 phase 3, Task 4). Needs the game installed:
+    """THE DWARF PLATES. Needs the game installed:
     every Dwarf picture is cut from CA's own."""
     if _ca_png("ui2.pack", DWF_SRC + "decor_units_header.png") is None:
         print("  (no game install - the Dwarf art selftest is skipped)")
@@ -9930,7 +9609,7 @@ def selftest_dwf_art():
 
 
 def selftest_dwf_panel():
-    """THE DWARF PANEL FILE (plan 2026-10-04 phase 3, Task 5)."""
+    """THE DWARF PANEL FILE draws Dwarf art and no Chaos Dwarf art."""
     d = _dwf()
     text = d.build_xml()[d.PANEL_FILE]
     for path in (DWF_LINTEL, DWF_HEADING, DWF_HEADING_BARE, DWF_HALL, DWF_THRONE,
@@ -9949,7 +9628,7 @@ def selftest_dwf_panel():
 
 
 def selftest_dwf_text():
-    """THE DWARF WORDS FIT (plan 2026-10-04 phase 3, Task 8)."""
+    """THE DWARF WORDS FIT."""
     d = _dwf()
     words = d._race_words()
     assert set(words) >= {"title", "hall", "throne_of", "no_leader"}, words
@@ -9965,7 +9644,7 @@ def selftest():
     selftest_dwf_art()
     selftest_dwf_panel()
     selftest_dwf_text()
-    # THE RACE SEAM (plan 2026-10-04 phase 1). card_grid lays out the race it is
+    # THE RACE SEAM. card_grid lays out the race it is
     # given - a 2/4/4/4 race gets rows of 2, 4, 4 and 4 - and the ziggurat
     # refuses any race but the Chaos Dwarfs'.
     IC.RACES["tst"] = dict(IC.RACES["chd"], OFFICES=[
@@ -9986,7 +9665,7 @@ def selftest():
     selftest_scale()
     selftest_compact()
     # THE DWARF GRID CARRIES THE WEREGILD AND THE CHAOS DWARF GRID DOES NOT, and
-    # a column past the depth is reported (plan 2026-10-04 phase 4).
+    # a column past the depth is reported.
     global PLOT_DEPTH
     _h = [c for c, _n in PLOT_CATS].index("house")
     assert plot_counts("dwf")[_h] == plot_counts("chd")[_h] + 1, "the weregild is not in the Dwarf party column"
@@ -10059,7 +9738,7 @@ def selftest():
     assert any("ic_lbl_section" in e and "rails" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_lbl_section=(18, PANEL_LAYOUT["ic_gm_top"][3] - 14, 1884, 12)))), \
         "a line on the strip's bottom rail went unreported"
-    # THE RAILS RULE FIRES, on the third line as it shipped in 73806344.
+    # THE RAILS RULE FIRES, on a third line laid on the row's bottom rail.
     assert any("ic_gr_l3" in e and "rails" in e for e in check_gm_plates(
         row_layout=dict(GM_ROW_LAYOUT, ic_gr_l3=(148, 52, 256, 20)))), \
         "a row line on the frame's bottom rail went unreported"
@@ -10069,7 +9748,7 @@ def selftest():
     assert any("runs outside the column" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_col=(0, 124, 300, 890)))), \
         "a list wider than its column went unreported"
-    # THE FULL-HEIGHT RULE FIRES, on the column and the title as 5D2C688C shipped them.
+    # THE FULL-HEIGHT RULE FIRES, on a column cut short and a squashed title.
     assert any("cut short" in e for e in check_gm_plates(
         dict(PANEL_LAYOUT, ic_gm_col=(0, 128, 503, 886)))), \
         "a column that stops at the footer went unreported"
@@ -10204,17 +9883,16 @@ def selftest():
              lambda: ROW_LAYOUT.__setitem__("ic_row_a", saved_row), "into the next")
 
     # 21b, THE PAIRING. A picture cell with fewer layers than the helper aimed at
-    # it draws its .twui.xml default and reports nothing - which is exactly how
-    # sixteen move cards shipped showing a white square. The generator half is
+    # it draws its .twui.xml default and reports nothing. The generator half is
     # injected here; the Lua half (set_face on a one-layer cell, and a helper
-    # repointed at a layer nothing has) was watched to fail by hand, since
-    # check() reads that file off disk rather than out of a global.
+    # repointed at a layer nothing has) is not, since check() reads that file
+    # off disk rather than out of a global.
     saved_pl = PORT_LAYERS[:]
     del PORT_LAYERS[:]
     injected("a picture cell built with no layer for the panel to paint into",
              lambda: PORT_LAYERS.extend(saved_pl), "declares 0 layer(s)")
 
-    # ---- the party card, the Crown's block and the dial's plate --------
+    # The party card, the Crown's block and the dial's plate.
     saved_pc = PARTY_LAYOUT["ic_party_name"]
     PARTY_LAYOUT["ic_party_name"] = (2, 2) + saved_pc[2:]
     injected("a party cell drawn across the card's frame band",
@@ -10251,8 +9929,8 @@ def selftest():
              lambda: PANEL_LAYOUT.__setitem__("ic_control_band", saved_ctl),
              "ic_control_band would clip")
 
-    # AND THE LEFT HALF WIDENED UNDER THE RIGHT ONE. The box is two halves
-    # again and they share rows, so a width can collide now as well as a height.
+    # AND THE LEFT HALF WIDENED UNDER THE RIGHT ONE. The box is two halves that
+    # share rows, so a width can collide as well as a height.
     saved_band = PANEL_LAYOUT["ic_control_band"]
     PANEL_LAYOUT["ic_control_band"] = saved_band[:2] + (
         _CROWN_RIGHT_X - saved_band[0] + 8, saved_band[3])
@@ -10275,12 +9953,8 @@ def selftest():
              lambda: ACT_PAGED.__setitem__("ic_act_purge", saved_paged),
              "inside the Crown's box")
 
-    # AND TWO ROWS OF THE BOX CROSSING. RE-AIMED, not deleted: this used to widen
-    # the left half until it reached under the Crown's portrait, and the box has
-    # no halves any more - it is four stacked rows, so a width can no longer
-    # collide with anything and the injection had quietly stopped being one. The
-    # overlap a stacked box actually gets is a row whose HEIGHT eats the row
-    # under it, which is what a line given a taller face does.
+    # AND TWO ROWS OF THE BOX CROSSING: a row whose HEIGHT eats the row under
+    # it, which is what a line given a taller face does.
     saved_ctl2 = PANEL_LAYOUT["ic_control"]
     PANEL_LAYOUT["ic_control"] = saved_ctl2[:3] + (
         PANEL_LAYOUT["ic_control_fx"][1] - saved_ctl2[1] + 8,)
@@ -10366,10 +10040,8 @@ def selftest():
              "and no built file declares it")
 
     saved_panel = PANEL_LAYOUT["ic_alert"]
-    # PANEL_H past its bottom edge, derived rather than typed: at 736 tall a
-    # literal 720 overflowed, and at 900 the same number is a legal position
-    # that trips a DIFFERENT check instead - the injection stopped testing
-    # what it names.
+    # PANEL_H past its bottom edge, derived rather than typed: a literal is a
+    # legal position at some panel heights and trips a DIFFERENT check instead.
     PANEL_LAYOUT["ic_alert"] = (18, PANEL_H - 20, CONTENT_W, 44)
     injected("a component overflowing the panel",
              lambda: PANEL_LAYOUT.__setitem__("ic_alert", saved_panel), "overflows the panel")
@@ -10390,16 +10062,11 @@ def selftest():
              lambda: globals().__setitem__("COST_ICON", saved_cost),
              "is in no pack")
 
-    # THE PICTURE COSTS WIDTH. Three of them rather than a hand-measured cell:
-    # a literal width stops testing the moment a tier bar gains a digit, and
-    # charging nothing for an inline image is precisely the arithmetic that
-    # would let the cost cell clip the day it gained one. If 20c ever stops
-    # measuring the markup, three pictures measure nothing and this goes quiet.
-    # ENOUGH PICTURES TO OVERRUN THE CELL, DERIVED rather than three of them.
-    # Three was enough while the cost cell was 96px wide; the cell is 206 now and
-    # the injection had quietly stopped overflowing - a check nobody can watch
-    # fail. The count comes off the cell's own width and the content size, so a
-    # future resize cannot retire it a second time.
+    # THE PICTURE COSTS WIDTH: charging nothing for an inline image would let
+    # the cost cell clip the day it gained one. ENOUGH PICTURES TO OVERRUN THE
+    # CELL, counted off the cell's own width and the content size, because a
+    # literal count stops overflowing when the cell is resized. If 20c ever stops
+    # measuring the markup, the pictures measure nothing and this goes quiet.
     saved_markup = COST_MARKUP
     _need_w = CARD_LAYOUT["ic_card_need"][2]
     _need_px = TEXT_STYLE.get("ic_card_need", BODY)[0]
@@ -10442,8 +10109,8 @@ def selftest():
              "stretched flag")
 
     saved_name_xy = CARD_LAYOUT["ic_card_name"]
-    # ONE INSIDE THE BAND, derived: a typed 18 stopped being inside it the day
-    # the frame became the 8px Hell-Forge holder.
+    # ONE INSIDE THE BAND, derived: a typed number stops being inside it when
+    # the frame changes.
     _band = max(ly["margin"] for ly in CARD_LAYERS if ly["path"] == BORDER_TEXTURE)
     CARD_LAYOUT["ic_card_name"] = (saved_name_xy[0], _band - 1) + saved_name_xy[2:]
     injected("a card label drawn under the card's own frame rail",
@@ -10451,14 +10118,14 @@ def selftest():
              "frame band")
 
     saved_margin_18 = CARD_LAYERS[1]["margin"]
-    # ONE UNDER THE FLOOR, derived: a typed 18 stopped being inside the corner
-    # the day the frame became the 6px Hell-Forge rim.
+    # ONE UNDER THE FLOOR, derived: a typed number stops being inside the
+    # corner when the frame changes.
     CARD_LAYERS[1]["margin"] = BORDER_CORNER - 1
     injected("a frame 9-sliced inside its own corner ornament",
              lambda: CARD_LAYERS[1].__setitem__("margin", saved_margin_18),
              "its own %dpx edge" % BORDER_CORNER)
 
-    # The OTHER texture in the same list, and the one that shipped: a tile
+    # The OTHER texture in the same list: a tile
     # sliced inside its own black border repeats that border across the card.
     saved_tile = CARD_LAYERS[0]["margin"]
     CARD_LAYERS[0]["margin"] = 2
@@ -10472,8 +10139,8 @@ def selftest():
              lambda: CARD_LAYERS[0].pop("tile"),
              "whose centre is one flat colour")
 
-    # The size and the category disagreeing, which is the shape the panel
-    # actually shipped: a real category drawn, a different number laid out.
+    # The size and the category disagreeing: a real category drawn, a different
+    # number laid out.
     saved_body = globals()["BODY"]
     globals()["BODY"] = (14, "body_16")
     injected("a body size that disagrees with its own category",
@@ -10527,10 +10194,9 @@ def selftest():
 
     # TALLER, BY AS MUCH AS IT TAKES. The label already spans the full panel
     # width and sits above the pie, so the only way into the pie's box is down -
-    # and how far down is PIE_BOX's business, not a number typed here. It was
-    # 1200x60, which crossed the old pie's band and now stops four pixels above
-    # the new one: a mutation landing just short of its target reports a live
-    # check as unproven, which is the same lie as a check aimed at nothing.
+    # and how far down is PIE_BOX's business, not a number typed here: a
+    # mutation landing just short of its target reports a live check as
+    # unproven, which is the same lie as a check aimed at nothing.
     saved_label = PANEL_LAYOUT["ic_lbl_section"]
     PANEL_LAYOUT["ic_lbl_section"] = (saved_label[0], saved_label[1],
                                       saved_label[2],
@@ -10539,28 +10205,20 @@ def selftest():
              lambda: PANEL_LAYOUT.__setitem__("ic_lbl_section", saved_label),
              "is under the pie")
 
-    # This one is injected because check 4 was WRONG first: it tested the element
-    # carrying interactive="true", which is the <standard>/<hover> state, not the
-    # component that carries soundcategory - so it reported a fault on every
-    # button in every file. Fixing it flipped the check from firing on everything
-    # to firing on nothing, and only an injected fault tells those apart.
-    # The three faults that shipped on 2026-09-11 and drew a grid of frames over
-    # the panel, the cards and all four tabs.
-    # Re-aimed at the CARD's frame: the panel is full bleed now and has no frame
-    # layer left to break, so the injection was about to test nothing.
+    # A FRAME WITH NO 9-SLICE MARGIN tiles a grid of frames over the card
+    # (check 12). Aimed at the CARD's frame: the panel is full bleed and has no
+    # frame layer to break.
     saved_margin = CARD_LAYERS[1]["margin"]
     CARD_LAYERS[1]["margin"] = 0
     injected("a frame texture with no 9-slice margin, which tiles the whole frame",
              lambda: CARD_LAYERS[1].__setitem__("margin", saved_margin),
              "repeats rather than stretching")
 
-    # DERIVED from the box, not typed. A literal 90 exceeded half of a 150-tall
-    # card and stopped exceeding half of a 200-tall one the moment the cards grew
-    # - the injection went quiet and the check looked green for the wrong reason.
-    # RESTORED TO THE SAVED VALUE, not to a literal. This said 18 - correct on
-    # the day it was written and silently WRONG the moment the shipped margin
-    # became 30: the injection quietly reset the real layout to the old number
-    # and left the build with the very fault check 18 exists to catch.
+    # DERIVED from the box, not typed: a literal stops exceeding half the box
+    # when the cards grow, and the check looks green for the wrong reason.
+    # RESTORED TO THE SAVED VALUE, not to a literal: a literal restore resets
+    # the real layout to an old number and leaves the build with the very
+    # fault check 18 exists to catch.
     saved_margin_half = CARD_LAYERS[1]["margin"]
     CARD_LAYERS[1]["margin"] = min(CARD_W, CARD_H) // 2 + 10
     injected("a 9-slice margin wider than half the box it fills",
@@ -10569,17 +10227,16 @@ def selftest():
 
     global ROW_PITCH
     saved_pitch = ROW_PITCH
-    # DERIVED, not typed. A literal 60 was past the alert bar when the pool was
-    # 15 rows in a 736-tall panel; at 10 rows in a 900-tall one it is SMALLER than
-    # the real pitch, so the injection would have stopped injecting anything and
-    # the check would have looked green for the wrong reason. One pitch of the
-    # whole available height overruns for any pool of two or more rows.
+    # DERIVED, not typed: a literal pitch can be SMALLER than the real one, and
+    # then the injection injects nothing and the check looks green for the
+    # wrong reason. One pitch of the whole available height overruns for any
+    # pool of two or more rows.
     ROW_PITCH = PANEL_LAYOUT["ic_alert"][1] - ROWS_Y
     injected("a row pool that overruns the alert bar",
              lambda: globals().__setitem__("ROW_PITCH", saved_pitch),
              "past the alert bar")
 
-    # DERIVED: put the pager back up among the rows, wherever those now end.
+    # DERIVED: put the pager back up among the rows, wherever those end.
     saved_pager = PANEL_LAYOUT["ic_page_prev"]
     PANEL_LAYOUT["ic_page_prev"] = (saved_pager[0], ROWS_Y, saved_pager[2],
                                     saved_pager[3])
@@ -10653,7 +10310,7 @@ def check_law_art(lua=None):
         want.update("%s.%s" % (cat, o[0]) for o in options)
     out += ["no panel picture for law %s" % k for k in sorted(want - set(art))]
     out += ["ICUI.LAW_ART names %s, which is no law" % k for k in sorted(set(art) - want)]
-    # THE GOVERNMENT CARDS' PICTURES, out of the same folder (2026-10-03).
+    # THE GOVERNMENT CARDS' PICTURES, out of the same folder.
     model = open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign", "mod",
                               "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
     govs = set(re.findall(r'"(\w+)"', re.search(r"IC\.GOV_ORDER = \{([^}]*)\}", model).group(1)))
@@ -10672,8 +10329,7 @@ def check_law_art(lua=None):
         return out + ["cannot check the law pictures: no ui pack in %s" % GAME_DATA]
     out += ["law picture %s is in no ui pack" % (d.group(1) + v + ".png")
             for k, v in sorted(art.items()) if d.group(1) + v + ".png" not in have]
-    # A DWARF COURT'S CARDS (author, 2026-10-05: "government dwarf uses chaos dwarf
-    # icons"): one Dwarf picture per government, from CA's ui packs and no Chaos
+    # A DWARF COURT'S CARDS: one Dwarf picture per government, from CA's ui packs and no Chaos
     # Dwarf art. The baked file's name says nothing of its source, so
     # the race-art scan can never see this one.
     dart = dwf_gov_art()
@@ -10683,7 +10339,7 @@ def check_law_art(lua=None):
             for k, v in sorted(dart.items()) if CHD_ART.search(v.lower())]
     out += ["Dwarf card picture %s is in no ui pack" % v
             for k, v in sorted(dart.items()) if v not in have]
-    # AND ITS LAW CARDS, the same way (author, 2026-10-05).
+    # AND ITS LAW CARDS, the same way.
     lart = dwf_law_art()
     out += ["no Dwarf picture for law %s" % k for k in sorted(want - set(lart))]
     out += ["DWF.art.law_art names %s, which is no law" % k for k in sorted(set(lart) - want)]

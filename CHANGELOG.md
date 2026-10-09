@@ -5,6 +5,31 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-09 - build 14D517DD
+
+Deployed 2026-10-09. MD5 `14D517DD1951F8FDBC626706538718AA`, 15,185,867 bytes. A cleanup pass
+against an outside audit of the text, the colours and the comments. Not yet seen in game.
+
+- **Refused buttons grey out on a Chaos Dwarf court too.** They kept CA's red plate with red
+  text and looked clickable.
+- Warning text on list rows is readable: the row wash is darker, and the release gate now
+  measures every ink, not only cream.
+- Empty pickers and an empty mission list say why they are empty and what to do.
+- Dial crests, Governors plates and the pager no longer click with nothing behind them.
+- A held seat's rim is still; only a term ending this turn or next breathes. The government
+  icon glows only while the court is moving toward a new government.
+- Section headings are 24px against 20px card names. Government cards are left-aligned
+  under a centred name.
+- "Change Doctrine" is now "New Government"; "-> 5/6" reads "5 of 6"; "lvl" reads "rank".
+- "Overseer" is now "Governor" on the party cards and the Governors list.
+- An empty seat says "Vacant" once and shows what the seat grants when filled. The waiting
+  line ("Last holder waits 3 turns") no longer overruns its cell.
+- The law vote bar uses CA's own green and red.
+- Mission and event text: "Its card names both" rewritten.
+- README and docs: the move, slider and switch counts corrected.
+- Code comments: dates, plan references and history notes cut to the rule they carry.
+  Every file compared code-identical before and after.
+
 ## 2026-10-06 - build F4CF5CA4
 
 Deployed 2026-10-06. MD5 `F4CF5CA4DFA28C4FF9638E42B8BE3EA3`, 15,087,079 bytes. Covers the Dwarf
@@ -161,7 +186,7 @@ The detail is in section 8 of `docs/history/HANDOFF_20261002_IRON_COURT_KNOWN_BU
   one holder inside the list's clip window, and scrolling only moves the holder, every frame.
   Before, seven cards were redrawn for each new scroll position, which on the Zharr Exchange
   measured 25-200ms a redraw. Card lines already on screen are no longer rewritten on a refresh.
-- **Fixed:** backing out of a candidate list the same length as the Provinces list brought
+- Fixed: backing out of a candidate list the same length as the Provinces list brought
   the Provinces list back still scrolled.
 
 ## 2026-10-02 - build DE2E446C
@@ -192,14 +217,14 @@ Deployed 2026-10-01. The detail is in section 13 of
 - **The Governors column scrolls.** CA's own scrolling list, with the mouse wheel and a slider,
   on all three pages; the pager is gone.
 - **Candidates sort** by Available, Rank or Influence.
-- **Text pass** against CA's own writing style: about seventy strings rewritten, "overseer"
+- Text pass against CA's own writing style: about seventy strings rewritten, "overseer"
   became "governor" and "house" became "party" wherever they meant the court's role.
 
 ## 2026-10-01 - build 92AF83D6
 
 Deployed 2026-10-01. MD5 `92AF83D6CE748B6E9A2565F53DAAC8A1`, 9,740,671 bytes, 1,795 files.
 
-- **One HUD button for the author's mods.** With two or more of The Iron Court, The Great
+- **One top-bar button for the author's mods.** With two or more of The Iron Court, The Great
   Guilds and the Zharr Exchange installed, one button beside the top bar replaces their
   three. Hovering it unfolds their buttons in a column on a plate; moving away folds them
   back. With one of them installed, nothing changes. The same hub file ships in each mod,
@@ -218,7 +243,7 @@ The detail is in section 12 of `docs/history/HANDOFF_20260930_IRON_COURT_GOVERNO
   Clearing the choice, another page, another tab or closing the court turns it off, and the
   court only turns off an overlay it lit. Probed in game first; seen working with the court open.
 - **New setting: settlement levels per point of governor weight.** A Custom slider, 1 to 5,
-  default 2 - the rule as it shipped. Every difficulty keeps 2, and an older save plays at 2.
+  default 2, the rule as it shipped. Every difficulty keeps 2, and an older save plays at 2.
 - Harness 853 -> 855 checks, 958 -> 965 mutants, 0 unexplained.
 
 ## 2026-10-01 - build 032D28A3
@@ -266,11 +291,11 @@ the spec in `docs/design/`.
 - **Turn 1** puts a leaderless party's lord in the recruitment pool, not in the field, and a
   lord hired from it starts at the court's recruit rank.
 - **Make Peace** fits its button and has its own tooltip; **Escape** closes the court first.
-- **Found by the final review:** each redraw of the Governors tab asked every party what it
-  would take once per pin and once per row, a freeze of seconds per click in a large realm -
-  now once per redraw; and the column row's lines crossed its frame - a rail check measured off
+- Found by the final review: each redraw of the Governors tab asked every party what it
+  would take once per pin and once per row, a freeze of seconds per click in a large realm.
+  It is now once per redraw. The column row's lines crossed its frame; a rail check measured off
   CA's art now refuses that.
-- **Cleanup:** the old Governors list's row rim, its empty-seat branch and its column headers
+- Cleanup: the old Governors list's row rim, its empty-seat branch and its column headers
   are removed, with the rim's art.
 - Harness 804 -> 852 checks, 833 -> 954 mutants, 0 unexplained. Owed in game: CA's own map
   tooltips with the court open, and whether a settlement click reaches the settlement.
@@ -288,7 +313,7 @@ the specs in `docs/design/`.
   save format did not change.
 - **Civil missions.** A fifth Intrigue column. Send an Envoy (120 influence) to one of your
   provinces for five turns of +6 control, +20% armaments, +20% raw materials or 15% fewer
-  labourers lost - four new effect bundles whose values the generator reads out of
+  labourers lost: four new effect bundles whose values the generator reads out of
   `IC.TUNE`. Send Diplomats (100 influence) to a faction you have met for +4 on CA's -6..+6
   diplomatic bonus; that faction then rests for five turns, the court string's new
   thirteenth section.
@@ -299,7 +324,7 @@ the specs in `docs/design/`.
   and pins a party-coloured marker to each province you hold on the live campaign map, with
   CA's own world-space callbacks. Choosing a party, clicking a marker and closing on turn end
   are still to come.
-- **Found by the final review:** the Diplomats bonus was first written with its factions the
+- Found by the final review: the Diplomats bonus was first written with its factions the
   wrong way round, which would have raised your regard for them instead of theirs for you.
   All five of CA's own calls put the one who acts first; fixed before this build left the
   author's machine.
@@ -315,7 +340,7 @@ the game's script logs read, and five fresh code reviewers. The detail is in the
 of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md` (16E76FC3) and in
 `docs/history/HANDOFF_20260929_IRON_COURT_FULL_SWEEP.md` (the sweep).
 
-- **The four leftovers** (16E76FC3): a new campaign or a confederation no longer opens on a
+- The four leftovers (16E76FC3): a new campaign or a confederation no longer opens on a
   Trait Gained card for every man; a plot that lands bursts over its target's card; a gift
   says the loyalty it really gives; a governor's tooltip says control.
 - **Confederation fixed.** Absorbing a Chaos Dwarf faction whose own court had run a turn
@@ -327,7 +352,7 @@ of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md` (16E76FC3) and 
   move rolled worse than the same move made by the player (unseat 50% -> 28%).
 - **Weight follows a split.** Seats held by men who leave in a Crown split move their weight
   to the new party instead of staying with the Crown for good.
-- **The rest** (fourteen more, all in the patch notes): the control bonus now changes on the
+- The rest (fourteen more, all in the patch notes): the control bonus now changes on the
   turn a split moves it; a breaking party reads SECEDES 1 whatever its count or business; the
   page counter reaches the last page; PLOTTING only where a party can plot; the Forge
   Accident card says 38, not 30; Refuse on a post already given away is a refusal; an offer
@@ -366,9 +391,9 @@ the last six addenda of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYE
   lapsed demand says why; the Crown's band changes the moment a move changes it; rebel
   courts join the rotation; a failed plot flashes ash grey, not the red of a held seat; two
   flashes or bursts in quick succession no longer cut each other short.
-- **Fixed** (1BE494B4): the influence plate stayed on screen after the character panel
+- Fixed (1BE494B4): the influence plate stayed on screen after the character panel
   closed.
-- **Tests.** Harness 771 checks, mutation runner 760 mutants, all caught. `gen_iron_court.py
+- Tests. Harness 771 checks, mutation runner 760 mutants, all caught. `gen_iron_court.py
   --selftest` had failed since C0E394F5 on a trait count that never learned the member
   traits; it now counts them and checks every trait wears a category the pack ships.
   Not yet seen in game: the trait pictures (the Trait Gained card may not read the
@@ -386,7 +411,7 @@ Deployed 2026-09-28. MD5 `3DFB28D14E443B25615B8C703993D221`, 9,382,627 bytes. It
   follow the Fill button's own plan (rank, one post per man, the claimed-seat rule, and for
   the player's men the seat's influence), so a young court whose every seat is empty for
   want of influence no longer glows every turn. The summary still counts every empty seat.
-- **Tests.** A full mutation run (629 mutants) caught everything but two stale anchors,
+- Tests. A full mutation run (629 mutants) caught everything but two stale anchors,
   both retargeted onto the rewritten lines and caught.
 
 ## 2026-09-28 - build B6E69375
@@ -410,7 +435,7 @@ is in the addenda at the end of `docs/history/HANDOFF_20260925_IRON_COURT_MCT_MU
   joins with influence by level (100 to level 5, 200 at 12, 300 at 20, 400 at 30).
 - **The Crown's block** has an icon on every line and rules between them; portrait frames
   are thicker.
-- **Tools.** `deploy_iron_court.py` backs the live pack up, byte-compares the copy, can wait
+- Tools. `deploy_iron_court.py` backs the live pack up, byte-compares the copy, can wait
   for the game to close (`--wait`), ships the last build (`--deploy-only`), has a
   `--selftest`, and refuses an unknown argument. `check_lua_api.py` flags an anchored
   `string.find` pattern, which returns nothing at all in WH3's Lua. The harness's
@@ -440,12 +465,12 @@ feedback design and plan are in `docs/design/` and `docs/plans/`, argued from
 - **Portrait frames:** the Hell-Forge's bronze unit-card frame on every portrait.
 - **The Steward of the Ash Fields** now cuts Hobgoblin upkeep by 15% (5% dearer while
   vacant) instead of adding Growth.
-- **Ten bug fixes** from the "what else is missing" review: AI courts wiped after a load,
+- Ten bug fixes from the "what else is missing" review: AI courts wiped after a load,
   Ruthless never showing the last warning, dead courts padding the rotation, the sabotage
   message never firing, Chaos Dwarf news reaching other races, switches not fully off, the
   AI ruler skipping its gift on plot turns, and the governor tooltip ignoring absence.
-- **Tests:** harness 713 checks, 560 mutants all anchored. A fresh final review found five
-  faults the harness had been green over - each now has a check that failed first.
+- Tests: harness 713 checks, 560 mutants all anchored. A fresh final review found five
+  faults the harness had been green over, and each now has a check that failed first.
 
 ## 2026-09-27 - build 5B0F8999
 
@@ -471,8 +496,8 @@ courts design and plan are in `docs/design/` and `docs/plans/`.
 - **A confederated court brings its loyalty,** weighted by its parties' weight and held to
   25-75.
 - **Rebel armies are Chaos Dwarf armies.** A party that leaves with no lord of its own no
-  longer rises as a copy of the ruler's stack. The host is rolled role by role - line,
-  missile troops, hobgoblin screen, cavalry, beasts, war machines - with the units and
+  longer rises as a copy of the ruler's stack. The host is rolled role by role (line,
+  missile troops, hobgoblin screen, cavalry, beasts, war machines) with the units and
   weights of CA's Will of Hashut crisis, no more than two of one unit. A lord who leaves
   brings his own army, filled out the same way. Every other Chaos Dwarf faction now thinks
   less of the rebels too.
@@ -644,7 +669,7 @@ The last deployed 2026-09-18, 8,672,151 bytes.
 - **Three turns of warning** before a secession, which had one card five turns out, and
   before your own party splits, which had none.
 - If the Crown's own loyalty falls far enough, your men split off into a party of their own.
-- The panel no longer hides the game's HUD to clear the screen; hiding it flooded every
+- The panel no longer hides the game's interface to clear the screen; hiding it flooded every
   other mod with UI errors. One build on 2026-09-16 broke the panel on first open and the
   game went back to the 2026-09-15 build until it was fixed.
 

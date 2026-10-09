@@ -259,8 +259,7 @@ def run_lua_plot_grid():
             '    local c = ICUI.PANEL_XY["ic_plotcat_" .. i]',
             '    print(c[1] .. "," .. c[2])',
             "end",
-            # EACH RACE'S OWN GRID (plan 2026-10-04 phase 4), as use_plot_grid
-            # copies it in at open.
+            # EACH RACE'S OWN GRID, as use_plot_grid copies it in at open.
             "for _, rk in ipairs(IC.RACE_ORDER) do",
             '    print("=" .. rk)',
             "    for _, p in ipairs(ICUI.PLOT_GRIDS[rk].xy) do",
@@ -298,8 +297,8 @@ def plot_stub(G2, cats):
 
     The moves themselves do not matter, only the counts: the grid is arithmetic
     on them and nothing in the block reads a move's own fields. Per race, since
-    a race's own move (the Dwarf weregild) sits in that race's grid only (plan
-    2026-10-04 phase 4); a stub with no RACE_ORDER stops the whole file loading.
+    a race's own move (the Dwarf weregild) sits in that race's grid only; a
+    stub with no RACE_ORDER stops the whole file loading.
     """
     return ["IC = {PLOT_CATS = {%s}, RACE_ORDER = {%s}}"
             % (", ".join('{key = "%s"}' % c for c, _n in cats),
@@ -726,12 +725,10 @@ def _stub_members(src, ctor):
 def check_character_stub(harness_src, docs=None):
     """A stub may not invent a method the engine does not have.
 
-    THE BUG THIS EXISTS FOR: the character stub carried `is_dead`, which is a
-    FACTION member - CA documents it once, under FACTION_SCRIPT_INTERFACE, and
-    the character's list carries is_wounded and no is_dead at all. So the
-    shipped ic_dead handler raised on its fourth line every time an officer
-    died, and 259 checks stayed green because the harness answered a question
-    the engine would have thrown on.
+    Example: `is_dead` is a FACTION member (CA documents it once, under
+    FACTION_SCRIPT_INTERFACE; the character's list has is_wounded and no
+    is_dead). A character stub that answers it lets a handler pass every check
+    and raise in game.
 
     check_lua_api.py cannot catch this class AT ALL: it resolves cm:, core:,
     bm: and common. - singletons - and every receiver in the court model is a
@@ -848,7 +845,7 @@ def check_tune_reads(model_src, sources):
     A setting is registered three times - the MCT page, IC.TUNE, IC.TUNE_ORDER -
     and the court harness holds those against each other. This is the fourth
     hit: a read. Without one the control renders, toggles, freezes into the save
-    and changes nothing, which is how the Great Guilds shipped one (2026-09-12).
+    and changes nothing.
     `sources` are the campaign scripts' texts, the model's included; the two
     registration blocks are cut out first, since they name every key.
     """
@@ -903,7 +900,7 @@ def _selftest():
 
 
 def check_fx_icons(ui):
-    """ICUI.FX_ICONS against the bands' effects (2026-09-28).
+    """ICUI.FX_ICONS against the bands' effects.
 
     The Crown's block picks an effect line's icon by the short label the line
     starts with. A label missing from the table draws a bare line on whichever
@@ -940,7 +937,7 @@ def check_trait_keys(lua, traits):
     Two halves. The literal loop catches a hand-written "derpy_ic_house_..."
     string. Since the keys are built (IC.rkey / IC.key), the literals are
     normally zero, so the builder-presence loop is what fails if a builder is
-    renamed or dropped (controller ruling G6)."""
+    renamed or dropped."""
     problems = []
     for key in sorted(set(re.findall(r'"(derpy_ic_(?:house|title)_\w+)"', lua))):
         if key.endswith("_"):
@@ -955,8 +952,8 @@ def check_trait_keys(lua, traits):
 
 
 def check_race_tables(lua, prefix="IC", race="chd"):
-    """<prefix>.ORIGINS and <prefix>.OFFICES against the generator's race (plan
-    2026-10-04 phase 1). Returns (problems, seq): seq is the Lua's (office slug,
+    """<prefix>.ORIGINS and <prefix>.OFFICES against the generator's race.
+    Returns (problems, seq): seq is the Lua's (office slug,
     tier) pairs in its own order, which the standing-band check reuses.
 
     THE FACTION BESIDE EACH ORIGIN is the half nothing else looks at: a key that
@@ -1020,9 +1017,7 @@ def verify():
     built = G.build()
 
     # 0. THE ROLLERS HAVE ONE CALLER EACH. See check_rollers: a legendary lord
-    #    dealt a random birthplace is silent, and the four sites that could deal
-    #    him one were found by grepping after each fix rather than by anything
-    #    refusing to pack.
+    #    dealt a random birthplace is silent, and nothing else refuses to pack it.
     if os.path.isfile(MODEL_LUA):
         problems.extend(check_rollers(io.open(MODEL_LUA, encoding="utf-8").read()))
     else:
@@ -1030,19 +1025,16 @@ def verify():
 
     # 0b. NO STUB INVENTS A METHOD. See check_character_stub: the harness is
     #     the only thing that makes this model's character and faction calls
-    #     succeed offline, and for the life of the file it answered is_dead on
-    #     a character - a faction member - so the death handler raised in game
-    #     while every check here was green.
+    #     succeed offline, so a method it invents passes here and raises in game.
     if os.path.isfile(HARNESS):
         problems.extend(check_character_stub(
             io.open(HARNESS, encoding="utf-8").read()))
     else:
         problems.append("the court harness is missing, so no stub was checked")
 
-    # 0c. LOYALTY HAS ONE WRITER. See check_loyalty_writers: it had six, three
-    #     of them with the number written inline, so the biggest levers in the
-    #     system were the only ones IC.TUNE did not name and the breakdown could
-    #     not explain.
+    # 0c. LOYALTY HAS ONE WRITER. See check_loyalty_writers: a second writer
+    #     with an inline number is a lever IC.TUNE does not name and the
+    #     breakdown cannot explain.
     if os.path.isfile(MODEL_LUA):
         problems.extend(check_loyalty_writers(
             io.open(MODEL_LUA, encoding="utf-8").read()))
@@ -1155,9 +1147,6 @@ def verify():
                     "the lowest control band starts at %d, so a court below "
                     "that lands in no band at all" % want[-1][1])
 
-        # 2b. (THE HIRE LIST, removed 2026-09-28 with the hire action: a new
-        #     man comes from the game's recruitment panel now.)
-
         # 2c. THE STANDING BANDS ARE BUILT BY CONCATENATION, so no literal in
         #     the Lua names them and check 3's grep cannot reach them. A
         #     force_add_trait against a key with no character_traits row fails
@@ -1190,10 +1179,10 @@ def verify():
                 if key not in declared:
                     problems.append("the Lua stamps standing band %s, which no "
                                     "character_traits row declares" % key)
-            # THE DWARF BANDS (plan 2026-10-04 phase 2): the same stem with the
-            # race's infix, one per tier THE DWARF LUA declares - read out of
-            # that file by check_race_tables, not out of the generator, for the
-            # reason above (pre-flight D-2). Its problems are the Dwarf race's
+            # THE DWARF BANDS: the same stem with the race's infix, one per
+            # tier THE DWARF LUA declares, read out of that file by
+            # check_race_tables and not out of the generator, for the reason
+            # above. Its problems are the Dwarf race's
             # origin and office drift.
             dwf_problems, dwf_seq = check_race_tables(
                 io.open(DWARF_LUA, encoding="utf-8").read(), "DWF", "dwf")
@@ -1259,14 +1248,10 @@ def verify():
                                 "turn-1 CTD" % call)
 
     # 6b. SetStateText writes the CURRENT STATE ONLY, and its second argument is a
-    #     stringtable key rather than a state name. It produced two separate
-    #     player-visible faults on 2026-09-11 and neither logged a script error:
-    #     tab captions that blanked on mouseover, and a GOVERNORS tab that kept
-    #     drawing the INTRIGUE row, because the redraw landed while the cursor was
-    #     still over the component so the new string went to `hover` while
-    #     `standard` kept the old one. SetText writes every state. The Great
-    #     Guilds documents this in its own file header and it still got copied
-    #     wrong here, so the gate refuses it rather than trusting a comment.
+    #     stringtable key rather than a state name. A redraw under the cursor
+    #     writes `hover` while `standard` keeps the old string, so captions blank
+    #     on mouseover, and no script error is logged. SetText writes every state,
+    #     and the gate refuses SetStateText outright.
     #
     #     Comments are stripped first: this very file describes the call it bans,
     #     and a scan that skips that step fires on its own prose.
@@ -1287,7 +1272,6 @@ def verify():
     #     id off it needs UIComponent TWICE. A single wrap throws, and because the
     #     walk lives inside a pcall it throws SILENTLY - leaving the row index nil
     #     and every button in the panel dead while the clicks register perfectly.
-    #     The Great Guilds and the Zharr Exchange each shipped this once.
     #
     #     The harness cannot catch it: its fake :Parent() returns the component
     #     itself, so one wrap and two behave identically there. Only the source
@@ -1309,7 +1293,7 @@ def verify():
     #     uicomponent:SetCanResizeHeight and uicomponent:SetCanResizeWidth."
     #     Without them the engine may keep the component's authored size and
     #     report nothing, which looks exactly like a standing bar whose segments
-    #     are all one width and a scroll thumb that never shortens. Both shipped.
+    #     are all one width and a scroll thumb that never shortens.
     #
     #     The harness asserts the permissions inside its Resize stub, but only on
     #     paths a check drives; this catches an unexercised call site too.
@@ -1375,8 +1359,8 @@ def verify():
 
     # 8a. NO NUMBER ON THE LEFT OF AN ARITHMETIC OPERATOR in a function over 255
     #     constants. The game's compiler loads that literal into a register the
-    #     right operand then overwrites: PLOT_H shipped as -11 and stacked every
-    #     move card, while stock lua.exe - the harness, 8d - computed 176.
+    #     right operand then overwrites: PLOT_H came out -11 in game and stacked
+    #     every move card, while stock lua.exe (the harness, 8d) computed 176.
     for script in SCRIPTS:
         if not os.path.isfile(script):
             continue
@@ -1497,17 +1481,22 @@ def verify():
                             "event %s is %s in the model and %s in the "
                             "generator (index, persistent, secondary)"
                             % (_slug, lua_ev[_slug], gen_ev[_slug]))
+                # THE DWARF RUN. The model adds DWF.EVENT_OFFSET to every
+                # index; a number off the generator's names no record, or
+                # names the Chaos Dwarf one and draws its picture again.
+                _dsrc = (io.open(DWARF_LUA, encoding="utf-8").read()
+                         if os.path.isfile(DWARF_LUA) else "")
+                _off = re.search(r"^DWF\.EVENT_OFFSET\s*=\s*(\d+)", _dsrc, re.M)
+                if not _off or int(_off.group(1)) != G.RACE_EVENT_OFFSET["dwf"]:
+                    problems.append(
+                        "DWF.EVENT_OFFSET is %s in the Dwarf Lua and %d in the "
+                        "generator - a Dwarf court's cards name the wrong records"
+                        % (_off and _off.group(1), G.RACE_EVENT_OFFSET["dwf"]))
 
             # 8b2. WHAT A VACANT CARD TAKES OFF ITSELF.
             #
-            #      RE-AIMED 2026-09-17. It used to derive which cells a vacant
-            #      card SHIFTS, from the portrait's own y band, because a vacant
-            #      seat hid its face and the text moved into the gap. No seat
-            #      hides its face now - a vacant one wears ICUI.SILHOUETTE - so
-            #      there is no shift and nothing to derive.
-            #
-            #      THE HAZARD THAT REPLACED IT is the one this panel has been
-            #      bitten by before: cards are RECYCLED, so a seat that just
+            #      A vacant seat wears ICUI.SILHOUETTE, so nothing shifts. The
+            #      hazard is that cards are RECYCLED, so a seat that just
             #      emptied is drawn on the component that held the last officer,
             #      and a layer nobody actively clears keeps HIS art. The
             #      silhouette covers the face; the house plate and the colour
@@ -1535,9 +1524,8 @@ def verify():
                         "nothing draws a blank white square, silently")
 
             # 8c. THE MOVE GRID AND ITS COLUMN HEADINGS. Both are derived
-            #     from IC.PLOTS twice - once in gen_ic_ui.py and once in the
-            #     panel - and until this check they were never compared. The
-            #     headings are excused from the literal comparison above
+            #     from IC.PLOTS twice, once in gen_ic_ui.py and once in the
+            #     panel, and only this check compares them. The headings are excused from the literal comparison above
             #     BECAUSE of this, so if this stops running they are unchecked.
             grid = run_lua_plot_grid()
             if grid is None:
@@ -1786,7 +1774,7 @@ def verify():
         problems += U2.check()
         built_xml = U2.race_xml()
         problems += U2.check_race_files()
-        # 9d. THE DWARF PANEL (plan 2026-10-04 phase 3). The Lua's copy of every number
+        # 9d. THE DWARF PANEL. The Lua's copy of every number
         #     the Dwarf court shares with the generator, and every picture the Lua can
         #     name at runtime, because a SetImagePath to a path nothing ships draws a
         #     blank square and says nothing.
