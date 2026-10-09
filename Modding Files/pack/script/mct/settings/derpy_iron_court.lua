@@ -259,41 +259,47 @@ local PRESET_VALUES = {
 -- LAST: get_option_by_key answers nil for an option not yet registered, and the
 -- loop below would then lock nothing. Every number belongs to the difficulty
 -- unless it is Custom. In a campaign only the live switches stay open.
+-- PCALLED: MctFinalized fires while MCT tears its panel down, and set_locked redraws the
+-- option. A dropdown whose page was opened and then left still holds its dead component,
+-- finds no list in it and throws (in game, 2026-10-09). MCT sets the flag before the
+-- redraw, so the lock stands; only the redraw is lost, and the page is rebuilt on open.
+local function lock(o, on, why) pcall(o.set_locked, o, on, why) end
+
 local function relock(preset)
     local custom = preset == "custom"
     for i = 1, #NUMBERS do
         local o = m:get_option_by_key(NUMBERS[i][1])
         if o then
             if IN_CAMPAIGN then
-                o:set_locked(true, LOCK_REASON)
+                lock(o, true, LOCK_REASON)
             elseif not custom then
                 local set = PRESET_VALUES[preset] or {}
                 local v = set[NUMBERS[i][1]]
                 if v == nil then v = NUMBERS[i][3] end
-                o:set_locked(true, string.format("Your difficulty sets this to "
+                lock(o, true, string.format("Your difficulty sets this to "
                     .. "%s. Choose Custom to edit it.", tostring(v)))
             else
-                o:set_locked(false)
+                lock(o, false)
             end
         end
     end
     for i = 1, #STARTS do
         local o = m:get_option_by_key(STARTS[i][1])
         if o then
-            if IN_CAMPAIGN then o:set_locked(true, LOCK_REASON) else o:set_locked(false) end
+            if IN_CAMPAIGN then lock(o, true, LOCK_REASON) else lock(o, false) end
         end
     end
-    if IN_CAMPAIGN then o_preset:set_locked(true, LOCK_REASON) end
+    if IN_CAMPAIGN then lock(o_preset, true, LOCK_REASON) end
     if not IN_CAMPAIGN then return end
     for i = 1, #SWITCHES do
         local o = m:get_option_by_key(SWITCHES[i][1])
         if o then
             if in_mp then
-                o:set_locked(true, MP_REASON)
+                lock(o, true, MP_REASON)
             elseif SWITCHES[i][5] then
-                o:set_locked(false)
+                lock(o, false)
             else
-                o:set_locked(true, LOCK_REASON)
+                lock(o, true, LOCK_REASON)
             end
         end
     end

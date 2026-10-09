@@ -1313,11 +1313,17 @@ function ICUI.trait_tip(trait, n)
     if not trait then return "" end
     local lines = {trait.name}
     if n then
-        lines[#lines + 1] = string.format("%s loyalty per turn, as it stands",
-                                          ICUI.signed(n))
+        lines[#lines + 1] = string.format("%s loyalty per turn", ICUI.signed(n))
     end
+    -- A FLAT RULE ("-1 a turn") ONLY REPEATS THE LIVE NUMBER ABOVE IT, so it is
+    -- shown only when there is no live number. A rule with a condition stays:
+    -- it says what moves the number. tonumber and not an anchored find, which
+    -- returns nothing in WH3; no plain flag either, which corrupts the string
+    -- library there (" a turn" has no magic characters).
     local rule = IC.trait_rule(trait)
-    if rule then lines[#lines + 1] = rule end
+    local at = rule and string.find(rule, " a turn")
+    local flat = at and tonumber(string.sub(rule, 1, at - 1)) ~= nil
+    if rule and not (n and flat) then lines[#lines + 1] = rule end
     if trait.blurb and trait.blurb ~= "" then
         lines[#lines + 1] = ""
         lines[#lines + 1] = trait.blurb
@@ -4054,8 +4060,8 @@ function ICUI.act_check(faction, key, slug)
     end
     local target = IC.party_leader(faction, slug)
     if not target then
-        return false, string.format("%s has no spokesman. There is no one "
-                                    .. "to aim it at.", name)
+        return false, string.format("%s has no leader, so this move has no one "
+                                    .. "to target.", name)
     end
     local may, why = IC.may_target(faction, move.plot, target)
     if not may then return false, ICUI.reason_text(why) end
@@ -5136,8 +5142,13 @@ function ICUI.draw_court(panel, faction, court, px, py)
     local own_share = IC.sufferance(faction)
     if own_share then
         warn = string.format(
-            "Your own party holds %d%% of the court. Below %d%% you rule on sufferance.",
-            math.floor(own_share + 0.5), IC.TUNE.sufferance_share)
+            "Your own party holds only %d%% of the court.", math.floor(own_share + 0.5))
+        -- WHAT A LOW SHARE COSTS, when it costs anything: IC.tick_pressure's
+        -- rule, with the switches and the number it reads.
+        if IC.TUNE.pressure and IC.TUNE.secession ~= false then
+            warn = warn .. string.format(" Below %d%%, the strongest rival may "
+                .. "start a countdown to leave.", IC.TUNE.pressure_below)
+        end
     end
     -- ONE CARD PER PARTY, every party, in the court's own order, in a list that
     -- scrolls (ICUI.list_build). court_keys is the list the cards were drawn
@@ -6313,16 +6324,16 @@ ICUI.HELP = {
         "{@party}Every lord and hero belongs to a party. Yours is the Crown; the others are rivals.",
         "{@trait}Rival parties are chosen at random on turn one. Each has a name, two party traits and a leader with his own trait.",
         "{@bullet}A party's strength comes from the seats it holds, the provinces it governs and the influence of its men.",
-        "{@crown}A party's share of the court is its strength against everyone's. The Crown's share is your control of the court.",
+        "{@crown}A party's share is its strength as a part of the whole court. The Crown's share is your control of the court.",
         "{@bullet}Each party card shows its share and loyalty. Choose a rival's card, then use the action bar below.",
         "{@confed}A confederated Chaos Dwarf house joins as its own party, keeping roughly its former loyalty.",
         "{@court}Court: the parties and the Crown. {@offices}Offices: the seats. {@governor}Governors: your provinces. {@rumour}Intrigue: moves you can pay for.",
-        "{@bullet}Record: events, newest first. {@petition}Petitions: the parties' demands and offers.",
+        "{@bullet}Record: events, newest first. {@petition}Petitions: the parties' demands and offers. {@crown}Laws: the realm's laws and votes.",
         "{@bullet}A marked tab needs your attention. The Iron Court button glows while anything needs an answer.",
     }},
     {title = "Influence", icon = "influence", lines = {
         "{@influence}Each man has his own influence. He needs it to hold office and spends it on Intrigue moves.",
-        "{@turns}Every man earns {@influence}{influence_trickle} a turn while he is not leading an army. A lord in the field with an army earns {@influence}{influence_trickle_general}.",
+        "{@turns}Every man earns {@influence}{influence_trickle} a turn while he is not leading an army. A lord leading an army earns {@influence}{influence_trickle_general}.",
         "{@offices}A seat pays its tier's wage every turn, and a governor earns {@influence}{governor_income} a turn.",
         "{@battle}Winning a battle pays the victor, more for a better victory. Taking a settlement pays {@influence}{settlement_influence}, and each rank gained pays {@influence}{rank_influence}.",
         "{@level}A lord or hero recruited during the campaign starts with influence based on his rank:",
@@ -6331,18 +6342,18 @@ ICUI.HELP = {
         "{@bullet}Influence never falls below zero. Failed moves still cost influence.",
     }},
     {title = "Loyalty", icon = "loyalty", lines = {
-        "{@loyalty}Party loyalty runs from 0 to 100 and starts at {loyalty_start}. The party card shows its change each turn.",
+        "{@loyalty}Party loyalty runs from 0 to 100 and starts at {loyalty_start}.",
         "{@offices}Each seat or province it holds: +{loyalty_gain_office} a turn. Holding none at all: {loyalty_drift_none} a turn.",
         "{@offices}An outsider sitting in the seat a party claims: {loyalty_affinity_snub} a turn, and {loyalty_snubbed} at once when you seat him.",
         "{@trait}Its two party traits and its leader's trait affect loyalty each turn. Hover a trait to see the current change.",
         "{@offices}Seating one of its men: +{loyalty_appointed} once. Dismissing one of its officers: {loyalty_dismissed}. A term ending costs nothing.",
         "{@death}One of its men dying: {loyalty_member_died}. {@battle}One of its men winning a battle: +{loyalty_battle_won}.",
-        "{@loyalty}Hover a party's loyalty on its card for this turn's change, line by line.",
+        "{@loyalty}Hover a party's loyalty on its card to see this turn's change, line by line.",
         "{@loyalty}You are warned when loyalty reaches {loyalty_warn} or below. Each card shows the party's mood: Loyal, Restless or Plotting.",
     }},
     {title = "Offices", icon = "offices", lines = {
-        "{@offices}The court has {seats} seats in {tiers} tiers. Higher tiers require more rank and influence, and pay more.",
-        "{@level}To take a seat, a man needs the rank and influence shown on its card.",
+        "{@offices}The court has {seats} seats in {tiers} tiers. Higher tiers pay more.",
+        "{@level}To take a seat, a man needs the rank and influence shown on its card:",
         "    The lowest tier asks rank {low_rank} and {@influence}{low_influence} influence; the highest asks rank {top_rank} and {@influence}{top_influence}.",
         "{@turns}A term lasts {term_turns} turns. The man then steps down at no cost and must wait {renew_wait} turns to return to that seat.",
         "{@party}Most seats have a party claim. Appointing one of its men pleases it; appointing an outsider angers it every turn.",
@@ -6355,7 +6366,7 @@ ICUI.HELP = {
     {title = "Governors", icon = "governor", lines = {
         "{@governor}Any man without a post can govern a province, regardless of rank or influence. A man can hold only one post.",
         "{@province}The Governors tab opens onto the map. Click a province's pin to choose its governor, or pick it in the list and click the check.",
-        "{@level}A governor adds control based on his rank. From rank 2, he also adds income.",
+        "{@level}A governor adds control based on his rank. From rank {gov_rank_income_per}, he also adds income.",
         "{@party}His party adds its own bonus. The governorship earns party loyalty just as a seat does.",
         "{@governor}A lord leading an army must be in his province to give governor bonuses. Other governors can serve from anywhere.",
         "{@province}Appoint a governor to issue edicts. Until then, the province's edict buttons are greyed out.",
@@ -6364,15 +6375,15 @@ ICUI.HELP = {
         "{@rebel}When a party leaves, it takes any province at {prov_defect_floor} loyalty or below, and every province its men govern.",
         "{@crown}Your capital's province never leaves. {@circuit}Use Ride the Circuit on Intrigue to raise every province's loyalty at once.",
         "{@bullet}A governorship adds to his party's strength: one per {levels_per_weight} settlement levels you hold in his province, never less than one.",
-        "{@bullet}That strength is earned: a new governor starts from nothing and gains {gov_weight_per_turn} a turn.",
+        "{@bullet}A new governor starts at zero strength and gains {gov_weight_per_turn} a turn until he reaches that amount.",
     }},
     {title = "The Crown", icon = "crown", lines = {
         "{@crown}The Crown's share measures your control. The box below the dial shows your share, control band and its effects.",
         "{@crown}There are five bands, from An Iron Grip on the Court down to The Court Is Not Yours.",
         "    The high bands add control and income and cut upkeep; the low ones take control away and raise upkeep.",
-        "{@bullet}Control rises as the Crown gains strength: seats and provinces held by Crown men, and influence in Crown hands.",
+        "{@bullet}Your share rises as Crown men gain seats, provinces and influence.",
         "{@bullet}It falls as rivals gain strength, or as Crown men lose seats, provinces or influence.",
-        "{@rebel}Below {pressure_below}% control, the strongest rival may begin a countdown each turn, regardless of loyalty.",
+        "{@rebel}While the Crown's share is below {pressure_below}%, the strongest rival may start a countdown to leave each turn, whatever its loyalty.",
         "{@secure}Secure Loyalty protects a party from this pressure.",
         "{@rebel}At {splinter_loyalty} Crown loyalty or below, your house begins to split. After a warning, some of its men form a new rival party.",
     }},
@@ -6413,7 +6424,7 @@ ICUI.HELP = {
         "{@turns}An offer lapses after {party_offer_turns} turns.",
         "{@battle}A claimed seat or equal shares can start a feud. For {party_feud_turns} turns, the two parties strike at each other.",
         "{@bullet}Back one side: +{arbit_side_loyalty} to it, and as much off the other. Make Peace: pay gold, and +{arbit_peace_loyalty} to both. Either ends the feud.",
-        "{@bullet}A card warns you one turn before some rival moves. Deal with the threat in time to stop them.",
+        "{@bullet}A card warns you one turn before a rival moves against you. Deal with it in time to stop the move.",
     }},
     {title = "Leaving the court", icon = "rebel", lines = {
         "{@rebel}A party with {secede_share}% of the court or more and {secede_loyalty} loyalty or less begins a countdown of {secede_turns} turns.",
@@ -7521,8 +7532,8 @@ function ICUI.picker_lines(faction, court)
         local loses = plotting and may
                       and IC.plot_costs_seat(faction, ICUI.pick.plot, cand.cqi)
         if loses then
-            tip = string.format("This payment may leave him short of the influence "
-                .. "the %s requires. He loses the seat as soon as he pays.",
+            tip = string.format("Paying leaves him short of the influence the %s "
+                .. "requires, and he loses that seat as soon as he pays.",
                 loc("effect_bundles_localised_title_" .. IC.office_bundle(loses, faction), loses))
         end
         local face = ICUI.portrait_path(cand.cqi)
@@ -8615,8 +8626,36 @@ function ICUI.toggle()
     if comp(ICUI.PANEL) then ICUI.close() else ICUI.open() end
 end
 
+-- FIRST IN THE CLICK QUEUE (Great Guilds player report, 2026-10-09: "click sound,
+-- nothing opens"). Since 9.1 lib_core calls listeners unprotected, so one mod's
+-- ComponentLClickUp handler that throws abandons every listener queued behind it,
+-- logging nothing - and the court's register at load and at the first tick, behind
+-- every earlier mod's. ICUI.click_first moves all four to the front in this order
+-- once they exist; the two with real bodies are pcall'd, so being first cannot make
+-- the court the handler that starves the rest.
+ICUI.CLICKS = {"ic_click", "ic_map_click", "ic_char_switch", "ic_pool_price_click"}
+
+function ICUI.click_first()
+    pcall(function()
+        local list = core.event_listeners.ComponentLClickUp
+        for k = #ICUI.CLICKS, 1, -1 do
+            for i = #list, 1, -1 do
+                if list[i].name == ICUI.CLICKS[k] then
+                    table.insert(list, 1, table.remove(list, i))
+                    break
+                end
+            end
+        end
+    end)
+end
+
+-- Named, so the harness can make a failed click throw again instead of vanishing.
+function ICUI.click_failed(id, err)
+    IC.warn("IRON COURT: a click on " .. tostring(id) .. " failed: " .. tostring(err))
+end
+
 function ICUI.register()
-    core:add_listener("ic_click", "ComponentLClickUp", true, function(context)
+    ICUI.on_click = function(context)
         local id = context.string
         if id == ICUI.BTN then
             -- NOT OPENED BETWEEN TURNS, but an open court can still be shut.
@@ -8736,11 +8775,16 @@ function ICUI.register()
                 ICUI.on_petition_click(context, false)
             end
         end
+    end
+    core:add_listener("ic_click", "ComponentLClickUp", true, function(context)
+        local ok, err = pcall(ICUI.on_click, context)
+        if not ok then ICUI.click_failed(context.string, err) end
     end, true)
 end
 
 cm:add_first_tick_callback(function()
     ICUI.register()
+    ICUI.click_first()
     ICUI.place_opener(1)
 end)
 

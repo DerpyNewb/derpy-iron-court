@@ -130,7 +130,7 @@ end
 -- THE LISTENERS, registered with the court's: the panel file calls
 -- ICUI.register from its first tick, and this wraps it.
 function ICUI.map_register()
-    core:add_listener("ic_map_click", "ComponentLClickUp", true, function(context)
+    ICUI.on_map_click = function(context)
         local id = context.string
         if string.match(id or "", "^" .. ICUI.GM_PIN .. "_%d+$") and comp(ICUI.PANEL) then
             ICUI.gm_pin_click(tonumber(string.match(id, "_(%d+)$")))
@@ -145,6 +145,10 @@ function ICUI.map_register()
         elseif id == "ic_gm_no" and comp(ICUI.PANEL) then
             ICUI.gm_no()
         end
+    end
+    core:add_listener("ic_map_click", "ComponentLClickUp", true, function(context)
+        local ok, err = pcall(ICUI.on_map_click, context)
+        if not ok then ICUI.click_failed(context.string, err) end
     end, true)
     core:add_listener("ic_map_char_selected", "CharacterSelected", true,
                       leave_on_select, true)

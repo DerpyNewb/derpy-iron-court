@@ -2577,8 +2577,17 @@ function IC.bg_of_character(character)
     return nil
 end
 
+-- THE MAN ON THE THRONE IS THE CROWN, whatever trade he was dealt: a generic or
+-- another mod's lord made faction leader is no legend, and his background put
+-- him in a rival party while a lesser man spoke for his own house.
+function IC.is_ruler(character, faction_key)
+    if not faction_key or not character or character:is_null_interface() then return false end
+    local cqi = IC.faction_leader_cqi(faction_key)
+    return cqi ~= nil and character:command_queue_index() == cqi
+end
+
 function IC.house_of_character(character, faction_key)
-    if IC.is_legend(character) then return IC.CROWN end
+    if IC.is_legend(character) or IC.is_ruler(character, faction_key) then return IC.CROWN end
     local origin = IC.origin_of_character(character)
     if origin and faction_key then
         local came_from = IC.faction_for_origin(origin)
@@ -5400,7 +5409,8 @@ function IC.splinter(faction_key)
         local list = faction:character_list()
         for i = 0, list:num_items() - 1 do
             local man = list:item_at(i)
-            if man and not man:is_null_interface() and not IC.is_legend(man) then
+            if man and not man:is_null_interface() and not IC.is_legend(man)
+                    and not IC.is_ruler(man, faction_key) then
                 local bg = IC.bg_of_character(man)
                 local party = bg and R.PARTY_OF_BG[bg]
                 if party then backed[party] = true end

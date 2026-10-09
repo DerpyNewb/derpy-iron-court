@@ -1141,9 +1141,15 @@ end
 -- every listener forever could not see that.
 core = {
     listeners = {},
+    -- AND CA'S QUEUE: core.event_listeners[event] is the list lib_core's dispatcher
+    -- walks in order, so a check can ask where in it a listener sits.
+    event_listeners = {},
     -- The game's UI is built unless a check says otherwise (ui_ready = false).
     is_ui_created = function() return core.ui_ready ~= false end,
-    add_listener = function(_self, name, _event, _cond, fn, persist)
+    add_listener = function(_self, name, event, cond, fn, persist)
+        core.event_listeners[event] = core.event_listeners[event] or {}
+        table.insert(core.event_listeners[event],
+                     {name = name, condition = cond, callback = fn, persistent = persist})
         if persist == true then
             core.listeners[name] = fn
         else
@@ -3354,6 +3360,49 @@ check("the man on the throne speaks for the Crown whatever he is", function()
         .. tostring(IC.party_leader(F, IC.CROWN)))
 end)
 
+check("the ruler is the Crown whatever trade he was dealt", function()
+    -- NO LEGEND ON THE THRONE: a generic lord, or another mod's (SCM's Brokk
+    -- Ironpick on Karak Norn, 2026-10-09), carries a rolled background like
+    -- anybody. Dealt a Forge trade he sat in the Forge while a lesser Crown man
+    -- spoke for the throne's own house.
+    IC.state = {}
+    turn = 1
+    local ruler = make_character(10, ANY_SEAT, "forge")
+    local other = make_character(11, ANY_SEAT, IC.CROWN)
+    make_faction(F, IC.CHD_SUBCULTURE, {ruler, other}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    assert(not IC.is_legend(ruler), "the fixture is a legend, so this proves nothing")
+    -- THE THRONE EMPTY FIRST: the same man is the Forge's, so the rule below is
+    -- the throne's and not his trade's.
+    assert(IC.house_of_character(ruler, F) == "forge",
+        "with no ruler seated he is " .. tostring(IC.house_of_character(ruler, F)))
+    factions[F]._leader = ruler
+    IC.court(F).standing[10] = 1
+    IC.court(F).standing[11] = 9000
+    assert(IC.house_of_character(ruler, F) == IC.CROWN,
+        "the ruler sits in " .. tostring(IC.house_of_character(ruler, F)))
+    assert(IC.party_leader(F, IC.CROWN) == 10,
+        "the Crown is spoken for by " .. tostring(IC.party_leader(F, IC.CROWN)))
+    local forge = IC.party_lords(F, "forge")
+    assert(#forge == 0, "the Forge still counts the ruler among its lords")
+
+    -- AND HIS TRADE BACKS NO SPLINTER. IC.splinter only rolls an interest somebody
+    -- has the background for; the ruler can never join the party he would
+    -- found, so a court whose only Forge trade is the throne has nothing to split into.
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {ruler}, {})
+    factions[F]._leader = ruler
+    IC.add_house(F, IC.CROWN)
+    local crown = IC.court(F).houses[IC.CROWN]
+    crown.weight = 100
+    crown.loyalty = IC.TUNE.splinter_loyalty - 1
+    IC.splinter(F)
+    assert((crown.split or 0) == 0,
+        "the Crown began splitting into a party backed only by its ruler")
+    factions[F]._leader = nil
+end)
+
 check("a thrall still belongs to his house and still counts in it", function()
     -- THE HALF THAT IS EASY TO BREAK WHILE FIXING THE OTHER. He is not barred
     -- from the court - he is barred from being its FACE. His membership, the
@@ -3927,6 +3976,11 @@ local map_chunk, map_err = loadfile(MAP_FILE)
 assert(map_chunk, "could not load the Governors map file: " .. tostring(map_err))
 map_chunk()
 assert(ICUI.gm_sync, "the Governors map file must define ICUI.gm_sync")
+
+-- A FAILED CLICK THROWS HERE, as it did before the bodies were pcall'd: every check that
+-- clicks through core.listeners must still fail on an error, not log it to a stub.
+ICUI_CLICK_FAILED = ICUI.click_failed
+ICUI.click_failed = function(_, e) error(e, 0) end
 
 local function with_neighbours(has_ex, has_gg)
     EX = has_ex and {BUTTON = "derpy_chd_ex_button", BUTTON_SIZE = 48, BUTTON_GAP = 4} or nil
@@ -6865,8 +6919,14 @@ check("the loyalty cell explains the number it shows", function()
             "the first trait cell's tooltip does not name the trait: " .. tip)
         assert(string.find(tip, traits[1].blurb, 1, true),
             "the first trait cell lost its flavour line: " .. tip)
-        assert(string.find(tip, IC.trait_rule(traits[1]), 1, true),
-            "the first trait cell does not say what it does: " .. tip)
+        -- A FLAT RULE ("-1 a turn") IS THE LIVE NUMBER, said once; any other
+        -- rule names the condition and must be there.
+        local rule = IC.trait_rule(traits[1])
+        local at = string.find(rule, " a turn", 1, true)
+        if not (at and tonumber(string.sub(rule, 1, at - 1))) then
+            assert(string.find(tip, rule, 1, true),
+                "the first trait cell does not say what it does: " .. tip)
+        end
         assert(string.find(tip, "loyalty per turn", 1, true),
             "the first trait cell does not say what it is worth now: " .. tip)
 
@@ -14576,6 +14636,26 @@ function()
         "the tooltip does not quote the live value: " .. tip)
 end)
 
+check("a trait tooltip prints a flat rule once, and a conditional rule always",
+function()
+    local by_key = {}
+    for i = 1, #IC.PARTY_TRAITS do by_key[IC.PARTY_TRAITS[i].key] = IC.PARTY_TRAITS[i] end
+    -- PROUD IS FLAT. With its live number on the line above, "-1 a turn" says
+    -- the same thing twice - the tooltip a player reported.
+    local tip = ICUI.trait_tip(by_key.proud, -1)
+    assert(string.find(tip, "-1 loyalty per turn", 1, true), "no live value: " .. tip)
+    assert(not string.find(tip, "-1 a turn", 1, true), "flat rule repeated: " .. tip)
+    -- WITH NO LIVE NUMBER the rule is the only number there is.
+    tip = ICUI.trait_tip(by_key.proud, nil)
+    assert(string.find(tip, "-1 a turn", 1, true), "no number at all: " .. tip)
+    -- A CONDITION is what moves the live number, so it stays beside it.
+    tip = ICUI.trait_tip(by_key.dutiful, 2)
+    assert(string.find(tip, by_key.dutiful.rule, 1, true), "condition dropped: " .. tip)
+    -- A LEADER'S RULE is flat too: "+2 a turn while he leads them".
+    tip = ICUI.trait_tip({key = "faithful", name = "Hashut's Own", blurb = "x"}, 2)
+    assert(not string.find(tip, "a turn while", 1, true), "leader rule repeated: " .. tip)
+end)
+
 -- THE CROWN COMES APART. drift_loyalty writes its loyalty every turn, and every
 -- other consumer refuses the Crown by name before it gets to the number. These
 -- are the checks for the consequence it has.
@@ -21236,7 +21316,7 @@ end)
 -- against IC.TUNE, IC.TUNE_ORDER and IC.PRESETS - the other places a setting has
 -- to be named before its control does anything.
 local MCT_FILE = "Modding Files/pack/script/mct/settings/derpy_iron_court.lua"
-local function load_mct_file(in_campaign)
+local function load_mct_file(in_campaign, stale_page)
     local opts = {}
     local option_methods = {
         set_text = function() end,
@@ -21246,7 +21326,14 @@ local function load_mct_file(in_campaign)
         slider_set_min_max = function(o, lo, hi) o.lo, o.hi = lo, hi end,
         slider_set_step_size = function(o, step) o.step = step end,
         set_default_value = function(o, v) o.default = v end,
-        set_locked = function(o, on, reason) o.locked, o.reason = on, reason end,
+        -- MCT sets the flag, THEN redraws the option. A dropdown whose page was opened and
+        -- left keeps its dead component and throws on the redraw (in game, 2026-10-09).
+        set_locked = function(o, on, reason)
+            o.locked, o.reason = on, reason
+            if stale_page and o.kind == "dropdown" then
+                error("dropdown.lua:104: attempt to index local 'popup_list' (a boolean value)")
+            end
+        end,
         add_dropdown_value = function(o, key, _text, _tip, is_default)
             o.values[#o.values + 1] = key
             if is_default then o.default = key end
@@ -21390,6 +21477,20 @@ check("the MCT page never asks the campaign anything while the game loads", func
     assert(ok, tostring(err))
     assert(#touched == 0, "the MCT page called cm:" .. table.concat(touched, ", cm:")
         .. " while loading - the model does not exist yet")
+end)
+
+check("closing MCT after leaving this page does not throw, and every lock still holds", function()
+    -- Seen in game 2026-10-09: open the Iron Court page, move to another mod's page, change
+    -- anything, close. MctFinalized ran relock, the difficulty dropdown's redraw threw, and
+    -- the player got a script error popup.
+    local opts = load_mct_file(true, true)
+    local ok, err = pcall(core.listeners["derpy_ic_mct_ready"], {})
+    assert(ok, "MctFinalized threw: " .. tostring(err))
+    local live = {}
+    for _, key in ipairs(LIVE) do live[key] = true end
+    for key, o in pairs(opts) do
+        assert(live[key] or o.locked == true, key .. " was left unlocked by the throw")
+    end
 end)
 
 -- MULTIPLAYER FOR THE LENGTH OF fn. `local_faction` is what the forced
@@ -34997,6 +35098,60 @@ check("no parties' turn failed anywhere in the run", function()
     -- this is what keeps that catch from hiding a real fault from the run.
     assert(#IC_PARTY_FAULTS == 0, #IC_PARTY_FAULTS .. " parties' turn(s) failed:\n  "
         .. table.concat(IC_PARTY_FAULTS, "\n  "))
+end)
+
+check("the court's clicks run ahead of another mod's throwing click handler", function()
+    -- Since 9.1 lib_core calls listeners unprotected: a throw unwinds the dispatch loop and
+    -- every listener queued behind it never runs that click (Great Guilds player report,
+    -- 2026-10-09: "click sound, nothing opens"). The thrower is queued first, the way every
+    -- mod that loads before the court's files is.
+    local loaded = {}
+    for _, l in ipairs(core.event_listeners.ComponentLClickUp or {}) do
+        if l.name == "ic_char_switch" or l.name == "ic_pool_price_click" then
+            loaded[#loaded + 1] = l
+        end
+    end
+    assert(#loaded == 2, "expected the two load-time click listeners, found " .. #loaded)
+    local q = {{name = "stranger_throws", condition = true,
+                callback = function() error("another mod's click handler") end}}
+    for _, l in ipairs(loaded) do q[#q + 1] = l end
+    core.event_listeners.ComponentLClickUp = q
+    ICUI.register()
+    ICUI.click_first()
+    local ran = {}
+    pcall(function()
+        for _, l in ipairs(q) do
+            ran[#ran + 1] = l.name
+            l.callback({string = "harness_nothing"})
+        end
+    end)
+    local want = {"ic_click", "ic_map_click", "ic_char_switch", "ic_pool_price_click",
+                  "stranger_throws"}
+    assert(table.concat(ran, ",") == table.concat(want, ","),
+           "the court's clicks did not all run first, in order: ran " .. table.concat(ran, ","))
+
+    -- AND BEING FIRST MUST NOT MAKE THE COURT THE THROWER.
+    local fails = {}
+    local keep_failed, keep_click, keep_map = ICUI.click_failed, ICUI.on_click, ICUI.on_map_click
+    ICUI.click_failed = function(id) fails[#fails + 1] = id end
+    for _, name in ipairs({"ic_click", "ic_map_click"}) do
+        local body = name == "ic_click" and "on_click" or "on_map_click"
+        local keep = ICUI[body]
+        ICUI[body] = function() error("click failed") end
+        local ok, err = pcall(core.listeners[name], {string = ICUI.BTN})
+        ICUI[body] = keep
+        assert(ok, "a throw inside " .. name .. " escaped it: " .. tostring(err))
+    end
+    ICUI.click_failed = keep_failed
+    assert(#fails == 2, "a contained click failure was not reported: " .. #fails)
+    -- THE SHIPPED REPORTER WRITES A LINE, through IC.warn, which detailed_log cannot silence.
+    local lines, keep_out = {}, out
+    out = function(m) lines[#lines + 1] = m end
+    ICUI_CLICK_FAILED("ic_btn", "boom")
+    out = keep_out
+    assert(#lines == 1 and string.find(lines[1], "ic_btn", 1, true)
+           and string.find(lines[1], "boom", 1, true),
+           "the click failure line was not written: " .. table.concat(lines, " | "))
 end)
 
 check("no engine setter was ever handed anything but a boolean", function()

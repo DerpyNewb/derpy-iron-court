@@ -106,8 +106,16 @@ MUTANTS = [
     # him - counting it makes his interest eligible and then he does not join
     # it, which is the empty party again by a longer route.
     ("a legend's background making an interest eligible", M,
-     """            if man and not man:is_null_interface() and not IC.is_legend(man) then""",
-     """            if man and not man:is_null_interface() then"""),
+     """            if man and not man:is_null_interface() and not IC.is_legend(man)
+                    and not IC.is_ruler(man, faction_key) then""",
+     """            if man and not man:is_null_interface()
+                    and not IC.is_ruler(man, faction_key) then"""),
+
+    # AND THE RULER'S, who sits with the Crown whatever his background.
+    ("the ruler's background making an interest eligible", M,
+     """            if man and not man:is_null_interface() and not IC.is_legend(man)
+                    and not IC.is_ruler(man, faction_key) then""",
+     """            if man and not man:is_null_interface() and not IC.is_legend(man) then"""),
 
     # What a secession would cost.
     # THE PANEL DOING ITS OWN ARITHMETIC. "How many provinces would go" looks
@@ -500,9 +508,10 @@ end"""),
     # one case it changes nothing in, so every absorbed legend goes to his old
     # house and Bzaark sits with the legion in a Conclave campaign.
     ("an absorbed legend seated with the house he came from", M,
-     """    if IC.is_legend(character) then return IC.CROWN end
+     """    if IC.is_legend(character) or IC.is_ruler(character, faction_key) then return IC.CROWN end
     local origin = IC.origin_of_character(character)""",
-     """    local origin = IC.origin_of_character(character)"""),
+     """    if IC.is_ruler(character, faction_key) then return IC.CROWN end
+    local origin = IC.origin_of_character(character)"""),
 
     # AND THE LEGEND GUARD PUT BACK BEHIND THE OWN-BLOC TEST. Every legend is a
     # Crown man, so the own-bloc test answers first every time and a guard on an
@@ -2315,16 +2324,20 @@ end"""),
     # pay; this line is the only thing that tells him what it is paying him now,
     # which for five of the eight is a different number depending on his court.
     ("a trait cell that never says what it is worth today", U,
-     """        lines[#lines + 1] = string.format("%s loyalty per turn, as it stands",
-                                          ICUI.signed(n))""",
+     """        lines[#lines + 1] = string.format("%s loyalty per turn", ICUI.signed(n))""",
      """"""),
 
     # AND THE RULE DROPPED, which puts the cell back to a name and a flavour
     # line with no number.
     ("a trait cell back to flavour text and no numbers", U,
-     """    local rule = IC.trait_rule(trait)
-    if rule then lines[#lines + 1] = rule end""",
+     """    if rule and not (n and flat) then lines[#lines + 1] = rule end""",
      """"""),
+
+    # THE FLAT RULE PRINTED UNDER ITS OWN LIVE NUMBER: "-1 loyalty per turn"
+    # then "-1 a turn", the tooltip a player reported.
+    ("a flat trait rule repeating the live number", U,
+     """    if rule and not (n and flat) then lines[#lines + 1] = rule end""",
+     """    if rule then lines[#lines + 1] = rule end"""),
 
     # The effect icon on a trait.
     # THE DECORATION QUIETLY DROPPED. A trait is a term in the loyalty drift and
@@ -3397,24 +3410,24 @@ end"""),
      '    {"parties_act_gone", "Rival parties act on their own", "systems",'),
     ("mct: the frozen switches editable mid-campaign", S,
      """            else
-                o:set_locked(true, LOCK_REASON)
+                lock(o, true, LOCK_REASON)
             end""",
      """            else
-                o:set_locked(false)
+                lock(o, false)
             end"""),
     ("live: ai_courts marked live on the page", S,
      '     .. "can split. Off, only your court runs.", false},',
      '     .. "can split. Off, only your court runs.", true},'),
     ("live: the live switches locked in a campaign", S,
      """            elseif SWITCHES[i][5] then
-                o:set_locked(false)""",
+                lock(o, false)""",
      """            elseif SWITCHES[i][5] then
-                o:set_locked(true, LOCK_REASON)"""),
+                lock(o, true, LOCK_REASON)"""),
     ("live: the switches open in multiplayer", S,
      """            if in_mp then
-                o:set_locked(true, MP_REASON)""",
+                lock(o, true, MP_REASON)""",
      """            if false then
-                o:set_locked(true, MP_REASON)"""),
+                lock(o, true, MP_REASON)"""),
     ("live: an old save's locks never lifted", S,
      """core:add_listener("derpy_ic_mct_loaded", "MctInitialized", true, function(context)""",
      """core:add_listener("derpy_ic_mct_loaded_gone", "MctInitialized", true, function(context)"""),
@@ -4220,8 +4233,8 @@ end"""),
      """        local net = o.n - IC.TUNE.party_offer_envy""",
      """        local net = o.n"""),
     ("a greyed slider that names no number", S,
-     '                o:set_locked(true, string.format("Your difficulty sets this to "\n                    .. "%s. Choose Custom to edit it.", tostring(v)))',
-     """                o:set_locked(true, "Set by the difficulty above. Choose Custom to edit it.")"""),
+     '                lock(o, true, string.format("Your difficulty sets this to "\n                    .. "%s. Choose Custom to edit it.", tostring(v)))',
+     """                lock(o, true, "Set by the difficulty above. Choose Custom to edit it.")"""),
     ("a greyed slider naming the default under every difficulty", S,
      """                local set = PRESET_VALUES[preset] or {}""",
      """                local set = {}"""),

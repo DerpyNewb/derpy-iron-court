@@ -5,6 +5,21 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-09 - build 481F17DB
+
+Deployed 2026-10-09. MD5 `481F17DBFA258CAEFF8FB478AAC34B50`, 15,189,159 bytes. Includes the
+two builds deployed earlier the same day that were not recorded here. Not yet seen in game.
+
+- **The court's buttons work when another mod's click script has an error.** Since game patch
+  9.1 one mod's `ComponentLClickUp` listener that throws stops every listener queued behind
+  it. The court's four click listeners now move to the front of that queue at the first tick,
+  and the two with real bodies (`ic_click`, `ic_map_click`) run under `pcall`, so they cannot
+  block other mods' clicks in turn. A failed click writes a line through `IC.warn`.
+- **Closing MCT no longer throws a script error** after leaving the court's settings page.
+- Player text: the trait tooltip, the help page and three warnings rewritten (antislop pass
+  006).
+- Harness: 1,093 checks, one new for the click queue.
+
 ## 2026-10-09 - build 14D517DD
 
 Deployed 2026-10-09. MD5 `14D517DD1951F8FDBC626706538718AA`, 15,185,867 bytes. A cleanup pass
