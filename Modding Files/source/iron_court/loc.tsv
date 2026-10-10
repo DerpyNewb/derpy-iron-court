@@ -961,116 +961,120 @@ character_trait_levels_colour_text_derpy_ic_title_banners	Raiding is an accounti
 character_trait_levels_explanation_text_derpy_ic_title_banners	Income from raiding: +10%	false
 character_trait_levels_removal_text_derpy_ic_title_banners	He no longer holds the office.	false
 event_feed_strings_text_derpy_ic_event_plot_ok_title	The Court Moves	false
-event_feed_strings_text_derpy_ic_event_plot_ok_primary	Your move succeeded. The court has taken note.	false
-event_feed_strings_text_derpy_ic_event_plot_ok_secondary	Success	false
+event_feed_strings_text_derpy_ic_event_plot_ok_primary	Your Move Succeeded	false
+event_feed_strings_text_derpy_ic_event_plot_ok_secondary	Your move has succeeded and taken effect. The Record tab lists what it did.	false
 event_feed_strings_text_derpy_ic_event_plot_fail_title	The Court Refuses	false
-event_feed_strings_text_derpy_ic_event_plot_fail_primary	Your move failed. The influence is spent. Its target knows who tried.	false
-event_feed_strings_text_derpy_ic_event_plot_fail_secondary	Failure	false
+event_feed_strings_text_derpy_ic_event_plot_fail_primary	Your Move Failed	false
+event_feed_strings_text_derpy_ic_event_plot_fail_secondary	Your move has failed, and its price is spent all the same. If it was aimed at a party, that party knows who tried and its loyalty falls.	false
 event_feed_strings_text_derpy_ic_event_office_lost_title	A Seat Stands Empty	false
-event_feed_strings_text_derpy_ic_event_office_lost_primary	An officer has left his seat. The vacant office grants no bonus. Its party resents the vacancy.	false
+event_feed_strings_text_derpy_ic_event_office_lost_primary	Several Terms Have Run Out	false
+event_feed_strings_text_derpy_ic_event_office_lost_secondary	When a term at court runs out, its officer leaves the seat. An empty office gives no bonus until you fill it on the Offices tab, and its last holder cannot take it straight back.	false
 event_feed_strings_text_derpy_ic_event_party_joined_title	A Party Enters the Court	false
-event_feed_strings_text_derpy_ic_event_party_joined_primary	A faction you absorbed has brought its men into your court as a party of its own. It has strength at court now and will expect seats.	false
-event_feed_strings_text_derpy_ic_event_party_joined_secondary	The Court Grows	false
+event_feed_strings_text_derpy_ic_event_party_joined_primary	New Men From a Confederation	false
+event_feed_strings_text_derpy_ic_event_party_joined_secondary	A faction you confederated has brought its men into your court as a party of its own. It has strength at court now and will expect seats.	false
 event_feed_strings_text_derpy_ic_event_secede_warn_title	A Party Prepares to Leave	false
-event_feed_strings_text_derpy_ic_event_secede_warn_primary	A party is preparing to leave the court. When its time runs out, it takes its provinces with it. Settle with it or take its seats away first.	false
-event_feed_strings_text_derpy_ic_event_secede_warn_secondary	Preparing to Leave	false
+event_feed_strings_text_derpy_ic_event_secede_warn_primary	Its Countdown Has Begun	false
+event_feed_strings_text_derpy_ic_event_secede_warn_secondary	A party has begun counting down to leave your court. When the count ends, it leaves and takes provinces with it. Raise its loyalty or cut its share before then; its card on the Court tab shows the turns left.	false
 event_feed_strings_text_derpy_ic_event_snub_title	A Party Is Slighted	false
-event_feed_strings_text_derpy_ic_event_snub_primary	A party is owed a seat it does not hold. Its loyalty falls every turn the grievance stands.	false
+event_feed_strings_text_derpy_ic_event_snub_primary	Its Claimed Seat Is Taken	false
+event_feed_strings_text_derpy_ic_event_snub_secondary	A rival's man holds an office this party claims as its own. The party loses loyalty every turn he keeps it.	false
 event_feed_strings_text_derpy_ic_event_secede_done_title	A Party Has Broken With You	false
-event_feed_strings_text_derpy_ic_event_secede_done_primary	A party has left your court with land and an army of its own. Its seats are empty. Its remaining men now serve your own party.	false
-event_feed_strings_text_derpy_ic_event_secede_done_secondary	Departure	false
+event_feed_strings_text_derpy_ic_event_secede_done_primary	Rebels Rise Against You	false
+event_feed_strings_text_derpy_ic_event_secede_done_secondary	A party has left your court and risen in rebellion with land and an army of its own. Its rebels are at war with you. Its seats are empty, and the men it left behind now serve your own party.	false
 event_feed_strings_text_derpy_ic_event_loyalty_warn_title	A Party Turns Against You	false
-event_feed_strings_text_derpy_ic_event_loyalty_warn_primary	A party's loyalty is running low. Give it a seat or buy it off. If its loyalty runs out, it leaves at once with its land.	false
-event_feed_strings_text_derpy_ic_event_loyalty_warn_secondary	Disloyalty	false
+event_feed_strings_text_derpy_ic_event_loyalty_warn_primary	Its Loyalty Is Running Low	false
+event_feed_strings_text_derpy_ic_event_loyalty_warn_secondary	A rival party's loyalty has fallen low. Give it a seat, or send it a gift from the Court tab. If its loyalty runs out, it leaves at once and takes land with it.	false
 event_feed_strings_text_derpy_ic_event_splinter_title	Your Own House Splits	false
-event_feed_strings_text_derpy_ic_event_splinter_primary	Your party's loyalty has run out. Some of its men have formed their own party, taking a share of the court from you. They expect seats.	false
-event_feed_strings_text_derpy_ic_event_splinter_secondary	A New Party	false
+event_feed_strings_text_derpy_ic_event_splinter_primary	A Rival Party Is Born	false
+event_feed_strings_text_derpy_ic_event_splinter_secondary	Some of your own party's men have broken away to form a rival party, taking part of your share of the court. Your party's loyalty returns to its starting level. The new party will expect seats.	false
 event_feed_strings_text_derpy_ic_event_secede_soon_title	The Count Is Nearly Out	false
-event_feed_strings_text_derpy_ic_event_secede_soon_primary	A party is about to leave the court with the provinces it holds. There will be no further warning.	false
-event_feed_strings_text_derpy_ic_event_secede_soon_secondary	Leaving Soon	false
+event_feed_strings_text_derpy_ic_event_secede_soon_primary	This Is the Last Warning	false
+event_feed_strings_text_derpy_ic_event_secede_soon_secondary	A party is about to leave your court and take provinces with it. No further card will warn you. Raise its loyalty or cut its share now.	false
 event_feed_strings_text_derpy_ic_event_splinter_warn_title	Your Own House Is Turning	false
-event_feed_strings_text_derpy_ic_event_splinter_warn_primary	Your party's loyalty has run out. Some of its men are forming a party of their own. Restore its loyalty before they break away.	false
-event_feed_strings_text_derpy_ic_event_splinter_warn_secondary	Split Pending	false
+event_feed_strings_text_derpy_ic_event_splinter_warn_primary	A Split Is Coming	false
+event_feed_strings_text_derpy_ic_event_splinter_warn_secondary	Your own party's loyalty has fallen too low, and some of its men are forming a party of their own. Raise its loyalty before they break away.	false
 event_feed_strings_text_derpy_ic_event_dissolved_title	A Party Dissolves	false
-event_feed_strings_text_derpy_ic_event_dissolved_primary	A party with no members or province has dissolved. Its share of the court is gone. You lose nothing.	false
-event_feed_strings_text_derpy_ic_event_dissolved_secondary	Party Dissolved	false
+event_feed_strings_text_derpy_ic_event_dissolved_primary	No Men and No Land Left	false
+event_feed_strings_text_derpy_ic_event_dissolved_secondary	The party had no men left and no province to take, so it broke up instead of leaving. Its share of the court is gone, and you lose nothing.	false
 event_feed_strings_text_derpy_ic_event_party_plot_warn_title	A Party Moves Against You	false
-event_feed_strings_text_derpy_ic_event_party_plot_warn_primary	A party plans to strike at the Crown next turn. Open the Iron Court to see who is behind it and how to stop him.	false
-event_feed_strings_text_derpy_ic_event_party_plot_warn_secondary	Warning	false
+event_feed_strings_text_derpy_ic_event_party_plot_warn_primary	Its Move Lands Next Turn	false
+event_feed_strings_text_derpy_ic_event_party_plot_warn_secondary	A rival party plans to strike at you next turn. The Intrigue tab names the party and its move. Raise that party's loyalty, or deal with its plotter, to stop it.	false
 event_feed_strings_text_derpy_ic_event_party_plot_ok_title	The Court Strikes at the Crown	false
-event_feed_strings_text_derpy_ic_event_party_plot_ok_primary	A party's move against the Crown succeeded.	false
-event_feed_strings_text_derpy_ic_event_party_plot_ok_secondary	Struck	false
+event_feed_strings_text_derpy_ic_event_party_plot_ok_primary	A Rival's Move Lands	false
+event_feed_strings_text_derpy_ic_event_party_plot_ok_secondary	A rival party's move against you has succeeded. The Record tab names the party and what it did.	false
 event_feed_strings_text_derpy_ic_event_party_plot_fail_title	A Plot Is Foiled	false
-event_feed_strings_text_derpy_ic_event_party_plot_fail_primary	A party's move against the Crown failed. It has lost the influence it spent.	false
-event_feed_strings_text_derpy_ic_event_party_plot_fail_secondary	Foiled	false
+event_feed_strings_text_derpy_ic_event_party_plot_fail_primary	Their Move Failed	false
+event_feed_strings_text_derpy_ic_event_party_plot_fail_secondary	A rival party's move against you has failed. Its man lost the influence he spent on it.	false
 event_feed_strings_text_derpy_ic_event_party_plot_dropped_title	A Plot Comes to Nothing	false
-event_feed_strings_text_derpy_ic_event_party_plot_dropped_primary	A party has abandoned its planned move against the Crown.	false
-event_feed_strings_text_derpy_ic_event_party_plot_dropped_secondary	Abandoned	false
+event_feed_strings_text_derpy_ic_event_party_plot_dropped_primary	The Threat Has Passed	false
+event_feed_strings_text_derpy_ic_event_party_plot_dropped_secondary	A rival party has given up the move it planned against you.	false
 event_feed_strings_text_derpy_ic_event_party_feud_title	A Feud in the Court	false
-event_feed_strings_text_derpy_ic_event_party_feud_primary	Two parties have turned on each other. While the feud lasts they strike at each other rather than at you.	false
-event_feed_strings_text_derpy_ic_event_party_feud_secondary	Feud	false
+event_feed_strings_text_derpy_ic_event_party_feud_primary	They Strike at Each Other	false
+event_feed_strings_text_derpy_ic_event_party_feud_secondary	Two rival parties have turned on each other. While the feud lasts they strike at each other and leave you alone. Back one side or make peace on the Petitions tab to end it.	false
 event_feed_strings_text_derpy_ic_event_party_feud_end_title	A Feud Ends	false
-event_feed_strings_text_derpy_ic_event_party_feud_end_primary	A feud between two parties is over. Either may turn its attention back to the Crown.	false
-event_feed_strings_text_derpy_ic_event_party_feud_end_secondary	Feud Over	false
+event_feed_strings_text_derpy_ic_event_party_feud_end_primary	Either May Strike at You Now	false
+event_feed_strings_text_derpy_ic_event_party_feud_end_secondary	The feud between two rival parties is over. Neither is busy with the other, and either may move against you again.	false
 event_feed_strings_text_derpy_ic_event_party_feud_murder_title	Blood Between Parties	false
-event_feed_strings_text_derpy_ic_event_party_feud_murder_primary	A feud at court has ended in a killing. A rival party has killed one of your men.	false
-event_feed_strings_text_derpy_ic_event_party_feud_murder_secondary	Killed	false
+event_feed_strings_text_derpy_ic_event_party_feud_murder_primary	One of Your Men Is Dead	false
+event_feed_strings_text_derpy_ic_event_party_feud_murder_secondary	A feud at court has turned to murder: one feuding party has had a man from the other killed. He was one of your men.	false
 event_feed_strings_text_derpy_ic_event_party_demand_title	A Party Makes a Demand	false
-event_feed_strings_text_derpy_ic_event_party_demand_primary	A party demands a post for one of its men. The party's card names the man and the post. Grant it and its loyalty rises; refuse or let the time run out and it falls.	false
-event_feed_strings_text_derpy_ic_event_party_demand_secondary	Demand	false
+event_feed_strings_text_derpy_ic_event_party_demand_primary	A Post for One of Its Men	false
+event_feed_strings_text_derpy_ic_event_party_demand_secondary	A party demands a post for one of its men. Its card names the man and the post. Answer on the Petitions tab: grant it and its loyalty rises; refuse it or let the time run out and its loyalty falls.	false
 event_feed_strings_text_derpy_ic_event_party_demand_refused_title	A Demand Refused	false
-event_feed_strings_text_derpy_ic_event_party_demand_refused_primary	A party's demand went unmet. Its loyalty has fallen.	false
-event_feed_strings_text_derpy_ic_event_party_demand_refused_secondary	Refused	false
+event_feed_strings_text_derpy_ic_event_party_demand_refused_primary	Its Loyalty Falls	false
+event_feed_strings_text_derpy_ic_event_party_demand_refused_secondary	A party's demand went unmet, and its loyalty has fallen.	false
 event_feed_strings_text_derpy_ic_event_party_offer_title	A Party Offers a Favour	false
-event_feed_strings_text_derpy_ic_event_party_offer_primary	A loyal party offers the Crown a favour. Answer on the Petitions tab before it lapses. The other parties will resent your acceptance.	false
-event_feed_strings_text_derpy_ic_event_party_offer_secondary	Offer	false
+event_feed_strings_text_derpy_ic_event_party_offer_primary	Accepting Angers the Rest	false
+event_feed_strings_text_derpy_ic_event_party_offer_secondary	A loyal party offers you a favour. Answer it on the Petitions tab before it lapses. If you accept, every other rival party loses loyalty.	false
 event_feed_strings_text_derpy_ic_event_term_soon_title	A Term Ends Next Turn	false
-event_feed_strings_text_derpy_ic_event_term_soon_primary	An officer's term ends at the start of your next turn. His seat will be vacant, and he cannot take it straight back. Choose his successor now.	false
-event_feed_strings_text_derpy_ic_event_term_soon_secondary	Terms End	false
+event_feed_strings_text_derpy_ic_event_term_soon_primary	Several Terms End at Once	false
+event_feed_strings_text_derpy_ic_event_term_soon_secondary	When a term ends at the start of your next turn, its seat falls vacant and its holder cannot take it straight back. Pick a successor now on the Offices tab.	false
 event_feed_strings_text_derpy_ic_event_party_sabotage_title	An Office Sabotaged	false
-event_feed_strings_text_derpy_ic_event_party_sabotage_primary	A feuding party has sabotaged its rival's office. The office gives no bonus for a few turns.	false
-event_feed_strings_text_derpy_ic_event_party_sabotage_secondary	Sabotage	false
+event_feed_strings_text_derpy_ic_event_party_sabotage_primary	Its Bonus Is Lost for Now	false
+event_feed_strings_text_derpy_ic_event_party_sabotage_secondary	A feuding party has sabotaged an office its rival holds. The office gives no bonus for a few turns.	false
 event_feed_strings_text_derpy_ic_event_party_withhold_title	A Party Withholds Its Service	false
-event_feed_strings_text_derpy_ic_event_party_withhold_primary	A disloyal party's officers have stopped working for you. Their offices give no bonus for a few turns. Use Secure Loyalty and they return to work at once.	false
-event_feed_strings_text_derpy_ic_event_party_withhold_secondary	Withheld	false
+event_feed_strings_text_derpy_ic_event_party_withhold_primary	Their Offices Stop Working	false
+event_feed_strings_text_derpy_ic_event_party_withhold_secondary	A disloyal party's officers have stopped working for you. Their offices give no bonus for a few turns. Use Secure Loyalty on the Court tab and they return to work at once.	false
 event_feed_strings_text_derpy_ic_event_realm_secede_title	A Rival Court Splits	false
-event_feed_strings_text_derpy_ic_event_realm_secede_primary	A party has broken from another Chaos Dwarf court and risen in rebellion.	false
-event_feed_strings_text_derpy_ic_event_realm_secede_secondary	Rebellion	false
+event_feed_strings_text_derpy_ic_event_realm_secede_primary	Rebels Take the Field	false
+event_feed_strings_text_derpy_ic_event_realm_secede_secondary	A party has broken from another Chaos Dwarf court and risen in rebellion with an army of its own.	false
 event_feed_strings_text_derpy_ic_event_officer_died_title	An Officer Is Dead	false
-event_feed_strings_text_derpy_ic_event_officer_died_primary	One of your officers has died. His seat at court or his province stands empty until you fill it.	false
+event_feed_strings_text_derpy_ic_event_officer_died_primary	A Post Stands Empty	false
+event_feed_strings_text_derpy_ic_event_officer_died_secondary	One of your officers has died, and the post he held is empty. Fill it on the Offices or Governors tab.	false
 event_feed_strings_text_derpy_ic_event_threat_over_title	A Party Stands Down	false
-event_feed_strings_text_derpy_ic_event_threat_over_primary	A party that was preparing to break with you has stood down, for now. Keep watch on its loyalty.	false
-event_feed_strings_text_derpy_ic_event_threat_over_secondary	Stood Down	false
+event_feed_strings_text_derpy_ic_event_threat_over_primary	The Countdown Stops	false
+event_feed_strings_text_derpy_ic_event_threat_over_secondary	A party that was counting down to break with you has stopped, for now. Keep watch on its loyalty: a new count can start.	false
 event_feed_strings_text_derpy_ic_event_stall_end_title	An Office Is Back at Work	false
-event_feed_strings_text_derpy_ic_event_stall_end_primary	An office has returned to work. Its bonus applies again.	false
+event_feed_strings_text_derpy_ic_event_stall_end_primary	Their Bonuses Apply Again	false
+event_feed_strings_text_derpy_ic_event_stall_end_secondary	The stoppage has run its course, and each office it stopped gives its bonus again.	false
 event_feed_strings_text_derpy_ic_event_gov_changed_title	A New Government	false
-event_feed_strings_text_derpy_ic_event_gov_changed_primary	A new government rules the court. Its party expects you to follow its rules.	false
-event_feed_strings_text_derpy_ic_event_gov_changed_secondary	The Court Changes	false
+event_feed_strings_text_derpy_ic_event_gov_changed_primary	A Court Rule Changes	false
+event_feed_strings_text_derpy_ic_event_gov_changed_secondary	A new government rules the court, with its own court rule and faction effect. The parties behind it gain loyalty, and those behind the old one lose some.	false
 event_feed_strings_text_derpy_ic_event_gov_pressure_title	The Court Pulls Another Way	false
-event_feed_strings_text_derpy_ic_event_gov_pressure_primary	A leading party asks for its own government. Accept or pay to keep your current government on the Petitions tab.	false
-event_feed_strings_text_derpy_ic_event_gov_pressure_secondary	A Choice Waits	false
+event_feed_strings_text_derpy_ic_event_gov_pressure_primary	A Choice Waits	false
+event_feed_strings_text_derpy_ic_event_gov_pressure_secondary	The leading party asks for its own government. On the Petitions tab, accept it or pay influence to keep your current one. Accepting angers the old government's party; holding angers the party that asked.	false
 event_feed_strings_text_derpy_ic_event_gov_intro_title	Your Deeds Move the Court	false
-event_feed_strings_text_derpy_ic_event_gov_intro_primary	Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box.	false
-event_feed_strings_text_derpy_ic_event_gov_intro_secondary	The Court Watches You	false
+event_feed_strings_text_derpy_ic_event_gov_intro_primary	What Raises Each Party	false
+event_feed_strings_text_derpy_ic_event_gov_intro_secondary	Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box.	false
 event_feed_strings_text_derpy_ic_event_party_drawn_title	A Party Comes to Court	false
-event_feed_strings_text_derpy_ic_event_party_drawn_primary	Your deeds have drawn a new party into your court, and the next lord you raised has joined it. It has strength at court now and will expect seats.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_secondary	The Court Grows	false
+event_feed_strings_text_derpy_ic_event_party_drawn_primary	Drawn by Your Deeds	false
+event_feed_strings_text_derpy_ic_event_party_drawn_secondary	Your deeds have drawn a new party into your court, and your newest lord has joined it. It has strength at court now and will expect seats.	false
 event_feed_strings_text_derpy_ic_event_law_proposed_title	A Law Before the Court	false
-event_feed_strings_text_derpy_ic_event_law_proposed_primary	A law is before the court. Members vote with their parties. On the Laws tab, push for support, persuade men or overrule the vote.	false
-event_feed_strings_text_derpy_ic_event_law_proposed_secondary	The Court Will Vote	false
+event_feed_strings_text_derpy_ic_event_law_proposed_primary	The Court Will Vote	false
+event_feed_strings_text_derpy_ic_event_law_proposed_secondary	A law is before the court. Each party votes with the influence of its men. On the Laws tab, push your side, win men over or overrule the vote.	false
 event_feed_strings_text_derpy_ic_event_law_passed_title	A Law Passes	false
-event_feed_strings_text_derpy_ic_event_law_passed_primary	A new law is in force. Parties that supported it are pleased; its opponents resent it.	false
-event_feed_strings_text_derpy_ic_event_law_passed_secondary	The Law Is Changed	false
+event_feed_strings_text_derpy_ic_event_law_passed_primary	The Law Is Changed	false
+event_feed_strings_text_derpy_ic_event_law_passed_secondary	The court has voted the law through, and it is now in force. Parties that backed it gain loyalty; parties that opposed it lose some.	false
 event_feed_strings_text_derpy_ic_event_law_failed_title	A Law Fails	false
-event_feed_strings_text_derpy_ic_event_law_failed_primary	The court has voted the law down. The law in force stands.	false
-event_feed_strings_text_derpy_ic_event_law_failed_secondary	The Law Stands	false
-event_feed_strings_text_derpy_ic_event_party_drawn_chain	Your slave-taking drew the Chain to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_forge	The Hell-Forge's work drew the Forge to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_ledger	Your convoys drew the Ledger to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_legion	Your victories drew the Legion to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_road	Your convoys drew the Road to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_temple	The Tower's rites drew the Priesthood to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_tower	Your research drew the Tower to court.	false
+event_feed_strings_text_derpy_ic_event_law_failed_primary	The Old Law Stands	false
+event_feed_strings_text_derpy_ic_event_law_failed_secondary	The court has voted the law down, and the law in force stays. If a rival party proposed it, that party loses loyalty.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_chain	Your slave-taking drew the Chain to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_forge	The Hell-Forge's work drew the Forge to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_ledger	Your convoys drew the Ledger to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_legion	Your victories drew the Legion to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_road	Your convoys drew the Road to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_temple	The Tower's rites drew the Priesthood to court. Your newest lord has joined it, and it will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_tower	Your research drew the Tower to court. Your newest lord has joined it, and it will expect seats.	false
 event_feed_strings_text_derpy_ic_move_bribe_ok	Bribe: Success	false
 event_feed_strings_text_derpy_ic_move_bribe_fail	Bribe: Failure	false
 event_feed_strings_text_derpy_ic_move_discredit_ok	Discredit: Success	false
@@ -2008,13 +2012,13 @@ character_trait_levels_colour_text_derpy_ic_member_dwf_hearth_6	He speaks for th
 character_trait_levels_explanation_text_derpy_ic_member_dwf_hearth_6	His party at court. Changes when parties form, break away or dissolve.	false
 character_trait_levels_removal_text_derpy_ic_member_dwf_hearth_6	He sits with another party now.	false
 event_feed_strings_text_derpy_ic_event_dwf_gov_intro_title	Your Deeds Move the Court	false
-event_feed_strings_text_derpy_ic_event_dwf_gov_intro_primary	Victory strengthens the Clan Warriors at court. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court.	false
-event_feed_strings_text_derpy_ic_event_dwf_gov_intro_secondary	The Court Watches You	false
+event_feed_strings_text_derpy_ic_event_dwf_gov_intro_primary	Victory and Research Count	false
+event_feed_strings_text_derpy_ic_event_dwf_gov_intro_secondary	Victory strengthens the Clan Warriors at court. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court.	false
 event_feed_strings_text_derpy_ic_event_dwf_realm_secede_title	A Rival Court Splits	false
-event_feed_strings_text_derpy_ic_event_dwf_realm_secede_primary	A party has broken from another hold's court and risen in rebellion.	false
-event_feed_strings_text_derpy_ic_event_dwf_realm_secede_secondary	Rebellion	false
-event_feed_strings_text_derpy_ic_event_party_drawn_dwf_legion	Your victories drew the Clan Warriors to court.	false
-event_feed_strings_text_derpy_ic_event_party_drawn_dwf_tower	Your research drew the Runesmiths to court.	false
+event_feed_strings_text_derpy_ic_event_dwf_realm_secede_primary	Oathbreakers in Arms	false
+event_feed_strings_text_derpy_ic_event_dwf_realm_secede_secondary	A party has broken from another hold's court and risen in rebellion with an army of its own.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_dwf_legion	Your victories drew the Clan Warriors to court. Your newest lord has joined them, and they will expect seats.	false
+event_feed_strings_text_derpy_ic_event_party_drawn_dwf_tower	Your research drew the Runesmiths to court. Your newest lord has joined them, and they will expect seats.	false
 event_feed_strings_text_derpy_ic_move_dwf_bribe_ok	Gift of Gold: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_bribe_fail	Gift of Gold: Failure	false
 event_feed_strings_text_derpy_ic_move_dwf_discredit_ok	Question His Work: Success	false

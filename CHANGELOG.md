@@ -5,6 +5,29 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-10 - build 43D8B246
+
+Deployed 2026-10-10. MD5 `43D8B246001F6432A134CCA166DF9635`, 15,194,884 bytes. Includes
+build 633093F9, deployed earlier the same day and not recorded here. Not yet seen in game.
+
+- **Event cards read the way CA's do.** The large line under a card's title is now a short
+  subtitle and the sentences sit in the box below; the body used to fill the large line over
+  a one-word box ("Failure"). All 38 events rewritten.
+- **An office's name is the subtitle.** When one office is involved, `IC.raise_feed` puts its
+  title in the large line; a deed line from `party_drawn` goes in the box. `IC.EVENTS`'s
+  third field now says which slot a caller's key fills.
+- **No more empty black box.** An event with no `_secondary` key passed `""` whenever two
+  offices were involved, which draws an empty plate. Every event now ships both keys.
+- **Two statements corrected.** A term running out does not anger the holder's party, and a
+  split starts at low loyalty, not when it runs out.
+- **The click listeners leave core's queue altogether.** Moving them to the front was not
+  enough: `core:event_callback` tests every listener's condition before calling any
+  callback, so one mod's throwing condition still dropped the click. `ICUI.click_first`
+  moves the four into `events.ComponentLClickUp`, wrapped so they never throw into the
+  engine.
+- Checks: generator check 16j (subtitle length, no full stop, non-empty body), harness
+  1,093 checks, three new mutants; `check_ic_release.py` re-pinned to the reviewed text.
+
 ## 2026-10-09 - build 481F17DB
 
 Deployed 2026-10-09. MD5 `481F17DBFA258CAEFF8FB478AAC34B50`, 15,189,159 bytes. Includes the

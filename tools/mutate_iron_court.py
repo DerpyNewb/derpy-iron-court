@@ -325,8 +325,17 @@ MUTANTS = [
      '    return R.NAME_HEADS[head] .. " of "'),
 
     ("an event card with the empty plate back under its sentence", M,
-     '            secondary or fallback,',
-     '            secondary or "",'),
+     '    local primary, secondary = stem .. "_primary", stem .. "_secondary"',
+     '    local primary, secondary = stem .. "_primary", ""'),
+    # THE SLOTS THE CALLER'S KEY TAKES. A seat's name or a move's result is the
+    # subtitle and a deed's sentence is the body; one rule for both is either
+    # a seat's name in the body's box or a paragraph in the subtitle's font.
+    ("an event card with a seat's name in the body's box", M,
+     "    if line and ev[3] then secondary = line elseif line then primary = line end",
+     "    if line then secondary = line end"),
+    ("an event card with a deed's sentence as its subtitle", M,
+     "    if line and ev[3] then secondary = line elseif line then primary = line end",
+     "    if line then primary = line end"),
 
     # THE CALL SITE GIVING UP ON THE MOVE. IC.feed still raises the card
     # and the plate is still filled - by the generic SUCCESS line - so

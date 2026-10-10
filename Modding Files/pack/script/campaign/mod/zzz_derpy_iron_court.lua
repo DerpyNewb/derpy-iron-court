@@ -1339,10 +1339,12 @@ function IC.grudge_settle(faction_key, slug, how)
     return g
 end
 
+-- {index, persistent, where a caller's key goes}. The third field: true, the
+-- key is a SENTENCE and is the body (secondary); false, it is a NAME - a seat,
+-- a move's result - and is the subtitle (primary). IC.raise_feed.
 IC.EVENTS = {
-    plot_ok      = {2600, true, true},
-    plot_fail    = {2601, true, true},
-    -- False means the office bundle's title key names the seat.
+    plot_ok      = {2600, true, false},
+    plot_fail    = {2601, true, false},
     office_lost  = {2602, true, false},
     party_joined = {2603, true, true},
     secede_warn  = {2604, true, true},
@@ -1365,7 +1367,7 @@ IC.EVENTS = {
     party_demand       = {2619, true, true},
     party_demand_refused = {2620, true, true},
     party_offer        = {2621, true, true},
-    term_soon          = {2622, true, true},
+    term_soon          = {2622, true, false},
     party_sabotage     = {2623, true, true},
     party_withhold     = {2624, true, true},
     realm_secede       = {2625, false, true},
@@ -1378,7 +1380,7 @@ IC.EVENTS = {
     gov_changed        = {2629, true, true},
     gov_pressure       = {2630, true, true},
     -- DEEDS: the introduction, and a party your deeds
-    -- drew in (the secondary line names the deed, per party).
+    -- drew in (its body names the deed, per party).
     gov_intro          = {2631, true, true},
     party_drawn        = {2632, true, true},
     -- THE LAWS.
@@ -1455,20 +1457,17 @@ function IC.event_index(slug, faction_key)
     return ev[1] + (IC.R(faction_key).EVENT_OFFSET or 0)
 end
 
-function IC.raise_feed(faction_key, slug, secondary)
+-- THE CALLER'S KEY TAKES ONE SLOT, the one IC.EVENTS' third field names; the
+-- event's own key fills the other. Never "": that draws the slot empty.
+function IC.raise_feed(faction_key, slug, line)
     local ev = IC.EVENTS[slug]
     if not ev then return false end
-    local key = IC.event_stem(slug, faction_key)
-    local fallback = ev[3]
-                     and ("event_feed_strings_text_" .. key .. "_secondary")
-                     or ""
+    local stem = "event_feed_strings_text_" .. IC.event_stem(slug, faction_key)
+    local primary, secondary = stem .. "_primary", stem .. "_secondary"
+    if line and ev[3] then secondary = line elseif line then primary = line end
     pcall(function()
-        cm:show_message_event(
-            faction_key,
-            "event_feed_strings_text_" .. key .. "_title",
-            "event_feed_strings_text_" .. key .. "_primary",
-            secondary or fallback,
-            ev[2], IC.event_index(slug, faction_key))
+        cm:show_message_event(faction_key, stem .. "_title", primary, secondary,
+                              ev[2], IC.event_index(slug, faction_key))
     end)
     return true
 end

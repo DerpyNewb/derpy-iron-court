@@ -9181,10 +9181,10 @@ function()
         "the first card out is index " .. tostring(shown[1].index))
     assert(shown[2].index == IC.EVENTS.plot_fail[1],
         "the second card out is index " .. tostring(shown[2].index))
-    -- ARGUMENTS INTACT. A queue that kept the slug and dropped the secondary
-    -- would draw the right card with an empty plate under it.
-    assert(shown[1].secondary == "some_move_key",
-        "the held card's secondary came out " .. tostring(shown[1].secondary))
+    -- ARGUMENTS INTACT. A queue that kept the slug and dropped the caller's
+    -- key would draw the right card with the generic subtitle on it.
+    assert(shown[1].primary == "some_move_key",
+        "the held card's subtitle came out " .. tostring(shown[1].primary))
 
     -- AND RELEASED, IT FIRES AT ONCE AGAIN.
     shown = {}
@@ -9222,7 +9222,7 @@ check("a queue the panel never released is drained by the turn", function()
     IC.turn(F)
     local found = false
     for i = 1, #shown do
-        if shown[i].secondary == "stranded_key" then found = true end
+        if shown[i].primary == "stranded_key" then found = true end
     end
     assert(found, "a stranded card was never drained by the turn")
     cm.get_human_factions = saved
@@ -11679,9 +11679,11 @@ check("a plot's card names the move, whichever way the roll went", function()
     assert(IC.plot(F, "bribe", 460, "461"), "the landed bribe was refused")
     local ok_card = card_for(IC.EVENTS.plot_ok[1])
     assert(ok_card, "a landed bribe raised no plot_ok card")
-    assert(ok_card.secondary == IC.move_result_key("bribe", true),
-        "the landed card's line is " .. tostring(ok_card.secondary)
+    assert(ok_card.primary == IC.move_result_key("bribe", true),
+        "the landed card's subtitle is " .. tostring(ok_card.primary)
         .. ", not the bribe's own")
+    assert(ok_card.secondary == "event_feed_strings_text_derpy_ic_event_plot_ok_secondary",
+        "the landed card's body is " .. tostring(ok_card.secondary))
 
     -- And 100 misses every chance, for the same reason from the other end.
     cm.random_number = function() return 100 end
@@ -11690,15 +11692,15 @@ check("a plot's card names the move, whichever way the roll went", function()
     assert(IC.plot(F, "bribe", 462, "463"), "the missed bribe was refused")
     local bad_card = card_for(IC.EVENTS.plot_fail[1])
     assert(bad_card, "a missed bribe raised no plot_fail card")
-    assert(bad_card.secondary == IC.move_result_key("bribe", false),
-        "the missed card's line is " .. tostring(bad_card.secondary)
+    assert(bad_card.primary == IC.move_result_key("bribe", false),
+        "the missed card's subtitle is " .. tostring(bad_card.primary)
         .. ", not the bribe's own")
 
     -- AND THE TWO CARDS DID NOT SAY THE SAME THING. Both call sites passing the
     -- success key would satisfy every assertion above taken one at a time.
-    assert(ok_card.secondary ~= bad_card.secondary,
+    assert(ok_card.primary ~= bad_card.primary,
         "a landed bribe and a missed one both say "
-        .. tostring(ok_card.secondary))
+        .. tostring(ok_card.primary))
 
     cm.get_human_factions = saved_human
     cm.random_number = saved_roll
@@ -15830,9 +15832,11 @@ check("the court tells the player the things he did not do himself", function()
     assert(string.find(ev.title, "derpy_ic_event_party_joined"),
         "the title key is " .. tostring(ev.title))
     -- AND THE PLATE UNDER IT IS NOT BLANK. "" is a legal fourth argument and
-    -- draws the plate EMPTY rather than hiding it. An event that declares a
-    -- secondary of its own must hand the engine that key when the caller names
-    -- nothing.
+    -- draws the plate EMPTY rather than hiding it. With no caller's key the
+    -- event hands the engine its own subtitle and its own body.
+    assert(ev.primary == "event_feed_strings_text_"
+                         .. "derpy_ic_event_party_joined_primary",
+        "party_joined's subtitle is " .. tostring(ev.primary))
     assert(ev.secondary == "event_feed_strings_text_"
                            .. "derpy_ic_event_party_joined_secondary",
         "party_joined's secondary line is " .. tostring(ev.secondary))
@@ -15846,13 +15850,33 @@ check("the court tells the player the things he did not do himself", function()
             .. ", which is not above every vanilla one")
         assert(type(pair[2]) == "boolean",
             slug .. " has no persistent flag")
-        -- THE THIRD COLUMN, mirrored against gen_iron_court.py by
-        -- import_iron_court.py. nil here reads as false and would send a
-        -- blank plate for an event the generator did emit a line for.
+        -- THE THIRD COLUMN: which slot a caller's key takes. nil reads as
+        -- false, which would put a deed's sentence in the subtitle.
         assert(type(pair[3]) == "boolean",
-            slug .. " does not say whether it has a secondary line")
+            slug .. " does not say which slot a caller's key fills")
         assert(not seen[pair[1]], "two events share index " .. tostring(pair[1]))
         seen[pair[1]] = slug
+        -- BOTH SLOTS FILLED, AND A CALLER'S KEY TAKES EXACTLY ONE. Bare, the
+        -- card is all the event's own keys; with a key, that key is in the slot
+        -- the third column names and the event's own key is in the other. A
+        -- seat's name in the body, or a "" anywhere, fails here.
+        local own = "event_feed_strings_text_" .. IC.event_stem(slug, F)
+        shown = {}
+        IC.raise_feed(F, slug)
+        IC.raise_feed(F, slug, "caller_key")
+        local bare, given = shown[1], shown[2]
+        assert(bare.primary == own .. "_primary" and bare.secondary == own .. "_secondary",
+            slug .. " with no caller's key drew " .. tostring(bare.primary)
+            .. " / " .. tostring(bare.secondary))
+        local want_p = pair[3] and own .. "_primary" or "caller_key"
+        local want_s = pair[3] and "caller_key" or own .. "_secondary"
+        assert(given.primary == want_p and given.secondary == want_s,
+            slug .. " with a caller's key drew " .. tostring(given.primary)
+            .. " / " .. tostring(given.secondary))
+        for _, card in ipairs({bare, given}) do
+            assert(card.title ~= "" and card.primary ~= "" and card.secondary ~= "",
+                slug .. " drew an empty slot")
+        end
     end
 
     -- A PLOT CARD NAMES THE MOVE. The generic line says only that something
@@ -15874,15 +15898,14 @@ check("the court tells the player the things he did not do himself", function()
     assert(IC.move_result_key(nil, true) == nil,
         "a move with no key still built one")
 
-    -- AN EVENT THAT NAMES ITS OWN THING GETS NO FALLBACK. snub and
-    -- office_lost pass the seat's loc key at the call site, so a default
-    -- under them would be a key the generator never emitted - the silent
-    -- empty plate again, one layer further down.
+    -- A SEAT'S NAME IS THE SUBTITLE. snub passes the claimed seat's title
+    -- key; it goes over the event's own body, never into the body's box.
     shown = {}
-    assert(IC.feed(F, "snub"), "the feed refused snub")
-    assert(shown[1].secondary == "",
-        "snub fell back to " .. tostring(shown[1].secondary)
-        .. ", a key the generator does not emit")
+    assert(IC.feed(F, "snub", IC.office_title_key("chains")), "the feed refused snub")
+    assert(shown[1].primary == IC.office_title_key("chains"),
+        "snub's subtitle is " .. tostring(shown[1].primary))
+    assert(shown[1].secondary == "event_feed_strings_text_derpy_ic_event_snub_secondary",
+        "snub's body is " .. tostring(shown[1].secondary))
     -- AND THE CALLER'S OWN KEY STILL WINS over any default.
     shown = {}
     assert(IC.feed(F, "party_joined", "some_other_key"),
@@ -15928,11 +15951,13 @@ check("a term running out reaches the player, once, naming the seat", function()
     assert(#shown == 1, "one seat emptied and the feed raised " .. #shown)
     assert(shown[1].index == IC.EVENTS.office_lost[1],
         "the vacancy went out on index " .. tostring(shown[1].index))
-    -- NAMED, because exactly one seat emptied. The secondary is a LOC KEY the
+    -- NAMED, because exactly one seat emptied: the subtitle is a LOC KEY the
     -- engine resolves at draw time - never a name this file resolved itself,
-    -- which from a turn handler is a turn-1 CTD.
-    assert(shown[1].secondary == IC.office_title_key("chains"),
-        "the card named " .. tostring(shown[1].secondary))
+    -- which from a turn handler is a turn-1 CTD - and the body is the event's.
+    assert(shown[1].primary == IC.office_title_key("chains"),
+        "the card named " .. tostring(shown[1].primary))
+    assert(shown[1].secondary == "event_feed_strings_text_derpy_ic_event_office_lost_secondary",
+        "the card's body is " .. tostring(shown[1].secondary))
     cm.get_human_factions = saved
 end)
 
@@ -22270,8 +22295,8 @@ check("a term that ends next turn is announced the turn before, once", function(
     assert(cards_at(ends - 2) == 0, "the card came two turns early")
     local n, card = cards_at(ends - 1)
     assert(n == 1, n .. " cards the turn before the term ended")
-    assert(card.secondary == IC.office_title_key("forge"),
-           "the card does not name the seat: " .. tostring(card.secondary))
+    assert(card.primary == IC.office_title_key("forge"),
+           "the card does not name the seat: " .. tostring(card.primary))
     assert(cards_at(ends) == 0, "the card came again on the turn the term ended")
     cm.get_human_factions = function() return {} end
     turn = 1
@@ -25264,8 +25289,8 @@ as_player(function()
         "a man died in his seat and " .. cards_at(died[1]) .. " card(s) said so")
     local card
     for _, s in ipairs(shown) do if s.index == died[1] then card = s end end
-    assert(card.secondary == IC.office_title_key(office),
-        "the card's second line is " .. tostring(card.secondary)
+    assert(card.primary == IC.office_title_key(office),
+        "the card's subtitle is " .. tostring(card.primary)
         .. ", not the seat he held")
     -- AND THE RECORD, for both things he held.
     local lines = {}
@@ -25414,8 +25439,8 @@ as_player(function()
         .. cards_at(back[1]) .. " card(s) said so")
     local card
     for _, s in ipairs(shown) do if s.index == back[1] then card = s end end
-    assert(card.secondary == IC.office_title_key(office),
-        "the card's second line is " .. tostring(card.secondary) .. ", not the seat")
+    assert(card.primary == IC.office_title_key(office),
+        "the card's subtitle is " .. tostring(card.primary) .. ", not the seat")
     IC.apply_office_bundles(F)
     assert(cards_at(back[1]) == 1, "the office was announced back at work twice")
     local line
@@ -26095,8 +26120,14 @@ as_player(function()
         local claimed
         for _, o in ipairs(IC.OFFICES) do if o.affinity == "legion" then claimed = o.slug end end
         court.offices[claimed] = 980
+        shown = {}
         IC.drift_loyalty(F)
         assert(court.houses.legion.snub_key == claimed, "the fixture's party is not insulted")
+        -- THE CARD'S SUBTITLE IS THE CLAIMED SEAT, out of the real call site.
+        local card
+        for _, s in ipairs(shown) do if s.index == IC.EVENTS.snub[1] then card = s end end
+        assert(card and card.primary == IC.office_title_key(claimed),
+            "the insult's subtitle is " .. tostring(card and card.primary))
         return court, claimed
     end
     local snub = IC.EVENTS.snub[1]
@@ -29859,9 +29890,15 @@ check("deeds: an absent party at the line takes the next ordinary lord", functio
     court.renown.legion = IC.TUNE.renown_join_line
     local lord = make_character(95, ANY_SEAT, nil)
     make_faction(F, IC.CHD_SUBCULTURE, {lord}, {})
+    shown = {}
     local bg = IC.deed_join(lord, F)
     assert(bg and IC.PARTY_OF_BG[bg] == "legion", "the lord was given " .. tostring(bg))
     assert(court.houses.legion and court.houses.legion.head, "the Legion did not enter, named")
+    -- THE DEED'S SENTENCE IS THE BODY, under the event's own subtitle.
+    assert(#shown == 1 and shown[1].secondary == IC.party_drawn_key(F, "legion")
+           and shown[1].primary == "event_feed_strings_text_derpy_ic_event_party_drawn_primary",
+        "the drawn card reads " .. tostring(shown[1] and shown[1].primary)
+        .. " / " .. tostring(shown[1] and shown[1].secondary))
     assert(IC.renown(F, "legion") == IC.TUNE.renown_join_line, "its renown did not come with it")
     gov_done()
 end)
@@ -35100,11 +35137,14 @@ check("no parties' turn failed anywhere in the run", function()
         .. table.concat(IC_PARTY_FAULTS, "\n  "))
 end)
 
-check("the court's clicks run ahead of another mod's throwing click handler", function()
-    -- Since 9.1 lib_core calls listeners unprotected: a throw unwinds the dispatch loop and
-    -- every listener queued behind it never runs that click (Great Guilds player report,
-    -- 2026-10-09: "click sound, nothing opens"). The thrower is queued first, the way every
-    -- mod that loads before the court's files is.
+check("the court's clicks run past another mod's throwing click condition", function()
+    -- Since 9.0 lib_core calls listeners unprotected, and core:event_callback tests every
+    -- listener's condition before it calls any callback: one throwing condition drops the
+    -- whole click wherever the court sits in core's queue (Great Guilds player report,
+    -- 2026-10-09: "click sound, nothing opens", and again after the first fix put the
+    -- listeners at core's index 1). The thrower is queued first, the way every mod that
+    -- loads before the court's files is; events.ComponentLClickUp is the engine's list,
+    -- with core's dispatcher one entry of it.
     local loaded = {}
     for _, l in ipairs(core.event_listeners.ComponentLClickUp or {}) do
         if l.name == "ic_char_switch" or l.name == "ic_pool_price_click" then
@@ -35112,23 +35152,40 @@ check("the court's clicks run ahead of another mod's throwing click handler", fu
         end
     end
     assert(#loaded == 2, "expected the two load-time click listeners, found " .. #loaded)
-    local q = {{name = "stranger_throws", condition = true,
-                callback = function() error("another mod's click handler") end}}
+    local throws = true
+    local q = {{name = "stranger_throws", callback = function() end, condition = function()
+        if throws then error("another mod's click condition") end
+        return false
+    end}}
     for _, l in ipairs(loaded) do q[#q + 1] = l end
     core.event_listeners.ComponentLClickUp = q
-    ICUI.register()
-    ICUI.click_first()
-    local ran = {}
-    pcall(function()
-        for _, l in ipairs(q) do
-            ran[#ran + 1] = l.name
-            l.callback({string = "harness_nothing"})
+    local keep_events = events
+    events = {ComponentLClickUp = {function(context)
+        local go = {}
+        for _, l in ipairs(core.event_listeners.ComponentLClickUp) do
+            if l.condition == true or l.condition(context) then go[#go + 1] = l end
         end
-    end)
-    local want = {"ic_click", "ic_map_click", "ic_char_switch", "ic_pool_price_click",
-                  "stranger_throws"}
-    assert(table.concat(ran, ",") == table.concat(want, ","),
-           "the court's clicks did not all run first, in order: ran " .. table.concat(ran, ","))
+        for _, l in ipairs(go) do l.callback(context) end
+    end}}
+    ICUI.register()
+    local ran = {}
+    for _, l in ipairs(core.event_listeners.ComponentLClickUp) do
+        local name = l.name
+        l.callback = function() ran[#ran + 1] = name end
+    end
+    ICUI.click_first()
+    -- Then a click the stranger lets through: a copy left in core's queue runs it twice.
+    local want = {"ic_click", "ic_map_click", "ic_char_switch", "ic_pool_price_click"}
+    for _, t in ipairs({true, false}) do
+        throws, ran = t, {}
+        pcall(function()
+            for _, fn in ipairs(events.ComponentLClickUp) do fn({string = "harness_nothing"}) end
+        end)
+        assert(table.concat(ran, ",") == table.concat(want, ","),
+               "the court's clicks did not each run once, in order, stranger throwing: "
+               .. tostring(t) .. ": ran " .. table.concat(ran, ","))
+    end
+    events = keep_events
 
     -- AND BEING FIRST MUST NOT MAKE THE COURT THE THROWER.
     local fails = {}

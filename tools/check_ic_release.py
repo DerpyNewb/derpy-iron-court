@@ -35,10 +35,11 @@ BOXES = (1600, 1920, 2560)
 PACK_DIR = os.path.join(ROOT, "Modding Files", "pack")
 LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
 # The reviewed build every later pack is compared against, found by MD5 under Backup/.
-# Re-pin only after reading every finding: the last re-pin's diff was three loc lines
-# and two mission rows, the "Its card names both" text rewritten.
-SNAPSHOT_MD5 = "14d517dd1951f8fdbc626706538718aa"
-SNAPSHOT_SIZE = 15185867
+# Re-pin only after reading every finding: the last re-pin's diff (2026-10-10) was 81 loc
+# lines, every one an event card's _primary or _secondary, plus 4 added _secondary lines -
+# the cards flipped to a short subtitle over a boxed body. No title, row or other loc moved.
+SNAPSHOT_MD5 = "633093f943dba504effe9ed69494c069"
+SNAPSHOT_SIZE = 15194302
 
 
 def fit_problems():

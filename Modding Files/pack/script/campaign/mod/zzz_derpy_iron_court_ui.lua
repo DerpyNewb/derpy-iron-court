@@ -8626,13 +8626,16 @@ function ICUI.toggle()
     if comp(ICUI.PANEL) then ICUI.close() else ICUI.open() end
 end
 
--- FIRST IN THE CLICK QUEUE (Great Guilds player report, 2026-10-09: "click sound,
--- nothing opens"). Since 9.1 lib_core calls listeners unprotected, so one mod's
--- ComponentLClickUp handler that throws abandons every listener queued behind it,
--- logging nothing - and the court's register at load and at the first tick, behind
--- every earlier mod's. ICUI.click_first moves all four to the front in this order
--- once they exist; the two with real bodies are pcall'd, so being first cannot make
--- the court the handler that starves the rest.
+-- OUT OF CORE'S QUEUE ALTOGETHER (Great Guilds player report, 2026-10-09: "click
+-- sound, nothing opens", and again after the first fix). Since 9.0 lib_core calls
+-- listeners unprotected, and core:event_callback tests EVERY listener's condition
+-- before it calls any callback (lib_core.lua 1978-1990): one mod's condition that
+-- throws drops the whole click, so index 1 of core.event_listeners was not first
+-- enough. ICUI.click_first lifts all four, in this order, into
+-- events.ComponentLClickUp - the engine's own list that core's dispatcher is one
+-- entry of; CA's wh2_campaign_traits.lua writes to events.* the same way. Each goes
+-- in there BEFORE it leaves core's, so a missing events table leaves it where core
+-- put it, and its wrapper never throws into the engine.
 ICUI.CLICKS = {"ic_click", "ic_map_click", "ic_char_switch", "ic_pool_price_click"}
 
 function ICUI.click_first()
@@ -8640,8 +8643,16 @@ function ICUI.click_first()
         local list = core.event_listeners.ComponentLClickUp
         for k = #ICUI.CLICKS, 1, -1 do
             for i = #list, 1, -1 do
-                if list[i].name == ICUI.CLICKS[k] then
-                    table.insert(list, 1, table.remove(list, i))
+                local l = list[i]
+                if l.name == ICUI.CLICKS[k] then
+                    table.insert(events.ComponentLClickUp, 1, function(context)
+                        pcall(function()
+                            if l.condition == true or l.condition(context) then
+                                l.callback(context)
+                            end
+                        end)
+                    end)
+                    table.remove(list, i)
                     break
                 end
             end

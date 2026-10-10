@@ -6,6 +6,8 @@ screenshots) and the shipped `derpy_iron_court.pack`.
 **Built 2026-09-13, same day: 2.1, 2.2, 2.3, 2.4, 2.5 and 2.6 — the whole of the suggested
 order in §5.** Each is marked BUILT below with what shipped. The other five followed by
 2026-09-20, so every §2 item is now built; 2.7 and 2.11 have not yet been seen live (see §5).
+Status as of 2026-10-09: §3's one-party map highlight is built too - probed in game and shipped on
+the Governors tab 2026-10-01 (`sessions/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md` §12).
 
 The question this answers: **which of Rome 2's politics mechanics does the Iron Court already
 have, which are missing, and of the missing ones, which can actually be built in WH3.**
@@ -257,6 +259,9 @@ tooltip, one party per click instead of all three at once.
 to either function — documented but never exercised by CA, which in this codebase has meant dead
 before (`random_subpayload` returns false for every shape it documents). Prove it with a
 throwaway `SetOverlayMode(13, 0, <a known region key>)` before designing anything on top of it.
+**Probed 2026-10-01: it works** - mode 13 lights exactly the regions handed to it, land only, with
+no colour argument. Built as `ICUI.gm_light` on the Governors tab's Parties page
+(`sessions/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md` §12).
 
 §2.10 — the same question answered in the panel — stands either way, and needs no engine call.
 
@@ -313,8 +318,11 @@ positives it produced in `docs/sessions/HANDOFF_20260918_IRON_COURT_WARNINGS_AND
 functions are still defined and called by nothing: `ICUI.origin_name` (asked to draw it on the
 office card, the author chose a trait naming the man's PARTY instead - `derpy_ic_member_*`,
 2026-09-29 - and the origin stays a trait of its own), `ICUI.gov_effect` (superseded on purpose when the Effect column
-became province loyalty) and `IC.house_in_court`. Outside this pack, `cm:force_non_aggression_pact`
+became province loyalty) and `IC.house_in_court`; the last two are gone from the staged Lua by
+2026-10-09, and `ICUI.origin_name` is still defined and called by nothing. Outside this pack, `cm:force_non_aggression_pact`
 is **undocumented** and called eight times across the four Ghorth start scripts in the lords pack.
+(Undocumented in the 8.x docs only: 9.0's `episodic_scripting.html` documents it as
+`(granting_key, recipient_key)`, two strings. The scripts' comment still says undocumented.)
 The 2026-09-29 audit's own open list is the last section of
 `sessions/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`.
 

@@ -1455,18 +1455,14 @@ def verify():
                                 "the court does reaches the event feed")
             else:
                 lua_ev = {}
-                # THREE FIELDS. The third says whether the event has a
-                # secondary line of its own, and it is the same class of
-                # trap as the other two: a model that names a
-                # _secondary loc key the generator never emitted draws
-                # an empty plate, which is the fault this column fixed.
+                # THREE FIELDS, two compared. The third says which slot a
+                # caller's key fills, and the harness measures that at
+                # each call site; every event now ships both loc keys.
                 for _slug, _idx, _per, _sec in re.findall(
                         r"(\w+)\s*=\s*\{\s*(\d+)\s*,\s*(true|false)\s*,\s*(true|false)\s*\}",
                         mev.group(1)):
-                    lua_ev[_slug] = (int(_idx), _per == "true",
-                                     _sec == "true")
-                gen_ev = {e[0]: (G.event_index(e[0]), e[1],
-                                 e[6] is not None) for e in G.EVENTS}
+                    lua_ev[_slug] = (int(_idx), _per == "true")
+                gen_ev = {e[0]: (G.event_index(e[0]), e[1]) for e in G.EVENTS}
                 for _slug in sorted(set(gen_ev) | set(lua_ev)):
                     if _slug not in lua_ev:
                         problems.append(
@@ -1479,7 +1475,7 @@ def verify():
                     elif lua_ev[_slug] != gen_ev[_slug]:
                         problems.append(
                             "event %s is %s in the model and %s in the "
-                            "generator (index, persistent, secondary)"
+                            "generator (index, persistent)"
                             % (_slug, lua_ev[_slug], gen_ev[_slug]))
                 # THE DWARF RUN. The model adds DWF.EVENT_OFFSET to every
                 # index; a number off the generator's names no record, or

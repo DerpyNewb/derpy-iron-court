@@ -1048,7 +1048,7 @@ ADVANCEMENT_STAGE = "start_turn_completed"
 # a common.get_localised_string from a turn handler is a turn-1 CTD. The engine
 # does the lookup, we never do. CA builds keys by concatenation
 # ("pooled_resources_display_name_" .. key, wh2_dlc17_thorek.lua:209), so the
-# SECONDARY key names the specific seat by reusing the office bundle's own title
+# PRIMARY key names the specific seat by reusing the office bundle's own title
 # key, which this generator already emits. That is as specific as a scripted
 # event can be made without minting a record per office.
 #
@@ -1079,49 +1079,59 @@ EVENT_FIXED = {
     "ignore_instant_open_filters": "false",
 }
 
-# slug, persistent, image, sound, title, primary sentence, secondary line.
+# slug, persistent, image, sound, title, primary, secondary.
 #
-# THE SECONDARY IS THE SMALL PLATE UNDER THE PRIMARY, and passing "" for it
-# does not hide the plate - it draws it empty. None means the event passes its own key at the call site
-# instead (office_lost and snub name the seat), so nothing here would be
-# read; anything else is emitted as a loc key and used as the default.
+# CA'S SHAPE, measured off vanilla's event_feed_strings: the PRIMARY is the
+# large-font subtitle under the title, two to six words, often a bare name; the
+# SECONDARY is the body in the dark inset box under it, in full sentences. ""
+# for either does not hide the slot - it draws it empty. Every event ships both
+# (check 16j). A caller's own key replaces ONE of them, as IC.EVENTS' third
+# field says: a seat's or a move's name is the subtitle, a deed's sentence is
+# the body. So an event's primary here is the subtitle for when the caller
+# has no name to give (two seats at once, say).
 #
 # Every image key was read out of the vanilla table's own chd/ set; an image key
 # the engine does not know is another silent non-draw.
 EVENTS = [
+    # THE MOVE'S OWN LINE ("Bribe: Success") is the subtitle at the call site.
     ("plot_ok", True, "chd/diplomacy", "Positive",
      "The Court Moves",
-     "Your move succeeded. The court has taken note.",
-     "Success"),
+     "Your Move Succeeded",
+     "Your move has succeeded and taken effect. The Record tab lists what it did."),
     ("plot_fail", True, "chd/army_morale_down", "Negative",
      "The Court Refuses",
-     "Your move failed. The influence is spent. Its target knows who tried.",
-     "Failure"),
+     "Your Move Failed",
+     "Your move has failed, and its price is spent all the same. If it was "
+     "aimed at a party, that party knows who tried and its loyalty falls."),
     # THE ONE THE PLAYER DID NOT DO. A term running out empties a seat with no
     # input from the player at all, which is exactly why it needs telling.
+    # ONE SEAT: the call site's subtitle is its name. The one here is for two or more.
     ("office_lost", True, "chd/civilisation_down", "Neutral",
      "A Seat Stands Empty",
-     "An officer has left his seat. The vacant office grants no bonus. Its party resents the vacancy.",
-     # NAMES THE SEAT AT THE CALL SITE, out of the office bundle's own key.
-     None),
+     "Several Terms Have Run Out",
+     "When a term at court runs out, its officer leaves the seat. An empty "
+     "office gives no bonus until you fill it on the Offices tab, and its last "
+     "holder cannot take it straight back."),
     ("party_joined", True, "chd/faction", "Positive",
      "A Party Enters the Court",
-     "A faction you absorbed has brought its men into your court as a party "
-     "of its own. It has strength at court now and will expect seats.",
-     "The Court Grows"),
+     "New Men From a Confederation",
+     "A faction you confederated has brought its men into your court as a party "
+     "of its own. It has strength at court now and will expect seats."),
     # THE MOST EXPENSIVE THING THAT CAN HAPPEN, so it is not left to the panel's
     # alert bar alone.
     ("secede_warn", True, "chd/settlement_lost", "Negative",
      "A Party Prepares to Leave",
-     "A party is preparing to leave the court. When its time runs out, it takes its provinces with it. Settle with it or take its seats away first.",
-     "Preparing to Leave"),
+     "Its Countdown Has Begun",
+     "A party has begun counting down to leave your court. When the count ends, "
+     "it leaves and takes provinces with it. Raise its loyalty or cut its share "
+     "before then; its card on the Court tab shows the turns left."),
     # TRANSIENT, ALONE: six offices can snub six parties in one turn.
+    # The call site's subtitle is the claimed seat's name.
     ("snub", False, "chd/army_morale_down", "Negative",
      "A Party Is Slighted",
-     "A party is owed a seat it does not hold. Its loyalty falls every turn "
-     "the grievance stands.",
-     # NAMES THE SEAT AT THE CALL SITE, as office_lost does.
-     None),
+     "Its Claimed Seat Is Taken",
+     "A rival's man holds an office this party claims as its own. The party "
+     "loses loyalty every turn he keeps it."),
     # LAST, AND THAT IS DELIBERATE. An event's index is derived from its POSITION
     # in this list, so a row inserted in the middle renumbers everything after it
     # while the model keeps the old numbers (the build gate refuses that).
@@ -1132,8 +1142,10 @@ EVENTS = [
     # puts an army on the map and says nothing whatsoever about it.
     ("secede_done", True, "chd/settlement_lost", "Negative",
      "A Party Has Broken With You",
-     "A party has left your court with land and an army of its own. Its seats are empty. Its remaining men now serve your own party.",
-     "Departure"),
+     "Rebels Rise Against You",
+     "A party has left your court and risen in rebellion with land and an army "
+     "of its own. Its rebels are at war with you. Its seats are empty, and the "
+     "men it left behind now serve your own party."),
     # AND THE ONE THAT COMES BEFORE ANY OF THEM. secede_warn fires only when a
     # party has a big enough share of the court to be worth counting down; a
     # small party with nothing to lose rots to the floor without a single card
@@ -1141,161 +1153,192 @@ EVENTS = [
     # and it lands while the player can still buy it off.
     ("loyalty_warn", True, "chd/army_morale_down", "Negative",
      "A Party Turns Against You",
-     "A party's loyalty is running low. Give it a seat or buy it off. If its loyalty runs out, it leaves at once with its land.",
-     "Disloyalty"),
+     "Its Loyalty Is Running Low",
+     "A rival party's loyalty has fallen low. Give it a seat, or send it a gift "
+     "from the Court tab. If its loyalty runs out, it leaves at once and takes "
+     "land with it."),
     # YOUR OWN HOUSE, COMING APART. The Crown cannot secede from itself; this is
     # what its loyalty running out costs. chd/faction is the same picture party_joined
     # draws, because the thing that happened is the same thing: a party the
     # court did not have yesterday.
     ("splinter", True, "chd/faction", "Negative",
      "Your Own House Splits",
-     "Your party's loyalty has run out. Some of its men have formed their own party, taking a share of the court from you. They expect seats.",
-     "A New Party"),
+     "A Rival Party Is Born",
+     "Some of your own party's men have broken away to form a rival party, "
+     "taking part of your share of the court. Your party's loyalty returns to "
+     "its starting level. The new party will expect seats."),
     # THE SECOND NOTICE ON A SECESSION. secede_warn lands at the top of a
     # five-turn clock, and Provoke shortens that clock and skips the opening
     # card, so without this the fastest route to losing a province is also the
     # quietest. This fires once, as the count enters its last warn_turns.
     ("secede_soon", True, "chd/settlement_lost", "Negative",
      "The Count Is Nearly Out",
-     "A party is about to leave the court with the provinces it holds. There will be no further warning.",
-     "Leaving Soon"),
+     "This Is the Last Warning",
+     "A party is about to leave your court and take provinces with it. No "
+     "further card will warn you. Raise its loyalty or cut its share now."),
     # AND THE CROWN'S OWN WARNING. The split card says what has happened; this
     # one runs in front of it and says what is about to.
     ("splinter_warn", True, "chd/faction", "Negative",
      "Your Own House Is Turning",
-     "Your party's loyalty has run out. Some of its men are forming a party of their own. Restore its loyalty before they break away.",
-     "Split Pending"),
+     "A Split Is Coming",
+     "Your own party's loyalty has fallen too low, and some of its men are "
+     "forming a party of their own. Raise its loyalty before they break away."),
     # A PARTY WITH NOTHING TO TAKE. A party with nobody in it and no province to
     # its name breaks up instead of seceding; seceding, it would take over
     # another rising's faction, rename it and start a war.
     ("dissolved", True, "chd/faction", "Neutral",
      "A Party Dissolves",
-     "A party with no members or province has dissolved. Its share of the court is gone. You lose nothing.",
-     "Party Dissolved"),
+     "No Men and No Land Left",
+     "The party had no men left and no province to take, so it broke up instead "
+     "of leaving. Its share of the court is gone, and you lose nothing."),
     ("party_plot_warn", True, "chd/army_morale_down", "Negative",
      "A Party Moves Against You",
-     "A party plans to strike at the Crown next turn. Open the Iron Court to see who is behind it and how to stop him.",
-     "Warning"),
+     "Its Move Lands Next Turn",
+     "A rival party plans to strike at you next turn. The Intrigue tab names the "
+     "party and its move. Raise that party's loyalty, or deal with its plotter, "
+     "to stop it."),
     ("party_plot_ok", True, "chd/army_morale_down", "Negative",
      "The Court Strikes at the Crown",
-     "A party's move against the Crown succeeded.",
-     "Struck"),
+     "A Rival's Move Lands",
+     "A rival party's move against you has succeeded. The Record tab names the "
+     "party and what it did."),
     ("party_plot_fail", True, "chd/diplomacy", "Positive",
      "A Plot Is Foiled",
-     "A party's move against the Crown failed. It has lost the influence it spent.",
-     "Foiled"),
+     "Their Move Failed",
+     "A rival party's move against you has failed. Its man lost the influence "
+     "he spent on it."),
     ("party_plot_dropped", True, "chd/diplomacy", "Neutral",
      "A Plot Comes to Nothing",
-     "A party has abandoned its planned move against the Crown.",
-     "Abandoned"),
+     "The Threat Has Passed",
+     "A rival party has given up the move it planned against you."),
     ("party_feud", True, "chd/faction", "Neutral",
      "A Feud in the Court",
-     "Two parties have turned on each other. While the feud lasts they strike "
-     "at each other rather than at you.",
-     "Feud"),
+     "They Strike at Each Other",
+     "Two rival parties have turned on each other. While the feud lasts they "
+     "strike at each other and leave you alone. Back one side or make peace on "
+     "the Petitions tab to end it."),
     ("party_feud_end", True, "chd/faction", "Neutral",
      "A Feud Ends",
-     "A feud between two parties is over. Either may turn its attention back "
-     "to the Crown.",
-     "Feud Over"),
+     "Either May Strike at You Now",
+     "The feud between two rival parties is over. Neither is busy with the "
+     "other, and either may move against you again."),
     ("party_feud_murder", True, "chd/army_morale_down", "Negative",
      "Blood Between Parties",
-     "A feud at court has ended in a killing. A rival party has killed one of your men.",
-     "Killed"),
+     "One of Your Men Is Dead",
+     "A feud at court has turned to murder: one feuding party has had a man "
+     "from the other killed. He was one of your men."),
     ("party_demand", True, "chd/diplomacy", "Neutral",
      "A Party Makes a Demand",
-     "A party demands a post for one of its men. The party's card names the man and the post. Grant it and its loyalty rises; refuse or let the time run out and it falls.",
-     "Demand"),
+     "A Post for One of Its Men",
+     "A party demands a post for one of its men. Its card names the man and the "
+     "post. Answer on the Petitions tab: grant it and its loyalty rises; refuse "
+     "it or let the time run out and its loyalty falls."),
     ("party_demand_refused", True, "chd/army_morale_down", "Negative",
      "A Demand Refused",
-     "A party's demand went unmet. Its loyalty has fallen.",
-     "Refused"),
+     "Its Loyalty Falls",
+     "A party's demand went unmet, and its loyalty has fallen."),
     ("party_offer", True, "chd/diplomacy", "Positive",
      "A Party Offers a Favour",
-     "A loyal party offers the Crown a favour. Answer on the Petitions tab before it lapses. The other parties will resent your acceptance.",
-     "Offer"),
-    # THE TURN BEFORE office_lost. The call site names the
-    # seat when only one is ending; the default below is for two or more.
+     "Accepting Angers the Rest",
+     "A loyal party offers you a favour. Answer it on the Petitions tab before "
+     "it lapses. If you accept, every other rival party loses loyalty."),
+    # THE TURN BEFORE office_lost. The call site's subtitle names the seat
+    # when only one is ending; the one below is for two or more.
     ("term_soon", True, "chd/civilisation_down", "Neutral",
      "A Term Ends Next Turn",
-     "An officer's term ends at the start of your next turn. His seat will be vacant, and he cannot take it straight back. Choose his successor now.",
-     "Terms End"),
+     "Several Terms End at Once",
+     "When a term ends at the start of your next turn, its seat falls vacant "
+     "and its holder cannot take it straight back. Pick a successor now on the "
+     "Offices tab."),
     ("party_sabotage", True, "chd/army_morale_down", "Negative",
      "An Office Sabotaged",
-     "A feuding party has sabotaged its rival's office. The office gives no bonus for a few turns.",
-     "Sabotage"),
+     "Its Bonus Is Lost for Now",
+     "A feuding party has sabotaged an office its rival holds. The office gives "
+     "no bonus for a few turns."),
     ("party_withhold", True, "chd/army_morale_down", "Negative",
      "A Party Withholds Its Service",
-     "A disloyal party's officers have stopped working for you. Their offices give no bonus for a few turns. Use Secure Loyalty and they return to work at once.",
-     "Withheld"),
+     "Their Offices Stop Working",
+     "A disloyal party's officers have stopped working for you. Their offices "
+     "give no bonus for a few turns. Use Secure Loyalty on the Court tab and "
+     "they return to work at once."),
     ("realm_secede", False, "chd/army_morale_down", "Negative",
      "A Rival Court Splits",
-     "A party has broken from another Chaos Dwarf court and risen in rebellion.",
-     "Rebellion"),
+     "Rebels Take the Field",
+     "A party has broken from another Chaos Dwarf court and risen in rebellion "
+     "with an army of its own."),
     # Three things the court would otherwise do in silence. A death the court
     # arranged - a plot, a feud - has its own
     # card already and does not raise this one.
+    # A SEAT'S NAME is the call site's subtitle; a governor's death uses this one.
     ("officer_died", True, "chd/army_morale_down", "Negative",
      "An Officer Is Dead",
-     "One of your officers has died. His seat at court or his province "
-     "stands empty until you fill it.",
-     # NAMES THE SEAT AT THE CALL SITE, as office_lost does.
-     None),
+     "A Post Stands Empty",
+     "One of your officers has died, and the post he held is empty. Fill it on "
+     "the Offices or Governors tab."),
     # BOTH COUNTS: a party's secession and your own house's split.
     ("threat_over", True, "chd/diplomacy", "Positive",
      "A Party Stands Down",
-     "A party that was preparing to break with you has stood down, for now. "
-     "Keep watch on its loyalty.",
-     "Stood Down"),
+     "The Countdown Stops",
+     "A party that was counting down to break with you has stopped, for now. "
+     "Keep watch on its loyalty: a new count can start."),
+    # The call site's subtitle names the seat when only one is back.
     ("stall_end", True, "chd/diplomacy", "Positive",
      "An Office Is Back at Work",
-     "An office has returned to work. Its bonus applies again.",
-     # NAMES THE SEAT AT THE CALL SITE.
-     None),
+     "Their Bonuses Apply Again",
+     "The stoppage has run its course, and each office it stopped gives its "
+     "bonus again."),
     # THE GOVERNMENT.
     ("gov_changed", True, "chd/faction", "Positive",
      "A New Government",
-     "A new government rules the court. Its party expects you to follow its rules.",
-     "The Court Changes"),
+     "A Court Rule Changes",
+     "A new government rules the court, with its own court rule and faction "
+     "effect. The parties behind it gain loyalty, and those behind the old one "
+     "lose some."),
     ("gov_pressure", True, "chd/faction", "Neutral",
      "The Court Pulls Another Way",
-     "A leading party asks for its own government. Accept or pay to keep your current government on the Petitions tab.",
-     "A Choice Waits"),
+     "A Choice Waits",
+     "The leading party asks for its own government. On the Petitions tab, "
+     "accept it or pay influence to keep your current one. Accepting angers the "
+     "old government's party; holding angers the party that asked."),
     # DEEDS. gov_intro is raised once per player court;
-    # party_drawn names its deed in a per-party secondary line (PARTY_DRAWN).
+    # party_drawn's body is a per-party line (PARTY_DRAWN) naming its deed.
     ("gov_intro", True, "chd/faction", "Neutral",
      "Your Deeds Move the Court",
-     "Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box.",
-     "The Court Watches You"),
+     "What Raises Each Party",
+     "Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box."),
     ("party_drawn", True, "chd/faction", "Positive",
      "A Party Comes to Court",
-     "Your deeds have drawn a new party into your court, and the next lord you "
-     "raised has joined it. It has strength at court now and will expect seats.",
-     "The Court Grows"),
+     "Drawn by Your Deeds",
+     "Your deeds have drawn a new party into your court, and your newest lord "
+     "has joined it. It has strength at court now and will expect seats."),
     # THE LAWS.
     ("law_proposed", True, "chd/faction", "Neutral",
      "A Law Before the Court",
-     "A law is before the court. Members vote with their parties. On the Laws tab, push for support, persuade men or overrule the vote.",
-     "The Court Will Vote"),
+     "The Court Will Vote",
+     "A law is before the court. Each party votes with the influence of its "
+     "men. On the Laws tab, push your side, win men over or overrule the vote."),
     ("law_passed", True, "chd/faction", "Positive",
      "A Law Passes",
-     "A new law is in force. Parties that supported it are pleased; its opponents resent it.",
-     "The Law Is Changed"),
+     "The Law Is Changed",
+     "The court has voted the law through, and it is now in force. Parties that "
+     "backed it gain loyalty; parties that opposed it lose some."),
     ("law_failed", True, "chd/faction", "Negative",
      "A Law Fails",
-     "The court has voted the law down. The law in force stands.",
-     "The Law Stands"),
+     "The Old Law Stands",
+     "The court has voted the law down, and the law in force stays. If a rival "
+     "party proposed it, that party loses loyalty."),
 ]
 
-# THE SECONDARY LINE party_drawn PASSES, one per party a deed can draw in.
+# THE BODY party_drawn PASSES, one per party a deed can draw in. It replaces
+# the event's own body, so it carries that body's news as well as the deed.
 PARTY_DRAWN = {
-    "legion": "Your victories drew the Legion to court.",
-    "forge": "The Hell-Forge's work drew the Forge to court.",
-    "temple": "The Tower's rites drew the Priesthood to court.",
-    "chain": "Your slave-taking drew the Chain to court.",
-    "road": "Your convoys drew the Road to court.",
-    "ledger": "Your convoys drew the Ledger to court.",
-    "tower": "Your research drew the Tower to court.",
+    "legion": "Your victories drew the Legion to court. Your newest lord has joined it, and it will expect seats.",
+    "forge": "The Hell-Forge's work drew the Forge to court. Your newest lord has joined it, and it will expect seats.",
+    "temple": "The Tower's rites drew the Priesthood to court. Your newest lord has joined it, and it will expect seats.",
+    "chain": "Your slave-taking drew the Chain to court. Your newest lord has joined it, and it will expect seats.",
+    "road": "Your convoys drew the Road to court. Your newest lord has joined it, and it will expect seats.",
+    "ledger": "Your convoys drew the Ledger to court. Your newest lord has joined it, and it will expect seats.",
+    "tower": "Your research drew the Tower to court. Your newest lord has joined it, and it will expect seats.",
 }
 
 # RAISED WITH cm:show_message_event_located. The record type must agree with the
@@ -1843,21 +1886,22 @@ RACES["dwf"] = {
     },
     "TIER_NAME": DWF_TIER_NAME,
     "STANDING_BAND": DWF_STANDING_BAND,
-    # THE SECONDARY LINE party_drawn PASSES, one per party a Dwarf deed draws.
+    # THE BODY party_drawn PASSES, one per party a Dwarf deed draws.
     "PARTY_DRAWN": {
-        "legion": "Your victories drew the Clan Warriors to court.",
-        "tower": "Your research drew the Runesmiths to court.",
+        "legion": "Your victories drew the Clan Warriors to court. Your newest lord has joined them, and they will expect seats.",
+        "tower": "Your research drew the Runesmiths to court. Your newest lord has joined them, and they will expect seats.",
     },
-    # THE EVENTS IN DWF.EVENT_LOC: title, primary, secondary.
+    # THE EVENTS IN DWF.EVENT_LOC: title, primary (subtitle), secondary (body).
     "EVENT_TEXT": {
         "gov_intro": (
             "Your Deeds Move the Court",
-            "Victory strengthens the Clan Warriors at court. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court.",
-            "The Court Watches You"),
+            "Victory and Research Count",
+            "Victory strengthens the Clan Warriors at court. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court."),
         "realm_secede": (
             "A Rival Court Splits",
-            "A party has broken from another hold's court and risen in rebellion.",
-            "Rebellion"),
+            "Oathbreakers in Arms",
+            "A party has broken from another hold's court and risen in rebellion "
+            "with an army of its own."),
     },
     "BUNDLE_ICON": "trait_dwarf.png",
 }
@@ -2472,18 +2516,15 @@ def build():
                     "text": title, "tooltip": "false"})
         loc.append({"key": "event_feed_strings_text_" + key + "_primary",
                     "text": primary, "tooltip": "false"})
-        if secondary is not None:
-            loc.append({"key": "event_feed_strings_text_" + key
-                               + "_secondary",
-                        "text": secondary, "tooltip": "false"})
+        loc.append({"key": "event_feed_strings_text_" + key + "_secondary",
+                    "text": secondary, "tooltip": "false"})
     for party, text in sorted(PARTY_DRAWN.items()):
         loc.append({"key": "event_feed_strings_text_derpy_ic_event_party_drawn_" + party,
                     "text": text, "tooltip": "false"})
 
-    # AND THE PER-MOVE LINES THE PLOT CARDS PREFER. The generic SUCCESS
-    # and FAILURE rows above stay as the fallback: IC.feed takes the
-    # caller's key when it has one, so a move with no row of its own
-    # still says something rather than drawing the empty plate.
+    # AND THE PER-MOVE LINES THE PLOT CARDS PREFER, as their subtitle. The
+    # generic plot_ok and plot_fail subtitles above stay as the fallback:
+    # IC.raise_feed takes the caller's key when it has one.
     #
     # CA'S OWN FORM, "Scout Ruins - Success!": title case, never capitals (CA
     # ships 0 event feed strings in capitals of 910).
@@ -4010,19 +4051,46 @@ def check():
     for r in tables["event_feed_message_events"]:
         if r["group"] not in gids:
             out.append("event row names group %s, which has no row" % r["group"])
-    # 16g. And every event must carry BOTH its loc keys, or it draws untitled.
+    # 16g. And every event must carry ALL THREE loc keys. IC.raise_feed hands
+    #     the engine its own _primary and _secondary whenever the caller names
+    #     nothing, and a key with no row draws that slot empty, silently.
     lkeys = set(e["key"] for e in tables["loc"])
     for slug, _p, _i, _s, _t, _pr, _sec in EVENTS:
-        parts = ["title", "primary"]
-        # AND THE SECONDARY, WHEN IT DECLARES ONE. IC.feed hands the engine
-        # this key by default, and a key with no row draws the empty plate
-        # the column was added to fill - silently, exactly as before.
-        if _sec is not None:
-            parts.append("secondary")
-        for part in parts:
+        for part in ("title", "primary", "secondary"):
             k = "event_feed_strings_text_" + event_key(slug) + "_" + part
             if k not in lkeys:
                 out.append("event %s has no %s loc key" % (slug, part))
+    # 16j. AND EACH SLOT HOLDS ITS OWN SHAPE, CA's: the primary is a short
+    #      subtitle, the secondary the body. Reversed, the large-font line is a
+    #      paragraph and the inset box under it says "Failure". Every race's
+    #      run, and the runtime keys that fill a slot: a move's result line and
+    #      an office's name are subtitles, a party_drawn line is a body.
+    ltext = dict((e["key"], e["text"]) for e in tables["loc"])
+    stems = ([event_key(e[0]) for e in EVENTS]
+             + [bundle_key("event", s, r) for r in RACES if r != "chd"
+                for s in RACES[r].get("EVENT_TEXT", {})])
+    subtitles, bodies = [], []
+    for stem in stems:
+        base = "event_feed_strings_text_" + stem
+        if ltext.get(base + "_primary") == ltext.get(base + "_title"):
+            out.append("event %s's subtitle repeats its title" % stem)
+        subtitles.append(base + "_primary")
+        bodies.append(base + "_secondary")
+    for k in ltext:
+        if k.startswith(("event_feed_strings_text_derpy_ic_move_",
+                         "effect_bundles_localised_title_derpy_ic_office_")):
+            subtitles.append(k)
+        elif (k.startswith("event_feed_strings_text_derpy_ic_event_party_drawn_")
+              and not k.endswith(("_title", "_primary", "_secondary"))):
+            bodies.append(k)
+    for k in subtitles:
+        t = ltext.get(k) or ""
+        if not t or len(t) > 36 or t.endswith("."):
+            out.append("%s is not a subtitle (1-36 characters, no full stop): %r" % (k, t))
+    for k in bodies:
+        t = ltext.get(k) or ""
+        if not t.endswith("."):
+            out.append("%s is not a body (sentences ending in a full stop): %r" % (k, t))
     # 16h. Indices must be unique. Two events on one number is one of them
     #      drawing the other's card.
     _vals = [r["value"] for r in tables["campaign_group_member_criteria_values"]]
@@ -4348,6 +4416,16 @@ def selftest():
         restore()
         assert any(needle in p for p in problems), \
             "check() did not catch %s (said: %s)" % (fault, problems)
+
+    # THE SLOTS REVERSED, the shape every event shipped in before 2026-10-10:
+    # the body sentence in the subtitle and a one-word label in the body.
+    _ev = EVENTS[1]
+    EVENTS[1] = _ev[:5] + (_ev[6], _ev[5])
+    injected("an event whose subtitle and body are swapped",
+             lambda: EVENTS.__setitem__(1, _ev), "is not a subtitle")
+    EVENTS[1] = _ev[:5] + (_ev[6], _ev[5])
+    injected("an event whose subtitle and body are swapped",
+             lambda: EVENTS.__setitem__(1, _ev), "is not a body")
 
     # The tooltip text. CA's wording typed from memory goes wrong ("Raw Materials
     # efficiency" for CA's "Raw Materials output"); check 15 must catch it.
