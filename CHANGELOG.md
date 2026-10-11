@@ -5,6 +5,19 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-11 - build B0B772A9
+
+Deployed 2026-10-11. MD5 `B0B772A909B6E5EBE318E64349AD596F`, 15,197,299 bytes. Only the hub's
+copy changed from 43D8B246. Not yet seen in game.
+
+- **The shared HUD button hides off the main screen.** The Derpy HUD hub (version 5,
+  `derpy_hub_ic.lua`) hides itself, its column and a lone opener button while a panel on CA's
+  own blocking list is open (diplomacy, technology, character details, the Escape menu, the
+  Tower of Zharr) or the resource strip has slid away for a cutscene or the end of turn, and
+  brings back only what it hid. The other mods' copies carry the same change; the newest copy
+  serves them all.
+- Checks: four new `_hub_harness.lua` checks; six mutants of the new code caught.
+
 ## 2026-10-10 - build 43D8B246
 
 Deployed 2026-10-10. MD5 `43D8B246001F6432A134CCA166DF9635`, 15,194,884 bytes. Includes
