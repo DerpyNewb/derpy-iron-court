@@ -7,7 +7,7 @@ an MD5.
 
 ## 2026-10-16 - build F5CF88CB
 
-Built 2026-10-16; the copy to the game's `data/` folder waits for the game to close. MD5
+Deployed 2026-10-16. MD5
 `F5CF88CB2BA7DB5414BA4578124C1E73`, 15,373,891 bytes. Not yet seen in game.
 
 - **Player text made true.** An antislop audit of every trait, bundle, event, Help line,
