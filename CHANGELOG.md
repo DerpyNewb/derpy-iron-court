@@ -5,6 +5,39 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-16 - build F5CF88CB
+
+Built 2026-10-16; the copy to the game's `data/` folder waits for the game to close. MD5
+`F5CF88CB2BA7DB5414BA4578124C1E73`, 15,373,891 bytes. Not yet seen in game.
+
+- **Player text made true.** An antislop audit of every trait, bundle, event, Help line,
+  tooltip and MCT setting found 74 problems, 24 of them statements that were false about the
+  game. All 74 are fixed, along with 6 of 7 more found by a final review. Examples: the origin
+  trait said it had no effect at court; Ride the Circuit said Control where it adds loyalty; the
+  MCT gave Chaos Dwarf numbers to Dwarf courts.
+- **The Taur'ruk trade goes only to Bull Centaur Taur'ruks.** Before, any Priesthood man could
+  be told he was half bull. Old saves are converted once, inside the same party.
+- **Dwarf courts say "the Crown" and name their own moves.** The action bar reads Insult and Cast
+  Out; the purge button is 20 px wider on both races so the name fits.
+- Checks: harness 1155 checks; 1,287 mutants, all anchored; the release snapshot re-pinned after
+  every moved line was read.
+
+## 2026-10-16 - build 32BF4AC6
+
+Deployed 2026-10-16. MD5 `32BF4AC6290C640F253E8CDE78025C59`, 15,310,138 bytes. Not yet seen in
+game. Design in `docs/design/2026-10-15-iron-court-cultures-design.md`, plan in
+`docs/plans/2026-10-15-iron-court-cultures.md`.
+
+- **Cultures.** Every lord is dealt one of eight cultures a race, in place of the old rolled
+  birthplaces. A governor's culture sets his province effects, stronger in a province his
+  culture calls home on the Old World map and costing Control in another culture's home. It
+  feeds a main and a side party, and gives each man a stance on laws, so a party's loyalty
+  moves by how its men voted.
+- **Karak Kadrin's men in the Dwarf Legion are Slayers**, on every path a man is dealt a trade.
+- **The hub's left bar.** The hub copy (version 6) sits in CA's top-left menu bar when
+  `derpy_hub_left_bar.pack` is installed.
+- Checks: harness 1149 checks; 1,269 mutants.
+
 ## 2026-10-11 - build B0B772A9
 
 Deployed 2026-10-11. MD5 `B0B772A909B6E5EBE318E64349AD596F`, 15,197,299 bytes. Only the hub's

@@ -1280,7 +1280,7 @@
 				<standard
 					this="IC610041-D000-4000-B000000000000041"
 					name="standard"
-					width="136"
+					width="137"
 					height="28"
 					interactive="true"
 					uniqueguid="IC610041-D000-4000-B000000000000041">
@@ -1290,7 +1290,7 @@
 							uniqueguid="IC610040-D002-4000-B000000000000040"
 							componentimage="IC610040-D001-4000-B000000000000040"
 							offset="0.00,-3.00"
-							width="136"
+							width="137"
 							height="46"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -1312,7 +1312,7 @@
 				<hover
 					this="IC610042-D000-4000-B000000000000042"
 					name="hover"
-					width="136"
+					width="137"
 					height="28"
 					interactive="true"
 					uniqueguid="IC610042-D000-4000-B000000000000042">
@@ -1322,7 +1322,7 @@
 							uniqueguid="IC610040-D004-4000-B000000000000040"
 							componentimage="IC610040-D003-4000-B000000000000040"
 							offset="0.00,-3.00"
-							width="136"
+							width="137"
 							height="46"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -1479,7 +1479,7 @@
 				<standard
 					this="IC61004A-D000-4000-B00000000000004A"
 					name="standard"
-					width="84"
+					width="100"
 					height="28"
 					interactive="true"
 					uniqueguid="IC61004A-D000-4000-B00000000000004A">
@@ -1489,7 +1489,7 @@
 							uniqueguid="IC610049-D002-4000-B000000000000049"
 							componentimage="IC610049-D001-4000-B000000000000049"
 							offset="0.00,-3.00"
-							width="84"
+							width="100"
 							height="46"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -1511,7 +1511,7 @@
 				<hover
 					this="IC61004B-D000-4000-B00000000000004B"
 					name="hover"
-					width="84"
+					width="100"
 					height="28"
 					interactive="true"
 					uniqueguid="IC61004B-D000-4000-B00000000000004B">
@@ -1521,7 +1521,7 @@
 							uniqueguid="IC610049-D004-4000-B000000000000049"
 							componentimage="IC610049-D003-4000-B000000000000049"
 							offset="0.00,-3.00"
-							width="84"
+							width="100"
 							height="46"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>

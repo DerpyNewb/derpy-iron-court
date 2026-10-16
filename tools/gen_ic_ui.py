@@ -733,10 +733,12 @@ PANEL_LAYOUT["ic_divider"] = (COL_L_X + COL_W + (COL_GUTTER - DIVIDER_W) // 2,
 # five between the two homes; check 9c holds each one where it belongs.
 #
 # THE TWO FAVOURS SIDE BY SIDE, between the two plots: both are paid in gold out
-# of the treasury, and PURGE, the move with no way back, stays at the end.
+# of the treasury, and PURGE, the move with no way back, stays at the end. Its
+# width is a Dwarf court's "Cast Out" (ICUI.RACE_WORDS), the longer of its two
+# labels.
 ACT_GAP = 6
 ACT_BUTTONS = (("ic_act_provoke", 132), ("ic_act_gift", 164),
-               ("ic_act_secure", 216), ("ic_act_purge", 100))
+               ("ic_act_secure", 216), ("ic_act_purge", 120))
 ACT_PAGED = {}
 _bar_w = (sum(_w for _n, _w in ACT_BUTTONS)
           + ACT_GAP * (len(ACT_BUTTONS) - 1))
@@ -8422,6 +8424,9 @@ def check():
                 "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read()
             _act = dict(re.findall(r'(ic_act_\w+)\s*=\s*"([^"]+)"',
                                    _block_of(_uisrc, "ICUI.ACT_LABEL")))
+            # A RACE'S OWN LABELS, keyed by button in ICUI.RACE_WORDS.
+            _race_act = re.findall(r'(ic_act_\w+)\s*=\s*"([^"]+)"',
+                                   _block_of(_uisrc, "ICUI.RACE_WORDS"))
             _hints = re.findall(r'"([^"]+)"', _block_of(_uisrc, "ICUI.ACT_HINT"))
             _fill = re.search(r'ICUI\.FILL_LABEL\s*=\s*"([^"]+)"', _uisrc)
         except Exception as exc:
@@ -8429,6 +8434,8 @@ def check():
                        "Lua: %r" % (exc,))
         else:
             _bar = dict((_k, [_v]) for _k, _v in _act.items())
+            for _k, _v in _race_act:
+                _bar.setdefault(_k, []).append(_v)
             _bar["ic_act_hint"] = _hints
             _bar["ic_tab_petitions"] = ["Petitions"]
             _bar["ic_tab_laws"] = ["Laws"]
@@ -9282,7 +9289,8 @@ def check_law_text():
          "and %d more parties, %d influence", "Won over by you", "Votes for ",
          "enacting it", "keeping the law in force", "%d influence", "Win: [[img:%s]][[/img]]%d",
          "+%d more", " (paid)", "%s [[img:%s]][[/img]]%d", "Pass now", "Fail now",
-         "%d parties, %d influence", ". A party with no stake votes with you only from ")
+         "%d parties, %d influence", ". A party with no stake votes with you only from ",
+         ". A party with no stake follows your side, and you have not taken one.")
     every = list(names.values())
     # SPLIT OVER TWO CELLS by ICUI.fit_two / fit_lines: as much as the first
     # holds, the rest on the second, which must hold it.
@@ -9315,15 +9323,16 @@ def check_law_text():
         "ic_lv_shead_1": ["Enact " + n for n in every], "ic_lv_shead_2": ["Keep " + n for n in every],
         "ic_lv_stag_1": ["The Crown's side"],
         "ic_lv_smore_1": ["and 9 more parties, 99999 influence"],
-        "ic_lv_abstain": ["Abstaining: %s. A party with no stake votes with you only from %d loyalty."
-                          % (w, 100) for w in ("%s (99999), %s (99999)" % (party, party),
-                                               "9 parties, 99999 influence")],
+        "ic_lv_abstain": ["Abstaining: %s%s" % (w, why) for w in ("%s (99999), %s (99999)" % (party, party),
+                                                                  "9 parties, 99999 influence")
+                          for why in (". A party with no stake votes with you only from 100 loyalty.",
+                                      ". A party with no stake follows your side, and you have not taken one.")],
         "ic_lv_st_1": ["Support", "Oppose", "Abstain"],
         "ic_lv_sideh": ["Your side"], "ic_lv_supph": ["Your support"],
         "ic_lv_overh": ["Decide it now"],
-        "ic_lv_lvl_1": ["%s (paid)" % b for b in ("Slightly favour", "Strongly favour", "Fully push")]
-                       + ["%s %s%d" % (b, pic, big) for b in ("Slightly favour", "Strongly favour",
-                                                              "Fully push")],
+        "ic_lv_lvl_1": ["%s (paid)" % b for b in ("Push a little", "Push hard", "Push fully")]
+                       + ["%s %s%d" % (b, pic, big) for b in ("Push a little", "Push hard",
+                                                              "Push fully")],
         "ic_lv_over_1": ["%s %s%d" % (w, pic, tune["law_overrule_cost"]) for w in ("Pass now", "Fail now")],
         "ic_lb_name": [party],
         "ic_lb_level": ["Won over by you", "Votes for enacting it",
@@ -9359,6 +9368,18 @@ def check_law_text():
         "ic_gc_btn_1": ["Choose  %s%d" % (pic, gtune["gov_force_cost"]), "Running 99", "Rest 99",
                         "Rebel", "Player", "Wait 99", "Short", "No"],
     })
+    # THE GOVERNORS VIEW'S HINT, one line: every string the map Lua puts in it,
+    # the grace period's count at its longest (model's grace_turns).
+    gm = _lua_map_tables()
+    gm_hint = ["Click a party: what would it take?", "You hold no provinces.",
+               "No lords or heroes. Recruit one.", "Your own party cannot secede.",
+               "Secession is switched off.", "Parties cannot leave for %d turn%s."]
+    for f in gm_hint:
+        if f not in gm:
+            out.append("20k measures %r and the map Lua no longer writes it" % f)
+    grace = int(re.search(r"grace_turns\s*=\s*(\d+)", model).group(1))
+    strings["ic_gm_hint"] = [f % (grace, "" if grace == 1 else "s") if "%d" in f else f
+                             for f in gm_hint]
     two["ic_gc_name_1"] = gname
     # SPLIT OVER GC_RULE_LINES CELLS by ICUI.fit_lines: greedy, as the Lua does.
     name = "ic_gc_rule_1_1"

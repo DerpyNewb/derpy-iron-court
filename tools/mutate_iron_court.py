@@ -2408,18 +2408,18 @@ end"""),
 
     # LORDS DEALT EVENLY AGAIN, the rule that left most rivals leaderless.
     ("a lord dealt anywhere while a party has nobody to lead it", M,
-     """    local bg = IC.leaderless_bg(character, faction_key, tally)
-               or IC.roll_background(faction_key, tally)""",
-     """    local bg = IC.roll_background(faction_key, tally)"""),
+     """    local party = IC.leaderless_party(character, faction_key, tally)
+                  or IC.roll_party(faction_key, tally)""",
+     """    local party = IC.roll_party(faction_key, tally)"""),
 
     # The deal: how men are shared out among the parties.
     # ONE INDEPENDENT ROLL PER MAN: a Conclave start can roll the Chain for all
     # six men who are not lords.
     ("deal: every man rolled at random again", M,
-     """    local list = R.BACKGROUNDS[IC.fewest(pool, tally)]
-    if not list or #list == 0 then return nil end""",
-     """    local list = R.BACKGROUNDS[pool[cm:random_number(#pool, 1)]]
-    if not list or #list == 0 then return nil end"""),
+     """    if #pool == 0 then pool = {IC.CROWN} end
+    return IC.fewest(pool, tally)""",
+     """    if #pool == 0 then pool = {IC.CROWN} end
+    return pool[cm:random_number(#pool, 1)]"""),
 
     # THE TALLY READ ONCE AND NEVER KEPT, so every man in a pass sees the counts
     # from before it and they all go to the same party.
@@ -2599,9 +2599,9 @@ end"""),
     # THE OLD TRADE LEFT ON HIM: two background traits, and whichever is read
     # first decides his party.
     ("a moved lord keeping his old trade too", M,
-     """                if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
-                cm:force_add_trait(lookup, IC.bg_trait(list[cm:random_number(#list, 1)]), false)""",
-     """                cm:force_add_trait(lookup, IC.bg_trait(list[cm:random_number(#list, 1)]), false)"""),
+     """                local old = IC.bg_of_character(man)
+                if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end""",
+     """                local old = IC.bg_of_character(man)"""),
 
     # AND THE LORD PUT IN THE FIELD KEEPING THE TRADE HIS BIRTH DEALT HIM: the
     # Forge comes before the Chain in IC.PARTIES, so he reads as the Forge's.
@@ -4287,6 +4287,13 @@ end"""),
     ("a Dwarf Help page wearing the Chaos Dwarf move icons", U,
      """    local move = ICUI.plot_of(name)""",
      """    local move = IC.plot_by_key(name)"""),
+    # A Dwarf bar reads Insult and Cast Out, and its Record "You insulted them".
+    ("a Dwarf Help page naming Provoke and Purge on the bar", D,
+     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Cast Out.",""",
+     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge.","""),
+    ("a Dwarf Help page saying a count was provoked", D,
+     """        "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",""",
+     """        "{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty.","""),
     ("a Dwarf shared button left in CA's red", U,
      """    local names = {"ic_card_button", "ic_plot_go", "ic_row_e", "ic_row_f"}""",
      """    local names = {}"""),
@@ -4426,9 +4433,10 @@ end"""),
     ("a busy man free to take his old seat", U,
      """            local man = last and not posted[last.cqi]""",
      """            local man = last"""),
+    # A FORMAT STRING NOW (it names splinter_loyalty), so the figure is "%%".
     ("the split tooltip printing a weight as a share", U,
-     """            .. "share of the court.\"""",
-     """            .. "share of the court, 5% of it.\""""),
+     """            .. "trade belongs to that party and their share of the court.\",""",
+     """            .. "trade belongs to that party and their share of the court, 5%% of it.\","""),
     ("risings left out of the rotation", P,
      """    for i = 1, #R.REBEL_POOL do candidates[#candidates + 1] = R.REBEL_POOL[i] end""",
      """"""),
@@ -4645,19 +4653,18 @@ end"""),
      """    got = got + (pics or 0) * (line_h or ICUI.PLATE_EST * 2)
 """,
      """"""),
-    # Card prompts at roll time, gifts, and a governor's public order.
-    ("the court's roll asking a card for every origin", M,
-     """            if IC.stamp_origin(character, IC.origin_for(character, faction_key), true) then""",
-     """            if IC.stamp_origin(character, IC.origin_for(character, faction_key)) then"""),
+    # Card prompts at roll time, gifts, and a governor's public order. The
+    # court's roll stamps no origin any more: IC.correct_history does, for a
+    # legend, and IC.origin_for answers nobody else.
     ("the court's roll asking a card for every background", M,
-     """                       IC.background_for(character, faction_key, tally), true) then""",
-     """                       IC.background_for(character, faction_key, tally)) then"""),
+     """        if IC.stamp_bg(character, bg, true) then""",
+     """        if IC.stamp_bg(character, bg) then"""),
     ("a confederation asking a card for every origin", M,
      """        if IC.stamp_origin(man, want, true) or had == want then""",
      """        if IC.stamp_origin(man, want) or had == want then"""),
     ("a confederation asking a card for every background", M,
-     """        IC.stamp_bg(man, IC.background_for(man, faction_key, tally), true)""",
-     """        IC.stamp_bg(man, IC.background_for(man, faction_key, tally))"""),
+     """    cm:force_add_trait(lookup, IC.bg_trait(slug), false)""",
+     """    cm:force_add_trait(lookup, IC.bg_trait(slug), true)"""),
     ("an origin stamped loud whoever asked for quiet", M,
      """                       IC.origin_trait(slug), not quiet)""",
      """                       IC.origin_trait(slug), true)"""),
@@ -4956,7 +4963,7 @@ end"""),
      """    for _, name in ipairs(gm_names(i)) do""",
      """    for _, name in ipairs({ICUI.GM_PIN .. "_" .. i, ICUI.GM_FACE .. "_" .. i}) do"""),
     ("the loyalty plate left blank", UM,
-     """                set_text(loyal, string.format("Loyalty %d%%", IC.province_loyalty(faction, province)))""",
+     """                set_text(loyal, string.format("Loyalty %d", IC.province_loyalty(faction, province)))""",
      """                set_text(loyal, "")"""),
     ("a crest drawn over a governor's face", UM,
      """                face:SetImagePath((not port and slug and ICUI.crest(slug)) or ICUI.MASK_NONE,""",
@@ -5119,8 +5126,8 @@ end"""),
      """                      l3 = (not why) and string.format("Would take %d", #list) or nil,""",
      """                      l3 = string.format("Would take %d", #list),"""),
     ("the hint forgets why a party rings nothing", UM,
-     """            set_text(hint, (chosen and chosen.why) or "Click a party to see what it would take.")""",
-     """            set_text(hint, "Click a party to see what it would take.")"""),
+     """            set_text(hint, (chosen and chosen.why) or "Click a party: what would it take?")""",
+     """            set_text(hint, "Click a party: what would it take?")"""),
     ("a slider shown for a list that fits", UM,
      """        show(slider, n > ICUI.GM_ROWS)""",
      """        show(slider, true)"""),
@@ -5192,14 +5199,14 @@ end"""),
     else"""),
     # THE PROVINCES PAGE.
     ("a province's weight on its tooltip from the flat rule", UM,
-     """                ICUI.house_name(slug, faction_key), now, levels, levels == 1 and "" or "s",""",
-     """                ICUI.house_name(slug, faction_key), 3, levels, levels == 1 and "" or "s","""),
+     """                ICUI.house_name(slug, faction_key), now,""",
+     """                ICUI.house_name(slug, faction_key), 3,"""),
     ("a Provinces row tells the player a click appoints", UM,
      """        local tip = ICUI.map_tip(faction, p, true, memo)""",
      """        local tip = ICUI.map_tip(faction, p, nil, memo)"""),
     ("a Provinces row with no strength figure", UM,
-     """                 or string.format("%d%%, +%d strength", loyal, now),""",
-     """                 or string.format("%d%%", loyal),"""),
+     """                 or string.format("%d loyalty, +%d strength", loyal, now),""",
+     """                 or string.format("%d loyalty", loyal),"""),
     ("an empty seat drawn with no silhouette", UM,
      """            face = port or ((not cqi) and ICUI.SILHOUETTE or nil),""",
      """            face = port,"""),
@@ -5270,8 +5277,8 @@ end"""),
      """                now < worth and string.format(", growing to +%d", worth) or "",""",
      """                "","""),
     ("a growing row says nothing of what it grows to", UM,
-     """                 or (now < worth) and string.format("%d%%, +%d of %d strength", loyal, now, worth)""",
-     """                 or (now < worth) and string.format("%d%%, +%d strength", loyal, now)"""),
+     """                 or (now < worth) and string.format("%d loyalty, +%d of %d strength", loyal, now, worth)""",
+     """                 or (now < worth) and string.format("%d loyalty, +%d strength", loyal, now)"""),
     # THE PICKER IN THE COLUMN.
     ("the governor picker drawn full-screen again", UM,
      """    if ICUI.pick and ICUI.pick.kind == "gov" then return "picker" end
@@ -5538,6 +5545,13 @@ end"""),
      """    if not ok then return false, \"gov_purse\", short end
     court.gov_holds""",
      """    court.gov_holds"""),
+    ("gov: Hold forgets which party asked", M,
+     """    return true, nil, ask.party""",
+     """    return true"""),
+    ("gov: Hold's answer angers a party that never asked", U,
+     """        return spare and \"Government kept. The party that asked is angered.\"
+            or \"Government kept.\"""",
+     """        return \"Government kept. The party that asked is angered.\""""),
     ('gov: an unanswered choice never settles', M,
      """    if cm:model():turn_number() >= ask.ends then
         IC.gov_accept(faction_key)""",
@@ -5662,12 +5676,12 @@ end"""),
      """function IC.law_passes(t) return t.aye > t.nay end""",
      """function IC.law_passes(t) return t.aye >= t.nay end"""),
     ("law: a man with no influence votes", M,
-     """                if n > 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end""",
-     """                if n >= 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end"""),
+     """                if n > 0 and party then""",
+     """                if n >= 0 and party then"""),
     ("law: a won man is multiplied too", M,
      """        if won then
             side, why = won, "won"
-        elseif side then""",
+        elseif side and side == party_side[m.party] then""",
      """        if won then
             side, why = won, "won"
         end
@@ -5705,20 +5719,28 @@ end"""),
     vote.answered = true"""),
     # The settle loop walks the law's own lists.
     ("law: a passed law pays the party against it", M,
-     """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end""",
-     """            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end"""),
+     """                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_loss))""",
+     """                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_gain))"""),
     ("law: a passed law angers before it pays", M,
      """        for _, slug in ipairs(o.pro or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_gain))
+            end
         end
         for _, slug in ipairs(o.con or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_loss))
+            end
         end""",
      """        for _, slug in ipairs(o.con or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_loss))
+            end
         end
         for _, slug in ipairs(o.pro or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_gain))
+            end
         end"""),
     ("law: a failed party proposal costs nothing", M,
      """        if vote.proposer ~= IC.CROWN then
@@ -5819,6 +5841,18 @@ end"""),
     ("race: the panel drawing the Chaos Dwarf law board for any player", U,
      '    local R = ICUI.race()\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]',
      '    local R = IC.RACES.chd\n    local cat = R.LAW_ORDER[math.floor((i - 1) / 5) + 1]'),
+    ("race: a Dwarf court told its moves in Chaos Dwarf words", U,
+     '    return ICUI.race_words()[key] or chd',
+     '    return chd'),
+    ("race: a Dwarf Secure Loyalty sworn on the anvil", U,
+     '        return string.format(ICUI.said("rec_secure", "%s swears on the anvil for %d gold: "',
+     '        return string.format(("%s swears on the anvil for %d gold: "'),
+    ("race: a Dwarf action bar labelled Provoke and Purge", U,
+     '                local label = ICUI.said(key, ICUI.ACT_LABEL[key])',
+     '                local label = ICUI.ACT_LABEL[key]'),
+    ("race: a Dwarf court's oath named a Blood-Oath in the loyalty breakdown", M,
+     '            label = IC.plot_text("oath", faction_key),',
+     '            label = "Blood-Oath",'),
     # Grudges inside the court.
     ("grudge: the race guard dropped", M,
      """    if IC.race_key(faction_key) ~= "dwf" or not IC.GRUDGE_WORDS[code or ""] then return false end""",
@@ -5954,12 +5988,12 @@ end"""),
      """            ev[2], IC.event_index(slug, faction_key))""",
      """            ev[2], ev[1])"""),
     ("starting members: the lord keeps the background his birth dealt him", M,
-     """        if old ~= bg then
+     """        local old = IC.bg_of_character(man)
+        if old ~= bg then
             if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
             cm:force_add_trait(lookup, IC.bg_trait(bg), false)
-        end
-        cm:wound_character(lookup, 1)""",
-     """        cm:wound_character(lookup, 1)"""),
+        end""",
+     """        local old = IC.bg_of_character(man)"""),
     ("starting members: the men a party already has not counted", M,
      """            local want = lo + cm:random_number(hi - lo + 1, 1) - 1 - (members or 0)""",
      """            local want = lo + cm:random_number(hi - lo + 1, 1) - 1"""),
@@ -5982,9 +6016,9 @@ end"""),
     return not cm:get_saved_value(IC.SEED_DONE .. faction_key)""",
      """    return not cm:get_saved_value(IC.SEED_DONE .. faction_key)"""),
     ("starting members: never marked done, so seeded again", M,
-     """    IC._seed_bg[faction_key] = nil
+     """    IC._seed_culture[faction_key] = nil
     cm:set_saved_value(IC.SEED_DONE .. faction_key, true)""",
-     """    IC._seed_bg[faction_key] = nil"""),
+     """    IC._seed_culture[faction_key] = nil"""),
     ("starting members: a spawn that never lands stalls the seeding", M,
      """        IC.warn("IRON COURT: a starting lord for " .. slug .. " never arrived")
         IC.seed_step(faction_key, plan, i + 1, made)""",
@@ -6081,6 +6115,220 @@ end"""),
     ("a garrison captain stamped with his cards showing", M,
      """            local quiet = IC.is_colonel(character)""",
      """            local quiet = false"""),
+
+    # THE CULTURES (docs/superpowers/specs/2026-10-15-iron-court-cultures-design.md).
+    # Home, away and foreign: the three cases a governor can be in, and the two
+    # mistakes that matter most are swapping the first and last and calling every
+    # province nobody listed a home.
+    ("culture: home and foreign swapped", M,
+     '''    return owner == culture and "home" or "foreign"''',
+     '''    return owner == culture and "foreign" or "home"'''),
+    ("culture: a province on no list is a home", M,
+     '''    if not owner then return "away" end''',
+     '''    if not owner then return "home" end'''),
+    ("culture: the picker says home for a foreign province", U,
+     '''ICUI.CULTURE_CASE_LOC = {away = "cult_gov", home = "cult_gov_home", foreign = "cult_gov_foreign"}''',
+     '''ICUI.CULTURE_CASE_LOC = {away = "cult_gov", home = "cult_gov_foreign", foreign = "cult_gov_home"}'''),
+    ("culture: the picker reads another race's culture", U,
+     '''    if not culture or race ~= IC.R(faction) then return nil end''',
+     '''    if not culture then return nil end'''),
+    ("culture: the card tooltip drops the culture line", UM,
+     '''        if line.culture then tip[#tip + 1] = line.culture end''',
+     ''''''),
+
+    # The roll: seven in ten to the main culture, the rest to a side culture, a
+    # Crown man from any.
+    ("culture: the main culture on every roll", M,
+     '''    if cm:random_number(10, 1) <= IC.TUNE.culture_main_tenths then return main end''',
+     '''    if true then return main end'''),
+    ("culture: the odds inverted", M,
+     '''    if cm:random_number(10, 1) <= IC.TUNE.culture_main_tenths then return main end''',
+     '''    if cm:random_number(10, 1) > IC.TUNE.culture_main_tenths then return main end'''),
+    ("culture: the Crown draws only the first culture", M,
+     '''        return R.CULTURES[cm:random_number(#R.CULTURES, 1)].slug''',
+     '''        return R.CULTURES[1].slug'''),
+    ("culture: the culture trait keyed for the Chaos Dwarfs in every court", M,
+     '''function IC.culture_trait(slug, faction_key) return IC.key("cult", slug, faction_key) end''',
+     '''function IC.culture_trait(slug, faction_key) return IC.key("cult", slug) end'''),
+
+    # Stamping: always quiet, a binding culture replaces and a drawn one does
+    # not, a retired birthplace comes off, a legend or a house is binding.
+    ("culture: the culture shown on a card", M,
+     '''    cm:force_add_trait(lookup, IC.culture_trait(slug, faction_key), false)''',
+     '''    cm:force_add_trait(lookup, IC.culture_trait(slug, faction_key), true)'''),
+    ("culture: a drawn culture replaces the one he wears", M,
+     '''    if has and not binding then return moved end''',
+     ''''''),
+    ("culture: a binding culture leaves the old one on him", M,
+     '''    if has then cm:force_remove_trait(lookup, IC.rkey("cult", has, hasR)) end''',
+     ''''''),
+    ("culture: a retired birthplace stays on the man", M,
+     '''            if not o.faction and character:has_trait(IC.rkey("house", o.slug, R)) then''',
+     '''            if false and character:has_trait(IC.rkey("house", o.slug, R)) then'''),
+    ("culture: a legend's culture is not binding", M,
+     '''    if fixed then return fixed, true end''',
+     '''    if fixed then return fixed, false end'''),
+    ("culture: a house's culture is not binding", M,
+     '''    if house then return house, true end''',
+     '''    if house then return house, false end'''),
+    ("culture: the culture he wears is rolled over", M,
+     '''    if has then return has, false end''',
+     ''''''),
+    ("culture: an old save's birthplace is rolled over", M,
+     '''    if place then return place, false end''',
+     ''''''),
+    ("culture: the court pass stamps no culture", M,
+     '''        if IC.stamp_culture(faction_key, character, culture, binding) then
+            stamped = stamped + 1
+        end''',
+     ''''''),
+    ("culture: a seeded lord is given no culture", M,
+     '''                IC.stamp_culture(faction_key, character, culture, binding)
+                return''',
+     '''                return'''),
+    ("culture: a confederation stamps no culture", M,
+     '''        IC.stamp_culture(faction_key, man, culture, binding)''',
+     ''''''),
+    ("culture: a confederation forgets the house it came from", M,
+     '''IC.background_for(man, faction_key, tally, from)''',
+     '''IC.background_for(man, faction_key, tally)'''),
+
+    # The trade: a Kadrin man in the Dwarf Legion is a Slayer, a Taur'ruk in the
+    # Priesthood a Taur'ruk, and nobody else is either.
+    ("culture: the Slayer and the Taur'ruk in every ordinary draw", M,
+     '''        if not R.RESERVED_BG[list[i]] then pool[#pool + 1] = list[i] end''',
+     '''        pool[#pool + 1] = list[i]'''),
+    ("trades: the Taur'ruk trade is not reserved", M,
+     '''    for _, t in pairs(r.SUBTYPE_TRADE) do r.RESERVED_BG[t.bg] = true end''',
+     ''''''),
+    ("trades: a Taur'ruk is one in any party", M,
+     '''    if kind and kind.party == party then return kind.bg end''',
+     '''    if kind then return kind.bg end'''),
+    ("trades: a Taur'ruk in the Priesthood is never one", M,
+     '''    if kind and kind.party == party then return kind.bg end''',
+     ''''''),
+    ("trades: the deal forgets the man's subtype", M,
+     '''    local bg = IC.trade_in(party, faction_key, culture, subtype)''',
+     '''    local bg = IC.trade_in(party, faction_key, culture)'''),
+    ("trades: a confederated Taur'ruk is re-dealt an ordinary trade", M,
+     '''                trade = IC.trade_in(party, faction_key, nil, subtype)''',
+     '''                trade = IC.trade_in(party, faction_key)'''),
+    # An old save's: a court pass takes the Taur'ruk trade back from anyone else,
+    # inside his party, once.
+    ("trades: a court pass leaves an old save's sorcerer the Taur'ruk trade", M,
+     '''        if IC.redeal_subtype_trade(character, faction_key, culture) then
+            stamped = stamped + 1
+        end''',
+     ''''''),
+    ("trades: an old save's re-deal forgets the man's subtype", M,
+     '''    local trade = IC.trade_in(R.PARTY_OF_BG[worn], faction_key, culture, subtype)''',
+     '''    local trade = IC.trade_in(R.PARTY_OF_BG[worn], faction_key, culture)'''),
+    ("trades: an old save's re-deal moves the man to another party", M,
+     '''    local trade = IC.trade_in(R.PARTY_OF_BG[worn], faction_key, culture, subtype)''',
+     '''    local trade = IC.trade_in(IC.roll_party(faction_key, {}), faction_key, culture, subtype)'''),
+    ("trades: an old save's re-deal draws for a legend every pass", M,
+     '''    if not worn or IC.fixed_history(character) then return false end''',
+     '''    if not worn then return false end'''),
+    ("trades: every worn trade is re-dealt on every pass", M,
+     '''        if t.bg == worn then reserved = true end''',
+     '''        reserved = true'''),
+    ("culture: a Kadrin man is a Slayer in any party", M,
+     '''    if own and own.party == party then return own.bg end''',
+     '''    if own then return own.bg end'''),
+    ("culture: a Kadrin man in the Legion is never a Slayer", M,
+     '''    if own and own.party == party then return own.bg end''',
+     ''''''),
+
+    # A man moved to another party: keep a culture that feeds it or is bound to
+    # him, otherwise draw one that does.
+    ("culture: a moved man is re-dealt a culture that binds him", M,
+     '''    if binding then return false, has end''',
+     ''''''),
+    ("culture: a moved man keeps a culture that does not feed his party", M,
+     '''    if not main or has == main then return false, has end''',
+     '''    if true then return false, has end'''),
+    ("culture: a moved man loses a side culture", M,
+     '''        if sides[i] == has then return false, has end''',
+     ''''''),
+
+    # Governing: the home bundle, the friction, the race, the clearing.
+    ("culture: the home bundle never applied", M,
+     '''    if case == "home" then''',
+     '''    if false then'''),
+    ("culture: the friction on every away province too", M,
+     '''    if case == "foreign" then''',
+     '''    if case ~= "home" then'''),
+    ("culture: the friction never applied", M,
+     '''    if case == "foreign" then''',
+     '''    if false then'''),
+    ("culture: another race's culture governs", M,
+     '''    if not culture or race ~= IC.R(faction_key) then return nil end''',
+     '''    if not culture then return nil end'''),
+    ("culture: the home bundles left on a province", M,
+     '''                    cm:remove_effect_bundle_from_faction_province(
+                        IC.gov_bundle_culture_home(slug, faction_key), region)''',
+     ''''''),
+    ("culture: the friction bundle left on a province", M,
+     '''                cm:remove_effect_bundle_from_faction_province(
+                    IC.gov_bundle_friction(faction_key), region)''',
+     ''''''),
+
+    # Laws: a man's culture outranks his party, never the Crown, and a push
+    # reaches only the men on their party's line.
+    ("culture: the party's stance outranks the culture's", M,
+     '''    return IC.culture_stance(category, option, culture, faction_key)
+        or IC.law_stance(category, option, party, faction_key)''',
+     '''    return IC.law_stance(category, option, party, faction_key)
+        or IC.culture_stance(category, option, culture, faction_key)'''),
+    ("culture: a culture's for and against swapped", M,
+     '''    for _, c in ipairs(o and o.cpro or {}) do if c == culture then return "aye" end end''',
+     '''    for _, c in ipairs(o and o.cpro or {}) do if c == culture then return "nay" end end'''),
+    ("culture: a culture outvotes the Crown", M,
+     '''    if party == IC.CROWN then
+        if vote.stance == "abstain" then return nil, "crown" end
+        return vote.stance, "crown"
+    end
+    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
+    if s then return s, s == "aye" and "for" or "against" end''',
+     '''    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
+    if s then return s, s == "aye" and "for" or "against" end
+    if party == IC.CROWN then
+        if vote.stance == "abstain" then return nil, "crown" end
+        return vote.stance, "crown"
+    end'''),
+    ("culture: another race's culture reaches a law vote", M,
+     '''                    if race ~= IC.R(faction_key) then culture = nil end''',
+     ''''''),
+    ("culture: a push carries the man whose culture votes against it", M,
+     '''        elseif side and side == party_side[m.party] then''',
+     '''        elseif side then'''),
+    ("culture: dissenters wear their party's push", U,
+     '''    local level = g.won and 0 or g.level''',
+     '''    local level = g.won and 0 or ((vote.push or {})[g.party] or 0)'''),
+    ("culture: a price follows the party's stance", M,
+     '''    local s = IC.man_stance(category, vote.option, man.party, man.culture, faction_key)''',
+     '''    local s = IC.law_stance(category, vote.option, man.party, faction_key)'''),
+    ("culture: the Crown's swing follows its men", M,
+     '''    if slug == IC.CROWN then return flat end''',
+     ''''''),
+    ("culture: a party none of whose men voted divides by nothing", M,
+     '''    if aye + nay == 0 then return flat end''',
+     ''''''),
+    ("culture: a swing's half rounds toward zero", M,
+     '''    local size = math.floor(math.abs(share) * step + 0.5)''',
+     '''    local size = math.floor(math.abs(share) * step)'''),
+    ("culture: a swing counts men and not their influence", M,
+     '''            if m.side == "aye" then aye = aye + m.n elseif m.side == "nay" then nay = nay + m.n end''',
+     '''            if m.side == "aye" then aye = aye + 1 elseif m.side == "nay" then nay = nay + 1 end'''),
+
+    # A legend's origin and trade are stamped only by correct_history now, and
+    # quietly: a court pass must not raise a card for either.
+    ("culture: a legend's corrected origin shows a card", M,
+     '''        cm:force_add_trait(lookup, IC.origin_trait(want.origin), false)''',
+     '''        cm:force_add_trait(lookup, IC.origin_trait(want.origin), true)'''),
+    ("culture: a legend's corrected trade shows a card", M,
+     '''        cm:force_add_trait(lookup, IC.bg_trait(want.bg), false)''',
+     '''        cm:force_add_trait(lookup, IC.bg_trait(want.bg), true)'''),
 ]
 
 

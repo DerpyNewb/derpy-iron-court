@@ -32,6 +32,14 @@ derpy_ic_house_zornuzkul
 derpy_ic_house_gash
 derpy_ic_house_mines
 derpy_ic_house_wastes
+derpy_ic_cult_zharr
+derpy_ic_cult_stump
+derpy_ic_cult_gorgoth
+derpy_ic_cult_zornuzkul
+derpy_ic_cult_plain
+derpy_ic_cult_mines
+derpy_ic_cult_wastes
+derpy_ic_cult_gash
 derpy_ic_bg_household
 derpy_ic_bg_blood
 derpy_ic_bg_sworn
@@ -178,6 +186,14 @@ derpy_ic_house_dwf_rangers
 derpy_ic_house_dwf_deeps
 derpy_ic_house_dwf_grey
 derpy_ic_house_dwf_black
+derpy_ic_cult_dwf_karaz
+derpy_ic_cult_dwf_black
+derpy_ic_cult_dwf_barakvarr
+derpy_ic_cult_dwf_kadrin
+derpy_ic_cult_dwf_azul
+derpy_ic_cult_dwf_deeps
+derpy_ic_cult_dwf_grey
+derpy_ic_cult_dwf_passkeeps
 derpy_ic_bg_dwf_kinguard
 derpy_ic_bg_dwf_lineblood
 derpy_ic_bg_dwf_oathsworn
@@ -193,6 +209,7 @@ derpy_ic_bg_dwf_tunneller
 derpy_ic_bg_dwf_longbeard
 derpy_ic_bg_dwf_ironbreaker
 derpy_ic_bg_dwf_thane
+derpy_ic_bg_dwf_slayer
 derpy_ic_bg_dwf_reckoner
 derpy_ic_bg_dwf_trader
 derpy_ic_bg_dwf_goldsmith

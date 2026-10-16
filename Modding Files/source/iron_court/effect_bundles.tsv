@@ -30,7 +30,7 @@ derpy_ic_office_banners	Raiding is an accounting exercise, and he keeps the acco
 derpy_ic_vacant_banners	The raiders keep their own accounts, and most of the takings.	Keeper of the Banners (Vacant)	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_grip	Nothing moves in Zharr-Naggrund that the Crown did not set moving.	An Iron Grip on the Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_mastery	The parties argue, and then they do as they are told.	Master of the Court	faction	1	chd_conclave_influence.png	true	false	true
-derpy_ic_control_command	The Crown leads the parties but cannot command them.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
+derpy_ic_control_command	The Crown leads the parties, though not without argument.	In Command of the Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_contested	No decree passes without a bargain struck.	A Contested Court	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_control_lost	The parties rule. The Crown hears their decisions later.	The Court Is Not Yours	faction	1	chd_conclave_influence.png	true	false	true
 derpy_ic_doctrine_conclave	No one rules Zharr-Naggrund. Its Sorcerer-Prophets sit in council.	The Conclave	faction	1	dlc23_region_action_gift_zhar.png	true	false	true
@@ -73,11 +73,28 @@ derpy_ic_envoy_ctl	The court's envoy keeps order here.	Envoy: Control	province	1
 derpy_ic_envoy_arm	The court's envoy drives the forges here.	Envoy: Armaments	province	1	wh3_dlc23_edict_chd_higher_quotas.png	true	false	true
 derpy_ic_envoy_raw	The court's envoy drives the mines harder.	Envoy: Raw Materials	province	1	chd_toz_district_industry.png	true	false	true
 derpy_ic_envoy_lab	The court's envoy keeps more Labourers alive.	Envoy: Labour	province	1	public_order_jubilant.png	true	false	true
+derpy_ic_gov_cult_zharr	The Hierophant's way of governing.	Governor: Heart of Zharrduk	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_zharr	At home the benefits are 50% stronger, rounded up.	Governor at Home: Heart of Zharrduk	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_stump	The Foundry Baron's way of governing.	Governor: Foundry Districts	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_stump	At home the benefits are 50% stronger, rounded up.	Governor at Home: Foundry Districts	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_gorgoth	The Labour Master's way of governing.	Governor: Tower of Gorgoth	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_gorgoth	At home the benefits are 50% stronger, rounded up.	Governor at Home: Tower of Gorgoth	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_zornuzkul	The Infernal Warden's way of governing.	Governor: Zorn Uzkul	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_zornuzkul	At home the benefits are 50% stronger, rounded up.	Governor at Home: Zorn Uzkul	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_plain	The Clerk's way of governing.	Governor: Market District	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_plain	At home the benefits are 50% stronger, rounded up.	Governor at Home: Market District	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_mines	The Deep-Hearth's way of governing.	Governor: Mines of Mingol	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_mines	At home the benefits are 50% stronger, rounded up.	Governor at Home: Mines of Mingol	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_wastes	The Pathfinder's way of governing.	Governor: Howling Wastes	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_wastes	At home the benefits are 50% stronger, rounded up.	Governor at Home: Howling Wastes	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_gash	The Tribute-Taker's way of governing.	Governor: Gash Kadrak	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_cult_home_gash	At home the benefits are 50% stronger, rounded up.	Governor at Home: Gash Kadrak	province	1	chd_conclave_influence.png	true	false	true
+derpy_ic_gov_friction	He governs a province another culture calls home.	Governor: Foreign Province	province	1	chd_conclave_influence.png	true	false	true
 derpy_ic_office_dwf_priest	He tends the clan shrines and settles disputes in their names.	High Priest of the Ancestors	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_priest	The shrines stand unattended and the old names go unspoken.	High Priest of the Ancestors (Vacant)	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_office_dwf_forge	The master smiths accept his judgement at the anvil.	Master Forgewright	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_forge	The smiths dispute each other's work. No master settles the matter.	Master Forgewright (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_ledger	He makes each debtor pay what the hold is owed.	Keeper of the Reckoning	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_ledger	Debtors pay the hold in full while he keeps the Reckoning.	Keeper of the Reckoning	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_ledger	Unpaid debts gather in the hold's books.	Keeper of the Reckoning (Vacant)	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_office_dwf_warden	He assigns the gate watch and keeps the garrison supplied.	Warden of the Gate	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_warden	The clans dispute who owes the gate watch.	Warden of the Gate (Vacant)	faction	1	trait_dwarf.png	true	false	true
@@ -91,7 +108,7 @@ derpy_ic_office_dwf_pits	He sees that spoils reach the hold's vaults.	Master of 
 derpy_ic_vacant_dwf_pits	Warriors take spoils before the hold receives its share.	Master of the Delvings (Vacant)	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_office_dwf_quarry	His stonecutters waste little when they widen the halls.	Master of the Stonecutters	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_quarry	The clans cannot agree whose halls to cut first.	Master of the Stonecutters (Vacant)	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_office_dwf_muster	He ensures each clan equips its warriors at a fair price.	Thane of the Muster	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_office_dwf_muster	He sees the clans equip their warriors at a fair price.	Thane of the Muster	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_muster	Each clan asks its own price to send warriors.	Thane of the Muster (Vacant)	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_office_dwf_kilns	Traders come for his ale and buy the hold's fine work beside it.	Brewmaster of the Hold	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_vacant_dwf_kilns	Poor ale drives traders away from the hold's wares.	Brewmaster of the Hold (Vacant)	faction	1	trait_dwarf.png	true	false	true
@@ -133,7 +150,7 @@ derpy_ic_law_dwf_war_hellforge	Guns come first. Infantry costs more to recruit.	
 derpy_ic_law_dwf_war_legions	Equip the clan hosts. The gun batteries must wait.	Clan Hosts	faction	1	waaagh_reward_dwarfs.png	true	false	true
 derpy_ic_law_dwf_war_gunnery	Engineers train the gun crews and Thunderers. Recruits cost more.	Thunder and Iron	faction	1	engineer.png	true	false	true
 derpy_ic_gov_dwf_base	The king's governor answers for this province.	Governor of the Province	faction	1	trait_dwarf.png	true	false	true
-derpy_ic_gov_house_dwf_crown	The king's retainers answer for this province.	Governor: The Throne-Sworn	faction	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_house_dwf_crown	The king's retainers answer for this province.	Governor: The Crown	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_gov_house_dwf_temple	The priests tend its clan shrines and keep its old grudges alive.	Governor: The Ancestor Priesthood	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_gov_house_dwf_forge	The Forgewrights collect Oathgold from the province's workshops.	Governor: The Forgewrights	faction	1	trait_dwarf.png	true	false	true
 derpy_ic_gov_house_dwf_chain	The Deepdelvers weigh the spoils brought home by their warriors.	Governor: The Deepdelvers	faction	1	trait_dwarf.png	true	false	true
@@ -146,3 +163,20 @@ derpy_ic_envoy_dwf_ctl	The king's envoy settles disputes here.	Envoy: Control	pr
 derpy_ic_envoy_dwf_oath	The king's envoy collects Oathgold from the forges.	Envoy: Oathgold	province	1	oathgold.png	true	false	true
 derpy_ic_envoy_dwf_grow	The king's envoy sees to the holdfarms.	Envoy: Growth	province	1	growth.png	true	false	true
 derpy_ic_envoy_dwf_rec	The king's envoy reduces the cost of the clan muster.	Envoy: Recruitment	province	1	edict_state_troop_levy.png	true	false	true
+derpy_ic_gov_cult_dwf_karaz	The Royal Traditionalist's way of governing.	Governor: Karaz-a-Karak	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_karaz	At home the benefits are 50% stronger, rounded up.	Governor at Home: Karaz-a-Karak	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_black	The Engineer's way of governing.	Governor: The Black Holds	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_black	At home the benefits are 50% stronger, rounded up.	Governor at Home: The Black Holds	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_barakvarr	The Merchant Lord's way of governing.	Governor: Barak Varr	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_barakvarr	At home the benefits are 50% stronger, rounded up.	Governor at Home: Barak Varr	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_kadrin	The Slayer's way of governing.	Governor: Karak Kadrin	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_kadrin	At home the benefits are 50% stronger, rounded up.	Governor at Home: Karak Kadrin	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_azul	The Runesmith's way of governing.	Governor: Karak Azul	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_azul	At home the benefits are 50% stronger, rounded up.	Governor at Home: Karak Azul	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_deeps	The Deep-Miner's way of governing.	Governor: The Deeps	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_deeps	At home the benefits are 50% stronger, rounded up.	Governor at Home: The Deeps	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_grey	The Hold-Keeper's way of governing.	Governor: Grey Mountains	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_grey	At home the benefits are 50% stronger, rounded up.	Governor at Home: Grey Mountains	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_dwf_passkeeps	The Pass-Warden's way of governing.	Governor: The Pass-Keeps	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_cult_home_dwf_passkeeps	At home the benefits are 50% stronger, rounded up.	Governor at Home: The Pass-Keeps	province	1	trait_dwarf.png	true	false	true
+derpy_ic_gov_dwf_friction	He governs a province another culture calls home.	Governor: Foreign Province	province	1	trait_dwarf.png	true	false	true

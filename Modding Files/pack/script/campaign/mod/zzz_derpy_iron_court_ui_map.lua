@@ -55,10 +55,10 @@ function ICUI.map_outline(faction_key, slug)
     if not IC.secession_on() then
         local left = IC.grace_left()
         if IC.TUNE.secession ~= false and left > 0 then
-            return {}, string.format("Parties cannot leave for %d more turn%s.",
+            return {}, string.format("Parties cannot leave for %d turn%s.",
                                      left, left == 1 and "" or "s")
         end
-        return {}, "Secession is switched off. Parties cannot leave."
+        return {}, "Secession is switched off."
     end
     return IC.defecting_provinces(faction_key, slug) or {}, nil
 end
@@ -101,9 +101,10 @@ function ICUI.map_tip(faction_key, province, row, memo)
             local now, worth = IC.gov_grown_weight(court, province, all), IC.gov_weight_of(levels)
             if memo.share[slug] == nil then memo.share[slug] = IC.share(faction_key, slug) end
             lines[#lines + 1] = string.format(
-                "%s: +%d strength from this province (%d settlement level%s%s), %d%% of the court",
-                ICUI.house_name(slug, faction_key), now, levels, levels == 1 and "" or "s",
+                "%s: +%d strength from this province%s (%d settlement level%s), %d%% of the court",
+                ICUI.house_name(slug, faction_key), now,
                 now < worth and string.format(", growing to +%d", worth) or "",
+                levels, levels == 1 and "" or "s",
                 math.floor(memo.share[slug] + 0.5))
         end
     else
@@ -313,7 +314,7 @@ function ICUI.gm_draw_pins(panel, faction, memo)
                 -- pin's tooltip carries it whole.
                 set_text(plate, ICUI.cut_text(plate, loc("provinces_onscreen_" .. province, province),
                                               ICUI.GM_NAME_W))
-                set_text(loyal, string.format("Loyalty %d%%", IC.province_loyalty(faction, province)))
+                set_text(loyal, string.format("Loyalty %d", IC.province_loyalty(faction, province)))
                 pin:SetTooltipText(ICUI.map_tip(faction, province, nil, memo), "", true)
                 ICUI.gm_keys[i] = province
             end
@@ -742,6 +743,7 @@ function ICUI.gm_picker_rows(faction)
         local tip = {}
         if line.why then tip[#tip + 1] = line.why .. "." end
         if line.tip then tip[#tip + 1] = line.tip end
+        if line.culture then tip[#tip + 1] = line.culture end
         tip[#tip + 1] = string.format("%d influence. Holds: %s.", line.sort.standing, line.holds)
         rows[i] = {
             key = line.sort.cqi, cqi = ICUI.pick_rows[i],
@@ -789,9 +791,9 @@ function ICUI.gm_province_rows(faction, memo)
         local now, worth = IC.gov_grown_weight(court, p, levels), IC.gov_weight_of(levels[p])
         rows[i] = {
             key = p, l1 = name, l2 = gov,
-            l3 = (not cqi) and string.format("%d%%", loyal)
-                 or (now < worth) and string.format("%d%%, +%d of %d strength", loyal, now, worth)
-                 or string.format("%d%%, +%d strength", loyal, now),
+            l3 = (not cqi) and string.format("%d loyalty", loyal)
+                 or (now < worth) and string.format("%d loyalty, +%d of %d strength", loyal, now, worth)
+                 or string.format("%d loyalty, +%d strength", loyal, now),
             -- HIS FACE; else his party's crest; else the empty seat.
             face = port or ((not cqi) and ICUI.SILHOUETTE or nil),
             vacant = cqi == nil, plate = slug,
@@ -851,7 +853,7 @@ function ICUI.gm_draw_column(panel, faction, memo)
         if #IC.seats(faction) == 0 then
             set_text(hint, "You hold no provinces.")
         else
-            set_text(hint, (chosen and chosen.why) or "Click a party to see what it would take.")
+            set_text(hint, (chosen and chosen.why) or "Click a party: what would it take?")
         end
     elseif page == "picker" then
         local rows = ICUI.gm_picker_rows(faction)
@@ -860,7 +862,7 @@ function ICUI.gm_draw_column(panel, faction, memo)
             return r.cqi ~= nil and r.cqi == ICUI.gm_pick_sel
         end)
         show(hint, #rows == 0)
-        if #rows == 0 then set_text(hint, "No characters in this faction.") end
+        if #rows == 0 then set_text(hint, "No lords or heroes. Recruit one.") end
         ICUI.gm_draw_sorts(panel, page)
     else
         show(hint, false)

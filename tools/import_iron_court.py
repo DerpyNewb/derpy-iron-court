@@ -626,6 +626,28 @@ def _roller_callers(src, roller):
     return out
 
 
+# WHO MAY DRAW, per roller: the places that have already asked whether the man is
+# a legend (IC.fixed_history, IC.fixed_culture), or that deal only to a leader
+# the court places, seeds or fields itself.
+# IC.fit_culture may draw because it returns early for a man whose culture is
+# binding, and a legend's always is. A new caller fails here until somebody has
+# read it for that.
+# IC.ensure_leaders, IC.field_leader and IC.seed_step draw a culture before the
+# trade for the same reason they may deal a trade (they deal only to a leader the
+# court places, seeds or fields itself), so a Kadrin man they seat in the Dwarf
+# Legion is dealt the Slayer.
+# IC.redeal_subtype_trade may deal a trade because it returns early on
+# IC.fixed_history before it draws, so a legend keeps his.
+ROLLER_GATES = (
+    ("IC.roll_party(", ["IC.background_for"]),
+    ("IC.leaderless_party(", ["IC.background_for"]),
+    ("IC.roll_culture(", ["IC.culture_for", "IC.fit_culture", "IC.ensure_leaders",
+                          "IC.field_leader", "IC.seed_step"]),
+    ("IC.trade_in(", ["IC.background_for", "IC.deed_join", "IC.ensure_leaders",
+                      "IC.field_leader", "IC.redeal_subtype_trade", "IC.seed_step"]),
+)
+
+
 def check_rollers(src):
     """The rollers may be reached from one place each, and it is the place that
     asks whether the man is a legend first.
@@ -637,14 +659,13 @@ def check_rollers(src):
     unnecessary, because a fifth site cannot be added without failing here.
     """
     out = []
-    for roller, gate in (("IC.roll_origin(", "IC.origin_for"),
-                         ("IC.roll_background(", "IC.background_for")):
+    for roller, gates in ROLLER_GATES:
         callers = sorted(set(_roller_callers(src, roller)))
-        if callers != [gate]:
+        if callers != sorted(gates):
             out.append("%s is called from %s and may only be called from %s - "
                        "every other caller rolls a legendary lord a past he "
                        "already has"
-                       % (roller, ", ".join(callers) or "nowhere", gate))
+                       % (roller, ", ".join(callers) or "nowhere", ", ".join(sorted(gates))))
     return out
 
 
@@ -720,6 +741,27 @@ def _stub_members(src, ctor):
             prev = ch
         i += 1
     return None
+
+
+def check_culture_loc(ui, loc_keys):
+    """The governor picker reads one loc line a culture for each case it names in
+    ICUI.CULTURE_CASE_LOC. Each must be a row the generator emits for every culture
+    of both races: a line the UI asks for and the pack does not ship is a tooltip
+    that quietly says nothing."""
+    m = re.search(r"ICUI\.CULTURE_CASE_LOC\s*=\s*\{([^}]*)\}", ui)
+    if not m:
+        return ["the UI no longer declares ICUI.CULTURE_CASE_LOC"]
+    kinds = dict(re.findall(r'(\w+)\s*=\s*"(\w+)"', m.group(1)))
+    out = []
+    if sorted(kinds) != ["away", "foreign", "home"]:
+        out.append("ICUI.CULTURE_CASE_LOC names %s, not away, home and foreign" % sorted(kinds))
+    for case, kind in sorted(kinds.items()):
+        for race in sorted(G.RACES):
+            for c in G.RACES[race]["CULTURES"]:
+                key = G.bundle_key(kind, c["slug"], race)
+                if key not in loc_keys:
+                    out.append("the picker reads %s (%s) and the pack ships no such line" % (key, case))
+    return out
 
 
 def check_character_stub(harness_src, docs=None):
@@ -880,22 +922,57 @@ def _selftest():
     quoted = model + 'local z = "gamma"\n'
     assert check_tune_reads(quoted, [quoted, parties]) == []
     assert check_tune_reads("local nothing = 1", []) != []
-    rollers = ('function IC.origin_for(character, faction_key)\n'
-               '    return IC.roll_origin(faction_key)\nend\n'
-               'function IC.background_for(character, faction_key, tally)\n'
-               '    return IC.roll_background(faction_key, tally)\nend\n')
+    rollers = ('function IC.background_for(character, faction_key, tally)\n'
+               '    local party = IC.leaderless_party(character, faction_key, tally)\n'
+               '                  or IC.roll_party(faction_key, tally)\n'
+               '    return IC.trade_in(party, faction_key, IC.culture_for(character, faction_key, party))\nend\n'
+               'function IC.culture_for(character, faction_key, party)\n'
+               '    return IC.roll_culture(faction_key, party)\nend\n'
+               'function IC.fit_culture(faction_key, character, party)\n'
+               '    return IC.roll_culture(faction_key, party)\nend\n'
+               'function IC.deed_join(character, faction_key)\n'
+               '    return IC.trade_in("legion", faction_key)\nend\n'
+               'function IC.ensure_leaders(faction_key)\n'
+               '    local culture = IC.roll_culture(faction_key, "legion")\n'
+               '    return IC.trade_in("legion", faction_key, culture)\nend\n'
+               'function IC.field_leader(faction_key, slug)\n'
+               '    local culture = IC.roll_culture(faction_key, slug)\n'
+               '    return IC.trade_in(slug, faction_key, culture)\nend\n'
+               'function IC.redeal_subtype_trade(character, faction_key, culture)\n'
+               '    return IC.trade_in("temple", faction_key, culture)\nend\n'
+               'function IC.seed_step(faction_key, i)\n'
+               '    local culture = IC.roll_culture(faction_key, "legion")\n'
+               '    return IC.trade_in("legion", faction_key, culture)\nend\n')
     assert check_rollers(rollers) == [], check_rollers(rollers)
+    # A STRAY CALLER IS REFUSED, and so is a roller nobody calls any more.
+    bad = check_rollers(rollers + 'function IC.stray(f) return IC.trade_in("forge", f) end\n')
+    assert len(bad) == 1 and "IC.trade_in(" in bad[0] and "IC.stray" in bad[0], bad
+    bad = check_rollers(rollers.replace("IC.leaderless_party(", "IC.other("))
+    assert len(bad) == 1 and "IC.leaderless_party(" in bad[0] and "nowhere" in bad[0], bad
     bad, seq = check_race_tables("IC.ORIGINS = {\n}\nIC.OFFICES = {\n}\n", prefix="DWF")
     assert any("no DWF.ORIGINS" in b for b in bad) and any("no DWF.OFFICES" in b for b in bad), bad
     assert seq == [], seq
     # check 4, both halves: the literal loop and the builder presence.
-    builders = 'IC.rkey("house", f) IC.rkey("bg", f) IC.key("title", s) IC.key("member", s)\n'
+    builders = ('IC.rkey("house", f) IC.rkey("bg", f) IC.key("title", s) IC.key("member", s)\n'
+                'IC.rkey("cult", s, R) IC.key("cult", s, f)\n')
     assert check_trait_keys(builders, {"derpy_ic_house_a"}) == []
     bad = check_trait_keys(builders + 'x = "derpy_ic_house_zz"\n', {"derpy_ic_house_a"})
     assert len(bad) == 1 and "derpy_ic_house_zz" in bad[0], bad
-    for gone in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"'):
+    bad = check_trait_keys(builders + 'x = "derpy_ic_cult_zz"\n', {"derpy_ic_house_a"})
+    assert len(bad) == 1 and "derpy_ic_cult_zz" in bad[0], bad
+    for gone in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"',
+                 'IC.rkey("cult"', 'IC.key("cult"'):
         bad = check_trait_keys(builders.replace(gone, "IC.other("), set())
         assert len(bad) == 1 and gone in bad[0], (gone, bad)
+    ui = ('ICUI.CULTURE_CASE_LOC = {away = "cult_gov", home = "cult_gov_home", '
+          'foreign = "cult_gov_foreign"}\n')
+    shipped = set(G.bundle_key(k, c["slug"], race) for race in G.RACES
+                  for c in G.RACES[race]["CULTURES"]
+                  for k in ("cult_gov", "cult_gov_home", "cult_gov_foreign"))
+    assert check_culture_loc(ui, shipped) == [], check_culture_loc(ui, shipped)
+    bad = check_culture_loc(ui, shipped - {G.bundle_key("cult_gov_home", "karaz", "dwf")})
+    assert len(bad) == 1 and "cult_gov_home_dwf_karaz" in bad[0], bad
+    assert check_culture_loc("local x = 1", shipped) != []
     print("import_iron_court selftest: ok")
 
 
@@ -939,13 +1016,14 @@ def check_trait_keys(lua, traits):
     normally zero, so the builder-presence loop is what fails if a builder is
     renamed or dropped."""
     problems = []
-    for key in sorted(set(re.findall(r'"(derpy_ic_(?:house|title)_\w+)"', lua))):
+    for key in sorted(set(re.findall(r'"(derpy_ic_(?:house|title|cult)_\w+)"', lua))):
         if key.endswith("_"):
             continue
         if key not in traits:
             problems.append("the Lua uses trait %s, which the generator does not emit"
                             % key)
-    for builder in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"'):
+    for builder in ('IC.rkey("house"', 'IC.rkey("bg"', 'IC.key("title"', 'IC.key("member"',
+                    'IC.rkey("cult"', 'IC.key("cult"'):
         if builder not in lua:
             problems.append("the Lua no longer builds %s keys" % builder)
     return problems
@@ -1016,8 +1094,10 @@ def verify():
     problems = G.check()
     built = G.build()
 
-    # 0. THE ROLLERS HAVE ONE CALLER EACH. See check_rollers: a legendary lord
-    #    dealt a random birthplace is silent, and nothing else refuses to pack it.
+    # 0. THE ROLLERS ARE CALLED ONLY FROM THEIR GATES: roll_party and
+    #    leaderless_party from one each, roll_culture from the five and trade_in from the six
+    #    ROLLER_GATES names. See check_rollers: a legendary lord dealt a random
+    #    past is silent, and nothing else refuses to pack it.
     if os.path.isfile(MODEL_LUA):
         problems.extend(check_rollers(io.open(MODEL_LUA, encoding="utf-8").read()))
     else:
@@ -1042,6 +1122,11 @@ def verify():
     # 0e. EVERY EFFECT A BAND CAN SHOW HAS CA's ICON FOR IT. See check_fx_icons.
     if os.path.isfile(UI_LUA):
         problems.extend(check_fx_icons(io.open(UI_LUA, encoding="utf-8").read()))
+
+    # 0f. THE PICKER'S CULTURE LINES ARE SHIPPED. See check_culture_loc.
+    if os.path.isfile(UI_LUA):
+        problems.extend(check_culture_loc(io.open(UI_LUA, encoding="utf-8").read(),
+                                          set(r["key"] for r in built["loc"])))
 
     # 0d. THE PANEL CHANGES THE CAMPAIGN ONLY THROUGH IC.mp_send. See
     #     check_mp_routing: a direct call is a multiplayer desync nothing in
@@ -1215,7 +1300,8 @@ def verify():
                 problems.append("the Lua applies %s, which the generator does not emit" % key)
         # Both halves build their bundle keys by concatenation, so check the
         # prefixes the same way.
-        for prefix in ('IC.key("office"', 'IC.key("vacant"', 'IC.key("gov_house"'):
+        for prefix in ('IC.key("office"', 'IC.key("vacant"', 'IC.key("gov_house"',
+                       'IC.key("gov_cult"', 'IC.key("gov_cult_home"'):
             if prefix not in lua:
                 problems.append("the Lua no longer builds %s keys" % prefix)
         # The governor's base bundle is one fixed slug built by the race's key
@@ -1228,6 +1314,15 @@ def verify():
         if G.bundle_key("gov", "base") not in defined:
             problems.append("the generator does not emit the governor's base bundle %s"
                             % G.bundle_key("gov", "base"))
+        if not re.search(r'^function IC\.gov_bundle_friction\(faction_key\) return '
+                         r'IC\.key\("gov", "friction", faction_key\) end$', lua, re.M):
+            problems.append("the Lua no longer builds the friction bundle as "
+                            'IC.key("gov", "friction", faction_key)')
+        for race in sorted(G.RACES):
+            friction = G.bundle_key("gov", "friction", race)
+            if friction not in defined:
+                problems.append("the generator does not emit the %s friction bundle %s"
+                                % (race, friction))
 
         # 4. Every trait the Lua names must exist.
         problems.extend(check_trait_keys(

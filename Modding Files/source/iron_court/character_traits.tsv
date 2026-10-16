@@ -32,6 +32,14 @@ derpy_ic_house_zornuzkul	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_gash	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_mines	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_wastes	1	false	1	derpy_ic_cat_origin	1		false
+derpy_ic_cult_zharr	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_stump	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_gorgoth	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_zornuzkul	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_plain	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_mines	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_wastes	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_gash	1	false	1	derpy_ic_cat_culture	1		false
 derpy_ic_bg_household	1	false	1	derpy_ic_cat_party_crown	1		false
 derpy_ic_bg_blood	1	false	1	derpy_ic_cat_party_crown	1		false
 derpy_ic_bg_sworn	1	false	1	derpy_ic_cat_party_crown	1		false
@@ -178,6 +186,14 @@ derpy_ic_house_dwf_rangers	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_dwf_deeps	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_dwf_grey	1	false	1	derpy_ic_cat_origin	1		false
 derpy_ic_house_dwf_black	1	false	1	derpy_ic_cat_origin	1		false
+derpy_ic_cult_dwf_karaz	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_black	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_barakvarr	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_kadrin	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_azul	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_deeps	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_grey	1	false	1	derpy_ic_cat_culture	1		false
+derpy_ic_cult_dwf_passkeeps	1	false	1	derpy_ic_cat_culture	1		false
 derpy_ic_bg_dwf_kinguard	1	false	1	derpy_ic_cat_party_crown	1		false
 derpy_ic_bg_dwf_lineblood	1	false	1	derpy_ic_cat_party_crown	1		false
 derpy_ic_bg_dwf_oathsworn	1	false	1	derpy_ic_cat_party_crown	1		false
@@ -193,6 +209,7 @@ derpy_ic_bg_dwf_tunneller	1	false	1	derpy_ic_cat_party_chain	1		false
 derpy_ic_bg_dwf_longbeard	1	false	1	derpy_ic_cat_party_legion	1		false
 derpy_ic_bg_dwf_ironbreaker	1	false	1	derpy_ic_cat_party_legion	1		false
 derpy_ic_bg_dwf_thane	1	false	1	derpy_ic_cat_party_legion	1		false
+derpy_ic_bg_dwf_slayer	1	false	1	derpy_ic_cat_party_legion	1		false
 derpy_ic_bg_dwf_reckoner	1	false	1	derpy_ic_cat_party_ledger	1		false
 derpy_ic_bg_dwf_trader	1	false	1	derpy_ic_cat_party_ledger	1		false
 derpy_ic_bg_dwf_goldsmith	1	false	1	derpy_ic_cat_party_ledger	1		false

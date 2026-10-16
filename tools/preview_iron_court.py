@@ -751,7 +751,7 @@ def petition_rows(G, court):
     ui = bare(lua("ui"))
     tune = _party_tune()
     body = ui.split("function ICUI.draw_petitions(")[1].split("\nend")[0]
-    oversee = re.search(r'"(Demands to oversee %s)"', body).group(1)
+    oversee = re.search(r'"(Demands to govern %s)"', body).group(1)
     offers = re.search('"(Offers %s: %s)"', body).group(1)
     what = ui.split("function ICUI.offer_what(")[1].split("\nend")[0]
     calm = re.search(r'"(calm %s \(\+%d loyalty\))"', what).group(1)
@@ -762,7 +762,7 @@ def petition_rows(G, court):
 
     longest = max(court[1:], key=lambda row: len(row[1]))
     rows = [dict(slug=court[1][0], face=DEMO_FACES[1], may=True, a=DEMO_LONG_MAN,
-                 b="%s - %s" % (oversee % DEMO_LONG_PROVINCE,
+                 b="%s: %s" % (oversee % DEMO_LONG_PROVINCE,
                                 turns(tune["party_demand_turns"])))]
     rows.append(dict(slug=court[2][0], face=None, may=True, a=court[2][1],
                      b=offers % (calm % (longest[1], tune["party_offer_calm"]),
@@ -1640,7 +1640,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         hidden |= {"ic_gov", "ic_gov_btn", "ic_gov_glow"}
         if _base == "pick":
             # THE PICKER'S OWN QUESTION, not a tab's standing label. The format
-            # string is read out of ICUI.pick_title and the two numbers out of
+            # string is read out of ICUI.pick_title and the three numbers out of
             # IC.TUNE, so a reworded title or a retuned bar reaches the picture -
             # and the seat is a REAL one off the generator's office table.
             fmt = re.search(
@@ -1653,10 +1653,14 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             bars = [int(n) for n in re.findall(
                 r"\d+", re.search(r"tier_influence\s*=\s*\{([^}]*)\}",
                                   mlua).group(1))]
+            ranks = [int(n) for n in re.findall(
+                r"\d+", re.search(r"tier_rank\s*=\s*\{([^}]*)\}",
+                                  mlua).group(1))]
             turns = int(re.search(r"term_turns\s*=\s*(\d+)", mlua).group(1))
             seat = DEMO_SEAT(G)
             STRINGS["ic_lbl_section"] = (fmt
                 .replace("%s", seat["name"], 1)
+                .replace("%d", str(ranks[seat["tier"] - 1]), 1)
                 .replace("%s", str(bars[seat["tier"] - 1]), 1)
                 .replace("%d", str(turns), 1))
         elif view == "offices":
@@ -1825,7 +1829,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                     "look": "selected" if i == 1 else "active",
                     "l1": prov,
                     "l2": (who + " (away)") if (who and away) else (who or "None assigned"),
-                    "l3": ("%d%%, +%d strength" % (loyal, weight)) if who else "%d%%" % loyal,
+                    "l3": ("%d loyalty, +%d strength" % (loyal, weight)) if who else "%d loyalty" % loyal,
                     "face": DEMO_FACES[i % len(DEMO_FACES)] if who else G.SIL_PATH,
                     "vacant": who is None, "plate": slug,
                     "badge": G.sigil_path(slug) if who else None,
@@ -1839,7 +1843,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                 slug, party_name = court[house][0], court[house][1]
                 grow(i, {
                     "look": "inactive" if refusal else ("selected" if i == 0 else "active"),
-                    "l1": "%s%s - %s" % ((_kw[kind] + " ") if _kw else "", name, trade),
+                    "l1": "%s%s, %s" % ((_kw[kind] + " ") if _kw else "", name, trade),
                     "l2": party_name,
                     "l3": "Rank %d, %d influence" % (rank, standing),
                     "face": DEMO_FACES[i % len(DEMO_FACES)], "plate": slug,
@@ -1883,7 +1887,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             text(gm_name_doc, plate, name, nx, ny, G.GM_PIN_W, G.GM_NAME_H)
             lx, ly = sx - G.GM_LOYAL_W // 2, sy - G.GM_LOYAL_H
             paste(gm_loyal_doc, loyal_c, lx, ly, G.GM_LOYAL_W, G.GM_LOYAL_H)
-            text(gm_loyal_doc, loyal_c, "Loyalty %d%%" % loyal, lx, ly, G.GM_LOYAL_W, G.GM_LOYAL_H)
+            text(gm_loyal_doc, loyal_c, "Loyalty %d" % loyal, lx, ly, G.GM_LOYAL_W, G.GM_LOYAL_H)
             paste(gm_badge_doc, badge, *box, repaint={
                 G.GM_BADGE_LAYERS.index("crest"): G.sigil_path(slug) if (who and slug) else None})
         draw.text((px0 - G.GM_PIN_W // 2, G.PANEL_H - 100), "Map stand-in. Faces are square here "
@@ -1935,7 +1939,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             # otherwise it would be the same flag twice on one row.
             rcell("ic_row_crest", repaint={0: G.sigil_path(slug)})
             # HIS POSITION IN FRONT OF HIS NAME - "Retainer Amarudz
-            # Grimtidesson - Shrewd". The word comes out of the panel's own
+            # Grimtidesson, Shrewd" (ICUI.man_line). The word comes out of the panel's own
             # table and the fallback, a bare name for a man the engine would not
             # classify, is what the cell drew before the title existed.
             #
@@ -1943,7 +1947,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
             # cell on the row and still cannot hold its own worst case, so what
             # the cut is allowed to eat is the trade on the end - which is a
             # thing a picture can show and an assertion cannot.
-            rcut("ic_row_a", "%s%s - %s"
+            rcut("ic_row_a", "%s%s, %s"
                  % ((_kw[kind] + " ") if _kw else "", name, trade))
             rcell("ic_row_b", party_name)
             # THE RANK CELL IS A NUMBER: 45px of column has no room for a word
@@ -2292,7 +2296,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         # these three. Drawing the bare name here would hide the decoration in
         # the one place it gets reviewed.
         cell("ic_party_ltrait", trait_markup(ltrait))
-        cell("ic_party_nums", "%d%% share - %d loyalty" % (share, loyalty))
+        cell("ic_party_nums", "%d%% share; %d loyalty" % (share, loyalty))
         cell("ic_party_t1", trait_markup(DEMO_TRAITS[slug][0]))
         cell("ic_party_t2", trait_markup(DEMO_TRAITS[slug][1]))
         # THE STATE WORD, red where the panel draws it red.

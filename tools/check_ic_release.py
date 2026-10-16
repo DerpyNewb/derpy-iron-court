@@ -38,8 +38,11 @@ LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
 # Re-pin only after reading every finding: the last re-pin's diff (2026-10-10) was 81 loc
 # lines, every one an event card's _primary or _secondary, plus 4 added _secondary lines -
 # the cards flipped to a short subtitle over a boxed body. No title, row or other loc moved.
-SNAPSHOT_MD5 = "633093f943dba504effe9ed69494c069"
-SNAPSHOT_SIZE = 15194302
+# Re-pinned 2026-10-16 after antislop audit 009: 289 loc lines and 4 effect bundle rows
+# moved, every one an approved rewrite (anti-slop/followup-009-2026-10-16-iron-court.md),
+# plus 4 added Dwarf lines.
+SNAPSHOT_MD5 = "f5cf88cb2ba7db5414ba4578124c1e73"
+SNAPSHOT_SIZE = 15373891
 
 
 def fit_problems():

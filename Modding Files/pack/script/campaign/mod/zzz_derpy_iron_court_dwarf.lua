@@ -149,7 +149,7 @@ DWF.BACKGROUNDS = {
     temple = {"shrinekeeper", "valayan", "tombwarden"},
     forge  = {"smith", "engineer", "foundry"},
     chain  = {"miner", "prospector", "tunneller"},
-    legion = {"longbeard", "ironbreaker", "thane"},
+    legion = {"longbeard", "ironbreaker", "thane", "slayer"},
     ledger = {"reckoner", "trader", "goldsmith"},
     tower  = {"runesmith", "loremaster", "scribe"},
     road   = {"ranger", "wayfinder", "underwarden"},
@@ -197,7 +197,7 @@ DWF.PARTY_TRAITS = {
      blurb = "They keep a tally of the holds denied them.",
      rule = "+1 while they govern a province, -2 when they do not",
      n = function(ctx) return ctx.govs > 0 and 1 or -2 end},
-    {key = "zealots", name = "Keepers of the Old Ways",
+    {key = "zealots", name = "Bound to the Old Ways",
      blurb = "A king must command his hall.",
      rule = "+1 while your own party holds half the court, -2 below it",
      n = function(ctx) return ctx.control >= 50 and 1 or -2 end},
@@ -290,26 +290,35 @@ DWF.LAWS = {
               order = {"measure", "lash", "kept", "quota", "ash"},
               opts = {
         measure = {icon = "angrund_ancestors.png"},
-        lash    = {icon = "resource_gold.png", pro = {"chain"}, con = {"hearth"}},
-        kept    = {icon = "growth.png", pro = {"hearth"}, con = {"chain"}},
-        quota   = {icon = "oathgold.png", pro = {"forge"}, con = {"hearth"}},
+        lash    = {icon = "resource_gold.png", pro = {"chain"}, con = {"hearth"},
+                   cpro = {"deeps"}, ccon = {"grey"}},
+        kept    = {icon = "growth.png", pro = {"hearth"}, con = {"chain"},
+                   cpro = {"grey"}, ccon = {"deeps"}},
+        quota   = {icon = "oathgold.png", pro = {"forge"}, con = {"hearth"},
+                   cpro = {"azul"}, ccon = {"black"}},
         ash     = {icon = "construction.png", pro = {"legion"}, con = {"ledger"}},
     }},
     tribute = {icon = "edict_collect_tribute.png",
                order = {"tithe", "roads", "tariff", "mines", "charter"},
                opts = {
         tithe   = {icon = "edict_collect_tribute.png"},
-        roads   = {icon = "icon_underway_network.png", pro = {"road"}, con = {"crown"}},
-        tariff  = {icon = "trade_agreement.png", pro = {"ledger"}, con = {"road"}},
-        mines   = {icon = "oathgold_bundle.png", pro = {"forge"}, con = {"road"}},
-        charter = {icon = "resource_gemstones.png", pro = {"road"}, con = {"legion"}},
+        roads   = {icon = "icon_underway_network.png", pro = {"road"}, con = {"crown"},
+                   cpro = {"barakvarr", "passkeeps"}},
+        tariff  = {icon = "trade_agreement.png", pro = {"ledger"}, con = {"road"},
+                   ccon = {"kadrin"}},
+        mines   = {icon = "oathgold_bundle.png", pro = {"forge"}, con = {"road"},
+                   cpro = {"deeps"}, ccon = {"barakvarr", "passkeeps"}},
+        charter = {icon = "resource_gemstones.png", pro = {"road"}, con = {"legion"},
+                   cpro = {"karaz", "barakvarr"}},
     }},
     worship = {icon = "edict_venerate_the_ancestors.png",
                order = {"rites", "fires", "seats", "lore", "licence"},
                opts = {
         rites   = {icon = "edict_venerate_the_ancestors.png"},
-        fires   = {icon = "god_effect_valaya.png", pro = {"temple"}, con = {"tower"}},
-        seats   = {icon = "runesmith.png", pro = {"tower"}, con = {"temple"}},
+        fires   = {icon = "god_effect_valaya.png", pro = {"temple"}, con = {"tower"},
+                   cpro = {"karaz"}},
+        seats   = {icon = "runesmith.png", pro = {"tower"}, con = {"temple"},
+                   cpro = {"azul"}},
         lore    = {icon = "loremaster.png", pro = {"tower"}, con = {"hearth"}},
         licence = {icon = "god_effect_grungni.png", pro = {"forge"}, con = {"temple"}},
     }},
@@ -317,10 +326,14 @@ DWF.LAWS = {
            order = {"levy", "grudge", "hellforge", "legions", "gunnery"},
            opts = {
         levy      = {icon = "edict_levy_conscripts.png"},
-        grudge    = {icon = "grudges.png", pro = {"legion"}, con = {"ledger"}},
-        hellforge = {icon = "artillery.png", pro = {"forge"}, con = {"legion"}},
-        legions   = {icon = "waaagh_reward_dwarfs.png", pro = {"legion"}, con = {"forge"}},
-        gunnery   = {icon = "engineer.png", pro = {"forge"}, con = {"hearth"}},
+        grudge    = {icon = "grudges.png", pro = {"legion"}, con = {"ledger"},
+                     cpro = {"kadrin"}},
+        hellforge = {icon = "artillery.png", pro = {"forge"}, con = {"legion"},
+                     cpro = {"black"}},
+        legions   = {icon = "waaagh_reward_dwarfs.png", pro = {"legion"}, con = {"forge"},
+                     cpro = {"kadrin", "grey", "passkeeps"}},
+        gunnery   = {icon = "engineer.png", pro = {"forge"}, con = {"hearth"},
+                     cpro = {"black"}, ccon = {"karaz", "azul"}},
     }},
 }
 
@@ -485,7 +498,7 @@ DWF.PLOT_TEXT = {
     discredit = {name = "Question His Work",
      blurb = "Find fault in his workmanship.",
      effect = string.format(
-         "-%d influence for him. -%d influence from his party.",
+         "-%d influence for him. -%d strength for his party.",
          IC.TUNE.plot_discredit_standing,
          IC.TUNE.plot_discredit_weight)},
     rumour = {name = "Hall Whispers",
@@ -513,7 +526,7 @@ DWF.PLOT_TEXT = {
      icon = "ui/campaign ui/technologies/wh_main_dwf_iron_price.png",
      blurb = "The clans watch.",
      effect = string.format(
-         "Removes the party. -%d loyalty to all others. Failure: another -%d to the target.",
+         "Removes the party. -%d loyalty to every other rival. Failure: another -%d to the target.",
          IC.TUNE.plot_purge_witness,
          IC.TUNE.plot_purge_backfire)},
     unseat = {name = "Bar the Doors",
@@ -543,37 +556,37 @@ DWF.PLOT_TEXT = {
      icon = "ui/campaign ui/technologies/wh_main_dwf_retainers_vows.png",
      blurb = "His old clan has less say in the hall.",
      effect = string.format(
-         "Moves up to %d influence to your own party. Requires %d loyalty.",
+         "Moves up to %d strength from his party to yours. Requires %d loyalty.",
          IC.TUNE.plot_kinsman_weight,
          IC.TUNE.plot_kinsman_min_loyalty)},
     pledge = {name = "Oath on the Anvil",
      blurb = "Anvil-sworn.",
      effect = string.format(
-         "+%d loyalty. Stops their secession countdown. Costs your own party %d influence.",
+         "+%d loyalty. Stops their secession countdown. Costs your own party %d strength.",
          IC.TUNE.plot_pledge_loyalty,
          IC.TUNE.plot_pledge_weight)},
     embezzle = {name = "Skim the Tally",
      blurb = "The missing gold will be counted.",
      effect = string.format(
-         "+%d gold. -%d loyalty across the whole court.",
+         "+%d gold. -%d loyalty with every rival party.",
          IC.TUNE.plot_embezzle_gold,
          IC.TUNE.plot_embezzle_loyalty)},
     feast = {name = "Host a Feast",
      blurb = "His name fills the hall.",
      effect = string.format(
-         "+%d influence to the man you send. -%d loyalty across the court.",
+         "+%d influence to the man you send. -%d loyalty with every rival party.",
          IC.TUNE.plot_feast_standing,
          IC.TUNE.plot_feast_loyalty)},
     audience = {name = "Hold Court",
      blurb = "A day of ale and grievances.",
      effect = string.format(
-         "+%d loyalty to every party in the court.",
+         "+%d loyalty to every rival party.",
          IC.TUNE.plot_audience_loyalty)},
     circuit = {name = "Walk the Holds",
      icon = "ui/campaign ui/technologies/wh_main_dwf_marching_songs.png",
      blurb = "Hear the holds' grievances in person.",
      effect = string.format(
-         "+%d control in every province you hold.",
+         "+%d loyalty in every province you hold.",
          IC.TUNE.plot_circuit_prov)},
     envoy = {name = "Send an Envoy",
      icon = "ui/campaign ui/technologies/wh_main_dwf_dwarven_emissaries.png",
@@ -601,22 +614,25 @@ DWF.FAVOUR_TEXT = {
 DWF.EVENT_LOC = {
     gov_intro = true,
     realm_secede = true,
+    secede_warn = true,
 }
 
 -- THE HELP LINES THAT NAME CHAOS DWARF THINGS, in Dwarf words: keyed by the
 -- shared line exactly as ICUI.HELP holds it; false drops the line. The harness
--- fails a key no shared line still reads. The deeds line names battle and
--- research only, not the grudge deed.
+-- fails a key no shared line still reads. The deeds take two lines: battle and
+-- research, then the settled grudge, which raises the Clan Warriors and the
+-- Priesthood (DWF.DEEDS).
 DWF.HELP_SWAP = {
     ["{@confed}A confederated Chaos Dwarf house joins as its own party, keeping roughly its former loyalty."] =
         "{@confed}The thanes of a confederated hold sit as their own party, keeping roughly their former loyalty.",
     ["{@crown}Your capital's province never leaves. {@circuit}Use Ride the Circuit on Intrigue to raise every province's loyalty at once."] =
         "{@crown}Your capital's province never leaves. {@circuit}Use Walk the Holds on Intrigue to raise every province's loyalty at once.",
-    ["{@bullet}Without a leading rival, the court drifts toward the Conclave. A leading Crown stops the drift."] =
-        "{@bullet}Without a leading rival, the hall returns toward the Council of Elders. The Throne-Sworn stop this while they lead.",
+    ["{@bullet}Below {gov_drift_share}%, a leader draws the court toward the Conclave. A leader with no government, such as the Crown, stops it."] =
+        "{@bullet}Below {gov_drift_share}%, a leader draws the hall toward the Council of Elders. A leader with no government, such as the Crown, stops it.",
     ["{@party}Your deeds raise party renown. Victories raise the Legion; Hell-Forge rituals raise the Forge."] =
-        "{@party}Victories bring renown to the warriors' party. Research brings renown to the runesmiths'.",
-    ["{@bullet}Tower rites and temples raise the Priesthood. Slaves and razed settlements raise the Chain."] = false,
+        "{@party}Victories bring renown to the Clan Warriors. Research brings renown to the Runesmiths.",
+    ["{@bullet}Tower rites and temples raise the Priesthood. Slaves and razed settlements raise the Chain."] =
+        "{@bullet}A settled grudge brings renown to the Clan Warriors and the Ancestor Priesthood.",
     ["{@bullet}Convoys raise the Road. Research raises the Tower."] = false,
     ["{@bullet}Moves on a man: {@bribe}bribe him, {@discredit}discredit him, {@rumour}spread rumours, or {@murder}arrange an accident at the forge."] =
         "{@bullet}Moves on a man: {@bribe}give him gold, {@discredit}question his work, {@rumour}spread hall gossip, or {@murder}drive him to the Slayer Oath.",
@@ -628,8 +644,88 @@ DWF.HELP_SWAP = {
         "{@bullet}Errands: {@embezzle}skim the tally, {@feast}host a feast, {@audience}hold court in the great hall, or {@circuit}walk the holds.",
     ["{@rebel}The rebels declare war at once and march against you. Every Chaos Dwarf court distrusts them."] =
         "{@rebel}The rebels declare war at once and march against you. The other holds distrust these oathbreakers.",
-    ["{@bullet}A bribe, the Pledge of the Forge, or another party's offer of calm stops a countdown. A purge ends the party, if it works."] =
-        "{@bullet}A Gift of Gold, an Oath on the Anvil or a rival's offer of calm stops a countdown. Cast Out the Clan ends the party if it succeeds.",
+    ["{@bullet}A bribe, Secure Loyalty, the Pledge of the Forge or a party's offer of calm stops a countdown. A purge ends the party, if it works."] =
+        "{@bullet}A Gift of Gold, Secure Loyalty, an Oath on the Anvil or an offer of calm stops a countdown. A Cast Out that works ends the party.",
+    ["{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge."] =
+        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Cast Out.",
+    ["{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty."] =
+        "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",
+}
+
+-- THE DWARF CULTURES. Same shape as IC.CULTURES; slugs karaz, kadrin and
+-- barakvarr also name Dwarf house origins, which is safe because the trait
+-- family is part of the key (derpy_ic_cult_dwf_karaz, derpy_ic_house_dwf_karaz).
+DWF.CULTURES = {
+    {slug = "karaz", main = "temple", side = "tower",
+     homes = {"cr_oldworld_province_agrildrin", "cr_oldworld_province_middle_mountains"}},
+    {slug = "black", main = "forge", side = "ledger",
+     homes = {"cr_oldworld_province_north_black_water", "cr_oldworld_province_black_mountains"}},
+    {slug = "barakvarr", main = "ledger", side = "road",
+     homes = {"cr_oldworld_province_varenka_hills"}},
+    {slug = "kadrin", main = "legion", side = "temple",
+     homes = {"cr_oldworld_province_peak_pass", "cr_oldworld_province_grim_kadrin"}},
+    {slug = "azul", main = "tower", side = "forge",
+     homes = {"cr_oldworld_province_karak_azul"}},
+    {slug = "deeps", main = "chain", side = "forge",
+     homes = {"cr_oldworld_province_shattered_teeth", "cr_oldworld_province_the_vaults",
+              "cr_oldworld_province_delved_heights", "cr_oldworld_province_gianthome_mountains",
+              "cr_oldworld_province_karak_azgal"}},
+    {slug = "grey", main = "hearth", side = "legion",
+     homes = {"cr_oldworld_province_north_grey_mountains", "cr_oldworld_province_south_grey_mountains",
+              "cr_oldworld_province_crooked_corridor", "cr_oldworld_province_west_gate"}},
+    {slug = "passkeeps", main = "road", side = "legion",
+     homes = {"cr_oldworld_province_black_blood_pass", "cr_oldworld_province_black_fire_pass",
+              "cr_oldworld_province_high_pass", "cr_oldworld_province_mondidier_pass",
+              "cr_oldworld_province_eagles_peak", "cr_oldworld_province_west_gianthome_mountains",
+              "cr_oldworld_province_helspire_mounts_east"}},
+}
+
+-- EACH DWARF LEGEND'S CULTURE, a judgement call for the author's review: the
+-- hold each is best known for.
+DWF.LEGEND_CULTURE = {
+    wh_main_dwf_thorgrim_grudgebearer = "karaz",
+    wh_main_dwf_ungrim_ironfist = "kadrin",
+    wh_dlc06_dwf_belegar = "deeps",
+    wh_pro01_dwf_grombrindal = "karaz",
+    wh2_dlc17_dwf_thorek = "azul",
+    wh3_dlc25_dwf_malakai_makaisson = "black",
+    wh3_dlc25_dwf_garagrim_ironfist = "kadrin",
+    wh3_dlc25_dwf_lord_mikael_leadstrong = "karaz",
+    wh2_dlc17_dwf_thane_ghost_artifact = "karaz",
+    wh_dlc06_dwf_master_engineer_ghost = "black",
+    wh_dlc06_dwf_runesmith_ghost = "azul",
+    wh_dlc06_dwf_thane_ghost_1 = "karaz",
+    wh_dlc06_dwf_thane_ghost_2 = "karaz",
+}
+
+-- A CONQUERED HOLD'S MEN KEEP ITS CULTURE. Zhufbar and Karak Hirn are the Black
+-- Holds; Kraka Drak sits among the Deeps. A hold not listed rolls like anyone.
+DWF.HOUSE_CULTURE = {
+    karaz = "karaz",
+    kadrin = "kadrin",
+    barakvarr = "barakvarr",
+    zhufbar = "black",
+    hirn = "black",
+    krakadrak = "deeps",
+    azul = "azul",
+}
+
+-- THE RETIRED BIRTHPLACES, converted to the culture of the same country.
+DWF.PLACE_CULTURE = {
+    rangers = "passkeeps",
+    deeps = "deeps",
+    grey = "grey",
+    black = "black",
+}
+
+-- A KADRIN MAN SEATED IN THE LEGION IS A SLAYER, and nobody else is: the trade
+-- is reserved, so it is never drawn for anyone else.
+DWF.CULTURE_TRADE = {
+    kadrin = {party = "legion", bg = "slayer"},
+}
+
+-- A TRADE ONLY ONE KIND OF MAN IS DEALT: agent subtype to {party, bg}. None here.
+DWF.SUBTYPE_TRADE = {
 }
 
 -- REGISTERED LAST, once: IC.build_race derives TIERS, TIER_SEATS, PARTY_OF_BG

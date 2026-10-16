@@ -117,6 +117,8 @@ _DOCS += [("docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md", "doc
 _DOCS += [(p, "docs/plans/") for p in _dated("docs/superpowers/plans",
                                               "2026-10-04-iron-court-dwarfs-*.md")]
 _DOCS += [(p, "docs/history/") for p in _dated("docs/sessions", "HANDOFF_202610*_IRON_COURT*.md")]
+_DOCS += [("docs/superpowers/specs/2026-10-15-iron-court-cultures-design.md", "docs/design/"),
+          ("docs/superpowers/plans/2026-10-15-iron-court-cultures.md", "docs/plans/")]
 _DOCS = list(dict.fromkeys(_DOCS))
 
 

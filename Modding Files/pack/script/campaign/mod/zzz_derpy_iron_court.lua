@@ -31,6 +31,96 @@ IC.ORIGINS = {
     {slug = "wastes"},
 }
 
+-- THE CULTURES: where a man grew up. It decides how well he governs (the
+-- generator's CULTURES tables hold the figures) and, with his party's draw, who
+-- he sits beside. `main` is the party this culture mostly feeds and `side` the
+-- party it feeds the rest of the time. `homes` are Old World map province keys:
+-- a governor of this culture serves best in them. tools/gen_iron_court.py
+-- model_cultures reads each entry back, so keep the one shape.
+IC.CULTURES = {
+    {slug = "zharr", main = "temple", side = "tower",
+     homes = {"cr_oldworld_province_heart_of_zharrduk", "cr_oldworld_province_skull_cliffs"}},
+    {slug = "stump", main = "forge", side = "legion",
+     homes = {"cr_oldworld_province_foundry_district", "cr_oldworld_province_manufactory_district",
+              "cr_oldworld_province_river_district", "cr_oldworld_province_daemons_ruin",
+              "cr_oldworld_province_foundry_of_rage", "cr_oldworld_province_putrid_stump"}},
+    {slug = "gorgoth", main = "chain", side = "ledger",
+     homes = {"cr_oldworld_province_pits_district", "cr_oldworld_province_mount_azgorh",
+              "cr_oldworld_province_the_crossroads"}},
+    {slug = "zornuzkul", main = "legion", side = "road",
+     homes = {"cr_oldworld_province_gate_district", "cr_oldworld_province_zorn_uzkul",
+              "cr_oldworld_province_deaths_side", "cr_oldworld_province_river_ruin_lower",
+              "cr_oldworld_province_river_ruin_upper", "cr_oldworld_province_skull_road"}},
+    {slug = "plain", main = "tower", side = "chain",
+     homes = {"cr_oldworld_province_market_district"}},
+    {slug = "mines", main = "hearth", side = "forge",
+     homes = {"cr_oldworld_province_zandri_road", "cr_oldworld_province_belyerovota",
+              "cr_oldworld_province_west_death_pass"}},
+    {slug = "wastes", main = "road", side = "ledger",
+     homes = {"cr_oldworld_province_howling_district", "cr_oldworld_province_causeway_of_zharr",
+              "cr_oldworld_province_howling_wastes_north", "cr_oldworld_province_howling_wastes_south",
+              "cr_oldworld_province_the_black_field"}},
+    {slug = "gash", main = "ledger", side = "legion",
+     homes = {"cr_oldworld_province_gash_kadrak"}},
+}
+
+-- A LEGEND'S CULTURE IS FIXED, as his origin and trade are (IC.LORD_HISTORY).
+-- Each takes the main culture of the party his fixed trade seats him in; Gorduz
+-- keeps the culture of the place he used to be born in. Proposed, for review.
+IC.LEGEND_CULTURE = {
+    derpy_abnagg = "gash",
+    derpy_azeros = "stump",
+    derpy_balur = "zornuzkul",
+    derpy_black_dwf = "zornuzkul",
+    derpy_bzaark = "zornuzkul",
+    derpy_gargath = "stump",
+    derpy_ghorth = "zharr",
+    derpy_snakebeard = "stump",
+    derpy_tordrek = "stump",
+    derpy_urzkhal = "gorgoth",
+    derpy_vraznak = "zharr",
+    derpy_gordak = "gorgoth",
+    derpy_warrhak = "plain",
+    wh3_dlc23_chd_astragoth = "zharr",
+    wh3_dlc23_chd_drazhoath = "stump",
+    wh3_dlc23_chd_zhatan = "zornuzkul",
+    wh3_dlc23_chd_gorduz_backstabber = "zornuzkul",
+}
+
+-- A CONQUERED HOUSE'S MEN KEEP ITS CULTURE: house origin slug to culture. A
+-- house not listed rolls like anyone else. Proposed, not confirmed.
+IC.HOUSE_CULTURE = {
+    uzkulak = "zornuzkul",
+    conclave = "zharr",
+    azgorh = "gorgoth",
+}
+
+-- THE RETIRED BIRTHPLACES: a saved lord wearing one of these place traits is
+-- converted to the culture with the same slug, quietly. The place rows stay in
+-- the pack so the removal resolves; they are never granted again.
+IC.PLACE_CULTURE = {
+    zharr = "zharr",
+    plain = "plain",
+    gorgoth = "gorgoth",
+    stump = "stump",
+    zornuzkul = "zornuzkul",
+    gash = "gash",
+    mines = "mines",
+    wastes = "wastes",
+}
+
+-- A TRADE ONLY ONE CULTURE IS DEALT: culture slug to {party, bg}. None here.
+IC.CULTURE_TRADE = {
+}
+
+-- A TRADE ONLY ONE KIND OF MAN IS DEALT: agent subtype to {party, bg}. A Bull
+-- Centaur Taur'ruk dealt to the Priesthood is a Taur'ruk, and nobody else is
+-- one: the trade is reserved, so no ordinary draw tells a Sorcerer-Prophet he
+-- is half bull. Vraznak keeps his through IC.LORD_HISTORY.
+IC.SUBTYPE_TRADE = {
+    wh3_dlc23_chd_bull_centaur_taurruk = {party = "temple", bg = "taurukh"},
+}
+
 IC.PARTIES = {
     "crown", "temple", "forge", "chain", "legion",
     "ledger", "tower", "road", "hearth",
@@ -259,7 +349,7 @@ IC.LORD_HISTORY = {
                                leads = "wh3_dlc23_chd_legion_of_azgorh"},
     wh3_dlc23_chd_zhatan    = {origin = "zhatan",    bg = "immortal",
                                leads = "wh3_dlc23_chd_zhatan"},
-    wh3_dlc23_chd_gorduz_backstabber = {origin = "zornuzkul", bg = "wrangler"},
+    wh3_dlc23_chd_gorduz_backstabber = {bg = "wrangler"},
 }
 
 
@@ -439,6 +529,9 @@ IC.TUNE = {
     favour_secure_turns  = 5,
 
     party_trait_scale   = 1,
+    -- A PARTY'S NEW MAN is its main culture on this many of ten rolls and one of
+    -- its side cultures on the rest. Not in IC.TUNE_ORDER: no MCT page for it.
+    culture_main_tenths = 7,
 
     weight_start        = 10,   -- a house entering court
     weight_per_office   = 6,
@@ -846,36 +939,50 @@ IC.LAWS = {
               order = {"measure", "lash", "kept", "quota", "ash"},
               opts = {
         measure = {icon = "chd_workload.png"},
-        lash    = {icon = "dlc23_region_action_set_example.png", pro = {"chain"}, con = {"hearth"}},
-        kept    = {icon = "slaves.png", pro = {"hearth"}, con = {"chain"}},
-        quota   = {icon = "wh3_dlc23_edict_chd_higher_quotas.png", pro = {"forge"}, con = {"hearth"}},
-        ash     = {icon = "wh3_dlc23_edict_chd_smoke_stacks.png", pro = {"legion"}, con = {"ledger"}},
+        lash    = {icon = "dlc23_region_action_set_example.png", pro = {"chain"}, con = {"hearth"},
+                   cpro = {"gorgoth"}, ccon = {"plain"}},
+        kept    = {icon = "slaves.png", pro = {"hearth"}, con = {"chain"},
+                   cpro = {"mines"}, ccon = {"zharr", "gorgoth"}},
+        quota   = {icon = "wh3_dlc23_edict_chd_higher_quotas.png", pro = {"forge"}, con = {"hearth"},
+                   cpro = {"stump"}, ccon = {"zharr"}},
+        ash     = {icon = "wh3_dlc23_edict_chd_smoke_stacks.png", pro = {"legion"}, con = {"ledger"},
+                   cpro = {"gash"}, ccon = {"mines"}},
     }},
     tribute = {icon = "edict_collect_tribute.png",
                order = {"tithe", "roads", "tariff", "mines", "charter"},
                opts = {
         tithe   = {icon = "edict_collect_tribute.png"},
-        roads   = {icon = "convoy_icon.png", pro = {"road"}, con = {"crown"}},
-        tariff  = {icon = "trade_agreement.png", pro = {"ledger"}, con = {"road"}},
-        mines   = {icon = "chd_raw_materials.png", pro = {"forge"}, con = {"road"}},
-        charter = {icon = "wh3_dlc23_edict_chd_architects.png", pro = {"road"}, con = {"legion"}},
+        roads   = {icon = "convoy_icon.png", pro = {"road"}, con = {"crown"},
+                   cpro = {"gorgoth", "wastes"}, ccon = {"gash"}},
+        tariff  = {icon = "trade_agreement.png", pro = {"ledger"}, con = {"road"},
+                   cpro = {"wastes"}, ccon = {"zornuzkul"}},
+        mines   = {icon = "chd_raw_materials.png", pro = {"forge"}, con = {"road"},
+                   cpro = {"mines"}, ccon = {"wastes"}},
+        charter = {icon = "wh3_dlc23_edict_chd_architects.png", pro = {"road"}, con = {"legion"},
+                   cpro = {"plain"}},
     }},
     worship = {icon = "chd_conclave_influence.png",
                order = {"rites", "fires", "seats", "lore", "licence"},
                opts = {
         rites   = {icon = "chd_conclave_influence.png"},
-        fires   = {icon = "wh3_dlc23_unit_passive_burning_bright.png", pro = {"temple"}, con = {"tower"}},
-        seats   = {icon = "chd_toz_tier.png", pro = {"tower"}, con = {"temple"}},
-        lore    = {icon = "loremaster.png", pro = {"tower"}, con = {"hearth"}},
+        fires   = {icon = "wh3_dlc23_unit_passive_burning_bright.png", pro = {"temple"}, con = {"tower"},
+                   cpro = {"zharr"}, ccon = {"stump"}},
+        seats   = {icon = "chd_toz_tier.png", pro = {"tower"}, con = {"temple"},
+                   cpro = {"plain"}, ccon = {"zornuzkul"}},
+        lore    = {icon = "loremaster.png", pro = {"tower"}, con = {"hearth"},
+                   cpro = {"zharr"}},
         licence = {icon = "hellforged.png", pro = {"forge"}, con = {"temple"}},
     }},
     war = {icon = "edict_levy_conscripts.png",
            order = {"levy", "hellforge", "legions", "grudge", "gunnery"},
            opts = {
         levy      = {icon = "edict_levy_conscripts.png"},
-        hellforge = {icon = "chd_armaments.png", pro = {"forge"}, con = {"legion"}},
-        legions   = {icon = "chd_toz_district_t3_military.png", pro = {"legion"}, con = {"forge"}},
-        grudge    = {icon = "wh3_dlc23_unit_passive_oath_of_contempt.png", pro = {"legion"}, con = {"ledger"}},
+        hellforge = {icon = "chd_armaments.png", pro = {"forge"}, con = {"legion"},
+                     cpro = {"stump"}},
+        legions   = {icon = "chd_toz_district_t3_military.png", pro = {"legion"}, con = {"forge"},
+                     cpro = {"zornuzkul"}},
+        grudge    = {icon = "wh3_dlc23_unit_passive_oath_of_contempt.png", pro = {"legion"}, con = {"ledger"},
+                     cpro = {"zornuzkul", "gash"}},
         gunnery   = {icon = "artillery.png", pro = {"forge"}, con = {"hearth"}},
     }},
 }
@@ -908,6 +1015,22 @@ function IC.law_stance(category, option, party, faction_key)
     for _, p in ipairs(o and o.pro or {}) do if p == party then return "aye" end end
     for _, p in ipairs(o and o.con or {}) do if p == party then return "nay" end end
     return nil
+end
+
+-- WHAT A CULTURE WANTS: "aye" for an option it is for, "nay" for one it is
+-- against, nil for neither. The lists are cpro and ccon on the option's row,
+-- beside the parties' pro and con.
+function IC.culture_stance(category, option, culture, faction_key)
+    local o = IC.law_opt(category, option, faction_key)
+    for _, c in ipairs(o and o.cpro or {}) do if c == culture then return "aye" end end
+    for _, c in ipairs(o and o.ccon or {}) do if c == culture then return "nay" end end
+    return nil
+end
+
+-- A MAN'S OWN STANCE: his culture's where it has one, his party's otherwise.
+function IC.man_stance(category, option, party, culture, faction_key)
+    return IC.culture_stance(category, option, culture, faction_key)
+        or IC.law_stance(category, option, party, faction_key)
 end
 
 -- ONE BUNDLE PER CATEGORY on a player court with laws on, none otherwise. All
@@ -1301,11 +1424,11 @@ IC.GRUDGE_WORDS = {
     castout = "Cast Out",
     insult  = "An Insult to the Clan",
     bar     = "Barred from the Hall",
-    recall  = "Governors recalled",
-    dismiss = "Dismissed before his term",
-    oath    = "An oath broken",
-    demand  = "A demand refused",
-    peace   = "A pact with a named foe",
+    recall  = "Governors Recalled",
+    dismiss = "Dismissed Before His Term",
+    oath    = "An Oath Broken",
+    demand  = "A Demand Refused",
+    peace   = "A Pact with a Named Foe",
 }
 
 -- IC.state, not IC.court: asking must never create a court.
@@ -2104,7 +2227,12 @@ function IC.law_voters(faction_key)
                 local cqi = man:command_queue_index()
                 local n = IC.standing(faction_key, cqi)
                 local party = IC.house_of_character(man, faction_key)
-                if n > 0 and party then out[#out + 1] = {cqi = cqi, party = party, n = n} end
+                if n > 0 and party then
+                    -- ANOTHER RACE'S CULTURE IS NO CULTURE OF THIS COURT.
+                    local culture, race = IC.culture_of_character(man)
+                    if race ~= IC.R(faction_key) then culture = nil end
+                    out[#out + 1] = {cqi = cqi, party = party, n = n, culture = culture}
+                end
             end
         end)
     end
@@ -2115,13 +2243,15 @@ function IC.law_voters(faction_key)
     return out
 end
 
--- HIS PARTY'S LINE: the side its men vote, or nil, and why.
-function IC.law_line(faction_key, vote, category, party)
+-- HIS LINE: the side a man of `party` votes, or nil, and why. With a `culture`
+-- that has a stance on the option it is his culture's side, otherwise his
+-- party's. Asked with no culture it is the party's own line.
+function IC.law_line(faction_key, vote, category, party, culture)
     if party == IC.CROWN then
         if vote.stance == "abstain" then return nil, "crown" end
         return vote.stance, "crown"
     end
-    local s = IC.law_stance(category, vote.option, party, faction_key)
+    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
     if s then return s, s == "aye" and "for" or "against" end
     if vote.stance == "abstain" then return nil, "no_stance" end
     local house = IC.court(faction_key).houses[party]
@@ -2138,26 +2268,35 @@ function IC.law_mult(level)
     return IC.TUNE.law_push_mult[level] or 100
 end
 
--- THE TALLY. A man won votes his won side at his
--- own influence; a man voting his party's line is multiplied by its level.
+-- THE TALLY. A man won votes his won side at his own influence. A man votes his
+-- culture's side where it has one and his party's otherwise, and is multiplied by
+-- his party's push level only when he is on his party's own line: a man whose
+-- culture sends him the other way is not carried along by a push he is against.
+-- Each man carries `level`, the push that multiplied him, for the vote panel.
 function IC.law_tally(faction_key, category, vote)
     vote = vote or (IC.court(faction_key).votes or {})[category]
     local t = {aye = 0, nay = 0, abstain = 0, men = {}}
     if not vote then return t end
-    local lines = {}
+    local party_side, lines = {}, {}
     for _, m in ipairs(IC.law_voters(faction_key)) do
-        if not lines[m.party] then
-            lines[m.party] = {IC.law_line(faction_key, vote, category, m.party)}
+        if party_side[m.party] == nil then
+            party_side[m.party] = IC.law_line(faction_key, vote, category, m.party) or false
         end
-        local side, why = lines[m.party][1], lines[m.party][2]
-        local w = m.n
+        local key = m.party .. "|" .. (m.culture or "")
+        if not lines[key] then
+            lines[key] = {IC.law_line(faction_key, vote, category, m.party, m.culture)}
+        end
+        local side, why = lines[key][1], lines[key][2]
+        local w, level = m.n, nil
         local won = vote.won and vote.won[m.cqi]
         if won then
             side, why = won, "won"
-        elseif side then
-            w = math.floor(m.n * IC.law_mult((vote.push or {})[m.party]) / 100)
+        elseif side and side == party_side[m.party] then
+            level = (vote.push or {})[m.party]
+            w = math.floor(m.n * IC.law_mult(level) / 100)
         end
-        t.men[#t.men + 1] = {cqi = m.cqi, party = m.party, n = m.n, side = side, why = why, w = w}
+        t.men[#t.men + 1] = {cqi = m.cqi, party = m.party, n = m.n, side = side, why = why, w = w,
+                             level = level, culture = m.culture}
         if side then t[side] = t[side] + w else t.abstain = t.abstain + m.n end
     end
     return t
@@ -2194,7 +2333,7 @@ function IC.law_win_price(faction_key, category, cqi)
     if man.side == vote.stance then return nil, "law_with_you" end
     local amb = IC.TUNE.law_win_ambition[IC.ambition_slug(faction_key, cqi) or "steady"] or 100
     local price = math.floor(man.n * IC.TUNE.law_win_rate * amb / 10000)
-    local s = IC.law_stance(category, vote.option, man.party, faction_key)
+    local s = IC.man_stance(category, vote.option, man.party, man.culture, faction_key)
     if s and s ~= vote.stance then price = price * 2 end
     return math.max(1, price)
 end
@@ -2255,6 +2394,29 @@ function IC.law_set_stance(faction_key, category, stance)
     return true
 end
 
+-- A PARTY'S SWING ON A PASSED LAW: the step times how united its men voted,
+-- (aye influence minus nay influence) over the influence of the men who voted.
+-- All on one side is the whole step, a split party moves less, and the half
+-- rounds away from zero. `flat` is the whole step for the side the law's own
+-- list puts the party on. The Crown keeps it too: its men vote as the player
+-- chooses, so how they voted says nothing of where the Crown house stands, and
+-- passing Open Roads over its objection costs it whichever way they voted.
+-- So does a party none of whose men voted.
+function IC.law_swing(tally, slug, flat)
+    if slug == IC.CROWN then return flat end
+    local aye, nay = 0, 0
+    for _, m in ipairs(tally.men) do
+        if m.party == slug then
+            if m.side == "aye" then aye = aye + m.n elseif m.side == "nay" then nay = nay + m.n end
+        end
+    end
+    if aye + nay == 0 then return flat end
+    local share = (aye - nay) / (aye + nay)
+    local step = share >= 0 and IC.TUNE.law_pass_gain or -IC.TUNE.law_pass_loss
+    local size = math.floor(math.abs(share) * step + 0.5)
+    return share < 0 and -size or size
+end
+
 -- THE END OF A VOTE, by tally or by overrule.
 function IC.law_settle(faction_key, category, passed)
     local R = IC.R(faction_key)
@@ -2271,11 +2433,16 @@ function IC.law_settle(faction_key, category, passed)
         end
         -- THE LAW'S OWN LISTS, not pairs(court.houses): the order is the data's.
         local o = IC.law_opt(category, vote.option, faction_key) or {}
+        local tally = IC.law_tally(faction_key, category, vote)
         for _, slug in ipairs(o.pro or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_gain) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_gain))
+            end
         end
         for _, slug in ipairs(o.con or {}) do
-            if court.houses[slug] then IC.move_loyalty(faction_key, slug, IC.TUNE.law_pass_loss) end
+            if court.houses[slug] then
+                IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, IC.TUNE.law_pass_loss))
+            end
         end
         IC.apply_law_bundles(faction_key)
         IC.log(faction_key, "law_pass", vote.proposer, key, 0)
@@ -2576,6 +2743,19 @@ function IC.bg_of_character(character)
     return nil
 end
 
+-- WHICH CULTURE HE WEARS, and the race it belongs to; nil for a man with none.
+function IC.culture_of_character(character)
+    if not character or character:is_null_interface() then return nil end
+    for _, k in ipairs(IC.RACE_ORDER) do
+        local R = IC.RACES[k]
+        for i = 1, #R.CULTURES do
+            local slug = R.CULTURES[i].slug
+            if character:has_trait(IC.rkey("cult", slug, R)) then return slug, R end
+        end
+    end
+    return nil
+end
+
 -- THE MAN ON THE THRONE IS THE CROWN, whatever trade he was dealt: a generic or
 -- another mod's lord made faction leader is no legend, and his background put
 -- him in a rival party while a lesser man spoke for his own house.
@@ -2683,7 +2863,39 @@ function IC.fewest(pool, tally)
     return best[cm:random_number(#best, 1)]
 end
 
-function IC.roll_background(faction_key, tally)
+-- THE CULTURES THAT FEED A PARTY: its one main culture (nil for the Crown) and
+-- the cultures that list it as their side party, in IC.CULTURES order.
+function IC.cultures_of(faction_key, party)
+    local R = IC.R(faction_key)
+    local main, sides = nil, {}
+    for i = 1, #R.CULTURES do
+        local c = R.CULTURES[i]
+        if c.main == party then main = c.slug end
+        if c.side == party then sides[#sides + 1] = c.slug end
+    end
+    return main, sides
+end
+
+-- A NEW MAN'S CULTURE, drawn for the party he was dealt to. The main culture
+-- on culture_main_tenths of ten rolls, otherwise one of the side cultures; a
+-- party with no side culture is its main culture and makes no random call. The
+-- Crown (which no culture feeds) and a man with no party draw uniformly from
+-- all of the race's cultures.
+function IC.roll_culture(faction_key, party)
+    local R = IC.R(faction_key)
+    local main, sides = IC.cultures_of(faction_key, party)
+    if not main then
+        return R.CULTURES[cm:random_number(#R.CULTURES, 1)].slug
+    end
+    if #sides == 0 then return main end
+    if cm:random_number(10, 1) <= IC.TUNE.culture_main_tenths then return main end
+    return sides[cm:random_number(#sides, 1)]
+end
+
+-- THE PARTY A NEW MAN IS DEALT TO: the seated party with the fewest members,
+-- ties rolled; the Crown when nothing else is seated. The trade comes after the
+-- culture (IC.trade_in), so a culture can reserve one.
+function IC.roll_party(faction_key, tally)
     local R = IC.R(faction_key)
     tally = IC.fill_tally(tally or {}, faction_key)
     local seated = IC.present_houses(faction_key)
@@ -2692,9 +2904,28 @@ function IC.roll_background(faction_key, tally)
         if R.BACKGROUNDS[seated[i]] then pool[#pool + 1] = seated[i] end
     end
     if #pool == 0 then pool = {IC.CROWN} end
-    local list = R.BACKGROUNDS[IC.fewest(pool, tally)]
+    return IC.fewest(pool, tally)
+end
+
+-- A TRADE FROM A PARTY'S LIST. A culture or an agent subtype that reserves a
+-- trade for this party is dealt it (a Kadrin man in the Dwarf Legion is a
+-- Slayer, a Taur'ruk in the Priesthood a Taur'ruk); every other draw is from the
+-- list less the reserved trades, so nobody else is ever one. One random call, as
+-- the plain draw always was, and none when the trade is reserved.
+function IC.trade_in(party, faction_key, culture, subtype)
+    local R = IC.R(faction_key)
+    local list = party and R.BACKGROUNDS[party]
     if not list or #list == 0 then return nil end
-    return list[cm:random_number(#list, 1)]
+    local own = culture and R.CULTURE_TRADE[culture]
+    if own and own.party == party then return own.bg end
+    local kind = subtype and R.SUBTYPE_TRADE[subtype]
+    if kind and kind.party == party then return kind.bg end
+    local pool = {}
+    for i = 1, #list do
+        if not R.RESERVED_BG[list[i]] then pool[#pool + 1] = list[i] end
+    end
+    if #pool == 0 then return nil end
+    return pool[cm:random_number(#pool, 1)]
 end
 
 function IC.fixed_history(character)
@@ -2704,28 +2935,89 @@ function IC.fixed_history(character)
     return IC.LORD_HISTORY[key]
 end
 
+-- A LEGEND'S OWN HOUSE OR PLACE, and nobody else's. A man raised at home is no
+-- longer dealt a birthplace: he is dealt a culture (IC.culture_for).
 function IC.origin_for(character, faction_key)
     local fixed = IC.fixed_history(character)
-    if fixed and fixed.origin then return fixed.origin end
-    return IC.roll_origin(faction_key)
+    return fixed and fixed.origin or nil
 end
 
-function IC.background_for(character, faction_key, tally)
+-- A LEGEND'S OWN CULTURE (R.LEGEND_CULTURE), by subtype.
+function IC.fixed_culture(character, faction_key)
+    if not character or character:is_null_interface() then return nil end
+    local ok, key = pcall(function() return character:character_subtype_key() end)
+    if not ok or not key then return nil end
+    return IC.R(faction_key).LEGEND_CULTURE[key]
+end
+
+-- THE CULTURE A MAN SHOULD WEAR, and whether that answer is BINDING: a binding
+-- culture replaces the one he wears, a drawn one never does. In order: a
+-- legend's own; the culture of the house he arrived from (`origin` is passed by
+-- a confederation, which has stamped nothing yet: the house, or the retired
+-- birthplace it read off him when the house is not listed; otherwise it is read
+-- off his traits); the culture he already wears; the culture of a retired birthplace
+-- (an old save); a draw for the party he was dealt to.
+function IC.culture_for(character, faction_key, party, origin)
+    local R = IC.R(faction_key)
+    local fixed = IC.fixed_culture(character, faction_key)
+    if fixed then return fixed, true end
+    origin = origin or IC.origin_of_character(character)
+    local house = origin and R.HOUSE_CULTURE[origin]
+    if house then return house, true end
+    local has = IC.culture_of_character(character)
+    if has then return has, false end
+    local place = origin and R.PLACE_CULTURE[origin]
+    if place then return place, false end
+    return IC.roll_culture(faction_key, party), false
+end
+
+-- THE TRADE, THE CULTURE AND WHETHER THE CULTURE IS BINDING, for one man. The
+-- trade is nil for a man who wears one already (stamp_bg would refuse) and a
+-- legend's own for a legend. The order is party, then culture, then trade, so a
+-- culture can reserve a trade of the party he was dealt to. `origin` is a
+-- confederation's way of naming the house the man arrived from.
+--
+-- THE ONE TRADE A MAN WHO WEARS ONE IS GIVEN: when a binding culture is about
+-- to replace the one he wears, it can change whether he is a Slayer. A culture
+-- that reserves a trade for his party gives him that trade; a man who wears a
+-- reserved trade neither his new culture nor his subtype reserves is dealt an
+-- ordinary one.
+-- Only IC.restamp_bg puts it on him (IC.stamp_incoming); stamp_bg refuses a
+-- second trade, so a court pass keeps every trade but a subtype's worn by a man
+-- of another subtype, which IC.redeal_subtype_trade takes back.
+function IC.background_for(character, faction_key, tally, origin)
     local R = IC.R(faction_key)
     local fixed = IC.fixed_history(character)
-    if fixed and fixed.bg then return fixed.bg end
-    -- Already stamped: stamp_bg would refuse anyway, and the tally below walks
-    -- the whole court.
-    if IC.bg_of_character(character) then return nil end
+    local worn = IC.bg_of_character(character)
+    local subtype = nil
+    pcall(function() subtype = character:character_subtype_key() end)
+    if worn or (fixed and fixed.bg) then
+        local trade = fixed and fixed.bg or nil
+        local party = R.PARTY_OF_BG[trade or worn]
+        local culture, binding = IC.culture_for(character, faction_key, party, origin)
+        if worn and not trade and binding
+           and culture ~= IC.culture_of_character(character) then
+            local own = R.CULTURE_TRADE[culture]
+            if own and own.party == party then
+                if own.bg ~= worn then trade = own.bg end
+            elseif R.RESERVED_BG[worn] then
+                -- A TAUR'RUK KEEPS HIS: his subtype, not his culture, reserves it.
+                trade = IC.trade_in(party, faction_key, nil, subtype)
+                if trade == worn then trade = nil end
+            end
+        end
+        return trade, culture, binding
+    end
     tally = IC.fill_tally(tally or {}, faction_key)
-    local bg = IC.leaderless_bg(character, faction_key, tally)
-               or IC.roll_background(faction_key, tally)
-    local party = bg and R.PARTY_OF_BG[bg]
-    if party and tally.count[party] then
+    local party = IC.leaderless_party(character, faction_key, tally)
+                  or IC.roll_party(faction_key, tally)
+    local culture, binding = IC.culture_for(character, faction_key, party, origin)
+    local bg = IC.trade_in(party, faction_key, culture, subtype)
+    if bg and party and tally.count[party] then
         tally.count[party] = tally.count[party] + 1
         if IC.can_lead(character) then tally.led[party] = true end
     end
-    return bg
+    return bg, culture, binding
 end
 
 -- ROOM FOR ONE MORE: fewer rival parties than rivals_max.
@@ -2760,7 +3052,6 @@ end
 -- A NEW LORD WHO CAN SPEAK FOR A PARTY, with no history of his own, joins the
 -- waiting party; it enters in the same call, so it never stands empty.
 function IC.deed_join(character, faction_key)
-    local R = IC.R(faction_key)
     if not IC.can_lead(character) or IC.fixed_history(character) then return nil end
     if IC.bg_of_character(character) then return nil end
     local party = IC.deed_waiting(faction_key)
@@ -2770,8 +3061,7 @@ function IC.deed_join(character, faction_key)
     IC.log(faction_key, "drawn", party, nil, IC.renown(faction_key, party))
     IC.feed(faction_key, "party_drawn", IC.party_drawn_key(faction_key, party))
     IC.save(faction_key)
-    local list = R.BACKGROUNDS[party]
-    return list[cm:random_number(#list, 1)]
+    return IC.trade_in(party, faction_key)
 end
 
 -- WHO CAN SPEAK FOR A PARTY: a lord, or a garrison commander (IC.party_colonel)
@@ -2788,7 +3078,7 @@ end
 -- that has nobody to speak for it before anywhere else; a dealt-evenly
 -- background leaves most rivals leaderless at campaign start. A garrison
 -- commander too, dealt after the lords (stamp_court).
-function IC.leaderless_bg(character, faction_key, tally)
+function IC.leaderless_party(character, faction_key, tally)
     local R = IC.R(faction_key)
     if not faction_key or not IC.can_lead(character) then return nil end
     tally = IC.fill_tally(tally or {}, faction_key)
@@ -2801,8 +3091,7 @@ function IC.leaderless_bg(character, faction_key, tally)
         end
     end
     if #pool == 0 then return nil end
-    local list = R.BACKGROUNDS[IC.fewest(pool, tally)]
-    return list[cm:random_number(#list, 1)]
+    return IC.fewest(pool, tally)
 end
 
 -- The generic Chaos Dwarf lords a party may be given, of any lord type.
@@ -2924,11 +3213,14 @@ function IC.ensure_leaders(faction_key)
             if led then
                 house.stored = nil
             elseif man then
-                local list = R.BACKGROUNDS[slug]
                 local lookup = cm:char_lookup_str(man)
                 local old = IC.bg_of_character(man)
                 if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
-                cm:force_add_trait(lookup, IC.bg_trait(list[cm:random_number(#list, 1)]), false)
+                -- HIS CULTURE FIRST, for the party he is moving to, and the
+                -- trade from the culture fit_culture hands back: not re-read
+                -- off him, since he may have been given it this very moment.
+                local _, culture = IC.fit_culture(faction_key, man, slug)
+                cm:force_add_trait(lookup, IC.bg_trait(IC.trade_in(slug, faction_key, culture)), false)
                 taken[man:command_queue_index()] = true
                 house.stored = nil
                 IC.say("IRON COURT: " .. slug .. " in " .. faction_key .. " had no leader - "
@@ -2942,12 +3234,15 @@ function IC.ensure_leaders(faction_key)
             elseif not house.stored and not IC.seeding(faction_key) then
                 local lords = IC.store_lords(faction_key)
                 local subtype = lords[cm:random_number(#lords, 1)]
-                local list = R.BACKGROUNDS[slug]
-                local bg = list[cm:random_number(#list, 1)]
+                local culture = IC.roll_culture(faction_key, slug)
+                local bg = IC.trade_in(slug, faction_key, culture)
                 local ok, err = pcall(function()
                     local details = cm:spawn_character_to_pool(faction_key, "", "", "",
                         "", 30, true, "general", subtype, false, "")
                     cm:force_add_trait_to_character_details(details, IC.bg_trait(bg))
+                    -- NO CARD: this call takes a key and nothing else.
+                    cm:force_add_trait_to_character_details(details,
+                        IC.culture_trait(culture, faction_key))
                 end)
                 -- Marked even on a failure: a call that fails once fails every
                 -- turn, and one log line per party is enough to see it.
@@ -2998,8 +3293,10 @@ IC.SEED_RETRIES = 6
 IC.SEED_QUIET_EVENTS = {"character_wounded", "character_trait_gained", "character_trait_lost"}
 IC._seeding = {}
 IC._seed_wait = {}
--- The background the next lord born in that faction is made for (ic_born).
+-- The background the next lord born in that faction is made for (ic_born), and
+-- the culture drawn for him before that background was dealt.
 IC._seed_bg = {}
+IC._seed_culture = {}
 
 function IC.seed_quiet(off)
     for i = 1, #IC.QUIET_FEED do
@@ -3069,6 +3366,7 @@ function IC.seed_finish(faction_key, made, wanted)
     IC._seeding[faction_key] = nil
     IC._seed_wait[faction_key] = nil
     IC._seed_bg[faction_key] = nil
+    IC._seed_culture[faction_key] = nil
     cm:set_saved_value(IC.SEED_DONE .. faction_key, true)
     -- AFTER the last return's own messages arrive.
     cm:callback(function() IC.seed_quiet(false) end, 2)
@@ -3081,7 +3379,6 @@ function IC.seed_step(faction_key, plan, i, made)
     if i > #plan then return IC.seed_finish(faction_key, made, #plan) end
     IC.seed_quiet(true)
     local slug = plan[i]
-    local R = IC.R(faction_key)
     local region = IC.hire_region(real_faction(faction_key))
     local x, y = -1, -1
     if region then
@@ -3094,22 +3391,26 @@ function IC.seed_step(faction_key, plan, i, made)
     end
     local lords = IC.store_lords(faction_key)
     local subtype = lords[cm:random_number(#lords, 1)]
-    local list = R.BACKGROUNDS[slug]
-    local bg = list[cm:random_number(#list, 1)]
+    -- THE CULTURE BEFORE THE TRADE, so a Kadrin man made for the Dwarf Legion is
+    -- made a Slayer. Both are stamped on him in ic_born and again in seed_land.
+    local culture = IC.roll_culture(faction_key, slug)
+    local bg = IC.trade_in(slug, faction_key, culture)
     local token = {}
     IC._seed_wait[faction_key] = token
     IC._seed_bg[faction_key] = bg
+    IC._seed_culture[faction_key] = culture
     local ok, err = pcall(function()
         cm:create_force_with_general(faction_key, "", region:name(), x, y, "general",
             subtype, "", "", "", "", false, function(cqi)
                 if IC._seed_wait[faction_key] ~= token then return end
                 IC._seed_wait[faction_key] = nil
-                IC.seed_land(faction_key, plan, i, made, cqi, bg)
+                IC.seed_land(faction_key, plan, i, made, cqi, bg, culture)
             end)
     end)
     if not ok then
         IC._seed_wait[faction_key] = nil
         IC._seed_bg[faction_key] = nil
+        IC._seed_culture[faction_key] = nil
         IC.warn("IRON COURT: starting lord for " .. slug .. ": " .. tostring(err))
         return IC.seed_finish(faction_key, made, #plan)
     end
@@ -3118,12 +3419,13 @@ function IC.seed_step(faction_key, plan, i, made)
         if IC._seed_wait[faction_key] ~= token then return end
         IC._seed_wait[faction_key] = nil
         IC._seed_bg[faction_key] = nil
+        IC._seed_culture[faction_key] = nil
         IC.warn("IRON COURT: a starting lord for " .. slug .. " never arrived")
         IC.seed_step(faction_key, plan, i + 1, made)
     end, 5)
 end
 
-function IC.seed_land(faction_key, plan, i, made, cqi, bg)
+function IC.seed_land(faction_key, plan, i, made, cqi, bg, culture)
     local wounded, why = pcall(function()
         local man = IC.character_by_cqi(faction_key, cqi)
         if not man then error("no lord at cqi " .. tostring(cqi)) end
@@ -3133,6 +3435,9 @@ function IC.seed_land(faction_key, plan, i, made, cqi, bg)
             if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
             cm:force_add_trait(lookup, IC.bg_trait(bg), false)
         end
+        -- NOT BINDING: ic_born stamped this very culture on him a frame ago,
+        -- and a court pass later finds it worn and keeps it.
+        IC.stamp_culture(faction_key, man, culture, false)
         cm:wound_character(lookup, 1)
     end)
     if not wounded then IC.warn("IRON COURT: starting lord " .. tostring(cqi) .. ": " .. tostring(why)) end
@@ -3191,7 +3496,6 @@ IC.QUIET_FEED = {"wh_event_category_character", "wh_event_category_agent",
                  "wh_event_category_traits_ancillaries"}
 
 function IC.field_leader(faction_key, slug)
-    local R = IC.R(faction_key)
     local region = IC.hire_region(real_faction(faction_key))
     if not region then return false end
     local region_key = region:name()
@@ -3200,8 +3504,10 @@ function IC.field_leader(faction_key, slug)
     if not x or x < 0 then return false end
     local lords = IC.store_lords(faction_key)
     local subtype = lords[cm:random_number(#lords, 1)]
-    local list = R.BACKGROUNDS[slug]
-    local bg = list[cm:random_number(#list, 1)]
+    -- THE CULTURE BEFORE THE TRADE, so a Kadrin man put in the field for the
+    -- Dwarf Legion is a Slayer.
+    local culture = IC.roll_culture(faction_key, slug)
+    local bg = IC.trade_in(slug, faction_key, culture)
     local okr, rank = pcall(IC.recruit_rank, faction_key, region_key)
     if not okr then
         IC.warn("IRON COURT: no recruit rank read for " .. faction_key .. ": " .. tostring(rank))
@@ -3222,6 +3528,10 @@ function IC.field_leader(faction_key, slug)
                         if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
                         cm:force_add_trait(lookup, IC.bg_trait(bg), false)
                     end
+                    -- BINDING, because ic_born has already dealt him a culture of
+                    -- his own for a party of its own choosing, exactly as it did
+                    -- his trade; the party's culture is put back in its place.
+                    IC.stamp_culture(faction_key, man, culture, true)
                     -- BY, NOT TO: CA's wrapper calls level_up_agent_rank.
                     if rank > 0 then cm:add_agent_experience(lookup, rank, true) end
                     IC.say("IRON COURT: " .. slug .. " in " .. faction_key .. " had no leader - a "
@@ -3527,18 +3837,6 @@ function IC.correct_history(character)
     return moved
 end
 
-function IC.roll_origin(faction_key)
-    local R = IC.R(faction_key)
-    local places = {}
-    for i = 1, #R.ORIGINS do
-        if not R.ORIGINS[i].faction then
-            places[#places + 1] = R.ORIGINS[i].slug
-        end
-    end
-    if #places == 0 then return nil end
-    return places[cm:random_number(#places, 1)]
-end
-
 function IC.stamp_court(faction_key, attempts)
     local faction = real_faction(faction_key)
     if not faction then return 0 end
@@ -3558,10 +3856,6 @@ function IC.stamp_court(faction_key, attempts)
             if IC.correct_history(character) then
                 stamped = stamped + 1
             end
-            -- Use the fixed-history readers so legendary lords are never rerolled.
-            if IC.stamp_origin(character, IC.origin_for(character, faction_key), true) then
-                stamped = stamped + 1
-            end
             if IC.stamp_ambition(faction_key, character) then
                 stamped = stamped + 1
             end
@@ -3579,8 +3873,14 @@ function IC.stamp_court(faction_key, attempts)
     local tally = {}
     for i = 1, #men do
         local character = men[i].man
-        if IC.stamp_bg(character,
-                       IC.background_for(character, faction_key, tally), true) then
+        local bg, culture, binding = IC.background_for(character, faction_key, tally)
+        if IC.stamp_bg(character, bg, true) then
+            stamped = stamped + 1
+        end
+        if IC.stamp_culture(faction_key, character, culture, binding) then
+            stamped = stamped + 1
+        end
+        if IC.redeal_subtype_trade(character, faction_key, culture) then
             stamped = stamped + 1
         end
     end
@@ -3589,7 +3889,9 @@ end
 
 -- QUIET when a whole court is stamped at once (the roll at the start of a
 -- campaign, a confederation's men arriving); otherwise a new campaign opens on a
--- Trait Gained card per trait per man. One new recruit still gets his two cards.
+-- Trait Gained card per trait per man. One new recruit still gets one card, for
+-- his trade (a recruited legend a second, for his birthplace); his culture is
+-- always quiet.
 function IC.stamp_origin(character, slug, quiet)
     if not slug then return false end
     if not character or character:is_null_interface() then return false end
@@ -3606,6 +3908,96 @@ function IC.stamp_bg(character, slug, quiet)
     cm:force_add_trait(cm:char_lookup_str(character),
                        IC.bg_trait(slug), not quiet)
     return true
+end
+
+-- THE CULTURE TRAIT, ALWAYS QUIET. A binding culture replaces the one he wears;
+-- a drawn one never does. Every retired birthplace he wears comes off with it
+-- (a place origin has no faction behind it), which is how an old save is
+-- converted: the place becomes the culture of the same country
+-- (R.PLACE_CULTURE, chosen in IC.culture_for) and his party and trade are
+-- untouched. True when a trait moved.
+function IC.stamp_culture(faction_key, character, slug, binding)
+    if not slug then return false end
+    if not character or character:is_null_interface() then return false end
+    local lookup = cm:char_lookup_str(character)
+    local moved = false
+    for _, k in ipairs(IC.RACE_ORDER) do
+        local R = IC.RACES[k]
+        for i = 1, #R.ORIGINS do
+            local o = R.ORIGINS[i]
+            if not o.faction and character:has_trait(IC.rkey("house", o.slug, R)) then
+                cm:force_remove_trait(lookup, IC.rkey("house", o.slug, R))
+                moved = true
+            end
+        end
+    end
+    local has, hasR = IC.culture_of_character(character)
+    if has == slug then return moved end
+    if has and not binding then return moved end
+    if has then cm:force_remove_trait(lookup, IC.rkey("cult", has, hasR)) end
+    cm:force_add_trait(lookup, IC.culture_trait(slug, faction_key), false)
+    return true
+end
+
+-- A TRADE PUT IN PLACE OF THE ONE HE WEARS, quietly: the re-deal
+-- IC.background_for asks for when a binding culture changes who is a Slayer.
+-- The old trade is read once, before anything is removed, and the new one is
+-- added without asking again whether the old is gone. A man with a fixed history
+-- (a legend, whose trade IC.correct_history owns) is never re-dealt, so for him
+-- this is stamp_bg. True when a trait moved.
+function IC.restamp_bg(character, slug)
+    if not slug then return false end
+    if not character or character:is_null_interface() then return false end
+    local old = IC.bg_of_character(character)
+    if old == slug then return false end
+    if old and IC.fixed_history(character) then return false end
+    local lookup = cm:char_lookup_str(character)
+    if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+    cm:force_add_trait(lookup, IC.bg_trait(slug), false)
+    return true
+end
+
+-- AN OLD SAVE'S MAN WEARING A TRADE ONLY ANOTHER KIND OF MAN IS DEALT: before
+-- IC.SUBTYPE_TRADE, any Priesthood man could draw the Taur'ruk's. The court
+-- pass re-deals him from the same party's list (IC.trade_in), so he keeps his
+-- party; the new trade is never one a subtype reserves, so the next pass leaves
+-- him be and draws nothing. A legend keeps his (IC.correct_history owns it).
+-- True when a trait moved.
+function IC.redeal_subtype_trade(character, faction_key, culture)
+    if not character or character:is_null_interface() then return false end
+    local worn = IC.bg_of_character(character)
+    if not worn or IC.fixed_history(character) then return false end
+    local R = IC.R(faction_key)
+    local reserved = false
+    for _, t in pairs(R.SUBTYPE_TRADE) do
+        if t.bg == worn then reserved = true end
+    end
+    if not reserved then return false end
+    local subtype = nil
+    pcall(function() subtype = character:character_subtype_key() end)
+    local trade = IC.trade_in(R.PARTY_OF_BG[worn], faction_key, culture, subtype)
+    if not trade or trade == worn then return false end
+    return IC.restamp_bg(character, trade)
+end
+
+-- A MAN MOVED TO ANOTHER PARTY (an idle Crown lord taking over a leaderless one)
+-- keeps his culture when it feeds that party or is bound to him, and is dealt
+-- one that does when it does not. Quiet. Returns whether a trait moved and the
+-- culture he now wears, so the caller deals his trade from it without reading
+-- it back off him. A man with no culture is left for the next court pass, and
+-- answers false and nil.
+function IC.fit_culture(faction_key, character, party)
+    local has = IC.culture_of_character(character)
+    if not has then return false end
+    local main, sides = IC.cultures_of(faction_key, party)
+    if not main or has == main then return false, has end
+    for i = 1, #sides do
+        if sides[i] == has then return false, has end
+    end
+    local _, binding = IC.culture_for(character, faction_key, party)
+    if binding then return false, has end
+    local drawn = IC.roll_culture(faction_key, party)
+    return IC.stamp_culture(faction_key, character, drawn, true), drawn
 end
 
 function IC.stamp_ambition(faction_key, character)
@@ -4050,6 +4442,23 @@ end
 function IC.gov_bundle_base(faction_key) return IC.key("gov", "base", faction_key) end
 function IC.gov_bundle_house(slug, faction_key) return IC.key("gov_house", slug, faction_key) end
 
+-- THE CULTURE'S KEYS. The away bundle, the home bundle and the one shared
+-- friction bundle are province bundles; the trait wears the culture.
+function IC.culture_trait(slug, faction_key) return IC.key("cult", slug, faction_key) end
+function IC.gov_bundle_culture(slug, faction_key) return IC.key("gov_cult", slug, faction_key) end
+function IC.gov_bundle_culture_home(slug, faction_key) return IC.key("gov_cult_home", slug, faction_key) end
+function IC.gov_bundle_friction(faction_key) return IC.key("gov", "friction", faction_key) end
+
+-- HOME, FOREIGN OR AWAY for a man of `culture` governing `province_key`. A
+-- province on another culture's list is foreign, one on his own list is home,
+-- and one on no list (any other map, a province the table leaves neutral) is
+-- away. A nil or empty key is away: the model asks, it does not assume.
+function IC.culture_case(faction_key, culture, province_key)
+    local owner = IC.R(faction_key).HOME_OF[province_key or ""]
+    if not owner then return "away" end
+    return owner == culture and "home" or "foreign"
+end
+
 -- THE GOVERNOR'S BASE BUNDLE, BUILT AT RUNTIME so it grows with his rank. The
 -- two effect keys are the ones tools/gen_iron_court.py
 -- ships as E_ORDER and E_GDP_PROVINCE, and GOV_BASE_ORDER is GOVERNOR_BASE's
@@ -4091,6 +4500,30 @@ function IC.apply_gov_base(character, region)
     if not ok then
         cm:apply_effect_bundle_to_faction_province(IC.gov_bundle_base(fk), region, -1)
     end
+end
+
+-- THE GOVERNOR'S CULTURE, on his province. In a province his culture calls home
+-- he wears the home bundle (his benefits 50% stronger, the drawback unchanged);
+-- anywhere else the away bundle; and in a province another culture calls home
+-- the friction bundle as well. A man with no culture, or one of another race's,
+-- wears nothing here: the base bundle is all he gives. Returns "home", "away" or
+-- "foreign", or nil when nothing was applied.
+function IC.apply_gov_culture(faction_key, character, province_key, region)
+    local culture, race = IC.culture_of_character(character)
+    if not culture or race ~= IC.R(faction_key) then return nil end
+    local case = IC.culture_case(faction_key, culture, province_key)
+    if case == "home" then
+        cm:apply_effect_bundle_to_faction_province(
+            IC.gov_bundle_culture_home(culture, faction_key), region, -1)
+        return case
+    end
+    cm:apply_effect_bundle_to_faction_province(
+        IC.gov_bundle_culture(culture, faction_key), region, -1)
+    if case == "foreign" then
+        cm:apply_effect_bundle_to_faction_province(
+            IC.gov_bundle_friction(faction_key), region, -1)
+    end
+    return case
 end
 
 local function province_of_character(character)
@@ -4392,10 +4825,21 @@ function IC.clear_gov_bundles(faction_key)
             if province and not seen[province] then
                 seen[province] = true
                 cm:remove_effect_bundle_from_faction_province(IC.gov_bundle_base(faction_key), region)
+                -- THE OLD PARTY FLAVOUR, which no governor is given any more: a
+                -- save made before the cultures may still carry one.
                 for j = 1, #R.PARTIES do
                     cm:remove_effect_bundle_from_faction_province(
                         IC.gov_bundle_house(R.PARTIES[j], faction_key), region)
                 end
+                for j = 1, #R.CULTURES do
+                    local slug = R.CULTURES[j].slug
+                    cm:remove_effect_bundle_from_faction_province(
+                        IC.gov_bundle_culture(slug, faction_key), region)
+                    cm:remove_effect_bundle_from_faction_province(
+                        IC.gov_bundle_culture_home(slug, faction_key), region)
+                end
+                cm:remove_effect_bundle_from_faction_province(
+                    IC.gov_bundle_friction(faction_key), region)
             end
         end
     end)
@@ -4441,7 +4885,6 @@ function IC.dismantle(faction_key)
 end
 
 function IC.apply_governor_bundles(faction_key)
-    local R = IC.R(faction_key)
     local court = IC.court(faction_key)
     IC.refresh_gov_weight(faction_key)
 
@@ -4458,11 +4901,7 @@ function IC.apply_governor_bundles(faction_key)
                        and IC.held_region(faction_key, province_key)
         if region then
             IC.apply_gov_base(character, region)
-            local slug = IC.house_of_character(character, faction_key)
-            if slug and R.BACKGROUNDS[slug] then
-                cm:apply_effect_bundle_to_faction_province(
-                    IC.gov_bundle_house(slug, faction_key), region, -1)
-            end
+            IC.apply_gov_culture(faction_key, character, province_key, region)
         end
     end
 end
@@ -4646,7 +5085,7 @@ function IC.loyalty_terms(faction_key, slug)
         if office.affinity == slug then
             local holder = court.offices[office.slug]
             if holder and IC.house_of_cqi(faction_key, holder) ~= slug then
-                terms[#terms + 1] = {label = "Claimed office held by a rival",
+                terms[#terms + 1] = {label = "Claimed office held by an outsider",
                                      n = IC.TUNE.loyalty_affinity_snub,
                                      key = office.slug}
                 snub_key = office.slug
@@ -4670,8 +5109,10 @@ function IC.loyalty_terms(faction_key, slug)
         end
     end
     if house.oath_mine and house.oath_theirs then
+        -- NAMED BY THE COURT'S OWN MOVE: the Blood-Oath, or a Dwarf court's
+        -- Ancestor Oath.
         terms[#terms + 1] = {
-            label = "Blood-Oath",
+            label = IC.plot_text("oath", faction_key),
             note = "The oath holds while both men live.",
             n = IC.TUNE.plot_oath_loyalty}
     end
@@ -4689,7 +5130,7 @@ function IC.loyalty_terms(faction_key, slug)
                     .. "their man in an office they claim." or nil,
                 n = IC.TUNE.grudge_loyalty}
         end
-        terms[#terms + 1] = {label = "Kin of the Karak", n = IC.TUNE.kin_loyalty}
+        terms[#terms + 1] = {label = "Kinship", n = IC.TUNE.kin_loyalty}
     end
 
     local lead = IC.leader_trait(faction_key, slug)
@@ -5710,8 +6151,8 @@ end
 
 
 IC.PLOT_CATS = {
-    {key = "man",    name = "Against a Man"},
-    {key = "house",  name = "Against a Party"},
+    {key = "man",    name = "On a Man"},
+    {key = "house",  name = "On a Party"},
     {key = "bond",   name = "Bonds"},
     {key = "errand", name = "Errands"},
     {key = "mission", name = "Missions"},
@@ -5755,7 +6196,7 @@ IC.PLOTS = {
      cat = "man",
      cost = "plot_discredit_cost",
      effect = string.format(
-         "-%d influence for him. -%d influence from his party.",
+         "-%d influence for him. -%d strength for his party.",
          IC.TUNE.plot_discredit_standing,
          IC.TUNE.plot_discredit_weight),
      blurb = "His ore comes up short."},
@@ -5800,7 +6241,7 @@ IC.PLOTS = {
      cat = "party",
      cost = "plot_purge_cost",
      effect = string.format(
-         "Removes the party. -%d loyalty to all others. Failure: another -%d to the target.",
+         "Removes the party. -%d loyalty to every other rival. Failure: another -%d to the target.",
          IC.TUNE.plot_purge_witness,
          IC.TUNE.plot_purge_backfire),
      blurb = "The court watches."},
@@ -5853,16 +6294,16 @@ IC.PLOTS = {
      cat = "bond",
      cost = "plot_kinsman_cost",
      effect = string.format(
-         "Moves up to %d influence to the Crown. Requires %d loyalty.",
+         "Moves up to %d strength from his party to yours. Requires %d loyalty.",
          IC.TUNE.plot_kinsman_weight,
          IC.TUNE.plot_kinsman_min_loyalty),
-     blurb = "His party loses influence."},
+     blurb = "His party loses strength."},
     {key = "pledge", name = "Pledge of the Forge",
      icon = "ui/campaign ui/skills/mount_anvil_of_doom.png",
      cat = "bond",
      cost = "plot_pledge_cost",
      effect = string.format(
-         "+%d loyalty. Stops their secession countdown. Costs the Crown %d influence.",
+         "+%d loyalty. Stops their secession countdown. Costs the Crown %d strength.",
          IC.TUNE.plot_pledge_loyalty,
          IC.TUNE.plot_pledge_weight),
      blurb = "Forge-sworn."},
@@ -5871,7 +6312,7 @@ IC.PLOTS = {
      cat = "errand",
      cost = "plot_embezzle_cost",
      effect = string.format(
-         "+%d gold. -%d loyalty across the whole court.",
+         "+%d gold. -%d loyalty with every rival party.",
          IC.TUNE.plot_embezzle_gold,
          IC.TUNE.plot_embezzle_loyalty),
      blurb = "The books will betray the theft."},
@@ -5880,8 +6321,8 @@ IC.PLOTS = {
      cat = "errand",
      cost = "plot_feast_cost",
      effect = string.format(
-         "+%d influence to the man you send. -%d loyalty across "
-         .. "the court.",
+         "+%d influence to the man you send. -%d loyalty with every "
+         .. "rival party.",
          IC.TUNE.plot_feast_standing,
          IC.TUNE.plot_feast_loyalty),
      blurb = "The court learns his name."},
@@ -5890,7 +6331,7 @@ IC.PLOTS = {
      cat = "errand",
      cost = "plot_audience_cost",
      effect = string.format(
-         "+%d loyalty to every party in the court.",
+         "+%d loyalty to every rival party.",
          IC.TUNE.plot_audience_loyalty),
      blurb = "A day of smoke and grievances."},
     {key = "circuit", name = "Ride the Circuit", aimed = false,
@@ -5898,7 +6339,7 @@ IC.PLOTS = {
      cat = "errand",
      cost = "plot_circuit_cost",
      effect = string.format(
-         "+%d control in every province you hold.",
+         "+%d loyalty in every province you hold.",
          IC.TUNE.plot_circuit_prov),
      blurb = "A ledger and an armed escort."},
     -- THE CIVIL MISSIONS: aimed at a PLACE, not a man.
@@ -6067,7 +6508,7 @@ end
 IC.ENVOY_TASKS = {
     {code = "ctl", name = "Control", knob = "envoy_ctl", fmt = "+%d control",
      bundle = "derpy_ic_envoy_ctl", icon = "wh3_dlc23_edict_chd_smoke_stacks.png"},
-    {code = "arm", name = "Armaments", knob = "envoy_arm", fmt = "+%d%% armaments",
+    {code = "arm", name = "Armaments", knob = "envoy_arm", fmt = "+%d%% Armaments",
      bundle = "derpy_ic_envoy_arm", icon = "wh3_dlc23_edict_chd_higher_quotas.png"},
     {code = "raw", name = "Raw Materials", knob = "envoy_raw", fmt = "+%d%% Raw Materials",
      bundle = "derpy_ic_envoy_raw", icon = "chd_toz_district_industry.png"},
@@ -6827,7 +7268,9 @@ function IC.gov_hold(faction_key)
     if ask.party then IC.move_loyalty(faction_key, ask.party, IC.TUNE.gov_hold_loyalty) end
     IC.log(faction_key, "doctrine_hold", ask.party, ask.gov, price)
     IC.save(faction_key)
-    return true
+    -- THE PARTY IT ANGERED, for the panel's answer, which draws after gov_ask
+    -- is gone. The Conclave's pull asks with none, and then nobody is angered.
+    return true, nil, ask.party
 end
 
 -- THE CHOICE'S END, inside the court's turn so every machine settles it the
@@ -7532,6 +7975,7 @@ function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
     attempts = attempts or 0
     local faction = real_faction(faction_key)
     if not faction then return end
+    local R = IC.R(faction_key)
     local list = faction:character_list()
     before = before or {}
     local stamped = 0
@@ -7542,9 +7986,10 @@ function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
            and not before[man:command_queue_index()] then
         local fixed = IC.fixed_history(man)
         local want = fixed and fixed.origin or slug
-        -- AN AI COURT HAS STAMPED ITS MEN ALREADY: a rolled birthplace gives
-        -- way to the hall they arrive from, or stamp_origin refuses every one
-        -- and the house never joins.
+        -- AN AI COURT HAS STAMPED ITS MEN ALREADY: the origin he wears gives way
+        -- to the hall he arrives from, or stamp_origin refuses him. A retired
+        -- place would only delay the house one retry (stamp_culture strips it
+        -- below); another house's origin would keep the house out for good.
         local had = IC.origin_of_character(man)
         if had and had ~= want and not (fixed and fixed.origin) then
             cm:force_remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
@@ -7552,7 +7997,13 @@ function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
         if IC.stamp_origin(man, want, true) or had == want then
             stamped = stamped + 1
         end
-        IC.stamp_bg(man, IC.background_for(man, faction_key, tally), true)
+        -- AN OLD SAVE'S BIRTHPLACE, read above before it came off: from a house
+        -- HOUSE_CULTURE does not list, it is the place that names his culture.
+        local from = want
+        if had and not R.HOUSE_CULTURE[want] and R.PLACE_CULTURE[had] then from = had end
+        local bg, culture, binding = IC.background_for(man, faction_key, tally, from)
+        IC.restamp_bg(man, bg)
+        IC.stamp_culture(faction_key, man, culture, binding)
         end
     end
     if stamped > 0 and IC.add_house(faction_key, slug, true, loyalty) then
@@ -7882,17 +8333,36 @@ function IC.register()
             -- Gained and a Trait Removed card each.
             local seeded = IC._seed_bg[faction_key]
             if seeded then
+                local drawn = IC._seed_culture[faction_key]
                 IC._seed_bg[faction_key] = nil
+                IC._seed_culture[faction_key] = nil
                 IC.stamp_origin(character, IC.origin_for(character, faction_key), true)
                 IC.stamp_bg(character, seeded, true)
+                -- THE CULTURE SEED_STEP DREW BEFORE IT DEALT THE TRADE, never a
+                -- second draw that could disagree with it.
+                local culture, binding = drawn, false
+                if not drawn then
+                    culture, binding = IC.culture_for(character, faction_key,
+                        IC.R(faction_key).PARTY_OF_BG[seeded])
+                end
+                IC.stamp_culture(faction_key, character, culture, binding)
                 return
             end
             -- A GARRISON CAPTAIN joins quietly: one is made at every capture,
-            -- and each would show two Trait Gained entries.
+            -- and each would show two Trait Gained entries. The culture is
+            -- always quiet.
             local quiet = IC.is_colonel(character)
             IC.stamp_origin(character, IC.origin_for(character, faction_key), quiet)
-            IC.stamp_bg(character, IC.deed_join(character, faction_key)
-                                   or IC.background_for(character, faction_key), quiet)
+            local bg = IC.deed_join(character, faction_key)
+            local culture, binding
+            if bg then
+                culture, binding = IC.culture_for(character, faction_key,
+                    IC.R(faction_key).PARTY_OF_BG[bg])
+            else
+                bg, culture, binding = IC.background_for(character, faction_key)
+            end
+            IC.stamp_bg(character, bg, quiet)
+            IC.stamp_culture(faction_key, character, culture, binding)
         end
     end, true)
 
@@ -8113,6 +8583,8 @@ IC.RACE_FIELDS = {
     "REBEL_HEROES", "REBEL_DRAFT", "BACKGROUNDS", "NAME_HEADS", "NAME_TAILS",
     "PARTY_TRAITS", "LEADER_TRAITS", "LEGEND_SUBTYPES", "TEMPLE_BUILDINGS",
     "MILITARY_DOCTRINE", "PARTY_TROOPS", "TROOPS_DEFAULT",
+    "CULTURES", "LEGEND_CULTURE", "HOUSE_CULTURE", "PLACE_CULTURE", "CULTURE_TRADE",
+    "SUBTYPE_TRADE",
 }
 IC.RACES = {}
 IC.RACE_ORDER = {}
@@ -8136,6 +8608,16 @@ function IC.build_race(r)
     for i = 1, #r.ORIGINS do
         if r.ORIGINS[i].faction then r.MAX_SEATS = r.MAX_SEATS + 1 end
     end
+    -- THE CULTURE INDEXES: by slug, by home province, and the trades a culture
+    -- or a subtype reserves (a reserved trade never comes up in an ordinary draw).
+    r.CULTURE_BY_SLUG, r.HOME_OF, r.RESERVED_BG = {}, {}, {}
+    for i = 1, #r.CULTURES do
+        local c = r.CULTURES[i]
+        r.CULTURE_BY_SLUG[c.slug] = c
+        for j = 1, #c.homes do r.HOME_OF[c.homes[j]] = c.slug end
+    end
+    for _, t in pairs(r.CULTURE_TRADE) do r.RESERVED_BG[t.bg] = true end
+    for _, t in pairs(r.SUBTYPE_TRADE) do r.RESERVED_BG[t.bg] = true end
     return r
 end
 

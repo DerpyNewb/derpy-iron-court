@@ -22,8 +22,8 @@ m:set_description("Parties compete for offices in your court. Difficulty, "
     .. "numbers and courts in other factions are fixed when the "
     .. "campaign starts. Change them "
     .. "from the main menu before starting a new campaign. The other switches can be "
-    .. "changed at any time. Multiplayer uses the original settings for every "
-    .. "player.")
+    .. "changed at any time. Multiplayer always plays on the Default difficulty "
+    .. "with every switch on.")
 
 -- MCT HAS NO CAMPAIGN GATING OF ITS OWN: set_context_specific is an empty
 -- function. The copy frozen into the save is the real defence; the lock is the
@@ -31,7 +31,7 @@ m:set_description("Parties compete for offices in your court. Difficulty, "
 local IN_CAMPAIGN = __game_mode == __lib_type_campaign
 local LOCK_REASON = "Fixed when a campaign starts. Change it from the main "
     .. "menu before starting a new one."
-local MP_REASON = "Multiplayer uses the original settings for every player."
+local MP_REASON = "Multiplayer always plays on the Default difficulty with every switch on."
 local LIVE_NOTE = " You can change this during a campaign."
 
 -- MULTIPLAYER IS MCT'S ANSWER, NEVER THE GAME'S. This file runs, and its
@@ -68,8 +68,8 @@ o_preset:add_dropdown_value("harsh", "Harsh",
     false)
 o_preset:add_dropdown_value("ruthless", "Political Chaos",
     "Five rival parties fill the court. Loyalty falls "
-    .. "fast. Parties give three turns of warning before leaving. Every "
-    .. "favour costs dearly.", false)
+    .. "fast. Parties give three turns of warning before leaving, five in a "
+    .. "Dwarf court. Every favour costs dearly.", false)
 o_preset:add_dropdown_value("custom", "Custom",
     "Set every number under Custom numbers yourself.", false)
 o_preset:set_default_value("default")
@@ -89,13 +89,14 @@ local SWITCHES = {
      .. "with it. Off, parties cannot leave and existing countdowns stop.", true},
     {"pressure", "A weak Crown pushes rivals out", "systems",
      "When your own party's share of the court falls too low, the biggest rival "
-     .. "party is pushed to leave. Off, it never is.", true},
+     .. "party may be pushed to leave. Off, it never is.", true},
     {"crown_split", "Your own party can split", "systems",
-     "When your own party runs out of loyalty, it splits. Off, it cannot split "
-     .. "and existing countdowns stop.", true},
+     "When your own party's loyalty falls to 25 or below, some of its men can break "
+     .. "away as a new rival party. Off, it cannot split and existing countdowns stop.", true},
     {"all_cards", "Show routine event messages", "systems",
-     "When off, routine news (empty seats, parties joining, feuds starting or "
-     .. "ending, a party passed over for its own office) goes only to the court's "
+     "When off, routine news (empty seats, parties joining or dissolving, feuds "
+     .. "starting or ending, a party passed over for its own office, rival plans "
+     .. "dropped, and countdowns and sabotage that end) goes only to the court's "
      .. "Record tab. Warnings, demands, offers and the results of your own moves "
      .. "always show an event message.", true},
     {"governments", "Governments", "systems",
@@ -105,7 +106,8 @@ local SWITCHES = {
      "A party that leads the court for long enough asks for its own government. "
      .. "Off, your government changes only when you change it.", true},
     {"deeds", "Your deeds move the court", "systems",
-     "Victories, the Hell-Forge, the Tower's rites, slaves, convoys and research "
+     "Victories, research and your race's own deeds (Chaos Dwarfs: the Hell-Forge, "
+     .. "rites, temples, slaves, razing and convoys; Dwarfs: settled grudges) "
      .. "give the matching party renown, which counts toward its share and fades "
      .. "each turn. A party not in your court that earns enough sends the next lord "
      .. "you recruit. Off, nothing new is earned and nobody is drawn in; renown "
@@ -143,10 +145,12 @@ local NUMBERS = {
      "Loyalty lost each turn by a party with no office."},
     {"secede_loyalty", "Loyalty at which a party threatens to leave", 20, 0, 40, 1,
      "A party big enough to leave starts counting down at or below this loyalty."},
-    {"secede_share", "Share of the court a party needs to leave", 25, 5, 50, 1,
-     "The percentage of the court a party needs before it can leave."},
+    {"secede_share", "Share at which a party threatens to leave", 25, 5, 50, 1,
+     "A party needs this percentage of the court before low loyalty starts its "
+     .. "countdown. A party at 0 loyalty leaves whatever its share."},
     {"secede_turns", "Turns of warning before a party leaves", 5, 1, 10, 1,
-     "Turns between a party's warning and its departure."},
+     "Turns between a party's warning and its departure. Dwarf courts wait half "
+     .. "as long again, rounded up."},
     {"pressure_below", "Crown share below which rivals are pushed out", 10, 0, 30, 1,
      "When your own party's share of the court falls below this, the biggest "
      .. "rival party can be pushed to leave."},
@@ -166,13 +170,14 @@ local NUMBERS = {
      .. "number for exactly that many rivals."},
     {"rivals_max", "Most rival parties", 2, 1, 5, 1,
      "The most rival parties a new court starts with, up to five, which fills the "
-     .. "court. There are only four rebel banners. Once all four are in use, a party "
-     .. "that leaves takes the banner of a fallen house, or joins a rebellion already "
-     .. "under way if no house has fallen."},
+     .. "court. There are only four rebel banners, three in a Dwarf court. Once all "
+     .. "are in use, a party that leaves takes the banner of a fallen house, or joins "
+     .. "a rebellion already under way if no house has fallen."},
     {"term_turns", "Office term, in turns", 10, 2, 20, 1,
-     "How many turns an appointment runs. Dismissing a man before his term is up "
-     .. "angers his party. When a term ends, the same man cannot take that office "
-     .. "again for 3 turns, and his party is not rewarded when he does."},
+     "How many turns an appointment runs; the Conclave and the Council of Elders "
+     .. "shorten it. Dismissing a man before his term is up angers his party. When a "
+     .. "term ends, the same man cannot take that office again for 3 turns, 1 under "
+     .. "those two governments, and his party is not rewarded when he does."},
     {"gov_levels_per_weight", "Settlement levels per point of governor strength", 2, 1, 5, 1,
      "A governor's party gains one point of strength per this many settlement "
      .. "levels in his province, rounded up. Every governor is worth at least one."},

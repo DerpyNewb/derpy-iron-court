@@ -2,6 +2,7 @@ category	icon_path
 #trait_categories_tables;0;db/trait_categories_tables/derpy_iron_court	
 derpy_ic_cat_ambition	ui/campaign ui/effect_bundles/chd_conclave_influence.png
 derpy_ic_cat_confed	ui/campaign ui/effect_bundles/confederation.png
+derpy_ic_cat_culture	ui/campaign ui/effect_bundles/settlement.png
 derpy_ic_cat_office	ui/skins/default/icon_offices.png
 derpy_ic_cat_origin	ui/campaign ui/effect_bundles/settlement.png
 derpy_ic_cat_party_chain	ui/derpy_ic/party_sigil_chain.png

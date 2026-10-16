@@ -1430,7 +1430,7 @@
 				<standard
 					this="IC300047-D000-4000-B000000000000047"
 					name="standard"
-					width="100"
+					width="120"
 					height="34"
 					interactive="true"
 					uniqueguid="IC300047-D000-4000-B000000000000047">
@@ -1440,7 +1440,7 @@
 							uniqueguid="IC300046-D002-4000-B000000000000046"
 							componentimage="IC300046-D001-4000-B000000000000046"
 							offset="0.00,-3.00"
-							width="100"
+							width="120"
 							height="52"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>
@@ -1462,7 +1462,7 @@
 				<hover
 					this="IC300048-D000-4000-B000000000000048"
 					name="hover"
-					width="100"
+					width="120"
 					height="34"
 					interactive="true"
 					uniqueguid="IC300048-D000-4000-B000000000000048">
@@ -1472,7 +1472,7 @@
 							uniqueguid="IC300046-D004-4000-B000000000000046"
 							componentimage="IC300046-D003-4000-B000000000000046"
 							offset="0.00,-3.00"
-							width="100"
+							width="120"
 							height="52"
 							margin="8.00,8.00,8.00,8.00"/>
 					</imagemetrics>

@@ -89,7 +89,7 @@ local function fake_prm(pools)
 end
 
 local function make_character(cqi, rank, party, province_key, unique, origin,
-                             subtype)
+                             subtype, culture)
     local c
     c = {
         is_null_interface = function() return false end,
@@ -236,6 +236,9 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
     end
     -- And an origin only when a check asks for one. Most do not care.
     if origin then c._traits["derpy_ic_house_" .. origin] = true end
+    -- AND A CULTURE only when a check asks for one: the slug verbatim, so a Dwarf
+    -- check passes "dwf_karaz".
+    if culture then c._traits["derpy_ic_cult_" .. culture] = true end
     return c
 end
 
@@ -1376,7 +1379,7 @@ check("who is already seated DOES decide what a new man can be", function()
     local seen = {}
     for i = 1, 40 do
         rng({(i % 2) + 1, ((i * 3) % 3) + 1})
-        local bg = IC.roll_background(F)
+        local bg = IC.trade_in(IC.roll_party(F), F)
         assert(bg, "no background was rolled at all")
         local party = IC.PARTY_OF_BG[bg]
         assert(party == IC.CROWN or party == "forge",
@@ -1419,10 +1422,10 @@ check("ambition uses the 25 50 25 roll bands", function()
     local c = make_character(703, ANY_SEAT, "forge", nil, false, "zhatan")
     make_faction(F, IC.CHD_SUBCULTURE, {a, b, c}, {})
     IC.add_house(F, "forge")
-    -- stamp_court still asks the origin roller before its stamp refuses, then
-    -- ambition. A man who already has a background is not rolled another, so
-    -- party and background draw nothing here.
-    rng({1, 25, 1, 26, 1, 76})
+    -- stamp_court rolls each man's ambition first, in order. A man who already
+    -- has a background is dealt no other, so party and trade draw nothing; his
+    -- culture is drawn after all three ambitions, from an empty queue.
+    rng({25, 26, 76})
     IC.stamp_court(F)
     for _, expected in ipairs({
         {cqi = 701, slug = "cautious", character = a},
@@ -1633,8 +1636,14 @@ check("an AI court's men, stamped already, still arrive as their own house", fun
     IC.add_house(F, IC.CROWN)
     assert(IC.origin_of_character(a) == "zharr",
         "the fixture's man has no rolled birthplace, so this proves nothing")
+    deferred = {}
     IC.stamp_incoming(F, "zhatan", 0)
     assert(IC.court(F).houses["zhatan"], "a court whose men were stamped already never joined")
+    -- ON THE FIRST PASS. A refused stamp is a retry three seconds later, and the
+    -- stub runs that retry at once; IC.stamp_culture strips a retired birthplace
+    -- on the way past, so the retry would let the house in and hide the refusal.
+    assert(#deferred == 0, "the house joined only on a retry, after "
+        .. #deferred .. " deferred passes")
     assert(IC.origin_of_character(a) == "zhatan",
         "he still comes from " .. tostring(IC.origin_of_character(a)))
     assert(IC.house_of_character(a, F) == "zhatan",
@@ -1738,7 +1747,7 @@ check("a trade is never drawn from a bloc", function()
     IC.add_house(F, "khorakk", true)
     for i = 1, 40 do
         rng({i})
-        local bg = IC.roll_background(F)
+        local bg = IC.trade_in(IC.roll_party(F), F)
         assert(bg, "no trade was rolled at all")
         assert(IC.PARTY_OF_BG[bg], bg .. " belongs to no party")
     end
@@ -2442,7 +2451,7 @@ check("appointing an overseer applies his bundle on the CLICK", function()
     -- NO TURN PASS IS RUN HERE: that is the whole point of the check.
     IC.state = {}
     province_applied = {}
-    local gov = make_character(9, ANY_SEAT, "crown", "prov_a")
+    local gov = make_character(9, ANY_SEAT, "crown", "prov_a", nil, nil, nil, "zharr")
     -- The second governor exists from the start because the fake faction closes
     -- over its lists; he is what keeps the release assertion below observable.
     local mate = make_character(13, ANY_SEAT, "crown", "prov_b")
@@ -2452,8 +2461,8 @@ check("appointing an overseer applies his bundle on the CLICK", function()
     IC.assign_governor(F, "prov_a", 9)
     assert(province_applied["derpy_ic_gov_base"],
         "the base bundle must land on assignment, not at the next turn start")
-    assert(province_applied["derpy_ic_gov_house_crown"],
-        "and so must his party's flavour")
+    assert(province_applied["derpy_ic_gov_cult_zharr"],
+        "and so must his culture's bundle")
     -- Releasing him must RE-RUN the pass, not merely forget him. A second
     -- governor who stays put is what makes that observable: if release skips the
     -- re-apply, nothing is recorded at all, and an assertion that the released
@@ -2608,17 +2617,19 @@ check("a governor outside his province applies nothing, and keeps the post", fun
         "he must be INSIDE the province for the bundle to apply")
 end)
 
-check("a governor inside his province applies base and house bundles", function()
+check("a governor inside his province applies base and culture bundles", function()
     IC.state = {}
     province_applied = {}
-    local nakh = make_character(5, ANY_SEAT, "crown", "prov_a")
+    local nakh = make_character(5, ANY_SEAT, "crown", "prov_a", nil, nil, nil, "zharr")
     make_faction(F, IC.CHD_SUBCULTURE, {nakh}, {"prov_a"})
     IC.add_house(F, "crown")
     endow(F)
     IC.assign_governor(F, "prov_a", 5)
     IC.apply_governor_bundles(F)
     assert(province_applied["derpy_ic_gov_base"], "base bundle applied")
-    assert(province_applied["derpy_ic_gov_house_crown"], "his party's flavour applied")
+    assert(province_applied["derpy_ic_gov_cult_zharr"], "his culture's bundle applied")
+    assert(not province_applied["derpy_ic_gov_house_crown"],
+        "the retired party flavour was applied again")
 end)
 
 check("a seated man earns more than an idle one, and a higher seat more still",
@@ -6670,6 +6681,35 @@ check("the action bar acts on the chosen rival, and on nothing else", function()
     ICUI.view = "court"
 end)
 
+-- A DWARF COURT'S BAR NAMES ITS OWN MOVES: Insult and Cast Out, not Provoke
+-- and Purge. The favours are named alike on both races.
+check("a Dwarf court's action bar reads Insult and Cast Out", function()
+    local RD = "wh_main_dwf_karak_kadrin"
+    IC.state = {}
+    turn = 1
+    make_faction(RD, IC.RACES.dwf.subculture, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(RD, IC.CROWN)
+    IC.add_house(RD, "forge")
+    ICUI.sel, ICUI.pick = nil, nil
+    local cm_local = cm.get_local_faction_name
+    cm.get_local_faction_name = function() return RD end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        cm.get_human_factions = function() return {RD} end
+        ICUI.view = "court"
+        ICUI.sel = "forge"
+        ICUI.refresh()
+        for key, want in pairs({ic_act_provoke = "Insult", ic_act_purge = "Cast Out",
+                                ic_act_gift = ICUI.ACT_LABEL.ic_act_gift,
+                                ic_act_secure = ICUI.ACT_LABEL.ic_act_secure}) do
+            assert(plain(panel.children[key].text) == want,
+                key .. " reads " .. tostring(panel.children[key].text))
+        end
+    end)
+    cm.get_local_faction_name = cm_local
+    ICUI.sel = nil
+    if not ok then error(err, 0) end
+end)
+
 check("Send a Gift buys the chosen party loyalty, and is refused when it is full",
       function()
     -- THE GIFT HAS A BUTTON ON THE BAR, with no favour list. Through the listener,
@@ -7989,8 +8029,10 @@ check("a lord recruited this turn has a party before End Turn", function()
     local born = cm._spawn_into(faction)
     core.listeners["ic_born"]({character = function() return born end})
     assert(IC.bg_of_character(born), "a new recruit arrived with no trade")
-    assert(IC.origin_of_character(born),
+    assert(IC.culture_of_character(born),
         "a new recruit arrived from nowhere at all")
+    assert(IC.origin_of_character(born) == nil,
+        "a new recruit was dealt a birthplace as well as a culture")
     assert(IC.house_of_character(born, F),
         "a new recruit sits in no party")
     IC.stamp_court(F)
@@ -10526,8 +10568,12 @@ function()
         if k == spawned[1].subtype then ok_subtype = true end
     end
     assert(ok_subtype, tostring(spawned[1].subtype) .. " is not a store lord")
-    assert(#worn == 1 and IC.PARTY_OF_BG[worn[1]:gsub("^derpy_ic_bg_", "")] == "forge",
+    -- HIS TRADE, then the culture dealt before it: two traits, and the second
+    -- is a culture.
+    assert(#worn == 2 and IC.PARTY_OF_BG[worn[1]:gsub("^derpy_ic_bg_", "")] == "forge",
         "the lord in store wears " .. tostring(worn[1]) .. ", not a forge background")
+    assert(string.find(worn[2], "^derpy_ic_cult_"),
+        "the lord in store wears " .. tostring(worn[2]) .. " and no culture")
     -- NOT AGAIN NEXT TURN, AND NOT AFTER A RELOAD.
     IC.save(F)
     IC.state = {}
@@ -12245,8 +12291,10 @@ check("the record names the Crown as the Crown, for both races", function()
     make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     IC_TEST_LOC["factions_screen_name_" .. F] = "Overlords of Zharrduk"
     IC_TEST_LOC["derpy_ic_party_name_crown"] = "The Crown"
-    IC_TEST_LOC["derpy_ic_party_name_dwf_crown"] = "The Throne-Sworn"
+    -- A DWARF COURT'S OWN PARTY IS THE CROWN TOO, the Help's word on both races.
+    IC_TEST_LOC["derpy_ic_party_name_dwf_crown"] = "The Crown"
     local RD = "wh_main_dwf_karak_kadrin"
+    IC_TEST_LOC["factions_screen_name_" .. RD] = "Karak Kadrin"
     local cm_get, cm_local = cm.get_human_factions, cm.get_local_faction_name
     local ok, err = pcall(function()
         cm.get_human_factions = function() return {F} end
@@ -12259,13 +12307,53 @@ check("the record names the Crown as the Crown, for both races", function()
         cm.get_human_factions = function() return {RD} end
         cm.get_local_faction_name = function() return RD end
         line = ICUI.intrigue_text({turn = 1, kind = "gov_on", slug = IC.CROWN, key = "p_home"})
-        assert(string.find(line, "The Throne-Sworn", 1, true),
+        assert(string.find(line, "The Crown", 1, true)
+               and not string.find(line, "Karak Kadrin", 1, true),
             "a Dwarf Crown's line reads: " .. line)
     end)
     cm.get_human_factions, cm.get_local_faction_name = cm_get, cm_local
     IC_TEST_LOC["factions_screen_name_" .. F] = nil
     IC_TEST_LOC["derpy_ic_party_name_crown"] = nil
     IC_TEST_LOC["derpy_ic_party_name_dwf_crown"] = nil
+    IC_TEST_LOC["factions_screen_name_wh_main_dwf_karak_kadrin"] = nil
+    if not ok then error(err, 0) end
+end)
+
+-- A DWARF COURT HEARS ITS OWN MOVES: no forge accident, hot iron, feast of ash
+-- or Tower, and Secure Loyalty is not sworn on the anvil, which is its Pledge.
+-- The Chaos Dwarf court keeps every line it had.
+check("the record words the moves a Dwarf court's own way", function()
+    local CHD_WORDS = {"accident at", "hot iron", "is ash", "names on the iron",
+                       "feast of ash", "answer to the Tower", "pledges the forge",
+                       "Ash Court", "swears on the anvil for"}
+    local RD = "wh_main_dwf_karak_kadrin"
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    make_faction(RD, IC.RACES.dwf.subculture, {}, {})
+    local cm_local = cm.get_local_faction_name
+    local function lines()
+        local out = {ICUI.plot_what(F, {move = "murder"}), ICUI.reason_text("unique")}
+        for _, kind in ipairs({"secure", "murder", "oath", "feast", "recall", "pledge", "audience"}) do
+            out[#out + 1] = ICUI.intrigue_text({turn = 1, kind = kind, slug = "legion", key = "tower", n = 5})
+        end
+        for _, cause in ipairs({"provoked", "died"}) do
+            out[#out + 1] = ICUI.intrigue_text({turn = 1, kind = "oath_broken", slug = "legion", key = cause})
+        end
+        return table.concat(out, " | ")
+    end
+    local ok, err = pcall(function()
+        cm.get_local_faction_name = function() return RD end
+        local dwarf = lines()
+        for _, w in ipairs(CHD_WORDS) do
+            assert(not string.find(dwarf, w, 1, true), "a Dwarf court reads " .. w .. ": " .. dwarf)
+        end
+        cm.get_local_faction_name = function() return F end
+        local chd = lines()
+        for _, w in ipairs({"accident at the forge", "hot iron", "swears on the anvil for", "Ash Court"}) do
+            assert(string.find(chd, w, 1, true), "a Chaos Dwarf court lost " .. w .. ": " .. chd)
+        end
+    end)
+    cm.get_local_faction_name = cm_local
     if not ok then error(err, 0) end
 end)
 
@@ -12668,7 +12756,7 @@ check("a warning reaches the player, on the bar rather than in a row", function(
         local bar = panel.children.ic_alert
         assert(string.find(bare(bar.text), "in 1 turn", 1, true),
             "the bar named the later clock: " .. tostring(bar.text))
-        assert(string.find(bar.text, "1 more house is moving", 1, true),
+        assert(string.find(bar.text, "1 more party is moving", 1, true),
             "the bar did not count the rest: " .. tostring(bar.text))
     end)
     cm.get_human_factions = saved
@@ -13358,7 +13446,7 @@ check("a background is rolled only from the parties that are seated", function()
     IC.add_house(F, "ledger")
     for i = 1, 30 do
         rng({(i % 2) + 1, (i % 3) + 1})
-        local bg = IC.roll_background(F)
+        local bg = IC.trade_in(IC.roll_party(F), F)
         local party = IC.PARTY_OF_BG[bg]
         assert(party == IC.CROWN or party == "ledger",
             bg .. " belongs to " .. tostring(party) .. ", which is not seated")
@@ -16029,18 +16117,24 @@ check("a party whose name came back as index zero is named again", function()
 end)
 
 
-check("a man raised at home is born in a place, never in a house", function()
-    -- A HOUSE ORIGIN IS A RECORD OF CONFEDERATION. Rolling one for a lord you
+check("a man raised at home is dealt a culture and no origin at all", function()
+    -- A HOUSE ORIGIN IS A RECORD OF CONFEDERATION. Dealing one to a lord you
     -- recruited yourself would say he came from a faction he has never seen,
     -- and that faction is very likely still alive on the map under its own name.
-    for i = 1, 40 do
-        rng({i})
-        local slug = IC.roll_origin()
-        assert(slug, "no origin was rolled at all")
-        assert(IC.faction_for_origin(slug) == nil,
-            slug .. " is a house, and a man raised at home came from a place")
+    -- The birthplaces are retired: a man raised at home is dealt a culture.
+    IC.state = {}
+    factions = {}
+    local men = {}
+    for i = 1, 8 do men[i] = make_character(8700 + i, ANY_SEAT, nil, nil) end
+    make_faction(F, IC.CHD_SUBCULTURE, men, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.stamp_court(F)
+    for i = 1, #men do
+        assert(IC.culture_of_character(men[i]), "man " .. i .. " was dealt no culture")
+        assert(IC.origin_of_character(men[i]) == nil,
+            "man " .. i .. " was dealt the origin " .. tostring(IC.origin_of_character(men[i])))
     end
-    rng(nil)
 end)
 
 check("the seed rolls the court before it stamps anybody", function()
@@ -16588,6 +16682,9 @@ check("every price the panel quotes carries the loyalty icon", function()
     local title = ICUI.pick_title()
     assert(string.find(title, ICUI.cost(need), 1, true),
         "the picker title quotes an unmarked price: " .. title)
+    -- AND THE RANK, which IC.can_appoint asks before the influence.
+    assert(string.find(title, "rank " .. IC.office_rank(seat) .. " and", 1, true),
+        "the picker title leaves out the rank: " .. title)
 
     with_fake_panel(function(panel)
         ICUI.refresh()
@@ -16748,11 +16845,19 @@ check("every legendary lord's history names a real place and a real trade",
     local n, led = 0, 0
     for subtype, who in pairs(IC.LORD_HISTORY) do
         n = n + 1
-        assert(type(who) == "table" and who.origin and who.bg,
+        -- GORDUZ HAS NO BIRTHPLACE: the places are retired, and correct_history
+        -- would put his old one back on him every turn.
+        assert(type(who) == "table" and who.bg
+               and (who.origin or subtype == "wh3_dlc23_chd_gorduz_backstabber"),
             subtype .. " has no origin and trade")
-        assert(places[who.origin],
-            subtype .. " is born in " .. who.origin
+        assert(who.origin == nil or places[who.origin],
+            subtype .. " is born in " .. tostring(who.origin)
             .. ", which is not one of IC.ORIGINS")
+        -- A LEGEND'S ORIGIN IS A HOUSE, never a retired place: correct_history
+        -- would re-add the place every turn and IC.stamp_culture would take it
+        -- off, once a turn for the rest of the campaign.
+        assert(who.origin == nil or IC.faction_for_origin(who.origin),
+            subtype .. " is born in " .. tostring(who.origin) .. ", a retired place")
         assert(trades[who.bg],
             subtype .. " worked as " .. who.bg
             .. ", which is not a trade any party offers")
@@ -16820,10 +16925,16 @@ check("every lord in the table gets the pair the table promises", function()
         make_faction(F, IC.CHD_SUBCULTURE, {lord}, {})
         IC.add_house(F, "crown")
         IC.turn(F)
-        assert(lord:has_trait("derpy_ic_house_" .. want.origin),
-            subtype .. " was not born in " .. want.origin)
+        if want.origin then
+            assert(lord:has_trait("derpy_ic_house_" .. want.origin),
+                subtype .. " was not born in " .. want.origin)
+        end
         assert(lord:has_trait("derpy_ic_bg_" .. want.bg),
             subtype .. " did not come up through " .. want.bg)
+        -- AND HE WEARS THE CULTURE THE TABLE FIXES FOR HIM, and no other.
+        assert(IC.culture_of_character(lord) == IC.LEGEND_CULTURE[subtype],
+            subtype .. " wears " .. tostring(IC.culture_of_character(lord))
+            .. " and not " .. tostring(IC.LEGEND_CULTURE[subtype]))
     end
 end)
 
@@ -16849,9 +16960,10 @@ check("the two pickers hand back a legend's own past, not a roll", function()
     -- courtier's two columns are.
     local nobody = make_character(681, ANY_SEAT, nil, nil, false, nil,
                                   "wh3_dlc23_chd_overseer")
-    assert(IC.origin_for(nobody), "origin_for rolled a generic lord nothing")
-    assert(IC.background_for(nobody, F),
-        "background_for rolled a generic lord nothing")
+    assert(IC.origin_for(nobody) == nil, "origin_for dealt a generic lord a birthplace")
+    local bg, culture = IC.background_for(nobody, F)
+    assert(bg, "background_for rolled a generic lord nothing")
+    assert(culture, "background_for dealt a generic lord no culture")
 end)
 
 check("an old save's legend is put right, not left as he was", function()
@@ -16884,10 +16996,11 @@ check("an old save's legend is put right, not left as he was", function()
         .. tostring(IC.origin_of_character(abnagg)))
 end)
 
-check("a generic lord's rolled past is left alone", function()
+check("a generic lord's trade is left alone and his old birthplace becomes its culture", function()
     -- THE OTHER HALF OF THE MIGRATION. A lord nobody wrote a history for has a
-    -- rolled one and that IS his real one; correcting him every turn would
-    -- shuffle his card at random for the rest of the campaign.
+    -- rolled trade and that IS his real one; correcting him every turn would
+    -- shuffle his card at random for the rest of the campaign. His old
+    -- birthplace is converted once, to the culture of the same country.
     IC.state = {}
     local nobody = make_character(671, ANY_SEAT, nil, nil, false, nil,
                                   "wh3_dlc23_chd_overseer")
@@ -16903,8 +17016,10 @@ check("a generic lord's rolled past is left alone", function()
     IC.turn(F)
     assert(IC.correct_history(nobody) == false,
         "a generic lord was corrected against a history nobody wrote for him")
-    assert(nobody:has_trait("derpy_ic_house_gash"),
-        "a generic lord lost the birthplace he was dealt")
+    assert(not nobody:has_trait("derpy_ic_house_gash"),
+        "the retired birthplace was left on him")
+    assert(nobody:has_trait("derpy_ic_cult_gash"),
+        "the birthplace did not become the culture of the same country")
     assert(nobody:has_trait("derpy_ic_bg_roadwarden"),
         "a generic lord lost the trade he was dealt")
 end)
@@ -16920,8 +17035,8 @@ check("a lord nobody has written a past for still gets one", function()
     make_faction(F, IC.CHD_SUBCULTURE, {nobody}, {})
     IC.add_house(F, "crown")
     IC.turn(F)
-    assert(IC.origin_of_character(nobody),
-        "a generic lord came out of a turn with no birthplace at all")
+    assert(IC.culture_of_character(nobody),
+        "a generic lord came out of a turn with no culture at all")
     assert(IC.bg_of_character(nobody),
         "a generic lord came out of a turn with no trade at all")
 end)
@@ -19338,10 +19453,10 @@ check("the party card says a party is scheming or feuding", function()
     local tip = ICUI.agenda_tip(F, "legion")
     assert(string.find(tip, "next turn", 1, true), "the tip does not say when: " .. tip)
     assert(string.find(tip, "struck from his seat", 1, true), "the tip does not say what: " .. tip)
-    assert(string.find(tip, "deal with Vorgath", 1, true),
+    assert(string.find(tip, "leave Vorgath without the influence", 1, true),
            "the tip does not name the plotter: " .. tip)
     table.remove(men, 3)
-    assert(string.find(ICUI.agenda_tip(F, "legion"), "deal with their plotter", 1, true),
+    assert(string.find(ICUI.agenda_tip(F, "legion"), "leave their plotter without the influence", 1, true),
            "a plotter who no longer resolves broke the tip")
     IC_TEST_LOC = {}
     house.clock = 2
@@ -20593,7 +20708,7 @@ end)
 
 check("the Intrigue alert counts other parties moving, not the plotter's own clock", function()
     -- M-3. A party making a warned move is usually counting down too. Its clock
-    -- is not "one more house", and a snub is not moving yet.
+    -- is not "one more party", and a snub is not moving yet.
     party_court({legion = 20, forge = 90})
     local court = IC.court(F)
     court.houses["legion"].clock = 3
@@ -20605,7 +20720,7 @@ check("the Intrigue alert counts other parties moving, not the plotter's own clo
         local warn = ICUI.draw_intrigue(panel, F, court)
         assert(string.sub(warn, 1, #ICUI.plot_alert(F)) == ICUI.plot_alert(F),
                "the warned move did not lead the alert: " .. warn)
-        assert(not string.find(warn, "more house", 1, true),
+        assert(not string.find(warn, "more party", 1, true),
                "one party moving was counted as more: " .. warn)
     end)
     -- AND A PLOTTER WITH NO CLOCK still counts the party that has one.
@@ -20614,7 +20729,7 @@ check("the Intrigue alert counts other parties moving, not the plotter's own clo
     court.houses["forge"].clock = 2
     with_fake_panel(function(panel)
         local warn = ICUI.draw_intrigue(panel, F, court)
-        assert(string.find(warn, "(1 more house is moving.)", 1, true),
+        assert(string.find(warn, "(1 more party is moving.)", 1, true),
                "the other party's clock was not counted: " .. warn)
     end)
     cm.get_human_factions = function() return {} end
@@ -26863,7 +26978,19 @@ check("a whole court stamped at once raises no Trait Gained card, and a recruit'
     local born = cm._spawn_into(faction)
     core.listeners["ic_born"]({character = function() return born end})
     loud = cards("cqi:" .. born:command_queue_index() .. "=")
-    assert(loud == 2, "a recruit's origin and background raised " .. loud .. " cards, not 2")
+    assert(loud == 1, "a recruit's trade raised " .. loud .. " cards, not 1")
+    -- THE CULTURE IS NEVER A CARD, for a recruit or for anyone else.
+    local culture_loud, culture_quiet = cards("cqi:" .. born:command_queue_index() .. "=derpy_ic_cult_")
+    assert(culture_loud == 0 and culture_quiet == 1,
+        "a recruit's culture raised " .. culture_loud .. " cards and " .. culture_quiet .. " quiet stamps")
+    -- A LEGEND RECRUITED is the one man still dealt a birthplace, his own
+    -- (IC.LORD_HISTORY), and he is one man: his card says where he is from.
+    local legend = cm._spawn_into(faction)
+    legend._subtype, legend._unique = "derpy_abnagg", true
+    core.listeners["ic_born"]({character = function() return legend end})
+    local home = "cqi:" .. legend:command_queue_index() .. "=" .. IC.origin_trait("uzkulak")
+    assert(traits_shown[home] ~= nil, "a recruited legend was given no birthplace, so this proves nothing")
+    assert(traits_shown[home] == true, "a recruited legend's birthplace was stamped in silence")
     -- A GARRISON CAPTAIN, made at every capture, is stamped quietly: otherwise
     -- every settlement taken raises two Trait Gained entries.
     local captain = cm._spawn_into(faction)
@@ -27024,7 +27151,7 @@ check("an envoy puts the chosen work on that province for mission_turns", functi
     local last = IC.court(F).log[#IC.court(F).log]
     assert(last.kind == "envoy" and last.key == "prov_b:arm", "logged " .. tostring(last.key))
     local line = ICUI.intrigue_text(last)
-    assert(line:find("prov_b", 1, true) and line:find("+20% armaments", 1, true)
+    assert(line:find("prov_b", 1, true) and line:find("+20% Armaments", 1, true)
            and line:find("for " .. IC.TUNE.mission_turns .. " turns", 1, true), line)
     -- A MALFORMED KEY STILL SAYS SOMETHING (the every-move check passes "legion").
     assert(ICUI.intrigue_text({turn = 1, kind = "envoy", slug = "crown", key = "legion", n = 1}))
@@ -27366,7 +27493,7 @@ function()
     in_grace(function()
         turn = 4
         local l2, w2 = ICUI.map_outline(F, "legion")
-        assert(#l2 == 0 and w2:find("7 more turns", 1, true), tostring(w2))
+        assert(#l2 == 0 and w2:find("for 7 turns", 1, true), tostring(w2))
     end)
     local keep = IC.TUNE.secession
     IC.TUNE.secession = false
@@ -27863,7 +27990,7 @@ check("the Governors tab pins a pin, a face and two plates on each province's se
         -- ONE LINE ON EACH PLATE: the name, then loyalty. The pin carries none -
         -- its padded text drew off the plate and measured every name too long.
         assert(na.text == "prov_a", "prov_a's name plate reads " .. tostring(na.text))
-        assert(la.text == string.format("Loyalty %d%%", IC.province_loyalty(F, "prov_a")),
+        assert(la.text == string.format("Loyalty %d", IC.province_loyalty(F, "prov_a")),
             "prov_a's loyalty plate reads " .. tostring(la.text))
         assert((pa.text or "") == "", "the pin still carries text: " .. tostring(pa.text))
         assert(fa.text == "", "the face carries text, which its mask would clip")
@@ -28486,7 +28613,7 @@ check("a party that rings nothing says why, in the hint and on its tooltip", fun
         ICUI.pick = nil
         ICUI.open()
         map_click("ic_gm_tog_1")
-        assert(panel.children.ic_gm_hint.text == "Click a party to see what it would take.",
+        assert(panel.children.ic_gm_hint.text == "Click a party: what would it take?",
             "the hint reads " .. panel.children.ic_gm_hint.text)
         map_click(ICUI.GM_ROW .. "_1")          -- the Crown
         assert(panel.children.ic_gm_hint.text == "Your own party cannot secede.",
@@ -28676,7 +28803,7 @@ check("a Provinces row draws its governor's face, his crest, or an empty seat", 
             "row 1 wears no party crest")
         -- +N WEIGHT, THE MODEL'S OWN FIGURE.
         local w = IC.gov_weight_of(IC.province_levels(F).prov_a)
-        assert(a.children.ic_gr_l3.text == string.format("%d%%, +%d strength", IC.province_loyalty(F, "prov_a"), w),
+        assert(a.children.ic_gr_l3.text == string.format("%d loyalty, +%d strength", IC.province_loyalty(F, "prov_a"), w),
             "row 1's last line reads " .. a.children.ic_gr_l3.text)
         assert(a.children.ic_gr_icon.visible and a.children.ic_gr_icon.images[0]
                == ICUI.gm_fealty(IC.province_loyalty(F, "prov_a")), "row 1 has no loyalty icon")
@@ -28959,7 +29086,7 @@ check("a governorship still growing shows what it adds now and what it grows to"
     local worth = IC.gov_weight_of(3)
     assert(worth > 1, "the fixture's province is worth " .. worth .. ", so nothing is left to grow")
     local tip = ICUI.map_tip(F, "prov_a")
-    local want = string.format("%s: +1 strength from this province (3 settlement levels, growing to +%d)",
+    local want = string.format("%s: +1 strength from this province, growing to +%d (3 settlement levels)",
                                ICUI.house_name("legion", F), worth)
     assert(tip:find(want, 1, true), "the tooltip reads: " .. tip)
     with_fake_govmap(function(hud, panel, extra, holder)
@@ -28967,7 +29094,7 @@ check("a governorship still growing shows what it adds now and what it grows to"
         ICUI.pick = nil
         ICUI.open()
         local l3 = gm_row(panel, 1).children.ic_gr_l3.text
-        assert(l3 == string.format("%d%%, +1 of %d strength", IC.province_loyalty(F, "prov_a"), worth),
+        assert(l3 == string.format("%d loyalty, +1 of %d strength", IC.province_loyalty(F, "prov_a"), worth),
             "the row reads " .. l3)
     end)
     -- GROWN IN FULL, the plain figure again.
@@ -30216,6 +30343,33 @@ check("governments: Hold costs more each time, halves the pressure and angers th
     gov_done()
 end)
 
+-- HOLD'S ANSWER NAMES AN ANGERED PARTY ONLY WHEN ONE ASKED. The Conclave's pull
+-- asks with no party and IC.gov_hold moves nobody's loyalty, so the notice must
+-- not say anybody is angered. Driven through the wire, as a click is.
+check("governments: Hold's answer says a party is angered only when one asked", function()
+    local court = gov_purse_court()
+    court.standing[901] = 5000
+    -- THE FORGE LEADS BELOW gov_drift_share: four rivals near level.
+    court.houses.forge.weight = 1001
+    for _, slug in ipairs({"legion", "ledger", "tower"}) do
+        IC.add_house(F, slug)
+        court.houses[slug].weight = 1000
+    end
+    assert(IC.gov_pull(F) == "conclave", "fixture: the court pulls toward " .. tostring(IC.gov_pull(F)))
+    court.gov_ask = {gov = "conclave", ends = turn + 3}
+    ICUI.notice = nil
+    assert(IC.MP_OPS.gov_hold(F, ""), "Hold refused the Conclave's pull")
+    assert(ICUI.notice == "Government kept.", "the Conclave's Hold said: " .. tostring(ICUI.notice))
+    court.houses.forge.weight = 100000
+    court.gov_ask = {gov = "forge", ends = turn + 3, party = "forge"}
+    ICUI.notice = nil
+    assert(IC.MP_OPS.gov_hold(F, ""), "Hold refused the Forge's ask")
+    assert(ICUI.notice == "Government kept. The party that asked is angered.",
+        "the Forge's Hold said: " .. tostring(ICUI.notice))
+    ICUI.notice = nil
+    gov_done()
+end)
+
 check("governments: an unanswered choice is Accept at its end, inside the turn", function()
     local court = gov_court({crown = 10, forge = 60})
     court.gov_ask = {gov = "forge", ends = turn + 1, party = "forge"}
@@ -30437,7 +30591,7 @@ check("deeds: the Record says what a deed and a drawn party did", function()
     local court = deed_court({crown = 10, legion = 10})
     local a = ICUI.intrigue_text({kind = "deed", slug = "legion", key = "battle", n = 6})
     local b = ICUI.intrigue_text({kind = "drawn", slug = "legion", n = 20})
-    assert(a and string.find(a, "+6", 1, true), "deed Record line: " .. tostring(a))
+    assert(a and string.find(a, "gains 6 renown", 1, true), "deed Record line: " .. tostring(a))
     assert(b and b ~= "", "drawn Record line: " .. tostring(b))
     gov_done()
 end)
@@ -30672,6 +30826,9 @@ check("governments: a choice with no party asking says so", function()
     assert(not string.find(text, "A party", 1, true), "the Record names a party nobody is: " .. text)
     local tips = ICUI.gov_ask_tips(F, court.gov_ask)
     assert(not string.find(tips, "party asking", 1, true), "Hold promises to anger nobody: " .. tips)
+    -- UNANSWERED, IT IS ACCEPTED when the row's turns run out (IC.gov_expire).
+    assert(string.find(tips, "Unanswered, it is accepted in 2 turns.", 1, true),
+        "Hold does not say what silence does: " .. tips)
     gov_done()
 end)
 
@@ -30706,13 +30863,14 @@ check("governments: the tooltip and the picker show what a government gives", fu
 end)
 
 -- A PLAYER COURT FOR THE LAWS, past its grace period.
--- `men` is {{party, influence}, ...}; man i is cqi 9000 + i.
+-- `men` is {{party, influence, unique, culture}, ...}; man i is cqi 9000 + i, and
+-- a culture is the trait suffix as make_character takes it.
 local function law_court(men, weights)
     local court = gov_court(weights or {crown = 10, legion = 10, ledger = 10, forge = 10})
     court.laws, court.votes, court.law_rest = {}, {}, nil
     local chars = {}
     for i, m in ipairs(men or {}) do
-        chars[#chars + 1] = make_character(9000 + i, ANY_SEAT, m[1], nil, m[3])
+        chars[#chars + 1] = make_character(9000 + i, ANY_SEAT, m[1], nil, m[3], nil, nil, m[4])
         court.standing[9000 + i] = m[2]
     end
     make_faction(F, IC.CHD_SUBCULTURE, chars, {})
@@ -31535,6 +31693,9 @@ check("laws: past two abstaining parties the abstain line counts them instead of
         local t = panel.children.ic_lv_abstain.text
         assert(string.find(t, "5 parties", 1, true), "the line does not count five parties: " .. t)
         assert(not string.find(t, ICUI.house_name("forge", F), 1, true), "the line still names them: " .. t)
+        -- WITH THE CROWN ABSTAINING, loyalty is not why they sit out.
+        assert(string.find(t, "you have not taken one", 1, true) and not string.find(t, "loyalty", 1, true),
+            "the Crown's abstention is blamed on loyalty: " .. t)
     end)
     law_vote(court, "ash", "aye", "legion")
     for _, slug in ipairs({"temple", "chain", "tower"}) do court.houses[slug].loyalty = 80 end
@@ -31544,6 +31705,8 @@ check("laws: past two abstaining parties the abstain line counts them instead of
         ICUI.refresh()
         local t = panel.children.ic_lv_abstain.text
         assert(string.find(t, ICUI.house_name("forge", F), 1, true), "one torn party is not named: " .. t)
+        assert(string.find(t, "only from " .. IC.TUNE.law_loyal_line .. " loyalty", 1, true),
+            "a torn party's abstention does not name the loyalty it needs: " .. t)
     end)
     gov_done()
 end)
@@ -31561,7 +31724,7 @@ check("laws: the hand lights your stance and paid levels, and its buttons send t
             and panel.children.ic_lv_st_2.images[0] == ICUI.TAB_PLATE[0].off,
             "Support is not lit, or Oppose is")
         click({string = "ic_lv_lvl_2", component = panel.children.ic_lv_lvl_2})
-        assert(v.push.crown == 2, "Strongly favour did not push")
+        assert(v.push.crown == 2, "Push hard did not push")
         assert(string.find(panel.children.ic_lv_lvl_1.text, "paid", 1, true), "level 1 is not marked paid")
         click({string = "ic_lv_st_2", component = panel.children.ic_lv_st_2})
         assert(v.stance == "nay", "Oppose did not change the stance")
@@ -31912,7 +32075,7 @@ check("race plumbing: a Chaos Dwarf court's AI round is its own race's, another 
 end)
 
 check("race plumbing: a race missing a required field is refused at registration", function()
-    local drops = {"key", "subculture", "infix", "tune", "OFFICES", "PARTY_TROOPS", "TROOPS_DEFAULT"}
+    local drops = {"key", "subculture", "infix", "tune", "OFFICES", "PARTY_TROOPS", "TROOPS_DEFAULT", "CULTURES"}
     local before = table.concat(IC.RACE_ORDER, ",")
     for _, field in ipairs(drops) do
         local t = test_race()
@@ -31933,11 +32096,15 @@ local RACE_ARITY = {
     key = 3, rkey = 3, office_bundle = 2, vacancy_bundle = 2, office_trait = 2,
     gov_bundle = 2, law_bundle = 3, gov_bundle_house = 2, control_bundle = 2,
     office_title_key = 2, member_trait_keys = 1,
-    office_by_slug = 2, law_opt = 3, law_stance = 4, is_party = 2, rolled_name = 4,
+    office_by_slug = 2, law_opt = 3, law_stance = 4, culture_stance = 4, man_stance = 5,
+    is_party = 2, rolled_name = 4,
     gov_for_party = 2, office_influence = 2, office_rank = 2, office_weight = 3,
-    recruit_influence = 2, rebel_draw = 2, roll_origin = 1, origin_for = 2,
+    recruit_influence = 2, rebel_draw = 2, origin_for = 2,
+    stamp_culture = 4, fixed_culture = 2, fit_culture = 3, leaderless_party = 3,
     chd_factions = 1,
     standing_trait = 2, ambition_trait = 2, gov_bundle_base = 1, troop_key = 2,
+    culture_trait = 2, gov_bundle_culture = 2, gov_bundle_culture_home = 2,
+    gov_bundle_friction = 1, culture_case = 3, roll_culture = 2, cultures_of = 2,
 }
 
 -- THE ARGUMENTS IN A "(...)" %b() HANDED BACK, counted at depth one.
@@ -32002,7 +32169,12 @@ check("race plumbing: a lookup by slug answers the faction's own race", function
         assert(IC.gov_for_party("forge", TST_F) == "forge", "gov_for_party is wrong")
         assert(IC.rolled_name("temple", 1, 1, TST_F) == "Kin of the Test Hall",
             "the name was rolled off " .. tostring(IC.rolled_name("temple", 1, 1, TST_F)))
-        assert(IC.roll_origin(TST_F) == "thold", "the second race rolled a birthplace not its own")
+        rng({1})
+        local culture = IC.roll_culture(TST_F, "legion")
+        rng(nil)
+        assert(culture == "zornuzkul", "the second race rolled " .. tostring(culture) .. " for its Legion")
+        assert(IC.culture_trait(culture, TST_F) == "derpy_ic_cult_tst_zornuzkul",
+            "a culture trait was not keyed to the second race")
         -- ASKED OF EVERY RACE: an origin slug names its faction, a subtype its legend.
         assert(IC.faction_for_origin("tkarak") == TST_F and IC.origin_for_faction(TST_F) == "tkarak"
                and IC.faction_for_origin("khorakk") == "cr_chd_house_of_khorakk",
@@ -32872,7 +33044,11 @@ DW.check("a Dwarf court's Help page names nothing of the Chaos Dwarfs", function
     -- READ OFF THE DRAWN PAGE, every topic, so a line added to the shared text
     -- with a Chaos Dwarf word in it fails here too.
     local CHD = {"Chaos Dwarf", "Hell%-Forge", "Hashut", "Zharr", "[Ss]lave", "Conclave",
-                 "at the forge", "[Pp]ledge", "Circuit", "Legion", "[Bb]ribe", "bullet_chd"}
+                 "at the forge", "[Pp]ledge", "Circuit", "Legion", "[Bb]ribe", "bullet_chd",
+                 -- THE ACTION BAR'S NAMES AND THE MOVE'S VERB: a Dwarf bar reads
+                 -- Insult and Cast Out (ICUI.RACE_WORDS.dwf).
+                 "Provoke", "Purge", "provoked"}
+    local grudge_line = false
     with_fake_root(function(hud, panel)
         ICUI.open()
         ICUI.view = "help"
@@ -32885,10 +33061,16 @@ DW.check("a Dwarf court's Help page names nothing of the Chaos Dwarfs", function
                 for _, w in ipairs(CHD) do
                     assert(not string.find(text, w), "page " .. page .. " says " .. w .. ": " .. text)
                 end
+                if string.find(text, "A settled grudge brings renown to the Clan Warriors and the Ancestor Priesthood.", 1, true) then
+                    grudge_line = true
+                end
             end
         end
         ICUI.close(true)
     end, nil, {1920, 1080}, "dwf")
+    -- THE GRUDGE DEED'S LINE IS DRAWN, not dropped: a settled grudge raises two
+    -- Dwarf parties (DWF.DEEDS), and the deeds page must say so.
+    assert(grudge_line, "a Dwarf court's Help page does not name the settled grudge deed")
 end)
 
 DW.check("a Dwarf court's moves wear their Dwarf names on every card, tip and title", function()
@@ -33437,20 +33619,34 @@ check("grudges: a book holds four, each its own loyalty line, and the Crown keep
         "a Chaos Dwarf court keeps a book")
 end)
 
-check("grudges: Kin of the Karak is +1 for every party of a Dwarf court and nobody else's", function()
+check("grudges: Kinship is +1 for every party of a Dwarf court and nobody else's", function()
     for _, rk in ipairs({"dwf", "chd"}) do
         local k = grudge_court(rk)
         for _, slug in ipairs({IC.CROWN, "legion"}) do
             local kin
             for _, t in ipairs(IC.loyalty_terms(k, slug)) do
-                if t.label == "Kin of the Karak" then kin = t end
+                if t.label == "Kinship" then kin = t end
             end
             if rk == "dwf" then
                 assert(kin and kin.n == IC.TUNE.kin_loyalty, slug .. " has no kinship on a Dwarf court")
             else
-                assert(not kin, slug .. " is Kin of the Karak on a Chaos Dwarf court")
+                assert(not kin, slug .. " has Kinship on a Chaos Dwarf court")
             end
         end
+    end
+end)
+
+-- THE OATH'S LINE NAMES THE COURT'S OWN MOVE: no Dwarf court swore a Blood-Oath.
+check("the loyalty breakdown names the oath by the court's own move", function()
+    for rk, want in pairs({dwf = "Ancestor Oath", chd = "Blood-Oath"}) do
+        local k = grudge_court(rk)
+        local house = IC.court(k).houses.legion
+        house.oath_mine, house.oath_theirs = 7001, 7002
+        local found
+        for _, t in ipairs(IC.loyalty_terms(k, "legion")) do
+            if t.n == IC.TUNE.plot_oath_loyalty and t.label == want then found = true end
+        end
+        assert(found, "a " .. rk .. " court's oath line is not " .. want)
     end
 end)
 
@@ -33702,7 +33898,7 @@ check("grudges: the loyalty breakdown names each grudge and the kinship", functi
     cm.get_human_factions = function() return {} end
     if os.getenv("IC_SHOW_TIP") then print(tip) end
     assert(string.find(tip, "Grudge: Cast Out, turn 34: -1", 1, true), tip)
-    assert(string.find(tip, "Kin of the Karak: +1", 1, true), tip)
+    assert(string.find(tip, "Kinship: +1", 1, true), tip)
     assert(string.find(tip, "Pay the Weregild", 1, true), "the breakdown never says how to settle it")
 end)
 
@@ -33856,7 +34052,7 @@ if os.getenv("IC_DUMP") then
         end
         return bh, bt
     end
-    -- {party, loyalty, {influence of each man}}
+    -- {party, loyalty, {influence of each man}, {[man] = culture}}
     local DEMO = {
         {"crown",  nil, {420, 260}},
         {"legion", 50,  {412, 260, 186, 150, 120, 90}},
@@ -33864,7 +34060,10 @@ if os.getenv("IC_DUMP") then
         {"forge",  70,  {380}},
         {"temple", 65,  {210, 95}},
         {"tower",  61,  {160}},
-        {"ledger", 50,  {425, 230, 64}},
+        -- A GASH KADRAK MAN IN THE LEDGER: his culture is for the Ash Harvest
+        -- and his party against it, so the Ledger draws a block on each side
+        -- and only the block on its own line carries the push.
+        {"ledger", 50,  {425, 230, 64}, {[1] = "gash"}},
         {"road",   30,  {240, 110}},
         {"hearth", 50,  {380}},
     }
@@ -33881,9 +34080,9 @@ if os.getenv("IC_DUMP") then
             house.head, house.tail = longest_roll(d[1])
             house.loyalty = d[2]
         end
-        for _, inf in ipairs(d[3]) do
+        for i, inf in ipairs(d[3]) do
             n = n + 1
-            local c = make_character(9500 + n, ANY_SEAT, d[1], nil)
+            local c = make_character(9500 + n, ANY_SEAT, d[1], nil, nil, nil, nil, d[4] and d[4][i])
             c._forename = "derpy_demo_fore_" .. n
             IC_TEST_PORTRAITS[tostring(9500 + n)] = IC_TEST_LOC["derpy_demo_face_" .. n]
             chars[#chars + 1] = c
@@ -35210,6 +35409,1220 @@ check("the court's clicks run past another mod's throwing click condition", func
            and string.find(lines[1], "boom", 1, true),
            "the click failure line was not written: " .. table.concat(lines, " | "))
 end)
+
+-- CULTURES, task 1: the data, the keys, the case and the roll.
+do
+    local DF = "wh_main_dwf_dwarfs"
+
+    check("cultures: each race has eight, every rival party has exactly one main culture and a feeder", function()
+        for _, k in ipairs({"chd", "dwf"}) do
+            local R = IC.RACES[k]
+            assert(#R.CULTURES == 8, k .. " has " .. #R.CULTURES .. " cultures")
+            local mains, feeds = {}, {}
+            for _, c in ipairs(R.CULTURES) do
+                assert(c.main ~= c.side, k .. "." .. c.slug .. " feeds one party twice")
+                mains[c.main] = (mains[c.main] or 0) + 1
+                feeds[c.main], feeds[c.side] = true, true
+                assert(R.CULTURE_BY_SLUG[c.slug] == c, "no index entry for " .. c.slug)
+            end
+            for _, p in ipairs(R.PARTIES) do
+                if p ~= IC.CROWN then
+                    assert(mains[p] == 1, k .. "." .. p .. " has " .. tostring(mains[p]) .. " main cultures")
+                    assert(feeds[p], k .. "." .. p .. " is fed by no culture")
+                end
+            end
+            assert(not mains[IC.CROWN] and not feeds[IC.CROWN], "a culture feeds the Crown")
+        end
+    end)
+
+    check("cultures: no province is home to two cultures and HOME_OF agrees", function()
+        for _, k in ipairs({"chd", "dwf"}) do
+            local R, seen = IC.RACES[k], {}
+            for _, c in ipairs(R.CULTURES) do
+                assert(#c.homes >= 1, k .. "." .. c.slug .. " has no home province")
+                for _, p in ipairs(c.homes) do
+                    assert(not seen[p], k .. ": " .. p .. " is home to " .. tostring(seen[p]) .. " and " .. c.slug)
+                    seen[p] = c.slug
+                    assert(R.HOME_OF[p] == c.slug, "HOME_OF disagrees on " .. p)
+                    assert(string.find(p, "^cr_oldworld_province_"), p .. " is no Old World province key")
+                end
+            end
+        end
+    end)
+
+    check("cultures: the retired places, the holds and the legends point at real cultures", function()
+        for _, k in ipairs({"chd", "dwf"}) do
+            local R = IC.RACES[k]
+            local places = {}
+            for _, o in ipairs(R.ORIGINS) do
+                if not o.faction then places[o.slug] = true end
+            end
+            for place in pairs(places) do
+                assert(R.CULTURE_BY_SLUG[R.PLACE_CULTURE[place] or ""], k .. ": place " .. place .. " converts to nothing")
+            end
+            for place, cult in pairs(R.PLACE_CULTURE) do
+                assert(places[place], k .. ": PLACE_CULTURE names " .. place .. ", which is no place")
+                assert(R.CULTURE_BY_SLUG[cult], k .. ": place " .. place .. " converts to " .. cult)
+            end
+            local houses = {}
+            for _, o in ipairs(R.ORIGINS) do
+                if o.faction then houses[o.slug] = true end
+            end
+            for house, cult in pairs(R.HOUSE_CULTURE) do
+                assert(houses[house], k .. ": HOUSE_CULTURE names " .. house .. ", which is no house")
+                assert(R.CULTURE_BY_SLUG[cult], k .. ": house " .. house .. " takes " .. cult)
+            end
+            for subtype, cult in pairs(R.LEGEND_CULTURE) do
+                assert(R.CULTURE_BY_SLUG[cult], k .. ": legend " .. subtype .. " takes " .. cult)
+            end
+        end
+        for key in pairs(IC.RACES.dwf.LEGEND_CULTURE) do
+            assert(IC.RACES.dwf.LEGEND_SUBTYPES[key], "a Dwarf legend culture for " .. key .. ", who is no legend")
+        end
+        for key in pairs(IC.LORD_HISTORY) do
+            assert(IC.RACES.chd.LEGEND_CULTURE[key], "legend " .. key .. " has no culture")
+        end
+    end)
+
+    check("cultures: the keys carry the family and the race infix", function()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        make_faction(DF, IC.RACES.dwf.subculture, {}, {})
+        assert(IC.culture_trait("zharr", F) == "derpy_ic_cult_zharr", IC.culture_trait("zharr", F))
+        assert(IC.gov_bundle_culture("zharr", F) == "derpy_ic_gov_cult_zharr")
+        assert(IC.gov_bundle_culture_home("zharr", F) == "derpy_ic_gov_cult_home_zharr")
+        assert(IC.gov_bundle_friction(F) == "derpy_ic_gov_friction")
+        assert(IC.culture_trait("karaz", DF) == "derpy_ic_cult_dwf_karaz", IC.culture_trait("karaz", DF))
+        assert(IC.gov_bundle_culture_home("karaz", DF) == "derpy_ic_gov_cult_home_dwf_karaz")
+        assert(IC.gov_bundle_friction(DF) == "derpy_ic_gov_dwf_friction")
+    end)
+
+    check("cultures: a man's culture is read off his trait, across the races", function()
+        local none = make_character(9400, ANY_SEAT, "forge")
+        local chd = make_character(9401, ANY_SEAT, "forge", nil, nil, nil, nil, "stump")
+        local dwf = make_character(9402, ANY_SEAT, "forge", nil, nil, nil, nil, "dwf_azul")
+        assert(IC.culture_of_character(none) == nil, "a man with no culture reads one")
+        local slug, R = IC.culture_of_character(chd)
+        assert(slug == "stump" and R == IC.RACES.chd, "Chaos Dwarf culture read as " .. tostring(slug))
+        slug, R = IC.culture_of_character(dwf)
+        assert(slug == "azul" and R == IC.RACES.dwf, "Dwarf culture read as " .. tostring(slug))
+        assert(IC.culture_of_character(nil) == nil, "nil has a culture")
+    end)
+
+    check("cultures: home, foreign and away come from the province key alone", function()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        make_faction(DF, IC.RACES.dwf.subculture, {}, {})
+        local R = IC.R(F)
+        local home = R.CULTURE_BY_SLUG.zharr.homes[1]
+        local other = R.CULTURE_BY_SLUG.gorgoth.homes[1]
+        assert(IC.culture_case(F, "zharr", home) == "home")
+        assert(IC.culture_case(F, "zharr", other) == "foreign")
+        -- AN IMMORTAL EMPIRES OR IEE PROVINCE, a key on no list, and no key at all.
+        assert(IC.culture_case(F, "zharr", "wh3_main_combi_province_the_plain_of_zharr") == "away")
+        assert(IC.culture_case(F, "zharr", "cr_combi_province_somewhere") == "away")
+        assert(IC.culture_case(F, "zharr", nil) == "away")
+        assert(IC.culture_case(F, "zharr", "") == "away")
+        -- The Dwarf race answers from its own table.
+        local d = IC.R(DF).CULTURE_BY_SLUG.kadrin.homes[1]
+        assert(IC.culture_case(DF, "kadrin", d) == "home")
+        assert(IC.culture_case(DF, "karaz", d) == "foreign")
+        assert(IC.culture_case(DF, "kadrin", home) == "away", "a Chaos Dwarf home is no Dwarf home")
+    end)
+
+    check("cultures: a party's new man is its main culture on 1 to 7 of ten and a side culture on 8 to 10", function()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        assert(IC.TUNE.culture_main_tenths == 7, "the split is " .. tostring(IC.TUNE.culture_main_tenths))
+        -- The Ledger: Gash Kadrak is main, Tower of Gorgoth and Howling Wastes are sides.
+        local main, sides = IC.cultures_of(F, "ledger")
+        assert(main == "gash" and #sides == 2 and sides[1] == "gorgoth" and sides[2] == "wastes",
+            "ledger is fed by " .. tostring(main) .. " and " .. #sides .. " sides")
+        local mains = 0
+        for r = 1, 10 do
+            rng({r, 1})
+            local got = IC.roll_culture(F, "ledger")
+            if r <= 7 then
+                assert(got == "gash", "roll " .. r .. " gave " .. got)
+                mains = mains + 1
+            else
+                assert(got == "gorgoth", "roll " .. r .. " gave " .. got)
+            end
+        end
+        assert(mains == 7, "main on " .. mains .. " of ten")
+        rng({8, 2})
+        assert(IC.roll_culture(F, "ledger") == "wastes", "the second side was never reached")
+        rng(nil)
+    end)
+
+    check("cultures: a party with no side culture is its main culture and makes no random call", function()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        rng({10})
+        assert(IC.roll_culture(F, "temple") == "zharr", "the Temple is not Heart of Zharrduk")
+        assert(#rng_calls == 0, "a party with one feeder made " .. #rng_calls .. " random calls")
+        rng(nil)
+    end)
+
+    check("cultures: the Crown, and a man with no party, draw uniformly from all eight", function()
+        make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        local R = IC.R(F)
+        for i = 1, 8 do
+            rng({i})
+            assert(IC.roll_culture(F, IC.CROWN) == R.CULTURES[i].slug, "Crown draw " .. i)
+            assert(rng_calls[1].max == 8 and rng_calls[1].min == 1, "the draw was not 1 to 8")
+            rng({i})
+            assert(IC.roll_culture(F, nil) == R.CULTURES[i].slug, "no-party draw " .. i)
+        end
+        rng(nil)
+    end)
+
+    check("cultures: the second race rolls its own cultures", function()
+        make_faction(DF, IC.RACES.dwf.subculture, {}, {})
+        rng({1})
+        assert(IC.roll_culture(DF, "legion") == "kadrin", "the Dwarf Legion's main culture")
+        rng({9, 1})
+        assert(IC.roll_culture(DF, "legion") == "grey", "the Dwarf Legion's first side culture")
+        rng(nil)
+    end)
+end
+
+-- CULTURES, task 4: stamping, conversion, legends, houses and the Slayer.
+do
+    local DF = "wh_main_dwf_dwarfs"
+
+    -- ALL OF A MAN'S CULTURE TRAITS, across both races.
+    local function cults(man)
+        local out = {}
+        for _, k in ipairs(IC.RACE_ORDER) do
+            local R = IC.RACES[k]
+            for _, c in ipairs(R.CULTURES) do
+                if man:has_trait(IC.rkey("cult", c.slug, R)) then out[#out + 1] = c.slug end
+            end
+        end
+        return out
+    end
+
+    -- A DWARF COURT with the Crown and the named parties seated.
+    local function dwarf_court(men, ...)
+        IC.state = {}
+        factions = {}
+        rng(nil)
+        make_faction(DF, IC.RACES.dwf.subculture, men, {})
+        IC.add_house(DF, IC.CROWN)
+        for _, slug in ipairs({...}) do IC.add_house(DF, slug) end
+    end
+
+    check("cultures: a stamped court gives every man one culture, quietly, and no birthplace", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local men = {}
+        for i = 1, 6 do men[i] = make_character(9500 + i, ANY_SEAT, nil, nil) end
+        make_faction(F, IC.CHD_SUBCULTURE, men, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.add_house(F, "ledger")
+        IC.stamp_court(F)
+        for i, man in ipairs(men) do
+            assert(#cults(man) == 1, "man " .. i .. " wears " .. #cults(man) .. " cultures")
+            assert(IC.origin_of_character(man) == nil, "man " .. i .. " was dealt a birthplace")
+            -- HIS CULTURE FEEDS THE PARTY HIS TRADE SEATS HIM IN: with no random
+            -- answers to pick otherwise, the party's main culture.
+            local party = IC.house_of_character(man, F)
+            local main = IC.cultures_of(F, party)
+            if party ~= IC.CROWN then
+                assert(cults(man)[1] == main, "man " .. i .. " of " .. party .. " wears " .. cults(man)[1]
+                    .. " and not " .. tostring(main))
+            end
+        end
+        local n = 0
+        for key, shown in pairs(traits_shown) do
+            if string.find(key, "derpy_ic_cult_", 1, true) then
+                n = n + 1
+                assert(shown == false, key .. " raised a Trait Gained card")
+            end
+        end
+        assert(n == 6, "only " .. n .. " culture stamps were seen")
+    end)
+
+    check("cultures: a Kadrin man dealt to the Dwarf Legion is a Slayer", function()
+        rng(nil)
+        dwarf_court({make_character(9510, ANY_SEAT, nil, nil)}, "legion")
+        local man = IC.character_by_cqi(DF, 9510)
+        -- fewest, then the culture roll (1 of 10: the main culture), no trade draw.
+        rng({1, 1})
+        local bg, culture, binding = IC.background_for(man, DF, {})
+        assert(culture == "kadrin" and binding == false, "culture " .. tostring(culture))
+        assert(bg == "slayer", "a Kadrin man in the Legion was dealt " .. tostring(bg))
+        for _, call in ipairs(rng_calls) do
+            assert(call.max ~= 3 and call.max ~= 4, "the Slayer's trade was drawn, not dealt")
+        end
+        rng(nil)
+    end)
+
+    check("cultures: a Grey Mountains man in the Legion draws an ordinary trade", function()
+        rng(nil)
+        dwarf_court({make_character(9511, ANY_SEAT, nil, nil)}, "legion")
+        local man = IC.character_by_cqi(DF, 9511)
+        rng({1, 8, 1, 1})
+        local bg, culture = IC.background_for(man, DF, {})
+        assert(culture == "grey", "culture " .. tostring(culture))
+        assert(bg == "longbeard", "a Grey Mountains man was dealt " .. tostring(bg))
+        assert(rng_calls[#rng_calls].max == 3, "the trade was drawn from " .. tostring(rng_calls[#rng_calls].max)
+            .. " trades, not the three ordinary ones")
+        rng(nil)
+    end)
+
+    check("cultures: a Kadrin man in another party is no Slayer", function()
+        rng(nil)
+        dwarf_court({make_character(9512, ANY_SEAT, nil, nil)}, "temple")
+        local man = IC.character_by_cqi(DF, 9512)
+        -- fewest, culture roll 8 (a side), the first side (Kadrin feeds the Temple), trade 1.
+        rng({1, 8, 1, 1})
+        local bg, culture = IC.background_for(man, DF, {})
+        assert(culture == "kadrin", "culture " .. tostring(culture))
+        assert(bg ~= "slayer" and IC.R(DF).PARTY_OF_BG[bg] == "temple",
+            "a Kadrin man in the Temple was dealt " .. tostring(bg))
+        rng(nil)
+    end)
+
+    check("cultures: the Slayer trade is never drawn for anyone", function()
+        rng(nil)
+        make_faction(DF, IC.RACES.dwf.subculture, {}, {})
+        for r = 1, 6 do
+            rng({r})
+            local bg = IC.trade_in("legion", DF)
+            assert(bg and bg ~= "slayer", "an ordinary draw gave " .. tostring(bg))
+            assert(IC.R(DF).PARTY_OF_BG[bg] == "legion", bg .. " is no Legion trade")
+        end
+        rng(nil)
+        assert(IC.trade_in("legion", DF, "kadrin") == "slayer", "the dealt trade is gone")
+        assert(IC.trade_in("temple", DF, "kadrin") ~= "slayer", "Kadrin is a Slayer outside the Legion")
+        assert(IC.trade_in(nil, DF) == nil and IC.trade_in("no_such_party", DF) == nil)
+    end)
+
+    -- THE TAUR'RUK TRADE IS A BULL CENTAUR'S. Its colour line says he is half
+    -- bull, so a Sorcerer-Prophet dealt to the Priesthood must never draw it,
+    -- and a Taur'ruk dealt there always is one. Every roll answers its highest,
+    -- which is the Taur'ruk's slot whenever the reserved trade is left in the pool.
+    check("trades: only a Bull Centaur Taur'ruk is dealt the Taur'ruk trade", function()
+        local bull_key = "wh3_dlc23_chd_bull_centaur_taurruk"
+        local sorcerer = make_character(9531, ANY_SEAT, nil, nil, nil, nil, "wh3_dlc23_chd_sorcerer_prophet_fire")
+        local bull = make_character(9532, ANY_SEAT, nil, nil, nil, nil, bull_key)
+        local vraznak = make_character(9533, ANY_SEAT, nil, nil, true, nil, "derpy_vraznak")
+        sorcerer._agent, bull._agent = "wizard", "champion"
+        IC.state = {}
+        factions = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {sorcerer, bull, vraznak}, {})
+        IC.add_house(F, "temple")
+        for r = 1, 3 do
+            rng({r})
+            local bg = IC.trade_in("temple", F)
+            assert(bg and bg ~= "taurukh", "an ordinary Priesthood draw gave " .. tostring(bg))
+        end
+        rng(nil)
+        assert(IC.trade_in("temple", F, nil, bull_key) == "taurukh", "a Taur'ruk in the Priesthood is no Taur'ruk")
+        assert(IC.trade_in("forge", F, nil, bull_key) ~= "taurukh", "a Taur'ruk outside the Priesthood is one")
+        rng({9, 9, 9, 9, 9, 9})
+        local got = IC.background_for(sorcerer, F, {})
+        assert(got and got ~= "taurukh", "a Sorcerer-Prophet in the Priesthood was dealt " .. tostring(got))
+        rng({9, 9, 9, 9, 9, 9})
+        got = IC.background_for(bull, F, {})
+        assert(got == "taurukh", "a Taur'ruk in the Priesthood was dealt " .. tostring(got))
+        rng(nil)
+        assert(IC.background_for(vraznak, F, {}) == "taurukh", "Vraznak lost his trade")
+        -- ARRIVING FROM A HOUSE THAT BINDS ANOTHER CULTURE: the Taur'ruk keeps the
+        -- trade he wears, and a confederated sorcerer wearing it is re-dealt.
+        bull = make_character(9534, ANY_SEAT, nil, nil, nil, nil, bull_key, "plain")
+        sorcerer = make_character(9535, ANY_SEAT, nil, nil, nil, nil, "wh3_dlc23_chd_sorcerer_prophet_fire", "plain")
+        bull._traits["derpy_ic_bg_taurukh"] = true
+        sorcerer._traits["derpy_ic_bg_taurukh"] = true
+        rng({9, 9, 9, 9, 9, 9})
+        got = IC.background_for(bull, F, {}, "azgorh")
+        assert(got == nil, "a confederated Taur'ruk was re-dealt " .. tostring(got))
+        rng({9, 9, 9, 9, 9, 9})
+        got = IC.background_for(sorcerer, F, {}, "azgorh")
+        assert(got and got ~= "taurukh", "a confederated sorcerer kept the Taur'ruk trade: " .. tostring(got))
+        rng(nil)
+    end)
+
+    -- AND AN OLD SAVE'S, dealt before the trade was reserved: a plain court pass
+    -- takes it back from a Sorcerer-Prophet and gives him another Priesthood
+    -- trade, while a Taur'ruk and Vraznak keep theirs. The next pass draws
+    -- nothing, so the conversion runs once and costs no roll after.
+    check("trades: a court pass takes the Taur'ruk trade back from an old save's sorcerer", function()
+        local bull_key = "wh3_dlc23_chd_bull_centaur_taurruk"
+        local sorcerer = make_character(9536, ANY_SEAT, nil, nil, nil, nil, "wh3_dlc23_chd_sorcerer_prophet_fire", "plain")
+        local bull = make_character(9537, ANY_SEAT, nil, nil, nil, nil, bull_key, "plain")
+        local vraznak = make_character(9538, ANY_SEAT, nil, nil, true, nil, "derpy_vraznak")
+        sorcerer._agent, bull._agent = "wizard", "champion"
+        for _, man in ipairs({sorcerer, bull, vraznak}) do man._traits["derpy_ic_bg_taurukh"] = true end
+        IC.state = {}
+        factions = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {sorcerer, bull, vraznak}, {})
+        IC.add_house(F, "temple")
+        rng({9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9})
+        IC.stamp_court(F)
+        local got = IC.bg_of_character(sorcerer)
+        assert(got and got ~= "taurukh" and IC.R(F).PARTY_OF_BG[got] == "temple",
+            "an old save's sorcerer now wears " .. tostring(got))
+        assert(not sorcerer:has_trait("derpy_ic_bg_taurukh"), "the Taur'ruk trade was left on the sorcerer")
+        assert(bull:has_trait("derpy_ic_bg_taurukh"), "a Taur'ruk lost his trade")
+        assert(vraznak:has_trait("derpy_ic_bg_taurukh"), "Vraznak lost his trade")
+        rng({9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9})
+        IC.stamp_court(F)
+        assert(IC.bg_of_character(sorcerer) == got, "a second pass re-dealt the sorcerer")
+        assert(#rng_calls == 0, "a second court pass made " .. #rng_calls .. " random calls")
+        rng(nil)
+    end)
+
+    check("cultures: a legend wears his own culture and replaces a wrong one", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local tordrek = make_character(9520, ANY_SEAT, nil, nil, true, nil, "derpy_tordrek", "gash")
+        make_faction(F, IC.CHD_SUBCULTURE, {tordrek}, {})
+        IC.add_house(F, IC.CROWN)
+        assert(IC.fixed_culture(tordrek, F) == "stump", "Tordrek's culture is " .. tostring(IC.fixed_culture(tordrek, F)))
+        rng({})
+        IC.stamp_court(F)
+        assert(tordrek:has_trait("derpy_ic_cult_stump"), "Tordrek does not wear his own culture")
+        assert(not tordrek:has_trait("derpy_ic_cult_gash"), "the wrong culture was left on him")
+        for _, call in ipairs(rng_calls) do
+            assert(call.max ~= 10 and call.max ~= 8, "a legend's culture was rolled")
+        end
+        rng(nil)
+        local nobody = make_character(9521, ANY_SEAT, nil, nil)
+        assert(IC.fixed_culture(nobody, F) == nil and IC.fixed_culture(nil, F) == nil)
+    end)
+
+    check("cultures: a court pass gives a legend his own origin and trade, quietly", function()
+        -- IC.correct_history is the only thing that stamps a legend's past now,
+        -- and a court pass must raise no card for it. false, not nil: stamped.
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local tordrek = make_character(9522, ANY_SEAT, nil, nil, true, nil, "derpy_tordrek")
+        make_faction(F, IC.CHD_SUBCULTURE, {tordrek}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.stamp_court(F)
+        local origin = "cqi:9522=" .. IC.origin_trait("kraken")
+        local trade = "cqi:9522=" .. IC.bg_trait("gunnery")
+        assert(traits_shown[origin] == false, "his origin was stamped with show " .. tostring(traits_shown[origin]))
+        assert(traits_shown[trade] == false, "his trade was stamped with show " .. tostring(traits_shown[trade]))
+    end)
+
+    check("cultures: an old save's birthplace becomes the culture of the same country", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local ranger = make_character(9530, ANY_SEAT, "forge", nil, nil, "stump")
+        make_faction(F, IC.CHD_SUBCULTURE, {ranger}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        traits_added = {}
+        IC.stamp_court(F)
+        assert(not ranger:has_trait("derpy_ic_house_stump"), "the retired birthplace was left on him")
+        assert(ranger:has_trait("derpy_ic_cult_stump"), "the birthplace did not become its culture")
+        assert(IC.bg_of_character(ranger) == IC.BACKGROUNDS.forge[1], "his trade moved")
+        assert(IC.house_of_character(ranger, F) == "forge", "his party moved")
+        -- A SECOND PASS ADDS NOTHING: the conversion is done once.
+        traits_added = {}
+        IC.stamp_court(F)
+        for _, entry in ipairs(traits_added) do
+            assert(not string.find(entry, "derpy_ic_cult_", 1, true), "a second pass stamped " .. entry)
+        end
+        assert(#cults(ranger) == 1)
+    end)
+
+    check("cultures: a man with a birthplace and a culture loses only the birthplace", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local man = make_character(9531, ANY_SEAT, "forge", nil, nil, "stump", nil, "gash")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.stamp_court(F)
+        assert(not man:has_trait("derpy_ic_house_stump"), "the birthplace stayed")
+        assert(#cults(man) == 1 and man:has_trait("derpy_ic_cult_gash"), "his culture changed to " .. tostring(cults(man)[1]))
+    end)
+
+    check("cultures: a Dwarf ranger becomes a Pass-Keeper", function()
+        rng(nil)
+        dwarf_court({make_character(9532, ANY_SEAT, nil, nil, nil, "dwf_rangers")}, "road")
+        local man = IC.character_by_cqi(DF, 9532)
+        man._traits["derpy_ic_bg_dwf_ranger"] = true
+        IC.stamp_court(DF)
+        assert(not man:has_trait("derpy_ic_house_dwf_rangers"), "the ranger's birthplace stayed")
+        assert(man:has_trait("derpy_ic_cult_dwf_passkeeps"), "he is " .. tostring(cults(man)[1]))
+    end)
+
+    check("cultures: a confederated man takes his hold's culture and drops a rolled one, quietly", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local man = make_character(9540, ANY_SEAT, nil, nil, nil, nil, nil, "stump")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.stamp_incoming(F, "uzkulak", 0, {}, 50)
+        assert(man:has_trait("derpy_ic_cult_zornuzkul"), "he is " .. tostring(cults(man)[1]))
+        assert(not man:has_trait("derpy_ic_cult_stump"), "the rolled culture stayed")
+        assert(#cults(man) == 1)
+        assert(traits_shown["cqi:9540=derpy_ic_cult_zornuzkul"] == false, "the culture raised a card")
+        -- A HOLD NOBODY LISTED leaves a man his rolled culture.
+        local other = make_character(9541, ANY_SEAT, nil, nil, nil, nil, nil, "stump")
+        factions = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {other}, {})
+        IC.state = {}
+        IC.add_house(F, IC.CROWN)
+        IC.stamp_incoming(F, "khorakk", 0, {}, 50)
+        assert(other:has_trait("derpy_ic_cult_stump") and #cults(other) == 1, "khorakk changed a culture")
+    end)
+
+    check("cultures: a confederation takes the culture from the hold it names, not from traits it can see yet", function()
+        -- stamp_incoming stamps the origin and asks for the culture in the same
+        -- frame. CA does not document whether has_trait shows a trait added that
+        -- moment, so the culture must come from the hold the call names. Here the
+        -- origin trait is swallowed, as it would be if the engine showed it late.
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local man = make_character(9542, ANY_SEAT, nil, nil, nil, nil, nil, "stump")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+        IC.add_house(F, IC.CROWN)
+        local add = cm.force_add_trait
+        cm.force_add_trait = function(self, lookup, key, ...)
+            if string.find(key, "derpy_ic_house_", 1, true) then return end
+            return add(self, lookup, key, ...)
+        end
+        local ok, err = pcall(IC.stamp_incoming, F, "uzkulak", 0, {}, 50)
+        cm.force_add_trait = add
+        assert(ok, err)
+        assert(man:has_trait("derpy_ic_cult_zornuzkul"), "he is " .. tostring(cults(man)[1]))
+        assert(not man:has_trait("derpy_ic_cult_stump"), "the rolled culture stayed")
+    end)
+
+    check("cultures: an old save's man confederated from an unlisted hold takes his birthplace's culture, quietly", function()
+        -- AN AI COURT STAMPED HIM BEFORE CULTURES: a trade and a birthplace (the
+        -- Mines), no culture. stamp_incoming takes the birthplace off before it
+        -- asks for his culture, so the place must reach culture_for as a slug.
+        -- Under the default draw a forge man rolls the Stump, so a roll shows.
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local man = make_character(9543, ANY_SEAT, "forge", nil, nil, "mines")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.stamp_incoming(F, "khorakk", 0, {}, 50)
+        assert(man:has_trait("derpy_ic_cult_mines") and #cults(man) == 1,
+            "a Mines man from an unlisted hold is " .. tostring(cults(man)[1]))
+        assert(not man:has_trait("derpy_ic_house_mines"), "the retired birthplace stayed")
+        assert(man:has_trait("derpy_ic_house_khorakk"), "he does not wear the hold he came from")
+        assert(IC.bg_of_character(man) == IC.BACKGROUNDS.forge[1], "his trade moved")
+        for k, shown in pairs(traits_shown) do assert(shown == false, k .. " raised a card") end
+        -- A LISTED HOLD STILL BINDS: the Uzkulak's men are Zorn Uzkul, wherever they were born.
+        local other = make_character(9544, ANY_SEAT, "forge", nil, nil, "mines")
+        factions = {}
+        make_faction(F, IC.CHD_SUBCULTURE, {other}, {})
+        IC.state = {}
+        IC.add_house(F, IC.CROWN)
+        IC.stamp_incoming(F, "uzkulak", 0, {}, 50)
+        assert(other:has_trait("derpy_ic_cult_zornuzkul") and #cults(other) == 1,
+            "a Mines man from the Uzkulak is " .. tostring(cults(other)[1]))
+    end)
+
+    check("cultures: a recruit's culture is quiet while his trade still shows", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local faction = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.register()
+        local born = cm._spawn_into(faction)
+        core.listeners["ic_born"]({character = function() return born end})
+        local cult = cults(born)[1]
+        assert(cult and #cults(born) == 1, "a recruit has " .. #cults(born) .. " cultures")
+        assert(traits_shown["cqi:" .. born:command_queue_index() .. "=derpy_ic_cult_" .. cult] == false,
+            "his culture raised a card")
+        local bg = IC.bg_of_character(born)
+        assert(bg and traits_shown["cqi:" .. born:command_queue_index() .. "=derpy_ic_bg_" .. bg] == true,
+            "his trade stopped showing")
+    end)
+
+    check("cultures: a starting lord is born into a culture that feeds his party", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local faction = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        IC.register()
+        IC._seed_bg[F] = "gunnery"
+        local born = cm._spawn_into(faction)
+        core.listeners["ic_born"]({character = function() return born end})
+        assert(IC.bg_of_character(born) == "gunnery")
+        assert(cults(born)[1] == "stump", "a seeded forge lord is " .. tostring(cults(born)[1]))
+        IC._seed_bg[F] = nil
+    end)
+
+    check("cultures: stamp_culture replaces only when it is told to", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local man = make_character(9550, ANY_SEAT, nil, nil, nil, nil, nil, "gash")
+        make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+        assert(IC.stamp_culture(F, man, nil, false) == false and IC.stamp_culture(F, nil, "stump", false) == false)
+        assert(IC.stamp_culture(F, man, "stump", false) == false and man:has_trait("derpy_ic_cult_gash"),
+            "a drawn culture replaced a worn one")
+        assert(IC.stamp_culture(F, man, "gash", true) == false, "the same culture was stamped twice")
+        assert(IC.stamp_culture(F, man, "stump", true) == true, "a binding culture did not replace")
+        assert(man:has_trait("derpy_ic_cult_stump") and not man:has_trait("derpy_ic_cult_gash") and #cults(man) == 1)
+    end)
+
+    check("cultures: a man moved to another party keeps a culture that feeds it and loses one that does not", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local keeps = make_character(9560, ANY_SEAT, nil, nil, nil, nil, nil, "gash")
+        local loses = make_character(9561, ANY_SEAT, nil, nil, nil, nil, nil, "stump")
+        local bound = make_character(9562, ANY_SEAT, nil, nil, nil, "uzkulak", nil, "zornuzkul")
+        local legend = make_character(9563, ANY_SEAT, nil, nil, true, nil, "derpy_tordrek", "stump")
+        local none = make_character(9564, ANY_SEAT, nil, nil)
+        local side = make_character(9565, ANY_SEAT, nil, nil, nil, nil, nil, "wastes")
+        make_faction(F, IC.CHD_SUBCULTURE, {keeps, loses, bound, legend, none, side}, {})
+        -- The Ledger is fed by Gash Kadrak (main), the Tower of Gorgoth and the Howling Wastes.
+        rng({})
+        assert(IC.fit_culture(F, keeps, "ledger") == false and keeps:has_trait("derpy_ic_cult_gash"))
+        assert(IC.fit_culture(F, side, "ledger") == false and side:has_trait("derpy_ic_cult_wastes"),
+            "a side culture of the party was taken from him")
+        assert(#rng_calls == 0, "a culture that already feeds the party was redrawn")
+        assert(IC.fit_culture(F, loses, "ledger") == true and loses:has_trait("derpy_ic_cult_gash")
+               and not loses:has_trait("derpy_ic_cult_stump"), "he is " .. tostring(cults(loses)[1]))
+        assert(IC.fit_culture(F, bound, "ledger") == false and bound:has_trait("derpy_ic_cult_zornuzkul"),
+            "a conquered hold's man lost his hold's culture")
+        assert(IC.fit_culture(F, legend, "ledger") == false and legend:has_trait("derpy_ic_cult_stump"),
+            "a legend lost his own culture")
+        assert(IC.fit_culture(F, none, "ledger") == false and #cults(none) == 0)
+        assert(IC.fit_culture(F, loses, IC.CROWN) == false)
+        rng(nil)
+    end)
+
+    check("cultures: background_for reports the culture of a man whose trade is already stamped", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        local plain = make_character(9570, ANY_SEAT, "forge", nil, nil, nil, nil, nil)
+        local placed = make_character(9571, ANY_SEAT, "forge", nil, nil, "mines")
+        local housed = make_character(9572, ANY_SEAT, "forge", nil, nil, "uzkulak")
+        local worn = make_character(9573, ANY_SEAT, "forge", nil, nil, nil, nil, "gash")
+        make_faction(F, IC.CHD_SUBCULTURE, {plain, placed, housed, worn}, {})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "forge")
+        local bg, culture, binding = IC.background_for(plain, F, {})
+        assert(bg == nil and culture == "stump" and binding == false, "plain: " .. tostring(culture))
+        bg, culture, binding = IC.background_for(placed, F, {})
+        assert(bg == nil and culture == "mines" and binding == false, "placed: " .. tostring(culture))
+        bg, culture, binding = IC.background_for(housed, F, {})
+        assert(bg == nil and culture == "zornuzkul" and binding == true, "housed: " .. tostring(culture))
+        -- A MAN WHO WEARS A CULTURE IS ANSWERED WITH IT, not with a fresh draw for his party.
+        bg, culture, binding = IC.background_for(worn, F, {})
+        assert(bg == nil and culture == "gash" and binding == false, "worn: " .. tostring(culture))
+        -- A CONFEDERATION NAMES THE HOUSE before any trait says so.
+        bg, culture, binding = IC.background_for(plain, F, {}, "azgorh")
+        assert(culture == "gorgoth" and binding == true, "incoming: " .. tostring(culture))
+    end)
+
+    -- THE SLAYER RULE ON EVERY DEAL PATH (fix round 1): a Kadrin man seated in
+    -- the Dwarf Legion is always the Slayer, and nobody else ever is one. The
+    -- culture is drawn before the trade wherever a lord is made, and a
+    -- confederation re-deals the trade when its binding culture changes it.
+    local function traits_of(man, prefix)
+        local out = {}
+        for key in pairs(man._traits) do
+            if string.sub(key, 1, #prefix) == prefix then out[#out + 1] = key end
+        end
+        table.sort(out)
+        return out
+    end
+
+    -- THE THREE DRAWS THAT PUT A DWARF IN THE LEGION: the first is the lord's
+    -- subtype; then the culture roll (1 of 10 is the main culture, Kadrin; 8 is a
+    -- side, and the next answer picks grey or passkeeps); the last, if any, is
+    -- the trade, which a Kadrin man is not drawn.
+    local LEGION_DRAWS = {
+        {queue = {1, 1}, culture = "kadrin", slayer = true},
+        {queue = {1, 8, 1, 1}, culture = "grey"},
+        {queue = {1, 8, 2, 1}, culture = "passkeeps"},
+    }
+
+    local function assert_legion_man(man, case, what, key)
+        assert(man, what .. ": nobody was made")
+        local cs = cults(man)
+        assert(#cs == 1 and cs[1] == case.culture,
+            what .. ": wears " .. table.concat(cs, "+") .. ", not " .. case.culture)
+        local bgs = traits_of(man, "derpy_ic_bg_")
+        assert(#bgs == 1, what .. ": wears " .. #bgs .. " trades: " .. table.concat(bgs, ", "))
+        local slayer = bgs[1] == "derpy_ic_bg_dwf_slayer"
+        assert(slayer == (case.slayer == true), what .. ": a " .. case.culture .. " man wears "
+            .. bgs[1] .. (case.slayer and ", not the Slayer" or ", and nobody but a Kadrin man is a Slayer"))
+        assert(IC.R(key or DF).PARTY_OF_BG[IC.bg_of_character(man)] == "legion",
+            what .. ": " .. bgs[1] .. " is no Legion trade")
+    end
+
+    check("cultures: a starting lord made for the Dwarf Legion is a Slayer only when he draws Kadrin", function()
+        for _, case in ipairs(LEGION_DRAWS) do
+            -- ROLLED, so ic_born stamps him; and a court of the Crown alone, which
+            -- reads as unrolled, so seed_land's stamp is all that dresses him.
+            for _, rolled in ipairs({true, false}) do
+                seeding("dwf", function(key, w)
+                    if rolled then
+                        seed_court("dwf", key)
+                    else
+                        make_faction(key, IC.RACES.dwf.subculture,
+                                     {seed_man("dwf", 7101, IC.CROWN)}, {"p_home"})
+                        IC.add_house(key, IC.CROWN)
+                        assert(not IC.court_rolled(key), "the fixture court reads as rolled")
+                    end
+                    IC._seeding[key] = true
+                    rng(case.queue)
+                    IC.seed_step(key, {"legion"}, 1, 0)
+                    assert(#w.returned == 1, #w.returned .. " lords came back from the wound")
+                    local man = IC.character_by_cqi(key, w.returned[1])
+                    assert_legion_man(man, case, case.culture .. (rolled and "" or ", unstamped by ic_born"), key)
+                end)
+            end
+        end
+    end)
+
+    check("cultures: a leader put in the field for the Dwarf Legion is a Slayer only when he draws Kadrin", function()
+        for _, case in ipairs({LEGION_DRAWS[1], LEGION_DRAWS[2]}) do
+            fielding(true, function(pool)
+                turn = 5
+                local crowned = make_character(9640, ANY_SEAT, nil, nil, true)
+                local f = make_faction(DF, IC.RACES.dwf.subculture, {crowned}, {"p_home"})
+                IC.add_house(DF, IC.CROWN)
+                IC.add_house(DF, "temple")
+                IC.add_house(DF, "legion")
+                rng(case.queue)
+                assert(IC.field_leader(DF, "legion"), "no leader was put in the field")
+                local man = f._characters[#f._characters]
+                -- ic_born dealt him to the Temple first (the first party with no
+                -- leader on the list); only the callback puts the Legion's back.
+                assert_legion_man(man, case, "the field leader of " .. case.culture)
+            end)
+        end
+    end)
+
+    check("cultures: an idle Crown lord who takes over the Dwarf Legion is a Slayer only when his culture is Kadrin", function()
+        -- Kadrin already worn; Karaz worn (drawn again for the Legion, 1 of 10 is
+        -- Kadrin); Grey worn, a side culture of the Legion that is kept.
+        local cases = {
+            {worn = "dwf_kadrin", queue = {}, culture = "kadrin", slayer = true},
+            {worn = "dwf_karaz", queue = {1}, culture = "kadrin", slayer = true},
+            {worn = "dwf_grey", queue = {}, culture = "grey"},
+        }
+        for _, case in ipairs(cases) do
+            rng(nil)
+            local legend = make_character(9620, ANY_SEAT, nil, nil, true)
+            local idle = make_character(9621, ANY_SEAT, nil, nil, nil, nil, nil, case.worn)
+            idle._traits[IC.rkey("bg", "kinguard", IC.RACES.dwf)] = true
+            dwarf_court({legend, idle}, "legion")
+            rng(case.queue)
+            IC.ensure_leaders(DF)
+            assert(IC.party_leader(DF, "legion") == 9621, "the idle lord did not take over the Legion")
+            assert_legion_man(idle, case, "the idle lord wearing " .. case.worn)
+            rng(nil)
+        end
+    end)
+
+    check("cultures: a pool lord made for the Dwarf Legion carries the Slayer and Kadrin, or neither", function()
+        local worn, spawned = {}, 0
+        cm.spawn_character_to_pool = function() spawned = spawned + 1; return {} end
+        cm.force_add_trait_to_character_details = function(_, _d, trait) worn[#worn + 1] = trait end
+        local ok, err = pcall(function()
+            for _, case in ipairs(LEGION_DRAWS) do
+                worn, spawned = {}, 0
+                rng(nil)
+                dwarf_court({make_character(9630, ANY_SEAT, nil, nil, true)}, "legion")
+                rng(case.queue)
+                IC.ensure_leaders(DF)
+                assert(spawned == 1, "the pool lord for " .. case.culture .. " was not made")
+                assert(#worn == 2, "the pool lord wears " .. #worn .. " traits: " .. table.concat(worn, ", "))
+                assert(worn[2] == "derpy_ic_cult_dwf_" .. case.culture,
+                    "the pool lord's culture is " .. tostring(worn[2]) .. ", not " .. case.culture)
+                local slayer = worn[1] == "derpy_ic_bg_dwf_slayer"
+                assert(slayer == (case.slayer == true), "a " .. case.culture .. " pool lord wears " .. tostring(worn[1]))
+                if not slayer then
+                    assert(IC.R(DF).PARTY_OF_BG[(string.gsub(worn[1], "^derpy_ic_bg_dwf_", ""))] == "legion",
+                        worn[1] .. " is no Legion trade")
+                end
+            end
+        end)
+        cm.spawn_character_to_pool, cm.force_add_trait_to_character_details = nil, nil
+        rng(nil)
+        if not ok then error(err, 0) end
+    end)
+
+    check("cultures: a Slayer who arrives from another hold loses the trade with the culture, quietly", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local slayer = make_character(9660, ANY_SEAT, nil, nil, nil, nil, nil, "dwf_kadrin")
+        slayer._traits[IC.rkey("bg", "slayer", IC.RACES.dwf)] = true
+        make_faction(DF, IC.RACES.dwf.subculture, {slayer}, {})
+        IC.add_house(DF, IC.CROWN)
+        IC.stamp_incoming(DF, "karaz", 0, {}, 50)
+        assert(#cults(slayer) == 1 and slayer:has_trait("derpy_ic_cult_dwf_karaz"),
+            "he is " .. tostring(cults(slayer)[1]) .. ", not of the hold he came from")
+        local bgs = traits_of(slayer, "derpy_ic_bg_")
+        assert(#bgs == 1 and bgs[1] ~= "derpy_ic_bg_dwf_slayer",
+            "he wears " .. table.concat(bgs, ", ") .. " and is still a Slayer")
+        assert(IC.R(DF).PARTY_OF_BG[IC.bg_of_character(slayer)] == "legion",
+            "he left the Legion with the Slayer trade")
+        assert(traits_shown["cqi:9660=" .. bgs[1]] == false and traits_shown["cqi:9660=derpy_ic_cult_dwf_karaz"] == false,
+            "his new trade or culture raised a Trait Gained card")
+    end)
+
+    check("cultures: a Legion man from the Karak Kadrin hold becomes a Slayer, and no one else does", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        -- A GREY MAN OF THE LEGION; a man already Kadrin and a Slayer; a Karaz man of
+        -- the Temple, who takes the culture and keeps the trade.
+        local grey = make_character(9670, ANY_SEAT, nil, nil, nil, nil, nil, "dwf_grey")
+        grey._traits[IC.rkey("bg", "longbeard", IC.RACES.dwf)] = true
+        local kept = make_character(9671, ANY_SEAT, nil, nil, nil, nil, nil, "dwf_kadrin")
+        kept._traits[IC.rkey("bg", "slayer", IC.RACES.dwf)] = true
+        local temple = make_character(9672, ANY_SEAT, nil, nil, nil, nil, nil, "dwf_karaz")
+        temple._traits[IC.rkey("bg", "shrinekeeper", IC.RACES.dwf)] = true
+        make_faction(DF, IC.RACES.dwf.subculture, {grey, kept, temple}, {})
+        IC.add_house(DF, IC.CROWN)
+        IC.stamp_incoming(DF, "kadrin", 0, {}, 50)
+        assert(grey:has_trait("derpy_ic_cult_dwf_kadrin") and #cults(grey) == 1, "the grey man is " .. tostring(cults(grey)[1]))
+        assert(grey:has_trait("derpy_ic_bg_dwf_slayer") and not grey:has_trait("derpy_ic_bg_dwf_longbeard")
+               and #traits_of(grey, "derpy_ic_bg_") == 1, "the grey man wears " .. table.concat(traits_of(grey, "derpy_ic_bg_"), ", "))
+        assert(traits_shown["cqi:9670=derpy_ic_bg_dwf_slayer"] == false and traits_shown["cqi:9670=derpy_ic_cult_dwf_kadrin"] == false,
+            "his new trade or culture raised a Trait Gained card")
+        assert(kept:has_trait("derpy_ic_cult_dwf_kadrin") and #cults(kept) == 1
+               and #traits_of(kept, "derpy_ic_bg_") == 1 and kept:has_trait("derpy_ic_bg_dwf_slayer"),
+            "a Slayer who was Kadrin already was changed")
+        assert(temple:has_trait("derpy_ic_cult_dwf_kadrin") and #cults(temple) == 1,
+            "the temple man is " .. tostring(cults(temple)[1]))
+        assert(temple:has_trait("derpy_ic_bg_dwf_shrinekeeper") and #traits_of(temple, "derpy_ic_bg_") == 1,
+            "a Kadrin man of the Temple wears " .. table.concat(traits_of(temple, "derpy_ic_bg_"), ", "))
+    end)
+
+    check("cultures: restamp_bg replaces one trade quietly and never a legend's", function()
+        rng(nil)
+        IC.state = {}
+        factions = {}
+        for k in pairs(traits_shown) do traits_shown[k] = nil end
+        local plain = make_character(9680, ANY_SEAT, "forge")
+        local legend = make_character(9681, ANY_SEAT, "forge", nil, true, nil, "wh3_dlc23_chd_gorduz_backstabber")
+        make_faction(F, IC.CHD_SUBCULTURE, {plain, legend}, {})
+        assert(IC.restamp_bg(plain, nil) == false and IC.restamp_bg(nil, "wrangler") == false)
+        assert(IC.restamp_bg(plain, IC.BACKGROUNDS.forge[1]) == false, "the same trade was stamped again")
+        assert(IC.restamp_bg(plain, "wrangler") == true, "a trade was not replaced")
+        assert(IC.bg_of_character(plain) == "wrangler" and #traits_of(plain, "derpy_ic_bg_") == 1,
+            "he wears " .. table.concat(traits_of(plain, "derpy_ic_bg_"), ", "))
+        assert(traits_shown["cqi:9680=derpy_ic_bg_wrangler"] == false, "the new trade raised a card")
+        assert(IC.restamp_bg(legend, "wrangler") == false and legend:has_trait("derpy_ic_bg_" .. IC.BACKGROUNDS.forge[1]),
+            "a legend's trade was replaced")
+    end)
+end
+
+-- CULTURES, task 5: what a governor's culture does to his province.
+do
+    local DF = "wh_main_dwf_dwarfs"
+    -- The Foundry Districts are the Stump's home; the Gorgoth Pits are Gorgoth's.
+    local FOUNDRY = "cr_oldworld_province_foundry_district"
+    local PITS = "cr_oldworld_province_pits_district"
+
+    -- ONE GOVERNOR wearing `culture` (the trait suffix, so "dwf_kadrin" for a
+    -- Dwarf) in `province`, appointed through the model, with the bundles he
+    -- caused recorded in province_applied. Returns the faction key.
+    local function govern(faction_key, subculture, culture, province)
+        IC.state = {}
+        factions = {}
+        rng(nil)
+        province_applied = {}
+        province_removed = {}
+        local man = make_character(9800, ANY_SEAT, nil, province, nil, nil, nil, culture)
+        make_faction(faction_key, subculture, {man}, {province})
+        IC.add_house(faction_key, IC.CROWN)
+        endow(faction_key)
+        assert(IC.assign_governor(faction_key, province, 9800), "the governor was refused")
+        return faction_key
+    end
+
+    local function applied_culture_bundles()
+        local out = {}
+        for key in pairs(province_applied) do
+            if string.find(key, "derpy_ic_gov_cult_", 1, true) or string.find(key, "friction", 1, true) then
+                out[#out + 1] = key
+            end
+        end
+        table.sort(out)
+        return table.concat(out, ",")
+    end
+
+    check("governing: a governor in his culture's home wears the home bundle and nothing else", function()
+        govern(F, IC.CHD_SUBCULTURE, "stump", FOUNDRY)
+        assert(province_applied["derpy_ic_gov_base"], "the base bundle is gone")
+        assert(applied_culture_bundles() == "derpy_ic_gov_cult_home_stump", applied_culture_bundles())
+    end)
+
+    check("governing: in another culture's home he wears his away bundle and the friction", function()
+        govern(F, IC.CHD_SUBCULTURE, "stump", PITS)
+        assert(applied_culture_bundles() == "derpy_ic_gov_cult_stump,derpy_ic_gov_friction", applied_culture_bundles())
+    end)
+
+    check("governing: on a map with no Old World keys every governor is away, with no friction", function()
+        for _, province in ipairs({"prov_a", "wh3_main_combi_province_the_plain_of_zharr", "cr_combi_province_x"}) do
+            govern(F, IC.CHD_SUBCULTURE, "stump", province)
+            assert(province_applied["derpy_ic_gov_base"], province .. ": the base bundle is gone")
+            assert(applied_culture_bundles() == "derpy_ic_gov_cult_stump", province .. ": " .. applied_culture_bundles())
+        end
+    end)
+
+    check("governing: a governor with no culture gives the base bundle and nothing more", function()
+        govern(F, IC.CHD_SUBCULTURE, nil, FOUNDRY)
+        assert(province_applied["derpy_ic_gov_base"], "the base bundle is gone")
+        assert(applied_culture_bundles() == "", applied_culture_bundles())
+        assert(not province_applied["derpy_ic_gov_house_crown"], "the retired party flavour came back")
+    end)
+
+    check("governing: the Dwarf race reads its own provinces and its own keys", function()
+        govern(DF, IC.RACES.dwf.subculture, "dwf_kadrin", "cr_oldworld_province_peak_pass")
+        assert(applied_culture_bundles() == "derpy_ic_gov_cult_home_dwf_kadrin", applied_culture_bundles())
+        govern(DF, IC.RACES.dwf.subculture, "dwf_kadrin", "cr_oldworld_province_agrildrin")
+        assert(applied_culture_bundles() == "derpy_ic_gov_cult_dwf_kadrin,derpy_ic_gov_dwf_friction", applied_culture_bundles())
+        -- A CHAOS DWARF HOME IS NO DWARF HOME.
+        govern(DF, IC.RACES.dwf.subculture, "dwf_kadrin", FOUNDRY)
+        assert(applied_culture_bundles() == "derpy_ic_gov_cult_dwf_kadrin", applied_culture_bundles())
+    end)
+
+    check("governing: a culture of the other race applies nothing", function()
+        govern(DF, IC.RACES.dwf.subculture, "stump", FOUNDRY)
+        assert(province_applied[IC.gov_bundle_base(DF)], "the base bundle is gone")
+        assert(applied_culture_bundles() == "", applied_culture_bundles())
+    end)
+
+    check("governing: every culture bundle comes off the province before the pass re-applies", function()
+        local fk = govern(F, IC.CHD_SUBCULTURE, "stump", FOUNDRY)
+        province_removed = {}
+        IC.apply_governor_bundles(fk)
+        local gone = {}
+        for _, entry in ipairs(province_removed) do gone[entry] = true end
+        local at = "@region_" .. FOUNDRY
+        local count = 0
+        for _, c in ipairs(IC.R(fk).CULTURES) do
+            assert(gone[IC.gov_bundle_culture(c.slug, fk) .. at], c.slug .. " away bundle is never removed")
+            assert(gone[IC.gov_bundle_culture_home(c.slug, fk) .. at], c.slug .. " home bundle is never removed")
+            count = count + 2
+        end
+        assert(gone[IC.gov_bundle_friction(fk) .. at], "the friction bundle is never removed")
+        for _, party in ipairs(IC.R(fk).PARTIES) do
+            assert(gone[IC.gov_bundle_house(party, fk) .. at], party .. " party flavour of an old save is never removed")
+        end
+        assert(count == 16)
+    end)
+end
+
+-- CULTURES, task 6: a man's culture beats his party on a law.
+do
+    -- On the Ash Harvest (labour.ash) the Legion is for and the Ledger against.
+    -- Gash Kadrak is for it, the Mines of Mingol against, the Heart of Zharrduk
+    -- has no stance.
+    local function man_of(tally, cqi)
+        for _, m in ipairs(tally.men) do
+            if m.cqi == cqi then return m end
+        end
+        return nil
+    end
+
+    check("culture laws: every stance names a culture of its race and an option, on one side only", function()
+        for _, key in ipairs(IC.RACE_ORDER) do
+            local R = IC.RACES[key]
+            local seen = {}
+            for _, c in ipairs(R.CULTURES) do seen[c.slug] = {pro = 0, con = 0} end
+            for _, cat in ipairs(R.LAW_ORDER) do
+                for i, opt in ipairs(R.LAWS[cat].order) do
+                    local o = R.LAWS[cat].opts[opt]
+                    if i == 1 then
+                        assert(not o.cpro and not o.ccon, key .. " " .. cat .. "." .. opt .. ": the start option has a stance")
+                    end
+                    local here = {}
+                    for _, side in ipairs({"cpro", "ccon"}) do
+                        for _, slug in ipairs(o[side] or {}) do
+                            assert(seen[slug], key .. " " .. cat .. "." .. opt .. ": " .. slug .. " is no culture of the race")
+                            assert(not here[slug], key .. " " .. cat .. "." .. opt .. ": " .. slug .. " is listed twice")
+                            here[slug] = true
+                            local count = side == "cpro" and "pro" or "con"
+                            seen[slug][count] = seen[slug][count] + 1
+                        end
+                    end
+                end
+            end
+            for slug, n in pairs(seen) do
+                assert(n.pro >= 2 and n.con >= 1, key .. " " .. slug .. " is for " .. n.pro .. " and against " .. n.con)
+            end
+        end
+    end)
+
+    check("culture laws: a man votes his culture's side, and a culture with no stance leaves him with his party", function()
+        local court = law_court({{"legion", 100, nil, "mines"}, {"legion", 60, nil, "zharr"},
+                                 {"ledger", 50, nil, "gash"}, {"ledger", 30}})
+        law_vote(court, "ash", "aye")
+        local t = IC.law_tally(F, "labour")
+        local a, b, c, d = man_of(t, 9001), man_of(t, 9002), man_of(t, 9003), man_of(t, 9004)
+        assert(a.side == "nay" and a.why == "against", "the Mines man in the Legion: " .. tostring(a.side))
+        assert(b.side == "aye" and b.why == "for", "a culture with no stance moved the Legion man: " .. tostring(b.side))
+        assert(c.side == "aye" and c.why == "for", "the Gash man in the Ledger: " .. tostring(c.side))
+        assert(d.side == "nay" and d.why == "against", "a Ledger man with no culture: " .. tostring(d.side))
+        assert(t.aye == 60 + 50 and t.nay == 100 + 30, "aye " .. t.aye .. " nay " .. t.nay)
+        assert(a.culture == "mines" and d.culture == nil, "the tally dropped the culture")
+    end)
+
+    check("culture laws: a culture stance beats the loyalty rule for a party with no stance", function()
+        -- The Temple has no stance on the Ash Harvest, so a Temple man with no culture
+        -- follows his party's loyalty; one of the Mines votes against it whatever it is.
+        local court = law_court({{"crown", 10}, {"temple", 100}, {"temple", 70, nil, "mines"}},
+                                {crown = 10, legion = 10, ledger = 10, temple = 10})
+        law_vote(court, "ash", "aye")
+        court.houses.temple.loyalty = IC.TUNE.law_loyal_line
+        local t = IC.law_tally(F, "labour")
+        assert(man_of(t, 9002).side == "aye" and man_of(t, 9002).why == "loyal", "a loyal Temple man")
+        assert(man_of(t, 9003).side == "nay" and man_of(t, 9003).why == "against", "the Mines man in the Temple")
+        court.houses.temple.loyalty = IC.TUNE.law_disloyal_line
+        t = IC.law_tally(F, "labour")
+        assert(man_of(t, 9002).side == nil and man_of(t, 9003).side == "nay",
+            "a torn Temple party drew its Mines man with it")
+    end)
+
+    check("culture laws: the Crown's man votes as the Crown whatever his culture says", function()
+        local court = law_court({{"crown", 100, nil, "mines"}, {"crown", 40, nil, "gash"}})
+        law_vote(court, "ash", "aye")
+        local t = IC.law_tally(F, "labour")
+        assert(t.aye == 140 and t.nay == 0, "aye " .. t.aye .. " nay " .. t.nay)
+        court.votes.labour.stance = "abstain"
+        t = IC.law_tally(F, "labour")
+        assert(t.aye == 0 and t.nay == 0 and t.abstain == 140, "an abstaining Crown's men voted: " .. t.aye .. "/" .. t.nay)
+    end)
+
+    check("culture laws: a culture of the other race is no culture of this court", function()
+        local court = law_court({{"legion", 100, nil, "dwf_deeps"}})
+        law_vote(court, "ash", "aye")
+        local m = man_of(IC.law_tally(F, "labour"), 9001)
+        assert(m.culture == nil and m.side == "aye", "a Dwarf culture was read in a Chaos Dwarf court: " .. tostring(m.culture))
+    end)
+
+    check("culture laws: a push multiplies the men on their party's line and not the man whose culture votes against it", function()
+        local court = law_court({{"legion", 100}, {"legion", 40, nil, "mines"}, {"legion", 30, nil, "gash"}})
+        local v = law_vote(court, "ash", "nay")
+        v.push.legion = 2
+        local t = IC.law_tally(F, "labour")
+        local mult = IC.TUNE.law_push_mult[2]
+        local a, b, c = man_of(t, 9001), man_of(t, 9002), man_of(t, 9003)
+        assert(a.side == "aye" and a.level == 2 and a.w == math.floor(100 * mult / 100), "the party man: " .. a.w)
+        assert(b.side == "nay" and b.level == nil and b.w == 40, "the Mines man was pushed: " .. b.w)
+        assert(c.side == "aye" and c.level == 2 and c.w == math.floor(30 * mult / 100), "the Gash man: " .. c.w)
+    end)
+
+    check("culture laws: the vote panel shows the push only on the block that carries it", function()
+        local court = law_court({{"crown", 10}, {"legion", 100}, {"legion", 40, nil, "mines"}})
+        local v = law_vote(court, "ash", "aye")
+        v.push.legion = 2
+        local groups = ICUI.law_groups(IC.law_tally(F, "labour"))
+        assert(#groups.aye == 2 and #groups.nay == 1, "blocks: " .. #groups.aye .. " aye, " .. #groups.nay .. " nay")
+        local legion_aye = nil
+        for _, g in ipairs(groups.aye) do if g.party == "legion" then legion_aye = g end end
+        assert(legion_aye and legion_aye.level == 2, "the Legion's aye block lost its push")
+        assert(groups.nay[1].party == "legion" and groups.nay[1].level == 0, "the dissenters wear the party's push")
+        with_fake_panel(function(panel)
+            ICUI.view, ICUI.law_cat = "laws", "labour"
+            ICUI.refresh()
+            local ayes = panel.children[ICUI.LAWBLOCK .. "_1"].children.ic_lb_level.text
+            local nays = panel.children[ICUI.LAWBLOCK .. "_" .. (ICUI.LB_PER_SIDE + 1)].children.ic_lb_level.text
+            -- BLOCK 1 IS THE LEGION'S AYE BLOCK, pushed to level 2.
+            assert(string.find(ayes, "x2"), "the Legion's pushed block shows no push: " .. tostring(ayes))
+            assert(not string.find(nays, "x%d"), "the dissenters' block shows a multiplier: " .. tostring(nays))
+        end)
+        gov_done()
+    end)
+
+    check("culture laws: a man's price is doubled by his own stance, and a man his culture sides with you cannot be won", function()
+        local weights = {crown = 10, legion = 10, ledger = 10, temple = 10}
+        local court = law_court({{"crown", 2000}, {"temple", 200, nil, "mines"}, {"temple", 200},
+                                 {"legion", 200, nil, "mines"}, {"ledger", 200, nil, "gash"}}, weights)
+        law_vote(court, "ash", "aye")
+        court.houses.temple.loyalty = 50
+        for cqi = 9002, 9005 do court.ambition[cqi] = "cautious" end
+        local base = math.floor(200 * IC.TUNE.law_win_rate * IC.TUNE.law_win_ambition.cautious / 10000)
+        -- A TEMPLE MAN WITH A CULTURE AGAINST: the Temple has no stance, his culture does.
+        assert(IC.law_win_price(F, "labour", 9002) == 2 * base,
+            "the Mines man in the Temple costs " .. tostring(IC.law_win_price(F, "labour", 9002)))
+        assert(IC.law_win_price(F, "labour", 9003) == base,
+            "a torn Temple man with no culture costs " .. tostring(IC.law_win_price(F, "labour", 9003)))
+        -- A LEGION MAN WHOSE CULTURE IS AGAINST: his party is for you, he is not.
+        assert(IC.law_win_price(F, "labour", 9004) == 2 * base,
+            "the Mines man in the Legion costs " .. tostring(IC.law_win_price(F, "labour", 9004)))
+        -- A LEDGER MAN WHOSE CULTURE IS FOR: already voting your way.
+        local p, why = IC.law_win_price(F, "labour", 9005)
+        assert(p == nil and why == "law_with_you", "the Gash man in the Ledger: " .. tostring(p) .. " " .. tostring(why))
+        gov_done()
+    end)
+
+    check("culture laws: a passed law moves a party by how its men voted, rounding the half away from zero", function()
+        local court = law_court({{"crown", 500}, {"legion", 60}, {"legion", 40, nil, "mines"}, {"ledger", 80}})
+        law_vote(court, "ash", "aye")
+        local l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+        assert(IC.law_settle(F, "labour", true), "the law did not pass")
+        assert(court.houses.legion.loyalty == l0 + 1, "a 60/40 Legion moved " .. (court.houses.legion.loyalty - l0))
+        assert(court.houses.ledger.loyalty == d0 + IC.TUNE.law_pass_loss, "a united Ledger moved "
+            .. (court.houses.ledger.loyalty - d0))
+        gov_done()
+        court = law_court({{"crown", 500}, {"legion", 75}, {"legion", 25, nil, "mines"},
+                           {"ledger", 75}, {"ledger", 25, nil, "gash"}})
+        law_vote(court, "ash", "aye")
+        l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+        assert(IC.law_settle(F, "labour", true), "the law did not pass")
+        assert(court.houses.legion.loyalty == l0 + 3, "a 75/25 Legion moved " .. (court.houses.legion.loyalty - l0))
+        assert(court.houses.ledger.loyalty == d0 - 3, "a 25/75 Ledger moved " .. (court.houses.ledger.loyalty - d0))
+        gov_done()
+        -- BELOW THE HALF: a 50/30 Legion is a quarter share of the step, 1.25,
+        -- which rounds to 1 and not up to 2.
+        court = law_court({{"crown", 500}, {"legion", 50}, {"legion", 30, nil, "mines"}})
+        law_vote(court, "ash", "aye")
+        l0 = court.houses.legion.loyalty
+        assert(IC.law_settle(F, "labour", true), "the law did not pass")
+        assert(court.houses.legion.loyalty == l0 + 1, "a 50/30 Legion moved " .. (court.houses.legion.loyalty - l0))
+        gov_done()
+    end)
+
+    check("culture laws: a party none of whose men voted keeps the flat step", function()
+        -- Only the Crown has a man here, so the Legion and the Ledger have no vote to read.
+        local court = law_court({{"crown", 500}})
+        law_vote(court, "ash", "aye")
+        local l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+        assert(IC.law_settle(F, "labour", true), "the law did not pass")
+        assert(court.houses.legion.loyalty == l0 + IC.TUNE.law_pass_gain, "the Legion moved "
+            .. (court.houses.legion.loyalty - l0))
+        assert(court.houses.ledger.loyalty == d0 + IC.TUNE.law_pass_loss, "the Ledger moved "
+            .. (court.houses.ledger.loyalty - d0))
+        gov_done()
+    end)
+
+    check("culture laws: the Crown's swing is the law's own, whichever way its men voted", function()
+        -- The Crown is against Open Roads (tribute.roads) and its man votes aye: the
+        -- house still pays, because its men speak for the player and not for it.
+        local court = law_court({{"crown", 500}, {"road", 100}}, {crown = 10, road = 10})
+        court.votes.tribute = {option = "roads", proposer = IC.CROWN, ends = turn,
+                               stance = "aye", won = {}, push = {}}
+        local c0, r0 = court.houses.crown.loyalty, court.houses.road.loyalty
+        assert(IC.law_settle(F, "tribute", true), "Open Roads did not pass")
+        assert(court.houses.crown.loyalty == c0 + IC.TUNE.law_pass_loss, "the Crown moved "
+            .. (court.houses.crown.loyalty - c0))
+        assert(court.houses.road.loyalty == r0 + IC.TUNE.law_pass_gain, "the Roads party moved "
+            .. (court.houses.road.loyalty - r0))
+        gov_done()
+    end)
+end
+
+-- CULTURES, task 7: the governor picker names a man's culture, and the Help page says so.
+do
+    local FOUNDRY = "cr_oldworld_province_foundry_district"
+    local PITS = "cr_oldworld_province_pits_district"
+
+    -- THE PICKER LINE OF ONE CANDIDATE for a governor pick on `province`.
+    local function picker_line(cqi, province)
+        ICUI.pick = {kind = "gov", key = province}
+        local lines = ICUI.picker_lines(F, IC.court(F))
+        ICUI.pick = nil
+        for _, line in ipairs(lines) do
+            if line.sort.cqi == cqi then return line end
+        end
+        return nil
+    end
+
+    check("culture picker: a candidate's line speaks for home, a foreign province and any other", function()
+        IC.state = {}
+        local men = {make_character(3601, ANY_SEAT, "legion", nil, nil, nil, nil, "stump")}
+        make_faction(F, IC.CHD_SUBCULTURE, men, {FOUNDRY, PITS, "prov_x"})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "legion")
+        local seeded = IC_TEST_LOC
+        IC_TEST_LOC = {derpy_ic_cult_gov_stump = "AWAY LINE", derpy_ic_cult_gov_home_stump = "HOME LINE",
+                       derpy_ic_cult_gov_foreign_stump = "FOREIGN LINE"}
+        local ok, err = pcall(function()
+            assert(picker_line(3601, FOUNDRY).culture == "HOME LINE", "the Foundry Districts are his home")
+            assert(picker_line(3601, PITS).culture == "FOREIGN LINE", "the Gorgoth Pits are another culture's home")
+            assert(picker_line(3601, "prov_x").culture == "AWAY LINE", "a province on no list is away")
+            -- AND THE COLUMN'S CARD CARRIES IT in its tooltip, between the refusal and the influence.
+            ICUI.pick = {kind = "gov", key = FOUNDRY}
+            local rows = ICUI.gm_picker_rows(F)
+            ICUI.pick = nil
+            assert(#rows == 1 and string.find(rows[1].tip, "HOME LINE", 1, true),
+                "the card's tooltip hides the culture line: " .. tostring(rows[1] and rows[1].tip))
+        end)
+        IC_TEST_LOC = seeded
+        ICUI.pick = nil
+        assert(ok, err)
+    end)
+
+    check("culture picker: no culture, or another race's, gives no line, and the Dwarf court reads its own keys", function()
+        IC.state = {}
+        local DF = "wh_main_dwf_dwarfs"
+        local plain = make_character(3602, ANY_SEAT, "legion")
+        local foreign = make_character(3603, ANY_SEAT, "legion", nil, nil, nil, nil, "dwf_deeps")
+        make_faction(F, IC.CHD_SUBCULTURE, {plain, foreign}, {FOUNDRY})
+        IC.add_house(F, IC.CROWN)
+        IC.add_house(F, "legion")
+        local seeded = IC_TEST_LOC
+        IC_TEST_LOC = {derpy_ic_cult_gov_home_dwf_kadrin = "DWARF HOME LINE",
+                       derpy_ic_cult_gov_dwf_kadrin = "DWARF AWAY LINE",
+                       derpy_ic_cult_gov_deeps = "WRONG RACE LINE", derpy_ic_cult_gov_home_deeps = "WRONG RACE LINE",
+                       derpy_ic_cult_gov_foreign_deeps = "WRONG RACE LINE"}
+        local ok, err = pcall(function()
+            assert(picker_line(3602, FOUNDRY).culture == nil, "a man with no culture got a line")
+            assert(picker_line(3603, FOUNDRY).culture == nil, "a Dwarf culture got a line in a Chaos Dwarf court")
+            local kadrin = make_character(3604, ANY_SEAT, nil, nil, nil, nil, nil, "dwf_kadrin")
+            make_faction(DF, IC.RACES.dwf.subculture, {kadrin}, {})
+            assert(ICUI.culture_line(DF, kadrin, "cr_oldworld_province_peak_pass") == "DWARF HOME LINE",
+                "the Dwarf court did not read its own home line")
+            assert(ICUI.culture_line(DF, kadrin, FOUNDRY) == "DWARF AWAY LINE",
+                "a Chaos Dwarf home was read as a Dwarf one")
+        end)
+        IC_TEST_LOC = seeded
+        ICUI.pick = nil
+        assert(ok, err)
+    end)
+
+    check("culture help: the retired party claim is gone and the court, governors and laws pages name the culture", function()
+        local want = {["The court"] = true, Governors = true, Laws = true}
+        for _, topic in ipairs(ICUI.HELP) do
+            for _, line in ipairs(topic.lines) do
+                assert(not string.find(line, "party adds its own bonus", 1, true),
+                    topic.title .. " still says a party gives a governor a bonus")
+            end
+            if want[topic.title] then
+                local hit = false
+                for _, line in ipairs(topic.lines) do
+                    if string.find(line, "culture", 1, true) then hit = true end
+                end
+                assert(hit, topic.title .. " says nothing of culture")
+                want[topic.title] = nil
+            end
+        end
+        assert(next(want) == nil, "no help topic is called " .. tostring(next(want)))
+    end)
+end
 
 check("no engine setter was ever handed anything but a boolean", function()
     -- LAST, so it has seen every draw every other check drove. See IC_NEED_BOOL.
