@@ -42,8 +42,10 @@ machine. The model answers through `IC.after_op`, which the panel shows only to 
 who clicked. One action is in flight at a time. None of this has been tried on two machines
 yet.
 
-**Coverage is the Chaos Dwarf subculture** (`IC.is_chd`, `wh3_dlc23_sc_chd_chaos_dwarfs`).
-Every such faction, human or AI, runs `IC.turn` at its turn start. The panel, event cards,
+**Coverage is two subcultures**, Chaos Dwarf and Dwarf: `IC.race_of` reads a faction's
+subculture against `IC.RACES`, and `IC.has_court` also asks the race's MCT switch (the Dwarfs'
+is `dwarf_courts`). Every such faction runs `IC.turn` at its turn start, an AI one while the AI
+courts switch is on (`IC.runs_court`, on by default). The panel, event cards,
 the rival parties' acts, overseer experience and pressure are for human factions only.
 
 **Membership is derived, never stored.** A man's party is read off his background trait
@@ -69,7 +71,7 @@ only), tick secession, check the Crown for a split, save.
 | `ic_mp` | `UITrigger` | Runs a panel action sent through `IC.mp_send`, on every machine. |
 | `ic_live_tune` | `MctFinalized` | Re-reads the six live switches (single player only). |
 | `ic_confed` | `FactionJoinsConfederation` | Stamps the arriving men and seats their faction as a party. |
-| `ic_born` | `CharacterCreated` | Stamps a new man's origin and background; completes a hire. |
+| `ic_born` | `CharacterCreated` | Stamps a new man's origin, trade and culture; completes a hire. |
 | `ic_battle` | `CharacterCompletedBattle` | Influence for the winner, loyalty for his party. |
 | `ic_took` | `GarrisonOccupiedEvent` | Influence for taking a settlement. |
 | `ic_rank` | `CharacterRankUp` | Influence per rank gained. |
@@ -221,7 +223,7 @@ Run everything from the repo root. Several tools hard-code the game at
 | Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 30 files, 1914 components` (2026-10-06). |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
-| Release | `py tools/check_ic_release.py`, `--pack`, `--selftest` | Both races at 1600, 1920 and 2560: text fit and backdrop contrast. `--pack` also reads the saved pack with RPFM shut and compares every table with `gen_iron_court.build()`, and every row and loc line of F4C63911 (found by MD5 under `Modding Files/Backup/`) with the new pack. |
+| Release | `py tools/check_ic_release.py`, `--pack`, `--selftest` | Both races at 1600, 1920 and 2560: text fit and backdrop contrast. `--pack` also reads the saved pack with RPFM shut and compares every table with `gen_iron_court.build()`, and every row and loc line of the reviewed snapshot `SNAPSHOT_MD5` pins (F5CF88CB since 2026-10-16; the file lives under `Modding Files/Backup/`, so a clone has none and `--pack` cannot run there) with the new pack. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |
 | Pack | `py tools/deploy_iron_court.py --no-copy` | Needs RPFM's MCP server. Runs the gate, refuses duplicate keys, creates the pack, imports every table the generator declares, adds scripts, layouts and art, saves to `Modding Files/Modpacks/`, then re-reads the saved pack and refuses if any expected file is missing. |
 | Deploy | `py tools/deploy_iron_court.py` | The same, then copies into `data/`. Refuses while `Warhammer3` is running. |

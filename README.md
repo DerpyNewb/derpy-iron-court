@@ -38,9 +38,17 @@ A rolled party takes a Chaos Dwarf name such as *Covenant of the Iron Oath*. It 
 traits for life and a leader, whose own trait is its third. A man belongs to a party by his
 background, a trait on his character; a man whose party is not in this court sits with the
 Crown. A second trait names the party he sits with now, and changes when it does. Each kind
-of trait wears its own picture: the party's sigil, the place he comes from, his office, his
-influence or his ambition. A Chaos Dwarf faction that confederates into yours brings its men
-in as a party of their own.
+of trait wears its own picture: the party's sigil, his culture, his office, his influence or
+his ambition. A Chaos Dwarf faction that confederates into yours brings its men in as a party
+of their own.
+
+**Cultures.** Every lord is dealt one of eight cultures for his race; a legendary lord's is
+fixed. His culture feeds one main party and one side party. As a governor, it gives his
+province two benefits and a drawback. On the Old World map the benefits are half as strong
+again, rounded up, in a province his culture calls home, and a province another culture calls
+home loses 4 Control while he governs it. His culture also gives him a stance on some laws, so
+a party's loyalty moves with how its men voted. At Karak Kadrin, a man in the Dwarf Legion is
+a Slayer.
 
 ## How it plays
 
@@ -49,7 +57,7 @@ in as a party of their own.
   a small amount each turn while he is not leading an army. Your moves at court are paid
   for out of it.
 - **The court's share.** A party's share of the court comes from the offices and provinces
-  its men hold and the influence they carry. Each man is Cautious, Steady or Ambitious,
+  its men hold and the influence they carry. Each man is Cautious, Content or Aspiring,
   which scales what his influence adds.
 - **Five bands for the Crown.** Your own share sets a faction-wide effect: An Iron Grip
   (75% and up), Master of the Court (60%), In Command (40%), A Contested Court (10%) and The
@@ -58,7 +66,8 @@ in as a party of their own.
 - **Fourteen offices in four tiers.** Each gives the faction a bonus, and an empty one costs
   a little. A seat asks for rank and influence, is held for a ten-turn term, and is lost if
   its holder's influence falls below the bar. When a term ends, the same man cannot take
-  that seat again for three turns, and his party is not rewarded when he does. Giving a
+  that seat again for three turns (one under the Conclave and the Council of Elders), and his
+  party is not rewarded when he does. Giving a
   party's claimed office to an outsider angers the party every turn he sits there. Officers
   are recruited from the recruitment panel like any lord or hero, and Fill Empty Seats
   fills every empty seat by the court's own rules, listing its choices before you click.
