@@ -2888,8 +2888,8 @@ end"""),
      """    for _, list in ipairs({other, claimed}) do"""),
 
     ("a demand naming a province a rival holds", P,
-     """        if not holder or IC.house_of_cqi(faction_key, holder) == IC.CROWN then""",
-     """        if true then"""),
+     """           and (not holder or IC.house_of_cqi(faction_key, holder) == IC.CROWN) then""",
+     """           then"""),
 
     ("a demand naming a man who fails can_appoint", P,
      """                if IC.can_appoint(faction_key, office_slug, cqi) then""",
@@ -3110,7 +3110,7 @@ end"""),
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        local _, why = IC.demand_state(faction_key, d)
+        local why = reason or select(2, IC.demand_state(faction_key, d))
         IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end""",
      """    if outcome == "met" then
@@ -3124,7 +3124,7 @@ end"""),
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        local _, why = IC.demand_state(faction_key, d)
+        local why = reason or select(2, IC.demand_state(faction_key, d))
         IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end
     IC.feed(faction_key, "party_demand_refused")"""),
@@ -4141,10 +4141,8 @@ end"""),
      """    IC.end_feuds(faction_key)"""),
     ("a gone party's feud left running", P,
      """    IC.end_feuds(faction_key)
-    IC.save_agenda(faction_key)
-end""",
-     """    IC.save_agenda(faction_key)
-end"""),
+    -- ITS CLAIMS:""",
+     """    -- ITS CLAIMS:"""),
     ("a plotter never told his seat is at stake", M,
      """        if cqi == actor_cqi and office and after < IC.tier_influence(office.tier) then""",
      """        if false then"""),
@@ -4289,8 +4287,8 @@ end"""),
      """    local move = IC.plot_by_key(name)"""),
     # A Dwarf bar reads Insult and Cast Out, and its Record "You insulted them".
     ("a Dwarf Help page naming Provoke and Purge on the bar", D,
-     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Cast Out.",""",
-     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge.","""),
+     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Cast Out and {@dig}Use a Secret.",""",
+     """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Purge and {@dig}Use a Secret.","""),
     ("a Dwarf Help page saying a count was provoked", D,
      """        "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",""",
      """        "{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty.","""),
@@ -4710,10 +4708,10 @@ end"""),
      """            .. "he returns. At rank %d he would add +%d control and +%d%% \"""",
      """            .. "he returns. At rank %d he would add +%d public order and +%d%% \""""),
     ("a gone party's business cleared and never saved", P,
-     """    IC.end_feuds(faction_key)
+     """    IC.claims_void(faction_key)
     IC.save_agenda(faction_key)
 end""",
-     """    IC.end_feuds(faction_key)
+     """    IC.claims_void(faction_key)
 end"""),
     # THE GRACE PERIOD.
     ("the grace period one turn short", M,
@@ -4751,8 +4749,8 @@ end"""),
             and IC.grace_left() > 0 then""",
      """    if plot_key == "provoke" and IC.grace_left() > 0 then"""),
     ("Provoke's refusal counting the wrong turns", U,
-     '            .. "countdown cannot begin yet.", left, left == 1 and "" or "s")',
-     '            .. "countdown cannot begin yet.", 10, left == 1 and "" or "s")'),
+     '            .. "or war vote can begin yet.", left, left == 1 and "" or "s")',
+     '            .. "or war vote can begin yet.", 10, left == 1 and "" or "s")'),
     ("the protection said to last one turn longer", U,
      """            .. "for %d more turn%s.", grace, grace == 1 and "" or "s")""",
      """            .. "for %d more turn%s.", grace + 1, grace == 1 and "" or "s")"""),
@@ -5764,7 +5762,7 @@ end"""),
                 if spare > 0 then
                     men[#men + 1] = {cqi = cqi, spare = spare}"""),
     ("law: switched off, the votes stay", M,
-     """    if IC.TUNE.laws == false then IC.court(faction_key).votes = {} end""",
+     """            if cat ~= IC.COUNCIL then court.votes[cat] = nil end""",
      """"""),
     ("law: an AI court wears a law", M,
      """function IC.laws_on(faction_key)
@@ -6288,10 +6286,10 @@ end"""),
         if vote.stance == "abstain" then return nil, "crown" end
         return vote.stance, "crown"
     end
-    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
-    if s then return s, s == "aye" and "for" or "against" end''',
-     '''    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
-    if s then return s, s == "aye" and "for" or "against" end
+    local s, why = IC.vote_stance(faction_key, category, vote.option, party, culture)
+    if s then return s, why end''',
+     '''    local s, why = IC.vote_stance(faction_key, category, vote.option, party, culture)
+    if s then return s, why end
     if party == IC.CROWN then
         if vote.stance == "abstain" then return nil, "crown" end
         return vote.stance, "crown"
@@ -6306,8 +6304,8 @@ end"""),
      '''    local level = g.won and 0 or g.level''',
      '''    local level = g.won and 0 or ((vote.push or {})[g.party] or 0)'''),
     ("culture: a price follows the party's stance", M,
-     '''    local s = IC.man_stance(category, vote.option, man.party, man.culture, faction_key)''',
-     '''    local s = IC.law_stance(category, vote.option, man.party, faction_key)'''),
+     '''    local s = IC.vote_stance(faction_key, category, vote.option, man.party, man.culture)''',
+     '''    local s = IC.vote_stance(faction_key, category, vote.option, man.party)'''),
     ("culture: the Crown's swing follows its men", M,
      '''    if slug == IC.CROWN then return flat end''',
      ''''''),
@@ -6329,6 +6327,641 @@ end"""),
     ("culture: a legend's corrected trade shows a card", M,
      '''        cm:force_add_trait(lookup, IC.bg_trait(want.bg), false)''',
      '''        cm:force_add_trait(lookup, IC.bg_trait(want.bg), true)'''),
+
+    # =====================================================================
+    # THE WAR COUNCIL, CLAIMS ON CONQUERED LAND AND SECRETS
+    # (docs/superpowers/specs/2026-10-17-iron-court-war-claims-secrets-design.md).
+    # Every name carries `war:`, `claim:` or `secret:`, so
+    #     py tools/mutate_iron_court.py war: claim: secret:
+    # runs just these. Several were first run as spot mutants against a copy of
+    # the file by the task that wrote the rule; the ones kept here are the ones
+    # that failed a check the day they were written, re-aimed at the code as it
+    # ships now. A survivor is a missing check, not an unfair mutant.
+    # =====================================================================
+
+    # War: what the court knows of a target, and whose line it is.
+    # THE FIRST FACT THAT HOLDS IS THE PARTY'S LINE. Walked from the far end the
+    # list answers the last one, which differs only for a party two of whose facts
+    # both hold: the Priesthood's foe and kin, on an old enemy of its own race.
+    ("war: the last matching fact decides a party's line", M,
+     '''    for i = 1, #lines do
+        if facts[lines[i][1]] then return lines[i][2], lines[i][1] end
+    end''',
+     '''    for i = #lines, 1, -1 do
+        if facts[lines[i][1]] then return lines[i][2], lines[i][1] end
+    end'''),
+
+    # WEAK IS THE OTHER SIDE'S ARMIES BEING FEWER, strong the reverse: swapped, the
+    # Forge wants a war on whoever outguns it and the Ledger shies from the weak.
+    ("war: weak and strong swapped", M,
+     '''        out.weak = theirs < mine or nil
+        out.strong = theirs > mine or nil''',
+     '''        out.weak = theirs > mine or nil
+        out.strong = theirs < mine or nil'''),
+
+    # THE REACTION READS THE TURN'S SNAPSHOT because declaring war ended the trade
+    # agreement before the court heard of it. Read live, the Ledger never sees the
+    # customer it just lost.
+    ("war: a reaction reads trade live, after the declaration ended it", M,
+     '''                local line, fact = IC.war_line(faction_key, target_key, slug, true)''',
+     '''                local line, fact = IC.war_line(faction_key, target_key, slug)'''),
+
+    # AND THE BORDER FROM THE CACHE: the map is walked once a turn, not once a
+    # fact. Read live every time, a vote tally on forty candidates walks it forty
+    # times and a conquest mid-turn moves who is next door under an open vote.
+    ("war: the border walked live on every fact", M,
+     '''    out.near = seen.near[target_key] or nil''',
+     '''    out.near = war_near(own)[target_key] or nil'''),
+
+    # War: the reaction to a declaration the player made without asking.
+    # THE COURT'S OWN WAR IS FREE. The flag goes up before the call because the
+    # declaration event is raised inside it; set after, the court punishes the
+    # war it voted for.
+    ("war: the court's own war flagged after the declaration", M,
+     '''        court.war_free[war.target] = now
+        cm:force_declare_war(faction_key, war.target, false, false)''',
+     '''        cm:force_declare_war(faction_key, war.target, false, false)
+        court.war_free[war.target] = now'''),
+
+    # ONE DECLARATION PULLS ITS TARGET'S ALLIES IN as events of their own, in the
+    # same moment. Without the once-a-turn guard each is a war and each charges.
+    ("war: a party reacts again to the same turn's second war", M,
+     '''            if l.side == side and IC._war_reacted[key] ~= now
+               and not''',
+     '''            if l.side == side
+               and not'''),
+
+    # AND THE MARK IS EVERY PARTY'S, the ones with no line too: marking only the
+    # parties that were charged lets the allies' events charge the parties that had
+    # nothing to say about the first.
+    ("war: a declaration marks only the parties that had a line", M,
+     '''            IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now''',
+     '''            if IC.war_line(faction_key, target_key, slug, true) then
+                IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now
+            end'''),
+
+    # A PEACE IS NO WAR: one stamp for both kinds, and a war after a peace the same
+    # turn (or a peace after a war) moves nobody.
+    ("war: a peace and a war share one stamp", M,
+     '''            local key = faction_key .. "|" .. l.slug .. "|" .. kind''',
+     '''            local key = faction_key .. "|" .. l.slug'''),
+
+    ("war: a free war stamps the peace too", M,
+     '''            IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now''',
+     '''            IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now
+            IC._war_reacted[faction_key .. "|" .. slug .. "|peace"] = now'''),
+
+    # THE FLAG READ: ignored, the court's own war is charged as an unasked one.
+    ("war: the court's own war charged as an unasked one", M,
+     '''    if free then
+        settled()
+        return false''',
+     '''    if false then
+        settled()
+        return false'''),
+
+    # ANY WAR THE COURT DECLARED TODAY is free: keyed on the target again, an ally's
+    # event heard before the target's charges the court for its own war.
+    ("war: the free war keyed on its target", M,
+     '''        if at == now then free = true end''',
+     '''        if at == now and _target == target_key then free = true end'''),
+
+    # TODAY'S, not any day's: the flags are saved and never cleared.
+    ("war: a free war on any turn frees today's", M,
+     '''        if at == now then free = true end''',
+     '''        if at then free = true end'''),
+
+    # A war the player makes while one is planned or open.
+    ("war: declaring the war the court is voting on leaves the vote open", M,
+     '''        IC.council_settle(faction_key, true, "bypass")
+''', ""),
+
+    # THE BYPASS CLOSES THE VOTE PASSED AND PLANS NOTHING: the war is already on.
+    ("war: a bypassed vote plans the war anyway", M,
+     '''        if how ~= "bypass" then
+            local tally''',
+     '''        if true then
+            local tally'''),
+
+    # A BYPASS IS NOT A VOTE PASSED, and the Record must not say it was.
+    ("war: a bypassed vote's Record line reads passed", M,
+     '''            IC.log(faction_key, "war_bypass", vote.proposer, target, 0)''',
+     '''            IC.log(faction_key, "law_pass", vote.proposer, key, 0)'''),
+
+    ("war: a planned war started early leaves no Record line", M,
+     '''        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)
+''', ""),
+
+    ("war: the unasked war raises no card", M,
+     '''    IC.feed(faction_key, "war_unasked", "factions_screen_name_" .. target_key)
+''', ""),
+
+    # PEACE MOVES THE PARTIES THE OTHER WAY from a war: the ones that wanted the war
+    # lose, the ones that did not gain.
+    ("war: peace moves the parties the wrong way", M,
+     '''pay("aye", -IC.TUNE.war_peace_loyalty) + pay("nay", IC.TUNE.war_peace_loyalty)''',
+     '''pay("aye", IC.TUNE.war_peace_loyalty) + pay("nay", -IC.TUNE.war_peace_loyalty)'''),
+
+    # A WAR BORNE BY A CONFEDERATION is not one the player declared.
+    ("war: a war a confederation brought along is charged", M,
+     '''            if not context:is_war() or context:result_of_confederation() then return end''',
+     '''            if not context:is_war() then return end'''),
+
+    # ONLY A PLAYER'S COURT HEARS OF IT: an AI faction's declarations are every
+    # turn's business and would charge a court that never had a say.
+    ("war: the court answers a war an AI faction declared", M,
+     '''    if not (IC.council_on() and IC.is_human(faction_key)
+            and IC.has_court(real_faction(faction_key))) then''',
+     '''    if not (IC.council_on()
+            and IC.has_court(real_faction(faction_key))) then'''),
+
+    # War: the vote, the plan and what each costs.
+    # THE TALLY ASKS THE WAR LINES for a council vote; without the branch every man
+    # votes on his law stance, which a faction key is not.
+    ("war: the tally gives a war vote no party line", M,
+     '''    if category == IC.COUNCIL then return IC.war_line(faction_key, option, party) end
+''', ""),
+
+    # THE WAR COMES AFTER war_prep_turns, once. Counted twice it is declared twice
+    # as late, and the call-off window grows with it.
+    ("war: the preparation turns counted twice", M,
+     '''at = now + IC.TUNE.war_prep_turns, proposer''',
+     '''at = now + IC.TUNE.war_prep_turns + IC.TUNE.war_prep_turns, proposer'''),
+
+    # GOLD IS A WAR VOTE'S ALONE: a law is bought with influence or not at all.
+    ("war: gold overrules a law vote", M,
+     '''    if gold and not council then return false, "law_gold" end
+''', ""),
+
+    # THE TREASURY CHECKED BEFORE IT IS TAKEN, not after: otherwise a court 100
+    # gold short is charged the whole price and told it could not afford it.
+    ("war: the treasury charged before it is checked", M,
+     '''        if have < cost then return false, "gold", cost - have end
+        cm:treasury_mod(faction_key, -cost)
+''',
+     '''        cm:treasury_mod(faction_key, -cost)
+        if have < cost then return false, "gold", cost - have end
+'''),
+
+    # LAWS OFF DROPS THE OPEN LAW VOTES AND ONLY THOSE: the war council's vote is
+    # its own switch's, and every law vote is gone with the laws.
+    ("war: laws off drops the council's vote with the laws'", M,
+     '''            if cat ~= IC.COUNCIL then court.votes[cat] = nil end''',
+     '''            court.votes[cat] = nil'''),
+
+    # COUNCIL OFF DROPS ITS VOTE AND THE WAR IT PLANNED. A war left planned would
+    # be declared, by a council the player has just switched off.
+    ("war: council off drops the vote and keeps the planned war", M,
+     '''        court.votes[IC.COUNCIL] = nil
+        court.war = nil
+    end''',
+     '''        court.votes[IC.COUNCIL] = nil
+    end'''),
+
+    # NO WAR MAY BE PUT TO THE COURT DURING THE GRACE PERIOD OR THE AUTHOR'S TRUCE.
+    ("war: a party proposes a war during the grace period", M,
+     '''    local locked, why = IC.war_locked(faction_key)
+    if locked then return why end
+''', ""),
+
+    # THE TRUCE LOCK is the mod's saved turns while its released flag is NOT set.
+    # Read the other way round it locks war after the truce ends and frees it
+    # during.
+    ("war: the truce's released flag read the wrong way", M,
+     '''       and not cm:get_saved_value("derpy_no_early_wars_released") then''',
+     '''       and cm:get_saved_value("derpy_no_early_wars_released") then'''),
+
+    # A TRUCE HOLDS A PLANNED WAR BACK a turn at a time; without it
+    # cm:force_declare_war breaks through the author's own lock.
+    ("war: a truce does not hold a planned war back", M,
+     '''    elseif IC.war_locked(faction_key) then
+        war.at = now + 1
+''', ""),
+
+    # A TREATY THAT STANDS IN THE WAY OF A PLANNED WAR costs the parties that
+    # wanted it war_broken_loyalty, and so does one that voids the open vote
+    # (war_bypass_loyalty).
+    ("war: a treaty that breaks a planned war charges nobody", M,
+     '''        war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)
+''', ""),
+
+    ("war: a vote a treaty voids charges nobody", M,
+     '''    if why == "treaty" then war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) end''',
+     ""),
+
+    # CALLING A WAR OFF costs every party that wanted it law_overrule_loyalty.
+    ("war: calling a war off charges nobody", M,
+     '''    war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)
+''', ""),
+
+    # AN AI COURT NEVER VOTES ON WAR: its vote would be tallied by nobody.
+    ("war: an AI court opens a war vote", M,
+     '''    if not (IC.council_on() and IC.is_human(faction_key)) then return "council_off" end''',
+     '''    if not IC.council_on() then return "council_off" end'''),
+
+    # War: the save. A save from before the council holds no field 21, and a
+    # council vote lives in field 18 under the laws', eight fields long.
+    ("war: field 21 is not read back", M,
+     '''            court.war = {target = b[1], at = tonumber(b[2]), proposer = b[3]}''',
+     '''            local _ = b'''),
+
+    ("war: a council vote is not read back from field 18", M,
+     '''        if (b[1] == IC.COUNCIL and #b >= 8)
+           or (#b >= 7''',
+     '''        if (#b >= 7'''),
+
+    # War: the panel.
+    # A GOLD BUTTON ON A LAW VOTE: the model refuses it (law_gold) but the screen
+    # would offer it, priced and clickable.
+    ("war: a gold button shown on a law vote", U,
+     '''        if war then
+            local b = comp("ic_lv_over_" .. (i + 2), panel)''',
+     '''        if true then
+            local b = comp("ic_lv_over_" .. (i + 2), panel)'''),
+
+    # THE PLANNED WAR'S TWO PRICES: influence on Accept's button, gold on Refuse's,
+    # and the words say so. Reversed, each button names the price of the other.
+    ("war: the planned war's two prices in the wrong order", U,
+     '''            IC.crown_purse(faction) >= cost and inf or ICUI.red(inf),
+            IC.treasury(faction) >= gold and paid or ICUI.red(paid),''',
+     '''            IC.treasury(faction) >= gold and paid or ICUI.red(paid),
+            IC.crown_purse(faction) >= cost and inf or ICUI.red(inf),'''),
+
+    # THE GOLD PASS AND FAIL carry a third field; without it they are the
+    # influence overrule under a gold label.
+    ("war: the gold Pass and Fail send the influence overrule", U,
+     '''(pass and "1" or "0") .. "|1")''',
+     '''(pass and "1" or "0"))'''),
+
+    ("war: Call Off for influence sends the gold call-off", U,
+     '''        op, arg = "war_calloff", yes and "0" or "1"''',
+     '''        op, arg = "war_calloff", yes and "1" or "0"'''),
+
+    # Claims on conquered land.
+    # A PROVINCE ALREADY HELD raises nothing: new means exactly one of its regions
+    # is the court's after the capture. Any count raises claims on a province the
+    # court has held for years each time it takes another of its regions.
+    ("claim: a held province raises claims", M,
+     '''    if n ~= 1 or (region_key and only ~= region_key) then return 0 end''',
+     '''    if n < 1 or (region_key and only ~= region_key) then return 0 end'''),
+
+    # AND THE REGION TAKEN must be the one the court holds: read before the region
+    # changed hands the count is off by one.
+    ("claim: the region taken is not checked against the one held", M,
+     '''    if n ~= 1 or (region_key and only ~= region_key) then return 0 end''',
+     '''    if n ~= 1 then return 0 end'''),
+
+    # A PROVINCE WITH CLAIMS OPEN raises none: a second capture would lay a second
+    # set over the first and a fresh clock under it.
+    ("claim: a province whose claims are open raises them again", M,
+     '''    if court.claims[province_key] then return 0 end
+''', ""),
+
+    # THE WEIGHT STEP is every remaining rival by share, up to claim_max. Stopped
+    # after one it is the largest party alone.
+    ("claim: the weight step stops after one party", M,
+     '''    for _, r in ipairs(rivals_by_share(faction_key)) do claim(r.slug, nil, "weight") end''',
+     '''    for _, r in ipairs(rivals_by_share(faction_key)) do claim(r.slug, nil, "weight") break end'''),
+
+    # THE OCCUPIER CARRIES HIS PARTY'S CLAIM only while he holds no post; otherwise
+    # the party's richest free man does. A governor's claim names a man who cannot
+    # be appointed without dismissing him.
+    ("claim: the occupier carries the claim while he holds a post", M,
+     '''    if occupier then claim(occupier.slug, not occupier.busy and occupier.cqi or nil, "conquest") end''',
+     '''    if occupier then claim(occupier.slug, occupier.cqi, "conquest") end'''),
+
+    ("claim: the culture's home party is left out", M,
+     '''    if home then claim(home.main, nil, "home") end
+''', ""),
+
+    ("claim: the Crown house claims the province", M,
+     '''        if #out >= IC.TUNE.claim_max or not slug or slug == IC.CROWN
+           or claimed[slug] or not court.houses[slug] then''',
+     '''        if #out >= IC.TUNE.claim_max or not slug
+           or claimed[slug] or not court.houses[slug] then'''),
+
+    ("claim: a party claims the same province twice", M,
+     '''           or claimed[slug] or not court.houses[slug] then''',
+     '''           or not court.houses[slug] then'''),
+
+    ("claim: an AI court raises claims", M,
+     '''    if not (province_key and IC.claims_on() and IC.is_human(faction_key)) then return 0 end''',
+     '''    if not (province_key and IC.claims_on()) then return 0 end'''),
+
+    ("claim: a claim lasts a turn too long", M,
+     '''ends = cm:model():turn_number() + IC.TUNE.claim_turns, list = list}''',
+     '''ends = cm:model():turn_number() + IC.TUNE.claim_turns + 1, list = list}'''),
+
+    # Claims: answering them.
+    # EVERY ROUTE TO A GOVERNOR GOES THROUGH THE HOOK, called last in
+    # IC.assign_governor. Skipped, an appointment from the Governors tab leaves the
+    # claims open on a province somebody already governs.
+    ("claim: the governor hook is skipped", M,
+     '''    IC.claims_on_assign(faction_key, province_key, cqi)
+    return true
+end''',
+     '''    return true
+end'''),
+
+    # A CLAIM IS ITS PARTY'S: any man of a claiming party appointed is that claim
+    # granted. Matched on the one man, a party's other candidate is a pass.
+    ("claim: the hook grants the man and not the party", M,
+     '''        if c.slug == party then
+            IC.move_loyalty(faction_key, c.slug, IC.TUNE.claim_granted)''',
+     '''        if c.cqi == cqi then
+            IC.move_loyalty(faction_key, c.slug, IC.TUNE.claim_granted)'''),
+
+    # THE HOOK VOIDS FIRST, so a claimant whose man died or took another post since
+    # turn start costs his party nothing.
+    ("claim: the hook answers the claims before the void", M,
+     '''    void_province(faction_key, province_key, men_of(faction_key))
+    court.claims[province_key] = nil
+    local party''',
+     '''    court.claims[province_key] = nil
+    local party'''),
+
+    # THE HOOK PAYS, so Grant pays nothing itself. Paying in both is twice the gain.
+    ("claim: a grant pays the party as well as the hook", M,
+     '''    return IC.assign_governor(faction_key, province_key, claim.cqi)
+end''',
+     '''    IC.move_loyalty(faction_key, slug, IC.TUNE.claim_granted)
+    return IC.assign_governor(faction_key, province_key, claim.cqi)
+end'''),
+
+    # REFUSING ONE CLAIM LEAVES THE OTHERS OPEN. Dropping the whole list answers
+    # claimants the player never refused.
+    ("claim: refusing one claim removes every claim on the province", M,
+     '''        if c ~= claim then keep[#keep + 1] = c end''',
+     '''        if false then keep[#keep + 1] = c end'''),
+
+    # A CLAIM REFUSED IS A DEMAND REFUSED: a Dwarf court writes the grudge.
+    ("claim: a refusal writes no grudge", M,
+     '''    IC.grudge_write(faction_key, slug, "demand")
+    IC.log(faction_key, "claim_refused"''',
+     '''    IC.log(faction_key, "claim_refused"'''),
+
+    # A CLAIM VOID SINCE TURN START IS REFUSED AND CHARGES NOBODY: refuse reads it
+    # through live_claim like grant does.
+    ("claim: a refusal skips the void", M,
+     '''function IC.claim_refuse(faction_key, province_key, slug)
+    if not IC.claims_on() then return false, "claims_off" end
+    local claim, why = live_claim(faction_key, province_key, slug)''',
+     '''function IC.claim_refuse(faction_key, province_key, slug)
+    if not IC.claims_on() then return false, "claims_off" end
+    local claim, why = claim_of(faction_key, province_key, slug), "no_claim"'''),
+
+    # Claims: the void and the lapse.
+    # A MAN WHO TOOK ANOTHER POST CANNOT CARRY A CLAIM; he governing this very
+    # province is the one exception. Counted free, a claim names a man busy elsewhere.
+    ("claim: the void keeps a man who took another post", M,
+     '''        and (not busy or (busy.kind == "gov" and busy.key == province_key))
+end''',
+     '''        and true
+end'''),
+
+    # A PROVINCE NO LONGER HELD KEEPS NO CLAIM.
+    ("claim: the void keeps a claim on a province no longer held", M,
+     '''        if held and cqi then''',
+     '''        if cqi then'''),
+
+    # A CLAIM PASSES TO ITS PARTY'S RICHEST FREE MAN, not its poorest.
+    ("claim: the void passes a claim to its party's poorest man", M,
+     '''(not cqi or richer(faction_key, other, cqi)) then''',
+     '''(not cqi or richer(faction_key, cqi, other)) then'''),
+
+    # THE LAPSE GRANTS THE REMAINING CLAIM OF THE LARGEST PARTY. From the far end it
+    # is the smallest.
+    ("claim: the lapse picks the party with the smallest share", M,
+     '''        for _, r in ipairs(rivals) do
+            if by[r.slug] and IC.claim_grant(faction_key, province, r.slug) then''',
+     '''        for k = #rivals, 1, -1 do
+            local r = rivals[k]
+            if by[r.slug] and IC.claim_grant(faction_key, province, r.slug) then'''),
+
+    # A CLAIMANT WHOSE GRANT IS REFUSED (his man went busy, his claim was void) is
+    # skipped and the next party's is tried. Giving up there leaves the province
+    # ungoverned though a party has a free man.
+    ("claim: the lapse gives up on a claimant whose grant is refused", M,
+     '''            if by[r.slug] and IC.claim_grant(faction_key, province, r.slug) then
+                IC.feed(faction_key, "claim_taken", "provinces_onscreen_" .. province)
+                granted = granted + 1
+                break
+            end''',
+     '''            if by[r.slug] then
+                if IC.claim_grant(faction_key, province, r.slug) then
+                    IC.feed(faction_key, "claim_taken", "provinces_onscreen_" .. province)
+                    granted = granted + 1
+                end
+                break
+            end'''),
+
+    # Claims: switches, saves and the turn.
+    ("claim: claims switched off leave the open ones standing", M,
+     '''    if not IC.claims_on() then court.claims = {} end
+''', ""),
+
+    ("claim: the save drops field 22", M,
+     '''                 join(claims, ";"), join(secrets, ";")}, "|")''',
+     '''                 "", join(secrets, ";")}, "|")'''),
+
+    ("claim: field 22 is not read back", M,
+     '''            if #list > 0 then court.claims[b[1]] = {ends = ends, list = list} end''',
+     '''            local _ = list'''),
+
+    ("claim: the turn never answers the claims", M,
+     '''    local ok_claims, err_claims = pcall(IC.claims_turn, faction_key)''',
+     '''    local ok_claims, err_claims = true, nil'''),
+
+    # A PARTY THAT LEAVES TAKES ITS CLAIMS WITH IT: its men are no longer its.
+    ("claim: a purged party's claims stay open", P,
+     '''    IC.claims_void(faction_key)
+    IC.save_agenda(faction_key)
+end''',
+     '''    IC.save_agenda(faction_key)
+end'''),
+
+    # NOT A PROVINCE WITH CLAIMS OPEN: answering them would settle a demand as
+    # refused too, a second penalty for one decision.
+    ("claim: a demand names a province whose claims are open", P,
+     '''        if not claims[province]
+           and (not holder''',
+     '''        if (not holder'''),
+
+    # Claims: the wire and the panel.
+    ("claim: the wire's grant swaps province and party", M,
+     '''    return answer(fk, "claim_grant", arg, IC.claim_grant(fk, f[1], f[2]))''',
+     '''    return answer(fk, "claim_grant", arg, IC.claim_grant(fk, f[2], f[1]))'''),
+
+    ("claim: the Grant button sends Refuse", U,
+     '''        op, arg = (yes and "claim_grant" or "claim_refuse"), p.province .. "|" .. p.slug''',
+     '''        op, arg = (yes and "claim_refuse" or "claim_grant"), p.province .. "|" .. p.slug'''),
+
+    # Secrets.
+    # A SECRET IS HELD ON A PARTY, keyed by its slug: a man dying, leaving or being
+    # promoted must not lose it.
+    ("secret: a dig stores the secret on the man and not his party", M,
+     '''        court.secrets[against] = cm:model():turn_number()''',
+     '''        court.secrets[cqi] = cm:model():turn_number()'''),
+
+    # ONE SECRET PER PARTY, whichever of its men is aimed at.
+    ("secret: a second dig on a party that holds one is allowed", M,
+     '''        if (IC.court(faction_key).secrets or {})[slug] then return false, "held" end
+''', ""),
+
+    ("secret: a dig at a man of no party is allowed", M,
+     '''        if not slug or not IC.court(faction_key).houses[slug] then return false, "no house" end
+''', ""),
+
+    # A USE SPENDS THE SECRET. Left held, one dig is a standing licence.
+    ("secret: a use leaves the secret unspent", P,
+     '''    court.secrets[slug] = nil
+    local a = IC.agenda(faction_key)''',
+     '''    local a = IC.agenda(faction_key)'''),
+
+    # EXPOSE COSTS STRENGTH, LOYALTY AND AN INSULT GRUDGE; ONLY THE OTHER USES COST
+    # THE BLACKMAIL'S secret_use_loyalty. Both on Expose is charging it twice.
+    ("secret: Expose costs the blackmail loyalty as well", P,
+     '''    else
+        IC.move_loyalty(faction_key, slug, T.secret_use_loyalty)
+    end''',
+     '''    end
+    IC.move_loyalty(faction_key, slug, T.secret_use_loyalty)'''),
+
+    ("secret: Blackmail pays the party instead of costing it", P,
+     '''        IC.move_loyalty(faction_key, slug, T.secret_use_loyalty)
+    end''',
+     '''        IC.move_loyalty(faction_key, slug, -T.secret_use_loyalty)
+    end'''),
+
+    ("secret: Expose takes no strength from the party", P,
+     '''        house.weight = math.max(1, (house.weight or 0) - T.secret_expose_weight)
+''', ""),
+
+    ("secret: Expose writes no insult grudge", P,
+     '''        IC.grudge_write(faction_key, slug, "insult")
+''', ""),
+
+    # A VOTE USE WINS THE PARTY'S MEN FOR NOTHING BUT LOYALTY. Priced in the Crown's
+    # influence, or taken from each man won, it is a second price on one move.
+    ("secret: a vote use costs the Crown's influence", P,
+     '''    if code == "vote" then
+''',
+     '''    if code == "vote" then
+        IC.spend_crown(faction_key, 10)
+'''),
+
+    ("secret: a vote use takes influence from the men it wins", P,
+     '''            if m.party == slug then vote.won[m.cqi] = vote.stance end''',
+     '''            if m.party == slug then
+                vote.won[m.cqi] = vote.stance
+                IC.add_standing(faction_key, m.cqi, -5)
+            end'''),
+
+    # ONLY THE PARTY'S MEN, and only the ones the Crown's side does not already have.
+    ("secret: a vote use wins every party's men", P,
+     '''            if m.party == slug then vote.won[m.cqi] = vote.stance end''',
+     '''            vote.won[m.cqi] = vote.stance'''),
+
+    ("secret: a vote use is offered where it wins nobody", P,
+     '''        if m.party == slug and m.side ~= vote.stance then return true end''',
+     '''        if m.party == slug then return true end'''),
+
+    # A PURGE, A DISSOLVE OR A SECESSION TAKES THE SECRET WITH THE PARTY.
+    ("secret: a purged party keeps its secret", P,
+     '''    if secrets then secrets[slug] = nil end
+''', ""),
+
+    # Secrets: refusals.
+    ("secret: a use with no secret is not refused", P,
+     '''    if not (court.secrets or {})[slug or ""] then return false, "no_secret" end
+''', ""),
+
+    ("secret: a use that is not on the list is spent", P,
+     '''    if not listed then return false, "no_use" end
+''', ""),
+
+    ("secret: every row is usable without a secret", P,
+     '''may = held,''',
+     '''may = true,'''),
+
+    ("secret: the Crown lists secret uses", P,
+     '''    local house = slug ~= IC.CROWN and court.houses[slug or ""]''',
+     '''    local house = court.houses[slug or ""]'''),
+
+    # Secrets: what a use does.
+    ("secret: a countdown is left running after its secret is used", P,
+     '''    elseif code == "count" then
+        house.clock = 0
+''',
+     '''    elseif code == "count" then
+'''),
+
+    # STOPPED IS NOT ENOUGH: IC.tick_secession counts a party still angry again at
+    # the next turn start unless it is protected, as Secure Loyalty protects it.
+    ("secret: a stopped countdown restarts at the next turn", P,
+     '''        house.protected = cm:model():turn_number() + IC.TUNE.favour_secure_turns
+    end
+    if code == "expose" then''',
+     '''    end
+    if code == "expose" then'''),
+
+    # A VOID SETS NO REST, so the same party demands again at its next turn.
+    ("secret: a dropped demand is asked again next turn", P,
+     '''        a.rest[slug] = cm:model():turn_number() + T.party_demand_rest
+        IC.save_agenda(faction_key)
+    elseif code == "scheme" then''',
+     '''    elseif code == "scheme" then'''),
+
+    ("secret: a dropped demand's rest is never saved", P,
+     '''        a.rest[slug] = cm:model():turn_number() + T.party_demand_rest
+        IC.save_agenda(faction_key)
+    elseif code == "scheme" then''',
+     '''        a.rest[slug] = cm:model():turn_number() + T.party_demand_rest
+    elseif code == "scheme" then'''),
+
+    # A SECRET'S DEMAND IS VOIDED, not refused: refusing it is the penalty the use
+    # was bought to avoid.
+    ("secret: a used secret refuses the demand and does not void it", P,
+     '''        IC.settle_demand(faction_key, "void", nil, "secret")''',
+     '''        IC.settle_demand(faction_key, "refused")'''),
+
+    ("secret: a use is never saved", P,
+     '''    IC.log(faction_key, "secret_used", slug, code == "vote" and ("vote." .. key) or code, 0)
+    IC.save(faction_key)''',
+     '''    IC.log(faction_key, "secret_used", slug, code == "vote" and ("vote." .. key) or code, 0)'''),
+
+    # Secrets: the save.
+    ("secret: the save drops field 23", M,
+     '''join(secrets, ";")}, "|")''',
+     '''""}, "|")'''),
+
+    ("secret: field 23 is not read back", M,
+     '''        if b[1] and t then court.secrets[b[1]] = t end
+''', ""),
+
+    ("secret: field 23 is read from field 22", M,
+     '''split(fields[23] or "", ";")''',
+     '''split(fields[22] or "", ";")'''),
+
+    # Secrets: the panel.
+    # A USE IS SENT, NEVER CALLED: the model changes on every machine only when the
+    # trigger comes back. A click that writes it here moves one machine's court.
+    ("secret: a Use click writes the model and sends nothing", U,
+     '''        ICUI.send(faction, "secret_use", ICUI.pick.slug .. "|" .. chosen)''',
+     '''        local code, key = string.match(chosen, "^([^|]*)|(.*)$")
+        IC.use_secret(faction, ICUI.pick.slug, code, key ~= "" and key or nil)'''),
+
+    # A ROW THE MODEL REFUSES SENDS NOTHING and says why.
+    ("secret: a refused use row can be sent", U,
+     '''            keys[#lines] = u.may and (u.code .. "|" .. (u.key or "")) or nil''',
+     '''            keys[#lines] = u.code .. "|" .. (u.key or "")'''),
+
+    ("secret: the picker stays open after a secret is spent", U,
+     '''    ICUI.pick = nil
+    ICUI.list_rescroll()
+    ICUI.notice = ICUI.answer_text("secret_use", arg, ICUI.player())''',
+     '''    ICUI.list_rescroll()
+    ICUI.notice = ICUI.answer_text("secret_use", arg, ICUI.player())'''),
 ]
 
 

@@ -41,8 +41,11 @@ LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
 # Re-pinned 2026-10-16 after antislop audit 009: 289 loc lines and 4 effect bundle rows
 # moved, every one an approved rewrite (anti-slop/followup-009-2026-10-16-iron-court.md),
 # plus 4 added Dwarf lines.
-SNAPSHOT_MD5 = "f5cf88cb2ba7db5414ba4578124c1e73"
-SNAPSHOT_SIZE = 15373891
+# Re-pinned 2026-10-19 after the war council, claims and secrets plan: nothing moved; 64 rows
+# added (8 event cards x 2 races x 4 tables) and 32 loc lines (24 card lines, 8 move
+# results), every one read before the re-pin.
+SNAPSHOT_MD5 = "58d5347c248bb2866eee452c3142fcc5"
+SNAPSHOT_SIZE = 15545769
 
 
 def fit_problems():

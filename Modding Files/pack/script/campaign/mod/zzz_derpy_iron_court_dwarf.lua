@@ -452,7 +452,7 @@ DWF.PLOT_KEYS = {
     "bribe", "discredit", "rumour", "murder", "provoke", "purge",
     "unseat", "recall", "oath", "patron", "kinsman", "pledge",
     "embezzle", "feast", "audience", "circuit", "envoy", "diplomats",
-    "weregild",
+    "weregild", "council", "dig",
 }
 
 -- WHAT A DWARF PARTY OFFERS THE CROWN: one unit each, in the party's own
@@ -539,6 +539,12 @@ DWF.PLOT_TEXT = {
      effect = string.format(
          "Recalls every governor from their party. -%d loyalty.",
          IC.TUNE.plot_recall_loyalty)},
+    dig = {name = "Dig for Secrets",
+     blurb = "Old shames, dug up.",
+     effect = string.format(
+         "A secret on their party, used once. Each use: %d to %d loyalty.",
+         IC.TUNE.secret_use_loyalty,
+         IC.TUNE.secret_expose_loyalty)},
     oath = {name = "Ancestor Oath",
      icon = "ui/campaign ui/technologies/wh_main_dwf_oaths_of_loyalty.png",
      blurb = "Two names before the Ancestors.",
@@ -600,6 +606,12 @@ DWF.PLOT_TEXT = {
      effect = string.format(
          "Improves relations with a faction you have met. Each faction once per %d turns.",
          IC.TUNE.diplomats_rest)},
+    council = {name = "Call the War Council",
+     icon = "ui/campaign ui/technologies/wh_main_dwf_make_ready_for_war.png",
+     blurb = "The clans weigh the war.",
+     effect = string.format(
+         "A court vote on war with a faction. Passed, war is declared %d turns later.",
+         IC.TUNE.war_prep_turns)},
 }
 
 DWF.FAVOUR_TEXT = {
@@ -646,10 +658,19 @@ DWF.HELP_SWAP = {
         "{@rebel}The rebels declare war at once and march against you. The other holds distrust these oathbreakers.",
     ["{@bullet}A bribe, Secure Loyalty, the Pledge of the Forge or a party's offer of calm stops a countdown. A purge ends the party, if it works."] =
         "{@bullet}A Gift of Gold, Secure Loyalty, an Oath on the Anvil or an offer of calm stops a countdown. A Cast Out that works ends the party.",
-    ["{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge."] =
-        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Cast Out.",
+    ["{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Purge and {@dig}Use a Secret."] =
+        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Cast Out and {@dig}Use a Secret.",
     ["{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty."] =
         "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",
+    -- THE WAR COUNCIL: a Dwarf court may also name a faction in the Book of Grudges
+    -- (IC.war_candidate), and the Book is a fact a party votes on.
+    ["{@crown}The war council is a court vote on war with a faction that borders you. One war vote runs at a time."] =
+        "{@crown}The war council is a court vote on war with a neighbour or a name in the Book of Grudges. One war vote runs at a time.",
+    ["{@party}Each party's side comes from facts: trade or a border with you, fewer or more armies than yours, kin, or an old foe."] =
+        "{@party}Each party's side comes from facts: trade or a border with you, fewer or more armies than yours, kin, an old foe, or a grudge.",
+    -- A REFUSED CLAIM IS A REFUSED DEMAND, written in the Book.
+    ["{@turns}Grant: +{claim_granted} loyalty, {claim_passed} to the other claimants. Refuse: {claim_refused}. Unanswered for {claim_turns} turns, the largest wins."] =
+        "{@turns}Grant: +{claim_granted} loyalty, {claim_passed} to the other claimants. Refuse: {claim_refused} and a grudge. Unanswered for {claim_turns} turns, the largest wins.",
 }
 
 -- THE DWARF CULTURES. Same shape as IC.CULTURES; slugs karaz, kadrin and
@@ -726,6 +747,27 @@ DWF.CULTURE_TRADE = {
 
 -- A TRADE ONLY ONE KIND OF MAN IS DEALT: agent subtype to {party, bg}. None here.
 DWF.SUBTYPE_TRADE = {
+}
+
+-- WHO WANTS A WAR ON WHOM, as the model's IC.WAR_LINES. The Book of Grudges is the
+-- Dwarfs' alone: the Clan Warriors and the Ancestor Priesthood settle grudges, and
+-- the Priesthood will not fight kin. The Runesmiths have no line.
+DWF.WAR_LINES = {
+    temple = {{"book", "aye"}, {"kin", "nay"}},
+    forge  = {{"weak", "aye"}},
+    chain  = {{"foe", "aye"}},
+    legion = {{"book", "aye"}, {"weak", "aye"}},
+    ledger = {{"trade", "nay"}, {"strong", "nay"}},
+    road   = {{"trade", "nay"}, {"near", "nay"}},
+    hearth = {{"kin", "nay"}, {"strong", "nay"}},
+}
+
+-- THE DWARFS' OLD ENEMIES, as subculture keys: the `foe` fact.
+DWF.WAR_FOES = {
+    "wh_main_sc_grn_greenskins",
+    "wh_main_sc_grn_savage_orcs",
+    "wh2_main_sc_skv_skaven",
+    "wh3_dlc23_sc_chd_chaos_dwarfs",
 }
 
 -- REGISTERED LAST, once: IC.build_race derives TIERS, TIER_SEATS, PARTY_OF_BG

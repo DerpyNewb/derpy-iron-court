@@ -93,16 +93,16 @@ a Slayer.
   your own men split off into a new party after a three-turn warning.
 - **A quiet start.** For the first 10 turns of a campaign no party can break with you and your
   own party cannot split. Provoke waits until then; the Court tab counts the turns down.
-- **Intrigue.** Eighteen moves in five columns (nineteen on a Dwarf court): Against a Man, Against a House, Bonds,
+- **Intrigue.** Twenty moves in five columns (twenty-one on a Dwarf court): On a Man, On a Party, Bonds,
   Errands and Missions. Bribes, rumours, a forge accident, a blood-oath, a feast of ash and
   more. Each is paid from the acting man's influence and each can fail; a failed move
   against a party costs loyalty with it.
 - **Missions.** Send an Envoy to one of your provinces for five turns of better control,
   armaments, raw materials or fewer labourers lost, or Send Diplomats to a faction you have
   met to improve how they regard you (not the same faction again for five turns).
-- **The party bar.** Choose a rival's card and four buttons act on that party: Provoke and
+- **The party bar.** Choose a rival's card and five buttons act on that party: Provoke and
   Purge the House (moves aimed at its leader), Send a Gift (600 gold, +2 loyalty, once per
-  party per turn) and Secure Loyalty (2,500 gold, no countdown for five turns). A button the court will not allow is
+  party per turn), Secure Loyalty (2,500 gold, no countdown for five turns) and Use a Secret. A button the court will not allow is
   greyed out and says why.
 - **The rivals act on their own.** In your court, one party does one thing a turn. It
   schemes against you (rumours and discredit, then unseating your men or recalling your
@@ -114,7 +114,8 @@ a Slayer.
   you Secure its loyalty. The office card says so in red and names who did it.
 - **Petitions.** The live demand and every offer, each with Accept and Refuse. Accepting a
   demand seats the man in the post he asked for. Feuds between your parties are listed too:
-  Back Them takes one side, Make Peace pays to calm both.
+  Back Them takes one side, Make Peace pays to calm both. So are a war put to the court (its
+  vote opens from here), a planned war (Call Off) and each claim on a new province.
 - **Rival factions have courts too.** Every other Chaos Dwarf and Dwarf faction runs the same
   offices, governors, loyalty and secession, so a rival empire can split into a war on the
   map. Its parties scheme, feud and make demands as well, three of these courts a round in
@@ -142,6 +143,25 @@ a Slayer.
   start. Every man votes with his own influence on his party's line: push your side harder,
   win individual men over, or overrule the vote outright. The board shows what the court
   would do now, as percentages and a bar, and greys out the crests of parties not at court.
+- **The war council.** You, or a rival party with 15% of the court, can put a war on a faction
+  that borders you to the court (Call the War Council, on Intrigue, 150 influence). It is
+  voted the way a law is, over two turns, each party taking its side from facts about the
+  target: a border, trade with you, fewer or more armies than yours, kin, or an old foe. A
+  passed vote plans the war, and the court declares it 3 turns later so your armies can get
+  ready; starting it early yourself is free. Decide the vote now, or call a planned war off,
+  for 500 influence or 2,500 gold: every party on the losing side loses 10 loyalty. A war
+  you declare without the court costs the parties against it 10 loyalty and gives those
+  for it 3, and peace you make moves the parties for and against the war by 3.
+- **Claims on conquest.** Taking a province new to your court makes up to three rival
+  parties claim its governorship: the party of the lord who took it, the party of the
+  culture whose home it is, then the rest by share. Grant a claim and its man governs, his
+  party gains 8 loyalty and every other claimant loses 4; refuse and his party loses 6.
+  Unanswered after 3 turns, the court grants the claim of the party with the largest share.
+- **Secrets.** Dig for Secrets (on Intrigue, 120 influence) sends a man after leverage on a
+  party; if he is found out, that party loses loyalty. A secret is spent once, with Use a
+  Secret: on its men's votes in an open vote, its demand, its scheme against you, or its
+  countdown to leave (stopped, and no new one for five turns), each for 5 of its loyalty;
+  or to expose the party, which costs it strength and 10 loyalty.
 
 The panel opens from a round button on the top resource strip, beside the buttons of The
 Great Guilds and the Zharr Exchange when those mods are present. It has seven tabs: Court,
@@ -172,7 +192,9 @@ party holds a grudge that costs 1 loyalty a turn until it is settled, by paying 
 from the treasury or by giving that party's man an office it claims. The court also reads CA's
 Book of Grudges: its three most wronging factions are named on the Court tab, relations with a
 faction sour once each at 500, 1,000 and 2,000 grudge points, and the MCT switch "Dwarf
-courts" turns all of it on or off at any time.
+courts" turns all of it on or off at any time. A faction the Book names at 1,000 points can
+be put to the war council with no border, and the parties that settle grudges vote for that
+war; a refused claim writes a grudge.
 
 ## Settings (MCT)
 
@@ -182,13 +204,15 @@ With the Mod Configuration Tool installed, the Iron Court page has:
   parties the court starts with (1, 2, 3 or 5), how loyal they are, how fast they turn, and
   what favours and government changes cost. Custom opens eighteen numbers to edit, the
   settlement levels per point of governor strength among them.
+- **Starting court:** the fewest and most members each party is given on the first turn.
 - **Systems:** rival parties act on their own; other Chaos Dwarf and Dwarf factions have
   courts; parties can secede; a weak Crown pushes rivals out; your own party can split; show
   routine event messages; governments; governments change with the court; your deeds move the
-  court; laws; Dwarf courts. Plus a detailed log for bug reports.
+  court; laws; the war council; claims on conquest; Dwarf courts. Plus a detailed log for
+  bug reports.
 
-The difficulty, the numbers and "other factions have courts" are fixed when a campaign
-starts. The other eleven switches can be changed at any time in single player. Without MCT,
+The difficulty, the numbers, the starting court and "other factions have courts" are fixed
+when a campaign starts. The other thirteen switches can be changed at any time in single player. Without MCT,
 every campaign plays on Default.
 
 **Multiplayer:** supported but not yet tried on two machines. Every panel action is sent

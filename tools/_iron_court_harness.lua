@@ -260,8 +260,34 @@ local function fake_slot(level)
     end}
 end
 
+-- WHO OWNS A REGION KEY: the faction that lists the province whose region is named
+-- "region_" .. province (region_list below). A null interface when nobody does, which
+-- is what CA answers for a region no faction holds.
+local function region_owner(region_key)
+    for _, other in pairs(factions) do
+        for _, p in ipairs(other._provinces) do
+            if "region_" .. p == region_key then return other end
+        end
+    end
+    return {is_null_interface = function() return true end}
+end
+
 local function make_faction(name, subculture, characters, provinces)
     local f
+    -- THE REGIONS NEXT TO ONE OF ITS PROVINCES, off f._adjacent[province]: a list
+    -- of region keys. CA: "including where the connection is not traversable".
+    local function adjacent_of(province)
+        local out = {}
+        for _, rk in ipairs((f._adjacent or {})[province] or {}) do
+            out[#out + 1] = {
+                is_null_interface = function() return false end,
+                name = function() return rk end,
+                owning_faction = function() return region_owner(rk) end,
+            }
+        end
+        return {num_items = function() return #out end,
+                item_at = function(_, i) return out[i + 1] end}
+    end
     -- A FACTION RE-MADE IS ASKED ITS RACE AGAIN: one check makes F Bretonnian, and
     -- a cached Chaos Dwarf race must not outlive it.
     if IC and IC._race_cache then IC._race_cache[name] = nil end
@@ -288,6 +314,32 @@ local function make_faction(name, subculture, characters, provinces)
             assert(type(other) == "table" and other.name, "at_war_with takes a faction interface")
             return (f._wars or {})[other:name()] == true
         end,
+        -- THE WAR COUNCIL'S FACTS, all documented on the faction and all asked with a
+        -- faction INTERFACE (CA's own calls: wh3_dlc27_aislinn_war.lua for the trade
+        -- and pact pair, wh3_cp1_tiger_court.lua for the ally one; the doc entry for
+        -- is_known_faction gives <faction_interface>). Each answers off a set of
+        -- faction keys the check fills: f._trade, f._pacts, f._allies.
+        trade_agreement_with = function(_self, other)
+            assert(type(other) == "table" and other.name, "trade_agreement_with takes a faction interface")
+            return (f._trade or {})[other:name()] == true
+        end,
+        non_aggression_pact_with = function(_self, other)
+            assert(type(other) == "table" and other.name, "non_aggression_pact_with takes a faction interface")
+            return (f._pacts or {})[other:name()] == true
+        end,
+        is_ally_vassal_or_client_state_of = function(_self, other)
+            assert(type(other) == "table" and other.name, "is_ally_vassal_or_client_state_of takes a faction interface")
+            return (f._allies or {})[other:name()] == true
+        end,
+        -- MET = IN f._met, the list factions_met answers, so the two cannot disagree.
+        is_known_faction = function(_self, other)
+            assert(type(other) == "table" and other.name, "is_known_faction takes a faction interface")
+            for _, key in ipairs(f._met or {}) do
+                if key == other:name() then return true end
+            end
+            return false
+        end,
+        is_quest_battle_faction = function() return f._qb == true end,
         is_rebel = function() return f._rebel == true end,
         is_human = function() return IC.is_human(name) end,
         character_list = function()
@@ -372,6 +424,8 @@ local function make_faction(name, subculture, characters, provinces)
                             is_null_interface = function() return false end,
                             name = function() return e.name end,
                             province_name = function() return e.province end,
+                            adjacent_region_list = function() return adjacent_of(e.province) end,
+                            owning_faction = function() return f end,
                             is_province_capital = function() return false end,
                             province = function()
                                 return {is_null_interface = function() return false end,
@@ -392,6 +446,8 @@ local function make_faction(name, subculture, characters, provinces)
                         -- containing the region"; a display string here would let a comparison
                         -- against a real province key pass and never match in game.
                         province_name = function() return key end,
+                        adjacent_region_list = function() return adjacent_of(key) end,
+                        owning_faction = function() return f end,
                         -- AND name() IS THE REGION KEY, which CA documents in
                         -- so many words. One region per province here, so the
                         -- two keys are the same string - the secession takes
@@ -524,6 +580,31 @@ function endow(faction_key, amount)
     for _, c in ipairs(faction._characters) do
         court.standing[c:command_queue_index()] = amount or 10000
     end
+end
+
+-- A GarrisonOccupiedEvent's CONTEXT, as the engine raises it (CA's own listeners
+-- read character() and garrison_residence():region()): `man` takes the region
+-- `region_key` ("region_" .. province unless named) of `province`. Every ic_took
+-- fixture uses this shape, so the claims path never warns on a short context.
+function garrison_occupied(man, province, region_key)
+    return {
+        character = function() return man end,
+        garrison_residence = function()
+            return {
+                is_null_interface = function() return false end,
+                region = function()
+                    return {
+                        is_null_interface = function() return false end,
+                        name = function() return region_key or ("region_" .. tostring(province)) end,
+                        province = function()
+                            return {is_null_interface = function() return false end,
+                                    key = function() return province end}
+                        end,
+                    }
+                end,
+            }
+        end,
+    }
 end
 
 local function ambition_traits(character)
@@ -1209,7 +1290,10 @@ do
     local warn = IC.warn
     IC.warn = function(text)
         if string.find(tostring(text), "parties' turn failed", 1, true)
-           or string.find(tostring(text), "the Book failed", 1, true) then
+           or string.find(tostring(text), "the Book failed", 1, true)
+           or string.find(tostring(text), "the war council failed", 1, true)
+           or string.find(tostring(text), "the claims failed", 1, true)
+           or string.find(tostring(text), "no claims raised", 1, true) then
             IC_PARTY_FAULTS[#IC_PARTY_FAULTS + 1] = tostring(text)
         end
         return warn(text)
@@ -4595,7 +4679,7 @@ check("every panel, row and card cell has a layout offset", function()
         -- THE PETITIONS TAB, and the court's action bar: three buttons and
         -- the line that stands in for them when no rival is chosen.
         "ic_tab_petitions",
-        "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
+        "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge", "ic_act_secret",
         "ic_act_hint",
         -- THE LAWS TAB: the board's pane and the vote screen's fixed cells; the
         -- repeated ones are looped below.
@@ -4610,6 +4694,8 @@ check("every panel, row and card cell has a layout offset", function()
         "ic_lv_top", "ic_lv_icon", "ic_lv_name", "ic_lv_fx", "ic_lv_by", "ic_lv_turns", "ic_lv_back",
         "ic_lv_aye", "ic_lv_abs", "ic_lv_nay", "ic_lv_bar", "ic_lv_barrim", "ic_lv_abstain", "ic_lv_hand",
         "ic_lv_sideh", "ic_lv_supph", "ic_lv_overh", "ic_lv_over_1", "ic_lv_over_2",
+        -- THE WAR VOTE'S TWO GOLD OVERRULES, under Pass now and Fail now.
+        "ic_lv_over_3", "ic_lv_over_4",
     }
     local want = {}
     for _, name in ipairs(expected) do want[name] = true end
@@ -6512,11 +6598,19 @@ check("the action bar sits centred under the grid, whatever the court's size",
             ICUI.sel = "forge"
             ICUI.refresh()
             assert(c.ic_act_provoke.visible, "a chosen rival draws no bar")
+            local last = c[ICUI.ACT_KEYS[#ICUI.ACT_KEYS]]
             local left = c.ic_act_provoke.x - lo
-            local right = hi - (c.ic_act_purge.x + c.ic_act_purge.w)
+            local right = hi - (last.x + last.w)
             assert(math.abs(left - right) <= 1,
                 "a court of " .. n .. ": the bar leaves " .. left .. "px on its left and "
                 .. right .. "px on its right")
+            -- NO BUTTON ON ANOTHER: every key stands clear of the one before it, in
+            -- the order ICUI.ACT_KEYS draws them.
+            for i = 2, #ICUI.ACT_KEYS do
+                local a, b = c[ICUI.ACT_KEYS[i - 1]], c[ICUI.ACT_KEYS[i]]
+                assert(a.x + a.w <= b.x, ICUI.ACT_KEYS[i] .. " starts at " .. b.x
+                    .. ", inside " .. ICUI.ACT_KEYS[i - 1] .. ", which ends at " .. (a.x + a.w))
+            end
             -- AND UNDER THE LIST'S WINDOW, never over a card.
             local clip = fake_find(panel, ICUI.LIST).children.list_clip
             for _, key in ipairs(ICUI.ACT_KEYS) do
@@ -6681,6 +6775,65 @@ check("the action bar acts on the chosen rival, and on nothing else", function()
     ICUI.view = "court"
 end)
 
+-- THE FIFTH BUTTON. Use a Secret is the bar's one button that is no move and no
+-- favour: it is offered only on a party the court holds a secret on, and a click
+-- on it sends nothing: it opens the picker of the secret's uses.
+check("Use a Secret is the bar's fifth button, offered only on a party with a secret, and sends nothing",
+      function()
+    assert(ICUI.ACT_KEYS[#ICUI.ACT_KEYS] == "ic_act_secret",
+        "the fifth key is " .. tostring(ICUI.ACT_KEYS[5]) .. " of " .. #ICUI.ACT_KEYS)
+    assert(ICUI.ACT_LABEL.ic_act_secret == "Use a Secret",
+        "the button reads " .. tostring(ICUI.ACT_LABEL.ic_act_secret))
+    assert(ICUI.ACT_MOVE.ic_act_secret and ICUI.ACT_MOVE.ic_act_secret.secret == true,
+        "ICUI.ACT_MOVE does not name the secret kind")
+    IC.state = {}
+    turn = 1
+    local man = make_character(1, ANY_SEAT, "forge")
+    make_faction(F, IC.CHD_SUBCULTURE, {man}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    IC.add_house(F, "chain")
+    ICUI.sel, ICUI.pick, ICUI.notice = "forge", nil, nil
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    local sent, real_send = {}, ICUI.send
+    ICUI.send = function(...) sent[#sent + 1] = {...}; return true end
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "court"
+        ICUI.refresh()
+        local btn = panel.children.ic_act_secret
+        assert(btn.visible, "a chosen rival draws no Use a Secret")
+        -- NO SECRET HELD: drawn red, and the refusal points at the move that finds one.
+        local may, why = ICUI.act_check(F, "ic_act_secret", "forge")
+        assert(may == false and string.find(why or "", "Dig for Secrets", 1, true),
+            "with no secret the check answers " .. tostring(may) .. ", " .. tostring(why))
+        assert(is_red(btn), "Use a Secret with no secret held reads " .. btn.text)
+        assert(string.find(bare(btn.tooltip), why, 1, true),
+            "the tooltip does not carry the refusal: " .. tostring(btn.tooltip))
+        click({string = "ic_act_secret"})
+        assert(ICUI.notice == why, "a click with no secret says " .. tostring(ICUI.notice))
+        -- A SECRET HELD ON ANOTHER PARTY MAKES THIS ONE NO LIGHTER.
+        IC.court(F).secrets["chain"] = 1
+        ICUI.refresh()
+        assert(is_red(btn), "a secret on another party lit the button")
+        -- HELD ON THIS ONE: lit, no refusal.
+        IC.court(F).secrets["forge"] = 1
+        ICUI.notice = nil
+        ICUI.refresh()
+        assert(ICUI.act_check(F, "ic_act_secret", "forge") == true, "a held secret was refused")
+        assert(not is_red(btn), "a held secret is drawn refused: " .. btn.text)
+        click({string = "ic_act_secret"})
+        -- NOTHING SENT, NOTHING SAID: the secret's picker opens on the party.
+        assert(#sent == 0, "Use a Secret sent " .. #sent .. " order(s)")
+        assert(ICUI.pick and ICUI.pick.kind == "secret" and ICUI.pick.slug == "forge",
+            "Use a Secret opened " .. tostring(ICUI.pick and ICUI.pick.kind))
+        assert(ICUI.notice == nil, "Use a Secret said " .. tostring(ICUI.notice))
+    end)
+    ICUI.send = real_send
+    ICUI.sel, ICUI.pick, ICUI.notice = nil, nil, nil
+    if not ok then error(err, 0) end
+end)
+
 -- A DWARF COURT'S BAR NAMES ITS OWN MOVES: Insult and Cast Out, not Provoke
 -- and Purge. The favours are named alike on both races.
 check("a Dwarf court's action bar reads Insult and Cast Out", function()
@@ -6700,7 +6853,9 @@ check("a Dwarf court's action bar reads Insult and Cast Out", function()
         ICUI.refresh()
         for key, want in pairs({ic_act_provoke = "Insult", ic_act_purge = "Cast Out",
                                 ic_act_gift = ICUI.ACT_LABEL.ic_act_gift,
-                                ic_act_secure = ICUI.ACT_LABEL.ic_act_secure}) do
+                                ic_act_secure = ICUI.ACT_LABEL.ic_act_secure,
+                                -- NO WORD OF ITS OWN: the fifth button reads the same on both races.
+                                ic_act_secret = "Use a Secret"}) do
             assert(plain(panel.children[key].text) == want,
                 key .. " reads " .. tostring(panel.children[key].text))
         end
@@ -10102,7 +10257,7 @@ check("taking a settlement and rising in rank both pay", function()
     IC.add_house(F, "crown")
     IC.register()
 
-    core.listeners["ic_took"]({character = function() return man end})
+    core.listeners["ic_took"](garrison_occupied(man, "took_prov"))
     assert(IC.standing(F, 83) == IC.TUNE.settlement_influence,
         "taking a settlement paid " .. IC.standing(F, 83))
 
@@ -11190,7 +11345,7 @@ check("taking a settlement and rising in rank both survive too", function()
     IC.add_house(F, "crown")
     IC.register()
 
-    core.listeners["ic_took"]({character = function() return man end})
+    core.listeners["ic_took"](garrison_occupied(man, "took_prov"))
     core.listeners["ic_rank"]({character = function() return man end,
                                ranks_gained = function() return 2 end})
     local won = IC.standing(F, 171)
@@ -20821,13 +20976,15 @@ check("an error in the parties' turn does not cost the court its turn", function
     local was = IC.party_turn
     IC.party_turn = function() error("the parties broke") end
     logged = {}
+    -- ONLY THIS CHECK'S OWN FAULT IS TAKEN BACK: one collected earlier still fails the run.
+    local faults = #IC_PARTY_FAULTS
     local ok, err = pcall(IC.turn, F)
     IC.party_turn = was
     local said = false
     for i = 1, #logged do
         if string.find(logged[i], "parties' turn failed", 1, true) then said = true end
     end
-    IC_PARTY_FAULTS = {}
+    for i = #IC_PARTY_FAULTS, faults + 1, -1 do IC_PARTY_FAULTS[i] = nil end
     assert(ok, "the error escaped the court's turn: " .. tostring(err))
     assert(IC.court(F).houses["forge"].clock ~= 3,
         "the secession clocks never ticked after the error")
@@ -21281,11 +21438,11 @@ check("with ai_courts off an AI man earns nothing from a settlement and a player
     IC.register()
     with_frozen({ai_courts = false}, function()
         cm.get_human_factions = function() return {} end
-        core.listeners["ic_took"]({character = function() return man end})
+        core.listeners["ic_took"](garrison_occupied(man, "took_prov"))
         assert(IC.standing(F, 902) == 0,
             "an AI man earned " .. IC.standing(F, 902) .. " with ai_courts off")
         cm.get_human_factions = function() return {F} end
-        core.listeners["ic_took"]({character = function() return man end})
+        core.listeners["ic_took"](garrison_occupied(man, "took_prov"))
         assert(IC.standing(F, 902) == IC.TUNE.settlement_influence,
             "a player's man earned " .. IC.standing(F, 902) .. " with ai_courts off")
     end)
@@ -21367,9 +21524,11 @@ check("with detailed_log off routine lines stop and failures are still written",
         local was = IC.party_turn
         IC.party_turn = function() error("the parties broke") end
         logged = {}
+        local faults = #IC_PARTY_FAULTS
         local ok = pcall(IC.turn, F)
         IC.party_turn = was
-        IC_PARTY_FAULTS = {}
+        -- ONLY THIS CHECK'S OWN FAULT IS TAKEN BACK.
+        for i = #IC_PARTY_FAULTS, faults + 1, -1 do IC_PARTY_FAULTS[i] = nil end
         cm.get_human_factions = function() return {} end
         local said = false
         for i = 1, #logged do
@@ -21379,10 +21538,11 @@ check("with detailed_log off routine lines stop and failures are still written",
     end)
 end)
 
--- THE NINE A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
+-- THE THIRTEEN A PLAYER MAY FLIP IN A RUNNING CAMPAIGN, named here and not read off
 -- IC.LIVE_TUNE, so a key dropped from that list fails a check.
 local LIVE = {"parties_act", "secession", "pressure", "crown_split", "all_cards",
-              "detailed_log", "governments", "gov_drift", "deeds", "laws", "dwarf_courts"}
+              "detailed_log", "governments", "gov_drift", "deeds", "laws", "dwarf_courts",
+              "council", "claims"}
 
 check("mid-campaign the live switches follow MCT and the rest of the save stays frozen", function()
     -- A SAVE FROZEN ON THE DEFAULTS, loaded by a player who has since turned
@@ -21696,7 +21856,7 @@ check("in single player an action runs at once and its answer comes straight bac
         tostring(a[3]), tostring(a[4]), tostring(a[5]), tostring(a[6])}, ", ") or "nothing"))
 end)
 
-check("each of the twenty actions waits for its trigger, then reaches the model as the panel called it", function()
+check("each of the twenty-four actions waits for its trigger, then reaches the model as the panel called it", function()
     -- {op, wire argument, model function, argument count, what the panel passes,
     --  and what the model answers when that is not simply true}
     local cases = {
@@ -21721,11 +21881,20 @@ check("each of the twenty actions waits for its trigger, then reaches the model 
         {"law_stance", "labour|nay", "law_set_stance", 2, {"labour", "nay"}},
         {"law_win", "labour|9002", "law_win", 2, {"labour", 9002}},
         {"law_push", "labour|2", "law_push", 2, {"labour", 2}},
-        {"law_overrule", "labour|1", "law_overrule", 2, {"labour", true}},
+        {"law_overrule", "labour|1", "law_overrule", 3, {"labour", true, false}},
+        -- THE WAR COUNCIL: Pass now for gold, and a call-off for gold.
+        {"law_overrule", "council|1|1", "law_overrule", 3, {"council", true, true}},
+        {"war_calloff", "1", "war_calloff", 1, {true}},
+        -- CLAIMS ON CONQUERED LAND.
+        {"claim_grant", "prov_a|forge", "claim_grant", 2, {"prov_a", "forge"}},
+        {"claim_refuse", "prov_a|forge", "claim_refuse", 2, {"prov_a", "forge"}},
+        -- SECRETS: a vote's category, and nothing for every other use.
+        {"secret_use", "legion|vote|labour", "use_secret", 3, {"legion", "vote", "labour"}},
+        {"secret_use", "legion|expose|", "use_secret", 3, {"legion", "expose", nil}},
     }
     local n_ops = 0
     for _ in pairs(IC.MP_OPS) do n_ops = n_ops + 1 end
-    assert(n_ops == 20, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twenty")
+    assert(n_ops == 24, "IC.MP_OPS holds " .. n_ops .. " actions; the panel has twenty-four")
     IC.state = {}
     local f = make_faction(F, IC.CHD_SUBCULTURE, {}, {})
     f._cqi = 41
@@ -31601,6 +31770,21 @@ check("laws: the vote screen splits the court into sides of party blocks, heavie
         assert(string.find(panel.children.ic_lv_abstain.text, ICUI.house_name("forge", F), 1, true),
             "the abstaining Forge is not named")
         assert(panel.children[ICUI.LAW .. "_1"].visible == false, "the board shows under the vote")
+        -- A LAW VOTE IN A LAW'S WORDS, never the war vote's: the way back, both
+        -- sides' heads and pictures, and the law's own picture.
+        local c, old = panel.children, IC.law_in_force(F, "labour")
+        assert(plain(c.ic_lv_back.text) == "Back to the laws", "a law vote's way back reads " .. c.ic_lv_back.text)
+        assert(plain(c.ic_lv_name.text) == ICUI.law_name("labour", "ash")
+            and c.ic_lv_fx.text == table.concat(ICUI.law_short("labour", "ash"), ", "),
+            "a law vote's name and effect read " .. c.ic_lv_name.text .. " / " .. c.ic_lv_fx.text)
+        assert(plain(c.ic_lv_shead_1.text) == "Enact " .. ICUI.law_name("labour", "ash")
+            and plain(c.ic_lv_shead_2.text) == "Keep " .. ICUI.law_name("labour", old),
+            "a law vote's sides read " .. c.ic_lv_shead_1.text .. " / " .. c.ic_lv_shead_2.text)
+        assert(c.ic_lv_icon.images[0] == ICUI.law_icon("labour", "ash")
+            and c.ic_lv_sicon_1.images[0] == ICUI.law_icon("labour", "ash")
+            and c.ic_lv_sicon_2.images[0] == ICUI.law_icon("labour", old),
+            "a law vote's pictures are " .. tostring(c.ic_lv_icon.images[0]) .. ", "
+            .. tostring(c.ic_lv_sicon_1.images[0]) .. ", " .. tostring(c.ic_lv_sicon_2.images[0]))
     end)
     gov_done()
 end)
@@ -31723,6 +31907,21 @@ check("laws: the hand lights your stance and paid levels, and its buttons send t
         assert(panel.children.ic_lv_st_1.images[0] == ICUI.TAB_PLATE[0].on
             and panel.children.ic_lv_st_2.images[0] == ICUI.TAB_PLATE[0].off,
             "Support is not lit, or Oppose is")
+        -- THE GOLD OVERRULES ARE THE WAR VOTE'S: hidden on a law vote, and a click
+        -- on either sends nothing.
+        for i = 3, 4 do
+            assert(not panel.children["ic_lv_over_" .. i].visible, "ic_lv_over_" .. i .. " is shown on a law vote")
+        end
+        local was_send, sent = ICUI.send, {}
+        ICUI.send = function(_f, op, arg) sent[#sent + 1] = op .. ":" .. tostring(arg) return true end
+        local ok_g, err_g = pcall(function()
+            click({string = "ic_lv_over_3", component = panel.children.ic_lv_over_3})
+            click({string = "ic_lv_over_4", component = panel.children.ic_lv_over_4})
+        end)
+        ICUI.send = was_send
+        assert(ok_g, err_g)
+        assert(#sent == 0 and v.stance == "aye" and court.votes.labour == v,
+            "a gold overrule on a law vote sent " .. table.concat(sent, " "))
         click({string = "ic_lv_lvl_2", component = panel.children.ic_lv_lvl_2})
         assert(v.push.crown == 2, "Push hard did not push")
         assert(string.find(panel.children.ic_lv_lvl_1.text, "paid", 1, true), "level 1 is not marked paid")
@@ -31735,6 +31934,19 @@ check("laws: the hand lights your stance and paid levels, and its buttons send t
         click({string = "ic_lv_over_2", component = panel.children.ic_lv_over_2})
         assert(court.votes.labour == nil and IC.law_in_force(F, "labour") == "measure", "Fail now did not fail it")
         assert(ICUI.law_cat == nil, "the screen did not go back to the board")
+        -- AND ON A WAR VOTE BOTH GOLD OVERRULES ARE SHOWN.
+        make_faction("wh_main_dwf_karak_izor", "wh_main_sc_dwf_dwarfs", {}, {})
+        court.votes[IC.COUNCIL] = {option = "wh_main_dwf_karak_izor", proposer = "legion",
+                                   ends = turn + 2, stance = "aye", won = {}, push = {}}
+        ICUI.view, ICUI.law_cat = "laws", IC.COUNCIL
+        ICUI.refresh()
+        for i = 3, 4 do
+            local b = panel.children["ic_lv_over_" .. i]
+            assert(b.visible and string.find(tostring(b.text), ICUI.GOLD_ICON, 1, true),
+                "a war vote's ic_lv_over_" .. i .. " reads " .. tostring(b.text) .. ", shown " .. tostring(b.visible))
+        end
+        court.votes[IC.COUNCIL] = nil
+        ICUI.law_cat = nil
     end)
     ICUI.clicked_index = saved_idx
     gov_done()
@@ -33073,6 +33285,79 @@ DW.check("a Dwarf court's Help page names nothing of the Chaos Dwarfs", function
     assert(grudge_line, "a Dwarf court's Help page does not name the settled grudge deed")
 end)
 
+-- THE HELP CARD GREW (540 to 592 tall, to hold fourteen topics), so what it now
+-- lies over has to be asked again: on the Help view, in either race, no visible
+-- cell that is not the page's own may share a pixel with the card. Walked from
+-- the drawn tree, so a cell the refresh forgets to hide on this view is found
+-- whichever view put it there.
+DW.check("the help card holds only the help page, in either race's Help view", function()
+    local seen, topics = {}, {}
+    local function walk(node, box, hits)
+        for _, c in ipairs(node.order or {}) do
+            if c.visible ~= false and (c.w or 0) > 0 and (c.h or 0) > 0 then
+                seen[c.name] = true
+                local own = string.sub(c.name or "", 1, 8) == "ic_help_"
+                -- A BARE HOLDER DRAWS NOTHING: no words and no picture of its
+                -- own (the Governors view's pin holder is the whole screen). What
+                -- it holds is walked below.
+                local draws = (c.text or "") ~= "" or next(c.images or {}) ~= nil
+                if draws and not own and c.x < box.x + box.w and box.x < c.x + c.w
+                        and c.y < box.y + box.h and box.y < c.y + c.h then
+                    hits[#hits + 1] = string.format("%s (%d,%d %dx%d)", c.name, c.x, c.y, c.w, c.h)
+                end
+                walk(c, box, hits)
+            end
+        end
+    end
+    local function look(panel, race)
+        ICUI.view, ICUI.pick, ICUI.help_page = "help", nil, 1
+        ICUI.refresh()
+        local box = panel.children.ic_help_box
+        assert(box and box.visible, race .. ": the help page's card is hidden")
+        -- THE CARD IS THE FIGURE THE GENERATOR LAYS OUT, not a smaller one that
+        -- would pass: it ends well clear of the alert bar.
+        local alert = panel.children.ic_alert
+        assert(box.y + box.h <= alert.y, race .. ": the card ends at y " .. (box.y + box.h)
+            .. ", under the alert bar at " .. alert.y)
+        local hits = {}
+        seen = {}
+        walk(panel, box, hits)
+        assert(#hits == 0, race .. ": the help card lies over " .. table.concat(hits, "; "))
+        -- THE WALK REACHED THE CELLS AROUND THE CARD AND THE PAGE ITSELF, or a
+        -- walk that saw nothing would pass: the title above it, a tab, the close
+        -- button, and a button for every topic the page has.
+        for _, name in ipairs({"ic_title", "ic_tab_court", "ic_close"}) do
+            assert(seen[name], race .. ": the walk never reached " .. name)
+        end
+        topics[race] = 0
+        for _, key in ipairs(ICUI.HELP_TOPIC_KEYS) do
+            if seen[key] then topics[race] = topics[race] + 1 end
+        end
+        assert(topics[race] == #ICUI.HELP, race .. ": the walk saw " .. topics[race]
+            .. " topic buttons for " .. #ICUI.HELP .. " topics")
+    end
+    IC.state = {}
+    turn = 1
+    make_faction(F, IC.CHD_SUBCULTURE, {make_character(1, ANY_SEAT, "forge")}, {})
+    IC.add_house(F, IC.CROWN)
+    IC.add_house(F, "forge")
+    ICUI.sel = nil
+    -- OPENED, NOT JUST BUILT: the layout that moves every cell to its place runs
+    -- in open(), and a tree of unmoved cells sits at the origin.
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        look(panel, "chd")
+        ICUI.close(true)
+    end)
+    DW.court(true)
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        look(panel, "dwf")
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    assert(topics.chd and topics.dwf, "a race was never looked at")
+end)
+
 DW.check("a Dwarf court's moves wear their Dwarf names on every card, tip and title", function()
     DW.court(true)
     -- NAMES THE TWO RACES SHARE (Send Diplomats, the two favours) would pass with
@@ -33100,7 +33385,8 @@ DW.check("a Dwarf court's moves wear their Dwarf names on every card, tip and ti
         -- THE BUTTON TIPS, the move labels and the picker titles say the same.
         local slug = ICUI.court_slugs(DW.KK)[1]
         for key, move in pairs(ICUI.ACT_MOVE) do
-            local want = move.plot and IC.plot_text(move.plot, DW.KK)
+            -- A SECRET HAS NO MOVE NAME TO SAY: its tip is the button's own label.
+            local want = move.secret and ICUI.ACT_LABEL[key] or move.plot and IC.plot_text(move.plot, DW.KK)
                          or IC.favour_text(move.favour, DW.KK)
             local tip = ICUI.act_tip(DW.KK, key, slug)
             assert(string.find(tip, want, 1, true), key .. "'s tip reads " .. tip)
@@ -33388,6 +33674,31 @@ DW.check("a refused button goes grey and comes back, in the race's own skin", fu
             ICUI.set_text(c, "Yes")
             assert(c.images[0] == lit and c.images[1] == hover, what .. " allowed again draws "
                 .. tostring(c.images[0]) .. " / " .. tostring(c.images[1]))
+        end
+        -- EVERY OVERRULE AND THE SECRET MOVE, in the Lua's list and in the
+        -- generator's two: a cell dropped from ICUI.PLATE_BUTTONS keeps a lit plate
+        -- when refused, from LAW_PAGE_BUTTONS (or ACT_BUTTONS) is built in the wrong
+        -- skin, and from BTN_CELLS is measured without its end caps.
+        local gh = assert(io.open("tools/gen_ic_ui.py", "r"))
+        local gen = gh:read("*a")
+        gh:close()
+        local function listed(name)
+            local body = string.match(gen, "\n" .. name .. " = (%b())") or string.match(gen, "\n" .. name .. " = (%b{})")
+            assert(body, name .. " is not in the generator")
+            return body
+        end
+        local page, cells, acts = listed("LAW_PAGE_BUTTONS"), listed("BTN_CELLS"), listed("ACT_BUTTONS")
+        for _, id in ipairs({"ic_lv_over_1", "ic_lv_over_2", "ic_lv_over_3", "ic_lv_over_4", "ic_act_secret"}) do
+            local c = fake_find(panel, id)
+            assert(c, id .. " is not on the panel")
+            ICUI.set_text(c, ICUI.red("No"))
+            assert(c.images[0] == grey and c.text == "No", id .. " refused draws " .. tostring(c.images[0]))
+            ICUI.set_text(c, "Yes")
+            assert(c.images[0] == lit and c.images[1] == hover, id .. " allowed again draws " .. tostring(c.images[0]))
+            local q = '"' .. id .. '"'
+            local home = id == "ic_act_secret" and acts or page
+            assert(string.find(home, q, 1, true), id .. " is in neither LAW_PAGE_BUTTONS nor ACT_BUTTONS")
+            assert(string.find(cells, q, 1, true), id .. " is not in BTN_CELLS")
         end
         -- A RED LINE THAT IS NOT A BUTTON keeps its art.
         local title = fake_find(panel, "ic_lbl_section")
@@ -34146,15 +34457,17 @@ if os.getenv("IC_DUMP") then
     gov_done()
 end
 
--- THE DWARF COURT'S DUMP: with IC_DUMP_RACE=dwf, open Karak Kadrin's court
--- through the REAL ICUI.open on the fake root at each box and walk every view,
--- writing every component with the file it was created from, so
--- preview_iron_court.py --race dwf draws only what the shipped Lua did. Not a
--- check: it adds nothing to the count.
-if os.getenv("IC_DUMP_RACE") == "dwf" then
+-- THE RACE DUMP: with IC_DUMP_RACE=dwf, open Karak Kadrin's court, and with
+-- IC_DUMP_RACE=chd the harness's own Chaos Dwarf court, through the REAL ICUI.open
+-- on the fake root at each box and walk every view, writing every component with
+-- the file it was created from, so preview_iron_court.py draws only what the
+-- shipped Lua did. Every Dwarf view comes from here, and the Chaos Dwarf views the
+-- preview lists in CHD_DUMPED. Not a check: it adds nothing to the count.
+if os.getenv("IC_DUMP_RACE") == "dwf" or os.getenv("IC_DUMP_RACE") == "chd" then
+    local dwf = os.getenv("IC_DUMP_RACE") == "dwf"
     IC_TEST_LOC = dofile(os.getenv("IC_DUMP_LOC"))
     IC_TEST_PORTRAITS = {}
-    local KK_DUMP = "wh_main_dwf_karak_kadrin"
+    local KK_DUMP = dwf and "wh_main_dwf_karak_kadrin" or F
     local out = assert(io.open(os.getenv("IC_DUMP_RACE_OUT"), "w"))
     local function esc(s)
         return (string.gsub(tostring(s or ""), "[\t\n\\]",
@@ -34172,25 +34485,36 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
     end
     -- THE HARD CASE: every party, each wearing its longest name; a king; two governors.
     IC.state = {}
+    IC.agenda_state = {}
+    IC._war_snap = {}
     IC._race_cache = {}
     IC_GOVS_ON = true
+    -- THE CAMPAIGN'S GRACE, not the harness's 0: the War Council's Help names it.
+    local fh, keep_grace = assert(io.open(FILE, "r")), IC.TUNE.grace_turns
+    IC.TUNE.grace_turns = assert(tonumber(string.match(fh:read("*a"), "\n%s*grace_turns%s*=%s*(%d+)")))
+    fh:close()
     turn = IC.TUNE.grace_turns + 5
     local king = make_character(9900, ANY_SEAT, IC.CROWN, nil)
-    king._forename, king._surname = "derpy_demo_dwf_fore", "derpy_demo_dwf_sur"
-    IC_TEST_PORTRAITS["9900"] = IC_TEST_LOC.derpy_demo_dwf_face_king
+    king._forename, king._surname = "derpy_demo_race_fore", "derpy_demo_race_sur"
+    IC_TEST_PORTRAITS["9900"] = IC_TEST_LOC.derpy_demo_race_face_king
     local chars = {king}
-    local f = make_faction(KK_DUMP, "wh_main_sc_dwf_dwarfs", chars,
+    local f = make_faction(KK_DUMP, dwf and "wh_main_sc_dwf_dwarfs" or IC.CHD_SUBCULTURE, chars,
                            {"prov_a", "prov_b", "prov_c", "prov_d"})
     f._leader = king
     -- A TREASURY THAT CAN PAY THE WEREGILD, so its card is drawn as a court with
-    -- gold sees it.
+    -- gold sees it; and the war council's gold, so its buttons draw lit.
     f._gold = 4000
     cm.get_human_factions = function() return {KK_DUMP} end
+    -- THE CHAOS DWARF CROWN'S NAME is the preview's (derpy_demo_crown): the harness's
+    -- own faction key is in no loc.
+    if not dwf then IC_TEST_LOC["factions_screen_name_" .. KK_DUMP] = IC_TEST_LOC.derpy_demo_crown end
     local R = IC.R(KK_DUMP)
-    assert(R.key == "dwf", "Karak Kadrin is not a Dwarf court: " .. tostring(R.key))
+    assert(R.key == os.getenv("IC_DUMP_RACE"), KK_DUMP .. " is not a " .. os.getenv("IC_DUMP_RACE")
+        .. " court: " .. tostring(R.key))
     -- A DWARF'S TRADE: make_character stamps the Chaos Dwarf background of the party
     -- it is given, and a Dwarf court's men carry their own race's.
     local function dwarf_bg(c, slug)
+        if not dwf then return end
         for k in pairs(c._traits) do
             if string.find(k, "^derpy_ic_bg_") then c._traits[k] = nil end
         end
@@ -34208,7 +34532,7 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
         c._faction = f
         dwarf_bg(c, slug)
         chars[#chars + 1] = c
-        IC_TEST_PORTRAITS[tostring(9900 + i)] = IC_TEST_LOC["derpy_demo_dwf_face_" .. ((i - 1) % 6 + 1)]
+        IC_TEST_PORTRAITS[tostring(9900 + i)] = IC_TEST_LOC["derpy_demo_race_face_" .. ((i - 1) % 6 + 1)]
         court.standing[9900 + i] = 420 - i * 30
         -- THE CARDS' WHOLE LOAD: two traits each, a government, and a loyalty spread
         -- wide enough to show every mood.
@@ -34219,12 +34543,13 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
         if slug ~= IC.CROWN then court.houses[slug].loyalty = ({100, 57, 52, 21, 38, 65, 80, 30, 50})[i] end
     end
     -- THE BOOK'S HARD CASE: the factions the preview names in IC_DUMP_BOOK (CA's
-    -- three longest) met, each carrying points.
+    -- three longest) met, each carrying points. Each holds a province, so the
+    -- first can border the court for the war council below.
     local met = {}
     for key in string.gmatch(os.getenv("IC_DUMP_BOOK") or "", "[^,]+") do
         local man = make_character(9950 + #met, ANY_SEAT, nil, nil)
         man._force, man._grudge = true, 3000 - #met * 1000
-        make_faction(key, "wh_main_sc_grn_greenskins", {man}, {})
+        make_faction(key, "wh_main_sc_grn_greenskins", {man}, {"dump_foe_" .. (#met + 1)})
         met[#met + 1] = key
     end
     f._met = met
@@ -34240,8 +34565,100 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
     court.votes = {[cat] = {option = R.LAWS[cat].order[5], proposer = R.PARTIES[2],
                             ends = turn + IC.TUNE.law_vote_turns, stance = "aye",
                             won = {}, push = {}}}
+    -- THE WAR COUNCIL, THE CLAIMS AND A SECRET, each at its hardest. The Book's
+    -- first faction (CA's longest name) borders the court and trades with it, so
+    -- the parties' lines read several facts; the court votes on war with it and
+    -- has a war on it planned (one at a time in a campaign, both rows here).
+    local foe = met[1]
+    assert(foe, "the preview named no faction in IC_DUMP_BOOK for the war council")
+    f._adjacent = {prov_a = {"region_dump_foe_1"}}
+    f._trade = {[foe] = true}
+    -- ITS REAL FLAG (CA's flags_path, read by the preview): the stub's is no file.
+    local flag = os.getenv("IC_DUMP_FOE_FLAG")
+    if flag then factions[foe].flag_path = function() return flag end end
+    -- A DWARF COURT'S BOOK NAMES IT, as the turn start writes the bands: the
+    -- Book's own fact is then on the vote.
+    if dwf then IC.book_tick(KK_DUMP) end
+    local rivals = {}
+    for _, slug in ipairs(R.PARTIES) do
+        if slug ~= IC.CROWN then rivals[#rivals + 1] = slug end
+    end
+    local longest = rivals[1]
+    for _, slug in ipairs(rivals) do
+        if #ICUI.house_name(slug, KK_DUMP) > #ICUI.house_name(longest, KK_DUMP) then longest = slug end
+    end
+    court.votes[IC.COUNCIL] = {option = foe, ends = turn + IC.TUNE.law_vote_turns,
+                               stance = "aye", won = {}, push = {}}
+    -- ITS PROPOSER IS FOR IT, as IC.council_party_pick only puts a war a party's line
+    -- is aye on: the longest name of those. The longest of all abstained on its own war.
+    for _, slug in ipairs(IC.war_side(KK_DUMP, foe, "aye")) do
+        local p = court.votes[IC.COUNCIL].proposer
+        if not p or #ICUI.house_name(slug, KK_DUMP) > #ICUI.house_name(p, KK_DUMP) then
+            court.votes[IC.COUNCIL].proposer = slug
+        end
+    end
+    assert(court.votes[IC.COUNCIL].proposer, "no party of the dump's court is for the war on " .. foe)
+    court.war = {target = foe, at = turn + IC.TUNE.war_prep_turns, proposer = rivals[#rivals]}
+    -- THE SECRET'S PARTY: the first with a man off the Crown's side of both votes,
+    -- the war vote's side turned if no party is, so its secret lists both votes.
+    local function off_side(category)
+        local vote, out = court.votes[category], {}
+        for _, m in ipairs(IC.law_tally(KK_DUMP, category, vote).men) do
+            if m.side ~= vote.stance then out[m.party] = true end
+        end
+        return out
+    end
+    local held
+    for _, stance in ipairs({"aye", "nay"}) do
+        court.votes[IC.COUNCIL].stance = stance
+        local law, war = off_side(cat), off_side(IC.COUNCIL)
+        for _, slug in ipairs(rivals) do
+            if not held and law[slug] and war[slug] then held = slug end
+        end
+        if held then break end
+    end
+    assert(held, "no party of the dump's court is off the Crown's side of both votes")
+    -- ITS MAN WEARS THE LONGEST NAME, and its demand the longest province; its
+    -- scheme and its countdown give the secret its last two uses.
+    local held_cqi
+    for i, slug in ipairs(R.PARTIES) do
+        if slug == held then held_cqi = i + 9900 end
+    end
+    for _, c in ipairs(chars) do
+        if c:command_queue_index() == held_cqi then c._forename = "derpy_demo_long_man" end
+    end
+    court.secrets = {[held] = turn}
+    court.houses[held].clock = 3
+    local a = IC.agenda(KK_DUMP)
+    a.demand = {slug = held, kind = "gov", cqi = held_cqi, key = "derpy_demo_long_prov", was = 0,
+                ends = turn + IC.TUNE.party_demand_turns}
+    -- ITS SEAT NAMED, as IC.party_target's crown_seat names one: with no key the
+    -- Intrigue tab's warning read "struck from his seat as an office".
+    a.plot = {slug = held, move = "unseat", actor = held_cqi, target = 9900, key = R.OFFICES[2].slug,
+              turn = turn}
+    -- THREE CLAIMS ON THE LONGEST PROVINCE, one for each reason; and two offers,
+    -- one to calm the longest name and one of troops for a lord who is gone, so
+    -- its Accept draws red.
+    local others = {}
+    for i, slug in ipairs(R.PARTIES) do
+        if slug ~= IC.CROWN and slug ~= held then others[#others + 1] = {slug, i + 9900} end
+    end
+    court.claims = {derpy_demo_long_prov = {ends = turn + IC.TUNE.claim_turns, list = {
+        {slug = others[1][1], cqi = others[1][2], why = "conquest"},
+        {slug = others[2][1], cqi = others[2][2], why = "home"},
+        {slug = others[3][1], cqi = others[3][2], why = "weight"}}}}
+    a.offers[others[4][1]] = {kind = "calm", n = IC.TUNE.party_offer_calm, target = longest,
+                              ends = turn + IC.TUNE.party_offer_turns}
+    a.offers[others[5][1]] = {kind = "troops", n = IC.TUNE.party_offer_units, target = 99999,
+                              ends = turn + 1}
+    -- THE WAR COUNCIL'S HELP TOPIC, by its title.
+    local war_page
+    for i, topic in ipairs(ICUI.HELP) do
+        if topic.title == "The War Council" then war_page = i end
+    end
+    assert(war_page, "ICUI.HELP has no topic titled The War Council")
     local VIEWS = {
-        {"court", function() ICUI.view = "court"; ICUI.sel = R.PARTIES[2] end},
+        {"court", function() ICUI.view = "court"; ICUI.sel = held end},
         {"intrigue", function() ICUI.view = "intrigue" end},
         {"pick", function() ICUI.view = "offices"; ICUI.sort.pick = 1
             ICUI.pick = {kind = "office", key = R.OFFICES[1].slug} end},
@@ -34257,7 +34674,18 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
         {"law_vote", function() ICUI.view = "laws"; ICUI.law_cat = cat end},
         {"gov_cards", function() ICUI.view = "court"; ICUI.pick = {kind = "doctrine"} end},
         {"log", function() ICUI.view = "log" end},
-        {"help", function() ICUI.view = "help"; ICUI.help_page = 1 end},
+        -- IC_DUMP_HELP_PAGE draws another topic in "help".
+        {"help", function() ICUI.view = "help"
+            ICUI.help_page = tonumber(os.getenv("IC_DUMP_HELP_PAGE") or "") or 1 end},
+        {"help_war", function() ICUI.view = "help"; ICUI.help_page = war_page end},
+        {"war_vote", function() ICUI.view = "laws"; ICUI.law_cat = IC.COUNCIL end},
+        {"secret", function() ICUI.view = "court"; ICUI.sel = held
+            ICUI.pick = {kind = "secret", slug = held} end},
+        -- THE SAME PICKER WITH THE SECRET GONE, every row refused: a held secret
+        -- refuses none, so one picture cannot show both.
+        {"secret_refused", function() ICUI.view = "court"; ICUI.sel = held
+            court.secrets = {}
+            ICUI.pick = {kind = "secret", slug = held} end},
     }
     for _, screen in ipairs({{1920, 1080}, {1600, 900}, {2560, 1440}}) do
         with_fake_govmap(function(hud, panel, extra)
@@ -34273,15 +34701,17 @@ if os.getenv("IC_DUMP_RACE") == "dwf" then
             ICUI.open()
             for _, v in ipairs(VIEWS) do
                 ICUI.pick, ICUI.law_cat, ICUI.sel = nil, nil, nil
+                court.secrets = {[held] = turn}
                 v[2]()
                 ICUI.refresh()
                 walk(v[1] .. "@" .. screen[1], panel, panel.name)
             end
             ICUI.pick = nil
             ICUI.close(true)
-        end, screen, "dwf")
+        end, screen, dwf and "dwf" or nil)
     end
     out:close()
+    IC.TUNE.grace_turns = keep_grace
     ICUI.use_race(IC.RACES.chd)
     ICUI.apply_scale(1920)
     cm.get_human_factions = function() return {F} end
@@ -34409,7 +34839,8 @@ check("book: the bands survive a save, and a 19-field save loads with none", fun
     assert(IC.book_tick(BK) == 0 and #bonuses == 2, "a load fired a band again")
     local fields = {}
     for field in string.gmatch(IC.pack(BK) .. "|", "([^|]*)|") do fields[#fields + 1] = field end
-    assert(#fields == 20, #fields .. " fields")
+    -- TWENTY AT LEAST: later fields (the war council's 21) follow the Book's.
+    assert(#fields >= 20, #fields .. " fields")
     assert(fields[20] == SK .. ":2", "field 20 reads " .. fields[20])
     -- AN OLDER SAVE: the same court cut to its first 19 fields.
     IC.unpack(BK, table.concat(fields, "|", 1, 19))
@@ -35327,13 +35758,6 @@ check("starting members: a lord that never arrives does not leave the feed shut"
         late()
         assert(#w.wounds == 0, "a late arrival was wounded after the seeding gave up on him")
     end)
-end)
-
-check("no parties' turn failed anywhere in the run", function()
-    -- LAST BUT ONE. IC.turn catches a failing parties' turn and only says so;
-    -- this is what keeps that catch from hiding a real fault from the run.
-    assert(#IC_PARTY_FAULTS == 0, #IC_PARTY_FAULTS .. " parties' turn(s) failed:\n  "
-        .. table.concat(IC_PARTY_FAULTS, "\n  "))
 end)
 
 check("the court's clicks run past another mod's throwing click condition", function()
@@ -36623,6 +37047,3394 @@ do
         assert(next(want) == nil, "no help topic is called " .. tostring(next(want)))
     end)
 end
+
+-- THE WAR COUNCIL, task 1: the facts about a target faction and each party's line
+-- on a war against it. One do-block and one local (W), as the Book's: the main
+-- chunk is near Lua's 200 locals. New war checks go above the closing `end -- WAR`.
+do
+local W = {
+    F  = F,                                 -- a Chaos Dwarf court, two armies
+    DF = "wh_main_dwf_karak_kadrin",        -- a Dwarf court, three armies
+    T1 = "wh_main_dwf_karak_izor",          -- a Dwarf: foe, a customer, next door, one army
+    T2 = "wh_main_grn_greenskins",          -- Greenskins: foe, three armies, far
+    T3 = "wh3_dlc23_chd_legion_of_azgorh",  -- Chaos Dwarf kin, two armies
+    T4 = "wh_main_emp_empire",              -- Empire, no army at all
+}
+
+-- `n` characters each leading an army, from cqi base + 1.
+function W.armies(base, n)
+    local out = {}
+    for i = 1, n do
+        out[i] = make_character(base + i, ANY_SEAT, nil, nil)
+        out[i]._force = true
+    end
+    return out
+end
+
+-- A FRESH WORLD. F has met all four targets; T1 trades with F and holds the region
+-- beside F's first province; nothing else is next door.
+function W.world()
+    IC.state, IC._war_snap, IC._book, IC._war_reacted = {}, {}, nil, {}
+    factions = {}
+    local f = make_faction(W.F, IC.CHD_SUBCULTURE, W.armies(9500, 2), {"war_home_a", "war_home_b"})
+    make_faction(W.T1, "wh_main_sc_dwf_dwarfs", W.armies(9510, 1), {"war_t1_prov"})
+    make_faction(W.T2, "wh_main_sc_grn_greenskins", W.armies(9520, 3), {"war_t2_prov"})
+    make_faction(W.T3, IC.CHD_SUBCULTURE, W.armies(9530, 2), {"war_t3_prov"})
+    make_faction(W.T4, "wh_main_sc_emp_empire", W.armies(9540, 0), {"war_t4_prov"})
+    f._met = {W.T2, W.T4, W.T1, W.T3}
+    f._trade = {[W.T1] = true}
+    f._adjacent = {war_home_a = {"region_war_t1_prov"}}
+    return f
+end
+
+-- A DWARF COURT beside it, three armies, having met only the Greenskins.
+function W.dwarf()
+    local df = make_faction(W.DF, "wh_main_sc_dwf_dwarfs", W.armies(9600, 3), {"war_dwf_prov"})
+    df._met = {W.T2}
+    return df
+end
+
+-- A fact set as "a,b,c", sorted, so an assertion names the whole set.
+function W.facts(set)
+    local out = {}
+    for k in pairs(set or {}) do out[#out + 1] = k end
+    table.sort(out)
+    return table.concat(out, ",")
+end
+
+check("war facts: each fact on a stubbed world", function()
+    W.world()
+    turn = 400
+    local got = W.facts(IC.war_facts(W.F, W.T1))
+    assert(got == "foe,near,trade,weak", "T1 reads " .. got)
+    got = W.facts(IC.war_facts(W.F, W.T2))
+    assert(got == "foe,strong", "T2 reads " .. got)
+    -- KIN, with equal armies: neither weak nor strong, and not a foe.
+    got = W.facts(IC.war_facts(W.F, W.T3))
+    assert(got == "kin", "T3 reads " .. got)
+    -- NO ARMY AT ALL is weak, not an error.
+    got = W.facts(IC.war_facts(W.F, W.T4))
+    assert(got == "weak", "T4 reads " .. got)
+    -- A DWARF COURT: the Book names the Greenskins at its second band (1000).
+    W.dwarf()
+    IC.court(W.DF).book[W.T2] = 2
+    got = W.facts(IC.war_facts(W.DF, W.T2))
+    assert(got == "book,foe", "T2 reads " .. got .. " to the Dwarfs")
+    -- A BAND SHORT OF NAMED is not the Book.
+    IC.court(W.DF).book[W.T2] = 1
+    got = W.facts(IC.war_facts(W.DF, W.T2))
+    assert(got == "foe", "a band short of named reads " .. got)
+end)
+
+check("war facts: near is cached per turn", function()
+    local f = W.world()
+    turn = 410
+    assert(IC.war_facts(W.F, W.T1).near, "the border was not read")
+    -- A READ STORES NOTHING: only the turn path fills, so what a machine holds never
+    -- depends on its player opening the court.
+    assert(IC._war_snap[W.F] == nil, "a read stored a cache")
+    IC.war_snapshot(W.F, true)
+    assert(IC._war_snap[W.F] and IC._war_snap[W.F].turn == 410, "fill kept no snapshot for the turn")
+    -- THE MAP MOVES, THE CACHE DOES NOT: a read with no fill is the same all turn.
+    f._adjacent = {}
+    assert(IC.war_facts(W.F, W.T1).near, "a read this turn walked the map again")
+    -- THE NEXT TURN, WITH FILL: the turn path walks the map and the border is gone.
+    turn = 411
+    IC.war_snapshot(W.F, true)
+    assert(not IC.war_facts(W.F, W.T1).near, "fill did not walk the map")
+    -- AND IT STAYS GONE all turn, whatever the map does.
+    f._adjacent = {war_home_a = {"region_war_t1_prov"}}
+    assert(not IC.war_facts(W.F, W.T1).near, "a read this turn walked the map again")
+    -- FILL REBUILDS EVEN WITHIN THE TURN: the turn path is the one that decides.
+    IC.war_snapshot(W.F, true)
+    assert(IC.war_facts(W.F, W.T1).near, "fill served the turn's cache")
+    -- A READ ON A LATER TURN WITH NO FILL finds a stale cache: it is answered from
+    -- the map as it is now, and the stored cache is left exactly as the turn path
+    -- made it (the stale cache says T1 is next door; the map says nobody is).
+    f._adjacent = {}
+    local stored = IC._war_snap[W.F]
+    turn = 412
+    assert(not IC.war_facts(W.F, W.T1).near, "a stale cache was served")
+    assert(IC._war_snap[W.F] == stored and stored.turn == 411 and stored.near[W.T1],
+        "a read overwrote the stored cache")
+    local picture = IC.war_snapshot(W.F)
+    assert(picture ~= stored and picture.turn == 412 and next(picture.near) == nil,
+        "the picture of a stale turn is not this turn's")
+    -- A REGION NOBODY HOLDS (CA answers a null interface) is skipped without losing
+    -- the neighbours listed after it, and the court itself is never its own neighbour.
+    f._adjacent = {war_home_a = {"region_war_nobody", "region_war_home_b", "region_war_t1_prov"}}
+    turn = 413
+    IC.war_snapshot(W.F, true)
+    local keys = {}
+    for k in pairs(IC._war_snap[W.F].near) do keys[#keys + 1] = k end
+    assert(#keys == 1 and keys[1] == W.T1, "the borders read " .. table.concat(keys, ","))
+end)
+
+check("war facts: the snapshot holds trade", function()
+    local f = W.world()
+    turn = 420
+    IC.war_snapshot(W.F, true)
+    -- THE AGREEMENT ENDS before the declaration's event reaches the court.
+    f._trade = {}
+    assert(IC.war_facts(W.F, W.T1, true).trade, "the snapshot lost a partner")
+    assert(not IC.war_facts(W.F, W.T1).trade, "a live read still saw the ended agreement")
+    -- AN AGREEMENT SIGNED DURING THE TURN joins the snapshot, and not before.
+    assert(not IC.war_facts(W.F, W.T4, true).trade, "T4 traded before it signed")
+    IC.war_note_trade(W.F, W.T4)
+    assert(IC.war_facts(W.F, W.T4, true).trade, "a signed partner was not noted")
+    assert(not IC.war_facts(W.F, W.T4).trade, "a live read saw an agreement F never signed")
+    -- AND THE NEXT TURN'S SNAPSHOT starts from the world as it is.
+    turn = 421
+    IC.war_snapshot(W.F, true)
+    assert(not IC.war_facts(W.F, W.T1, true).trade and not IC.war_facts(W.F, W.T4, true).trade,
+        "last turn's partners outlived the turn")
+end)
+
+check("war snapshot: only fill stores, and a signed agreement fills a missing or stale cache", function()
+    local f = W.world()
+    turn = 460
+    -- NO CACHE: no read of any kind may store one.
+    IC.war_facts(W.F, W.T1)
+    IC.war_line(W.F, W.T1, "temple")
+    IC.war_candidate(W.F, W.T1)
+    IC.war_candidates(W.F)
+    local picture = IC.war_snapshot(W.F)
+    assert(IC._war_snap[W.F] == nil, "a read stored a cache")
+    assert(picture.turn == 460 and picture.near[W.T1] and picture.trade[W.T1],
+        "the picture was not this turn's world")
+    -- ONE MAP WALK for a whole candidate list. Four met factions reach the border
+    -- test, so a walk each would count four.
+    local walks, real = 0, f.region_list
+    f.region_list = function(...) walks = walks + 1 return real(...) end
+    local got = IC.war_candidates(W.F)
+    f.region_list = real
+    assert(walks == 1, walks .. " map walks for one candidate list")
+    assert(table.concat(got, ",") == W.T1, "the candidates read " .. table.concat(got, ","))
+    assert(IC._war_snap[W.F] == nil, "a candidate list stored a cache")
+    -- A SIGNED AGREEMENT WITH NO CACHE fills one, the partner in it.
+    IC.war_note_trade(W.F, W.T4)
+    local snap = IC._war_snap[W.F]
+    assert(snap and snap.turn == 460 and snap.trade[W.T4] and snap.trade[W.T1] and snap.near[W.T1],
+        "a signed agreement did not fill the missing cache")
+    -- AND ON A STALE ONE: last turn's customer and border are gone from the new fill.
+    turn = 461
+    f._trade, f._adjacent = {}, {}
+    IC.war_note_trade(W.F, W.T4)
+    snap = IC._war_snap[W.F]
+    assert(snap.turn == 461 and snap.trade[W.T4] and not snap.trade[W.T1] and not snap.near[W.T1],
+        "a signed agreement on a stale cache kept last turn's world")
+    -- A CURRENT CACHE is added to and not rebuilt (the map has moved since).
+    f._adjacent = {war_home_a = {"region_war_t1_prov"}}
+    IC.war_note_trade(W.F, W.T3)
+    assert(IC._war_snap[W.F] == snap and snap.trade[W.T3] and snap.trade[W.T4] and not snap.near[W.T1],
+        "a signed agreement rebuilt a current cache")
+end)
+
+check("war facts: a read that throws costs its fact and not the call", function()
+    local f = W.world()
+    turn = 470
+    IC.war_snapshot(W.F, true)
+    local warned, warn = {}, IC.warn
+    IC.warn = function(text)
+        warned[#warned + 1] = tostring(text)
+        return warn(text)
+    end
+    local ok, err = pcall(function()
+        local t1 = factions[W.T1]
+        -- THE TRADE CALL.
+        local real = f.trade_agreement_with
+        f.trade_agreement_with = function() error("trade refused") end
+        local got = W.facts(IC.war_facts(W.F, W.T1))
+        f.trade_agreement_with = real
+        assert(got == "foe,near,weak", "a trade read that threw left " .. got)
+        -- THE ARMY COUNT.
+        real = t1.military_force_list
+        t1.military_force_list = function() error("armies refused") end
+        got = W.facts(IC.war_facts(W.F, W.T1))
+        t1.military_force_list = real
+        assert(got == "foe,near,trade", "an army count that threw left " .. got)
+        -- THE TARGET'S RACE.
+        real = t1.subculture
+        t1.subculture = function() error("race refused") end
+        got = W.facts(IC.war_facts(W.F, W.T1))
+        t1.subculture = real
+        assert(got == "near,trade,weak", "a subculture that threw left " .. got)
+        -- THE MAP AND THE MET LIST, which the snapshot reads whole. A new turn, so
+        -- there is no cache and the facts take a picture of their own.
+        turn = 471
+        real = f.region_list
+        f.region_list = function() error("map refused") end
+        got = W.facts(IC.war_facts(W.F, W.T1))
+        f.region_list = real
+        assert(got == "foe,trade,weak", "a map that threw left " .. got)
+        real = f.factions_met
+        f.factions_met = function() error("met refused") end
+        got = W.facts(IC.war_facts(W.F, W.T1, true))
+        f.factions_met = real
+        assert(got == "foe,near,weak", "a met list that threw left " .. got)
+    end)
+    IC.warn = warn
+    assert(ok, err)
+    assert(#warned == 5, #warned .. " warnings for five failed reads")
+end)
+
+check("war lines: first match wins", function()
+    local f = W.world()
+    turn = 430
+    local function line(party, target, snap, who)
+        local side, fact = IC.war_line(who or W.F, target, party, snap)
+        return tostring(side) .. "," .. tostring(fact)
+    end
+    assert(line("temple", W.T1) == "aye,foe", "temple on T1: " .. line("temple", W.T1))
+    assert(line("temple", W.T3) == "nay,kin", "temple on T3: " .. line("temple", W.T3))
+    assert(line("ledger", W.T1) == "nay,trade", "ledger on T1: " .. line("ledger", W.T1))
+    assert(line("ledger", W.T2) == "nay,strong", "ledger on T2: " .. line("ledger", W.T2))
+    -- FOE AND WEAK BOTH HOLD of T1; the legion's list puts foe first.
+    assert(line("legion", W.T1) == "aye,foe", "legion on T1: " .. line("legion", W.T1))
+    -- A PARTY WITH A LINE THAT NO FACT MEETS has none: T1 is neither kin nor stronger.
+    assert(line("hearth", W.T1) == "nil,nil", "hearth on T1: " .. line("hearth", W.T1))
+    -- THE TOWER HAS NO LINES, the Crown votes its stance, and a confederated house
+    -- is none of the eight parties.
+    assert(line("tower", W.T1) == "nil,nil", "the tower has a line")
+    assert(line(IC.CROWN, W.T1) == "nil,nil", "the Crown has a line")
+    local house = IC.RACES.chd.ORIGINS[1].slug
+    assert(line(house, W.T1) == "nil,nil", "a confederate house has a line")
+    assert(line(nil, W.T1) == "nil,nil", "no party has a line")
+    -- THE SNAPSHOT: the agreement ended after the turn began, and the Ledger still
+    -- objects when it reads the snapshot but not when it reads live.
+    IC.war_snapshot(W.F, true)
+    f._trade = {}
+    assert(line("ledger", W.T1, true) == "nay,trade", "the snapshot's partner was forgotten")
+    assert(line("ledger", W.T1) == "nil,nil", "a live read found an ended agreement")
+    -- A DWARF COURT: the Book first, then weak; and where the Book and kin disagree
+    -- the order decides (a Dwarf in the Book is kin).
+    W.dwarf()
+    IC.court(W.DF).book[W.T2] = 2
+    assert(line("legion", W.T2, nil, W.DF) == "aye,book", "legion on a Book target: " .. line("legion", W.T2, nil, W.DF))
+    assert(line("temple", W.T2, nil, W.DF) == "aye,book", "temple on a Book target: " .. line("temple", W.T2, nil, W.DF))
+    assert(line("chain", W.T2, nil, W.DF) == "aye,foe", "chain on a foe: " .. line("chain", W.T2, nil, W.DF))
+    IC.court(W.DF).book[W.T1] = 2
+    assert(line("temple", W.T1, nil, W.DF) == "aye,book", "book did not come before kin")
+    IC.court(W.DF).book[W.T1] = nil
+    assert(line("temple", W.T1, nil, W.DF) == "nay,kin", "a Dwarf court did not stand against kin")
+end)
+
+check("war candidates: every exclusion", function()
+    local f = W.world()
+    turn = 440
+    local pool = IC.RACES.chd.REBEL_POOL[1]
+    -- A TARGET MET, ALIVE, AND NEXT DOOR unless `shape` says otherwise, so the one
+    -- thing it changes is the one reason it is refused.
+    local function target(key, shape)
+        local t = make_faction(key, "wh_main_sc_emp_empire", {}, {"war_p_" .. key})
+        f._met[#f._met + 1] = key
+        table.insert(f._adjacent.war_home_a, "region_war_p_" .. key)
+        if shape then shape(t) end
+        return key
+    end
+    local want = {
+        dead   = target("war_x_dead", function(t) t._dead = true end),
+        unmet  = target("war_x_unmet", function() table.remove(f._met) end),
+        human  = target("war_x_human"),
+        rebel  = target("war_x_rebel", function(t) t._rebel = true end),
+        at_war = target("war_x_war", function() f._wars = {war_x_war = true} end),
+        treaty = target("war_x_ally", function() f._allies = {war_x_ally = true} end),
+        qb     = target("war_x_qb", function(t) t._qb = true end),
+        pool   = target(pool),
+        self   = W.F,
+    }
+    want.gone = "war_x_nobody"
+    -- FAR: met, alive and free, but not on F's border.
+    want.far = "war_x_far"
+    make_faction(want.far, "wh_main_sc_emp_empire", {}, {"war_p_far"})
+    f._met[#f._met + 1] = want.far
+    -- AND TWO THAT ARE FINE: a stranger next door, and a customer.
+    local plain = target("war_x_plain")
+    local humans = cm.get_human_factions
+    cm.get_human_factions = function() return {W.F, want.human} end
+    local ok, err = pcall(function()
+        local expect = {dead = "dead", unmet = "unmet", human = "human", rebel = "rebel",
+                        at_war = "at_war", treaty = "treaty", qb = "rebel", pool = "rebel",
+                        self = "self", gone = "dead", far = "far"}
+        for name, why in pairs(expect) do
+            local good, reason = IC.war_candidate(W.F, want[name])
+            assert(good == false and reason == why,
+                name .. " came back " .. tostring(good) .. ", " .. tostring(reason) .. ", not " .. why)
+        end
+        assert(IC.war_candidate(W.F, plain) == true, "a stranger next door was refused")
+        assert(IC.war_candidate(W.F, W.T1) == true, "a customer was refused")
+        -- SORTED BY KEY, not in the order F met them (T1 was met before plain).
+        local got = table.concat(IC.war_candidates(W.F), ",")
+        assert(got == plain .. "," .. W.T1, "the candidates read " .. got)
+        -- A DWARF COURT: the Book names a target that is not on its border.
+        W.dwarf()
+        IC.court(W.DF).book[W.T2] = 2
+        assert(IC.war_candidate(W.DF, W.T2) == true, "a Book target off the border was refused")
+        assert(table.concat(IC.war_candidates(W.DF), ",") == W.T2, "the Dwarf court's candidates")
+        IC.court(W.DF).book[W.T2] = nil
+        local good, reason = IC.war_candidate(W.DF, W.T2)
+        assert(good == false and reason == "far", "a target with no border and no grudge came back " .. tostring(reason))
+    end)
+    cm.get_human_factions = humans
+    assert(ok, err)
+end)
+
+check("war treaty: ally, vassal, overlord or pact, either direction", function()
+    local f = W.world()
+    turn = 450
+    assert(not IC.war_treaty(W.F, W.T1), "a customer is not a treaty")
+    f._allies = {[W.T1] = true}
+    assert(IC.war_treaty(W.F, W.T1), "F's ally or overlord was missed")
+    f._allies = nil
+    factions[W.T2]._allies = {[W.F] = true}
+    assert(IC.war_treaty(W.F, W.T2), "an ally or vassal of F, seen from its side, was missed")
+    f._pacts = {[W.T3] = true}
+    assert(IC.war_treaty(W.F, W.T3), "F's pact was missed")
+    factions[W.T4]._pacts = {[W.F] = true}
+    assert(IC.war_treaty(W.F, W.T4), "a pact seen from the other side was missed")
+    assert(not IC.war_treaty(W.F, "war_x_nobody"), "a faction that is not there holds a treaty")
+end)
+
+check("race fields: WAR_LINES and WAR_FOES are required", function()
+    for _, field in ipairs({"WAR_LINES", "WAR_FOES"}) do
+        local t = test_race()
+        t[field] = nil
+        local ok, err = pcall(IC.register_race, t)
+        assert(not ok and string.find(tostring(err), field, 1, true),
+            "a race with no " .. field .. " registered: " .. tostring(err))
+        assert(IC.RACES.tst == nil, "a refused race was registered")
+    end
+    for _, k in ipairs({"chd", "dwf"}) do
+        assert(type(IC.RACES[k].WAR_LINES) == "table" and type(IC.RACES[k].WAR_FOES) == "table",
+            k .. " has no war tables")
+    end
+    -- THE SAME TABLES, as every other Chaos Dwarf field.
+    assert(IC.RACES.chd.WAR_LINES == IC.WAR_LINES and IC.RACES.chd.WAR_FOES == IC.WAR_FOES,
+        "the Chaos Dwarf race holds copies")
+    assert(IC.COUNCIL == "council", "the council vote's key is " .. tostring(IC.COUNCIL))
+    for cat in pairs(IC.LAWS) do
+        assert(cat ~= IC.COUNCIL, "the council's key is a law category")
+    end
+end)
+
+check("war lines: every line names a known fact, a side and a party of its race", function()
+    local facts = {trade = true, near = true, weak = true, strong = true, kin = true,
+                   foe = true, book = true}
+    for _, k in ipairs({"chd", "dwf"}) do
+        local R = IC.RACES[k]
+        local seat = {}
+        for _, p in ipairs(R.PARTIES) do seat[p] = true end
+        for party, lines in pairs(R.WAR_LINES) do
+            assert(seat[party], k .. " has a line for " .. party .. ", which is no party of its own")
+            assert(#lines > 0, k .. " " .. party .. " has an empty list")
+            for _, l in ipairs(lines) do
+                assert(facts[l[1]], k .. " " .. party .. " names the fact " .. tostring(l[1]))
+                assert(l[2] == "aye" or l[2] == "nay", k .. " " .. party .. " takes the side " .. tostring(l[2]))
+            end
+        end
+        assert(R.WAR_LINES.tower == nil, k .. " gives the tower a line")
+        assert(R.WAR_LINES[IC.CROWN] == nil, k .. " gives the Crown a line")
+        assert(#R.WAR_FOES > 0, k .. " has no old enemies")
+        for _, sc in ipairs(R.WAR_FOES) do
+            assert(type(sc) == "string" and sc ~= R.subculture, k .. " names " .. tostring(sc) .. " as a foe")
+        end
+    end
+    -- THE BOOK IS THE DWARFS' ALONE: no Chaos Dwarf party reads it.
+    for party, lines in pairs(IC.RACES.chd.WAR_LINES) do
+        for _, l in ipairs(lines) do
+            assert(l[1] ~= "book", "a Chaos Dwarf party reads the Book: " .. party)
+        end
+    end
+end)
+
+-- THE WAR COUNCIL, task 2: the vote, the planned war, and what overruling either
+-- costs. A PLAYER COURT ON W's WORLD: law_court's men (cqi 9000 + i) and parties,
+-- F's two armies (9501, 9502) and its border with T1, the Dwarf customer.
+function W.council(men, weights)
+    W.world()
+    saved["derpy_ic_" .. F] = nil
+    local court, chars = law_court(men, weights or {crown = 10, legion = 10, ledger = 10, temple = 10})
+    local all = {}
+    for _, c in ipairs(chars) do all[#all + 1] = c end
+    for _, c in ipairs(W.armies(9500, 2)) do all[#all + 1] = c end
+    local f = make_faction(F, IC.CHD_SUBCULTURE, all, {"war_home_a", "war_home_b"})
+    f._met = {W.T2, W.T4, W.T1, W.T3}
+    f._trade = {[W.T1] = true}
+    f._adjacent = {war_home_a = {"region_war_t1_prov"}}
+    shown, wars = {}, {}
+    return court, f, chars
+end
+
+-- AN OPEN COUNCIL VOTE on `target` (T1 unless named), as IC.council_open writes it.
+function W.vote(court, stance, proposer, target)
+    court.votes[IC.COUNCIL] = {option = target or W.T1, proposer = proposer or IC.CROWN,
+                               ends = turn + IC.TUNE.law_vote_turns, stance = stance or "aye",
+                               won = {}, push = {}}
+    return court.votes[IC.COUNCIL]
+end
+
+-- HOW MANY CARDS OF ONE EVENT WERE RAISED, and the last one.
+function W.cards(slug)
+    local n, last = 0, nil
+    for i = 1, #shown do
+        if shown[i].index ~= nil and shown[i].index == IC.event_index(slug, F) then
+            n, last = n + 1, shown[i]
+        end
+    end
+    return n, last
+end
+
+-- THE AUTHOR'S START-OF-CAMPAIGN TRUCE (derpy_no_early_wars.lua's saved values):
+-- running while `turns` is set and `released` is not. W.truce(nil) clears it.
+function W.truce(turns, released)
+    saved.derpy_no_early_wars_turns = turns
+    saved.derpy_no_early_wars_start_turn = turns and 1 or nil
+    saved.derpy_no_early_wars_released = released
+end
+
+-- EVERY PARTY WHOSE LOYALTY MOVED since `was`, as "slug:delta", sorted.
+function W.moved(court, was)
+    local out = {}
+    for slug, h in pairs(court.houses) do
+        if h.loyalty ~= was[slug] then out[#out + 1] = slug .. ":" .. (h.loyalty - was[slug]) end
+    end
+    table.sort(out)
+    return table.concat(out, " ")
+end
+
+function W.loyalties(court)
+    local was = {}
+    for slug, h in pairs(court.houses) do was[slug] = h.loyalty end
+    return was
+end
+
+check("council: a party proposes on its line", function()
+    local court, f = W.council({}, {crown = 40, legion = 20, ledger = 40})
+    assert(IC.council_party_pick(F, "legion") == W.T1, "the Legion did not name its weak neighbour")
+    -- UNDER THE SHARE LINE: 14 of 100.
+    court.houses.legion.weight, court.houses.crown.weight = 14, 46
+    assert(IC.council_party_pick(F, "legion") == nil, "a party at 14% proposed")
+    court.houses.legion.weight, court.houses.crown.weight = 20, 40
+    -- THE COURT'S REST from the last party proposal.
+    court.council_rest = turn - IC.TUNE.war_party_rest + 1
+    assert(IC.council_party_pick(F, "legion") == nil, "a party proposed during the rest")
+    court.council_rest = turn - IC.TUNE.war_party_rest
+    assert(IC.council_party_pick(F, "legion") == W.T1, "the rest outlasted war_party_rest")
+    court.council_rest = nil
+    -- ONE VOTE AND ONE WAR AT A TIME.
+    W.vote(court, "abstain", "forge", W.T4)
+    assert(IC.council_party_pick(F, "legion") == nil, "a party proposed over an open vote")
+    court.votes[IC.COUNCIL] = nil
+    court.war = {target = W.T4, at = turn + 2, proposer = IC.CROWN}
+    assert(IC.council_party_pick(F, "legion") == nil, "a party proposed with a war planned")
+    court.war = nil
+    -- THE GRACE PERIOD, and the truce while it holds.
+    local grace = IC.TUNE.grace_turns
+    IC.TUNE.grace_turns = turn
+    local in_grace = IC.council_party_pick(F, "legion")
+    IC.TUNE.grace_turns = grace
+    assert(in_grace == nil, "a party proposed in the grace period")
+    W.truce(20)
+    local in_truce = IC.council_party_pick(F, "legion")
+    W.truce(20, true)
+    local released = IC.council_party_pick(F, "legion")
+    W.truce(nil)
+    assert(in_truce == nil, "a party proposed during the truce")
+    assert(released == W.T1, "a released truce still held")
+    -- THE PICK: cm:random_number over the sorted candidates its line is for. T4,
+    -- with no army at all, is weak and now next door too.
+    table.insert(f._adjacent.war_home_a, "region_war_t4_prov")
+    rng({2})
+    local second = IC.council_party_pick(F, "legion")
+    rng({1})
+    local first = IC.council_party_pick(F, "legion")
+    rng(nil)
+    assert(first == W.T1 and second == W.T4, "the picks read " .. tostring(first) .. ", " .. tostring(second))
+    -- A PARTY WITH NO AYE LINE names nobody: the Ledger trades with T1.
+    assert(IC.council_party_pick(F, "ledger") == nil, "the Ledger proposed a war")
+    gov_done()
+end)
+
+check("council: the party act", function()
+    local court = W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
+    use_acts({council = true})
+    IC.agenda_state = {}
+    saved["derpy_ic_agenda_" .. F] = nil
+    local ok, err = pcall(IC.party_turn, F)
+    use_acts(BUILD1_ACTS)
+    assert(ok, err)
+    local v = court.votes[IC.COUNCIL]
+    assert(v and v.option == W.T1 and v.stance == "abstain" and v.proposer == "legion"
+        and v.ends == turn + IC.TUNE.law_vote_turns, "the party's vote opened wrong")
+    -- THE REST COUNTS FROM THE PROPOSAL (spec 2.5), not from the vote's end.
+    assert(court.council_rest == turn, "a party's proposal started no rest: " .. tostring(court.council_rest))
+    local n, card = W.cards("war_proposed")
+    assert(n == 1 and card.primary == "factions_screen_name_" .. W.T1,
+        "war_proposed came " .. n .. " times, naming " .. tostring(card and card.primary))
+    gov_done()
+end)
+
+check("council: the move opens a vote", function()
+    local court, _f, chars = W.council({{"crown", 1000}}, {crown = 50, legion = 30, ledger = 20})
+    -- A GENERAL, whom every other mission refuses.
+    chars[1]._force = true
+    assert(not IC.is_civil_mission("council") and IC.is_civil_mission("diplomats"),
+        "the council is a civil mission, or Send Diplomats is not")
+    rng(nil)
+    -- SURE: odds put in the table for it are never rolled, so a move that lost
+    -- `sure` rolls here instead of passing on a missing plot_chance_council.
+    IC.TUNE.plot_chance_council = 50
+    local done, ok, why = pcall(IC.plot, F, "council", 9001, W.T1)
+    IC.TUNE.plot_chance_council = nil
+    assert(done, ok)
+    assert(ok and why == "landed", "the move was refused: " .. tostring(why))
+    for _, c in ipairs(rng_calls) do assert(c.max ~= 100, "the council rolled its odds") end
+    assert(IC.TUNE.plot_council_cost == 150 and court.standing[9001] == 1000 - IC.TUNE.plot_council_cost,
+        "the move cost him " .. tostring(1000 - court.standing[9001]))
+    local v = court.votes[IC.COUNCIL]
+    assert(v and v.option == W.T1 and v.stance == "aye" and v.proposer == IC.CROWN
+        and v.ends == turn + IC.TUNE.law_vote_turns, "the vote opened wrong")
+    court.votes[IC.COUNCIL] = nil
+    ok, why = IC.plot(F, "council", 9001, W.T2)
+    assert(not ok and why == "far", "a faction off the border came back " .. tostring(why))
+    assert(court.votes[IC.COUNCIL] == nil, "a refused move opened a vote")
+    -- AND A DWARF COURT HAS THE MOVE, in its own words.
+    W.dwarf()
+    assert(IC.plot_for_race(IC.plot_by_key("council"), "dwf"), "the Dwarfs have no council move")
+    local name, blurb, effect = IC.plot_text("council", W.DF)
+    assert(name and blurb and effect and IC.RACES.dwf.PLOT_TEXT.council
+        and blurb ~= IC.plot_by_key("council").blurb, "the Dwarf move has no words of its own")
+    gov_done()
+end)
+
+check("council: the tally reads war lines", function()
+    local court, f = W.council({{"crown", 100}, {"temple", 50}, {"legion", 50}, {"ledger", 50}, {"tower", 50}},
+                               {crown = 10, temple = 10, legion = 10, ledger = 10, tower = 10})
+    W.vote(court, "aye")
+    court.houses.tower.loyalty = IC.TUNE.law_loyal_line
+    local function lines()
+        local seen = {}
+        for _, m in ipairs(IC.law_tally(F, IC.COUNCIL).men) do
+            seen[m.cqi] = tostring(m.side) .. "|" .. tostring(m.why)
+        end
+        return seen
+    end
+    local want = {[9001] = "aye|crown", [9002] = "aye|foe", [9003] = "aye|foe",
+                  [9004] = "nay|trade", [9005] = "aye|loyal"}
+    local seen = lines()
+    for cqi, w in pairs(want) do
+        assert(seen[cqi] == w, cqi .. " voted " .. tostring(seen[cqi]) .. ", not " .. w)
+    end
+    -- A MAN'S PRICE DOUBLES on a war line against the Crown, and not on loyalty.
+    court.houses.tower.loyalty = IC.TUNE.law_disloyal_line
+    assert(lines()[9005] == "nil|torn", "a torn tower voted " .. tostring(lines()[9005]))
+    local base = math.floor(50 * IC.TUNE.law_win_rate * IC.TUNE.law_win_ambition.steady / 10000)
+    assert(IC.law_win_price(F, IC.COUNCIL, 9004) == base * 2,
+        "a Ledger man against the war costs " .. tostring(IC.law_win_price(F, IC.COUNCIL, 9004)))
+    assert(IC.law_win_price(F, IC.COUNCIL, 9005) == base,
+        "a torn tower man costs " .. tostring(IC.law_win_price(F, IC.COUNCIL, 9005)))
+    local p, why = IC.law_win_price(F, IC.COUNCIL, 9002)
+    assert(p == nil and why == "law_with_you", "a man for the war can be won")
+    -- NO AGREEMENT, NO TRADE LINE: the Ledger's men vote on loyalty.
+    f._trade = {}
+    assert(not string.find(lines()[9004], "trade", 1, true), "the Ledger kept a trade line: " .. lines()[9004])
+    gov_done()
+end)
+
+check("council: passed plans the war", function()
+    local court = W.council({{"crown", 300}, {"legion", 100}, {"ledger", 50}},
+                            {crown = 10, legion = 10, ledger = 10})
+    W.vote(court, "aye").ends = turn
+    local l0, d0 = court.houses.legion.loyalty, court.houses.ledger.loyalty
+    IC.council_turn(F)
+    assert(court.votes[IC.COUNCIL] == nil, "the vote is still open")
+    local war = court.war
+    assert(war and war.target == W.T1 and war.at == turn + 3 and war.at == turn + IC.TUNE.war_prep_turns
+        and war.proposer == IC.CROWN, "the war was not planned three turns out")
+    assert(court.houses.legion.loyalty == math.min(100, l0 + IC.TUNE.law_pass_gain),
+        "the Legion, for it, moved " .. (court.houses.legion.loyalty - l0))
+    assert(court.houses.ledger.loyalty == math.max(0, d0 + IC.TUNE.law_pass_loss),
+        "the Ledger, against it, moved " .. (court.houses.ledger.loyalty - d0))
+    local n, card = W.cards("war_passed")
+    assert(n == 1 and card.primary == "factions_screen_name_" .. W.T1,
+        "war_passed came " .. n .. " times, naming " .. tostring(card and card.primary))
+    assert(#wars == 0, "the war was declared on the vote's own turn: " .. table.concat(wars, "; "))
+    -- BY BYPASS (the player declared it himself, task 3): closed as passed, with
+    -- nothing planned, no swing and no card.
+    court.war = nil
+    W.vote(court, "aye")
+    local was = W.loyalties(court)
+    shown = {}
+    assert(IC.council_settle(F, true, "bypass") == true, "a bypassed vote did not close as passed")
+    assert(court.votes[IC.COUNCIL] == nil and court.war == nil, "a bypassed vote planned a war")
+    assert(W.moved(court, was) == "" and W.cards("war_passed") == 0, "a bypassed vote swung or raised a card")
+    -- ITS OWN RECORD LINE, never law_pass's: the court did not pass it.
+    assert(court.log[#court.log].kind == "war_bypass" and court.log[#court.log].key == W.T1,
+        "a bypassed vote's Record line is " .. tostring(court.log[#court.log].kind))
+    gov_done()
+end)
+
+check("council: failed charges the proposer", function()
+    local court = W.council({{"crown", 300}, {"legion", 100}}, {crown = 10, legion = 10})
+    W.vote(court, "nay", "legion").ends = turn
+    local l0 = court.houses.legion.loyalty
+    IC.council_turn(F)
+    assert(court.votes[IC.COUNCIL] == nil and court.war == nil, "a failed vote planned a war")
+    assert(court.houses.legion.loyalty == math.max(0, l0 + IC.TUNE.law_fail_loss),
+        "the proposer moved " .. (court.houses.legion.loyalty - l0))
+    -- W.vote opens the vote without IC.council_open, so a rest here was written by
+    -- the close, which the rest no longer counts from.
+    assert(court.council_rest == nil, "the vote's close started a rest: " .. tostring(court.council_rest))
+    assert(W.cards("war_failed") == 1, "war_failed was not raised once")
+    gov_done()
+end)
+
+check("council: the planned war at its turn", function()
+    -- THE SIGNS: a loss is stored negative and added.
+    assert(IC.TUNE.war_broken_loyalty < 0 and IC.TUNE.war_bypass_loyalty < 0
+        and IC.TUNE.war_bypass_gain > 0 and IC.TUNE.war_peace_loyalty > 0, "a war number has the wrong sign")
+    local function planned(shape)
+        local court, f = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+        court.war = {target = W.T1, at = turn, proposer = "legion"}
+        if shape then shape(f) end
+        local was = W.loyalties(court)
+        IC.council_turn(F)
+        return court, W.moved(court, was)
+    end
+    -- THE TARGET IS DEAD: dropped, a Record line and nothing else.
+    local court, moved = planned(function() factions[W.T1]._dead = true end)
+    assert(court.war == nil and moved == "" and #wars == 0, "a dead target's war: " .. moved)
+    assert(court.log[#court.log].kind == "war_void", "no Record line for the dropped war")
+    -- ALREADY AT WAR: you started it early, which costs nothing.
+    court, moved = planned(function(f) f._wars = {[W.T1] = true} end)
+    assert(court.war == nil and moved == "" and #wars == 0, "a war already running: " .. moved)
+    -- A TREATY STANDS IN THE WAY: every party whose line is aye loses 15.
+    court, moved = planned(function(f) f._allies = {[W.T1] = true} end)
+    assert(court.war == nil and #wars == 0, "a war was declared on an ally")
+    assert(moved == "legion:-15 temple:-15", "the broken war moved " .. moved)
+    assert(W.cards("war_broken") == 1, "war_broken was not raised")
+    -- OTHERWISE THE COURT DECLARES IT, with the free-war flag set first.
+    local declare, calls = cm.force_declare_war, {}
+    cm.force_declare_war = function(self, a, b, x, y)
+        calls[#calls + 1] = {a = a, b = b, x = x, y = y, free = (IC.court(F).war_free or {})[b]}
+        return declare(self, a, b, x, y)
+    end
+    local ok, err = pcall(function() court, moved = planned() end)
+    cm.force_declare_war = declare
+    assert(ok, err)
+    assert(#calls == 1 and calls[1].a == F and calls[1].b == W.T1 and calls[1].x == false
+        and calls[1].y == false, #calls .. " declarations, or the wrong arguments")
+    assert(calls[1].free == turn, "the free-war flag was not set before the declaration")
+    assert(court.war == nil and moved == "", "the declared war stayed planned, or moved " .. moved)
+    assert(W.cards("war_begins") == 1, "war_begins was not raised")
+    -- THE TRUCE HOLDS ON ITS TURN: it waits a turn.
+    W.truce(20)
+    ok, err = pcall(function() court, moved = planned() end)
+    W.truce(nil)
+    assert(ok, err)
+    assert(court.war and court.war.at == turn + 1 and #wars == 0, "the truce did not hold the war a turn")
+    gov_done()
+end)
+
+check("council: a target that changed voids the vote", function()
+    local function changed(shape)
+        local court, f = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+        W.vote(court, "abstain", "legion")
+        shape(f)
+        local was = W.loyalties(court)
+        IC.council_turn(F)
+        return court, W.moved(court, was)
+    end
+    local cases = {
+        {"dead", function() factions[W.T1]._dead = true end},
+        {"unmet", function(f) f._met = {W.T2, W.T4, W.T3} end},
+        {"at war", function(f) f._wars = {[W.T1] = true} end},
+    }
+    for _, c in ipairs(cases) do
+        local court, moved = changed(c[2])
+        assert(court.votes[IC.COUNCIL] == nil, c[1] .. ": the vote stands")
+        assert(moved == "", c[1] .. ": loyalty moved " .. moved)
+        assert(court.log[#court.log].kind == "war_void", c[1] .. ": no Record line")
+    end
+    -- A TREATY: void, and the parties for it lose 10.
+    local court, moved = changed(function(f) f._pacts = {[W.T1] = true} end)
+    assert(court.votes[IC.COUNCIL] == nil, "a treaty left the vote standing")
+    assert(moved == "legion:-10 temple:-10", "the treaty moved " .. moved)
+    -- NO LONGER NEXT DOOR: the vote stands.
+    court, moved = changed(function(f) f._adjacent = {} end)
+    assert(court.votes[IC.COUNCIL] and moved == "", "a target off the border voided the vote")
+    -- A PARTY'S PROPOSAL VOIDED STILL RESTS THE COURT: the rest counts from the
+    -- proposal, so next turn the Legion names nobody, though T4 is next door.
+    local f
+    court, f = W.council({}, {crown = 40, legion = 20, ledger = 40})
+    table.insert(f._adjacent.war_home_a, "region_war_t4_prov")
+    IC.council_open(F, W.T1, "legion", "abstain")
+    factions[W.T1]._dead = true
+    IC.council_turn(F)
+    assert(court.votes[IC.COUNCIL] == nil, "the dead target's vote stands")
+    turn = turn + 1
+    local done, next_pick, free_pick = pcall(function()
+        local pick = IC.council_party_pick(F, "legion")
+        court.council_rest = nil
+        return pick, IC.council_party_pick(F, "legion")
+    end)
+    turn = turn - 1
+    assert(done, next_pick)
+    assert(free_pick == W.T4, "with no rest the Legion named " .. tostring(free_pick))
+    assert(next_pick == nil, "a voided party proposal started no rest: the Legion named " .. tostring(next_pick))
+    gov_done()
+end)
+
+check("council: overrule for influence and for gold", function()
+    local court, f = W.council({{"crown", 2000}, {"legion", 100}, {"ledger", 100}},
+                               {crown = 10, legion = 10, ledger = 10})
+    W.vote(court, "aye")
+    local purse, l0, d0 = IC.crown_purse(F), court.houses.legion.loyalty, court.houses.ledger.loyalty
+    assert(IC.law_overrule(F, IC.COUNCIL, true), "Pass now for influence was refused")
+    assert(IC.crown_purse(F) == purse - IC.TUNE.law_overrule_cost, "Pass now did not cost 500 influence")
+    assert(court.votes[IC.COUNCIL] == nil and court.war and court.war.at == turn + IC.TUNE.war_prep_turns,
+        "Pass now did not plan the war")
+    -- THE LEDGER LOST THE OVERRULE, and takes the passed war's swing besides.
+    assert(court.houses.ledger.loyalty
+        == math.max(0, d0 + IC.TUNE.law_overrule_loyalty + IC.TUNE.law_pass_loss),
+        "the Ledger moved " .. (court.houses.ledger.loyalty - d0))
+    assert(court.houses.legion.loyalty == math.min(100, l0 + IC.TUNE.law_pass_gain),
+        "the Legion moved " .. (court.houses.legion.loyalty - l0))
+    -- FAIL NOW FOR GOLD: the treasury pays and the Legion lost.
+    court.war = nil
+    W.vote(court, "aye")
+    f._gold = 3000
+    purse, l0, d0 = IC.crown_purse(F), court.houses.legion.loyalty, court.houses.ledger.loyalty
+    assert(IC.law_overrule(F, IC.COUNCIL, false, true), "Fail now for gold was refused")
+    assert(IC.TUNE.war_overrule_gold == 2500 and f._gold == 3000 - IC.TUNE.war_overrule_gold,
+        "Fail now left " .. f._gold .. " gold of 3000")
+    assert(IC.crown_purse(F) == purse, "gold spent influence as well")
+    assert(court.votes[IC.COUNCIL] == nil and court.war == nil, "Fail now planned a war")
+    assert(court.houses.legion.loyalty == math.max(0, l0 + IC.TUNE.law_overrule_loyalty)
+        and court.houses.ledger.loyalty == d0, "the wrong party paid for Fail now")
+    -- GOLD IS THE WAR VOTE'S ALONE, refused with the treasury full enough to pay,
+    -- so a charge made before the refusal shows.
+    law_vote(court, "ash", "aye")
+    f._gold = 3000
+    purse = IC.crown_purse(F)
+    local ok, why, short = IC.law_overrule(F, "labour", true, true)
+    assert(not ok and why == "law_gold" and court.votes.labour, "a law was overruled for gold")
+    assert(f._gold == 3000 and IC.crown_purse(F) == purse,
+        "the law_gold refusal charged: " .. f._gold .. " gold left of 3000")
+    -- SHORT OF GOLD, by how much, and charged nothing.
+    W.vote(court, "aye")
+    f._gold = 1000
+    purse = IC.crown_purse(F)
+    ok, why, short = IC.law_overrule(F, IC.COUNCIL, true, true)
+    assert(not ok and why == "gold" and short == IC.TUNE.war_overrule_gold - 1000 and court.votes[IC.COUNCIL],
+        "a short treasury came back " .. tostring(why) .. ", " .. tostring(short))
+    assert(f._gold == 1000 and IC.crown_purse(F) == purse,
+        "the short treasury was charged: " .. f._gold .. " gold left of 1000")
+    gov_done()
+end)
+
+check("council: call off for influence and for gold", function()
+    local court, f = W.council({{"crown", 2000}}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+    court.war = {target = W.T1, at = turn + 2, proposer = "legion"}
+    local purse, was = IC.crown_purse(F), W.loyalties(court)
+    assert(IC.war_calloff(F, false), "Call Off for influence was refused")
+    assert(court.war == nil and IC.crown_purse(F) == purse - IC.TUNE.law_overrule_cost,
+        "Call Off for influence did not clear the war at 500")
+    assert(W.moved(court, was) == "legion:-10 temple:-10", "Call Off moved " .. W.moved(court, was))
+    assert(court.log[#court.log].kind == "war_called", "no Record line for the call-off")
+    court.war = {target = W.T1, at = turn + 2, proposer = "legion"}
+    f._gold = 2600
+    purse, was = IC.crown_purse(F), W.loyalties(court)
+    assert(IC.war_calloff(F, true), "Call Off for gold was refused")
+    assert(court.war == nil and f._gold == 2600 - IC.TUNE.war_overrule_gold and IC.crown_purse(F) == purse,
+        "Call Off for gold left " .. f._gold .. " gold")
+    assert(W.moved(court, was) == "legion:-10 temple:-10", "Call Off for gold moved " .. W.moved(court, was))
+    -- NOTHING TO CALL OFF, and purses too short.
+    local ok, why, short = IC.war_calloff(F, true)
+    assert(not ok and why == "war_none", "a call-off with no war came back " .. tostring(why))
+    court.war = {target = W.T1, at = turn + 2, proposer = "legion"}
+    local gold = f._gold
+    purse = IC.crown_purse(F)
+    ok, why, short = IC.war_calloff(F, true)
+    assert(not ok and why == "gold" and short == IC.TUNE.war_overrule_gold - gold and court.war,
+        "a short treasury came back " .. tostring(why) .. ", " .. tostring(short))
+    assert(f._gold == gold and IC.crown_purse(F) == purse,
+        "the short treasury was charged: " .. f._gold .. " gold left of " .. gold)
+    court.standing[9001] = 0
+    purse = IC.crown_purse(F)
+    ok, why, short = IC.war_calloff(F, false)
+    assert(not ok and why == "law_purse" and short == IC.TUNE.law_overrule_cost and court.war,
+        "an empty purse came back " .. tostring(why) .. ", " .. tostring(short))
+    assert(f._gold == gold and IC.crown_purse(F) == purse,
+        "the empty purse refusal charged: " .. f._gold .. " gold, " .. IC.crown_purse(F) .. " influence")
+    gov_done()
+end)
+
+check("council: switch off drops the vote and the war", function()
+    local court = W.council({{"crown", 300}, {"legion", 100}}, {crown = 10, legion = 10})
+    W.vote(court, "aye").ends = turn
+    court.war = {target = W.T4, at = turn, proposer = IC.CROWN}
+    IC.TUNE.council = false
+    local ok, err = pcall(function()
+        IC.settle_switches(F)
+        assert(court.votes[IC.COUNCIL] == nil and court.war == nil, "the switch left the vote or the war")
+        -- AND THE TURN DOES NOTHING, though a vote and a war are both due.
+        W.vote(court, "aye").ends = turn
+        court.war = {target = W.T1, at = turn, proposer = IC.CROWN}
+        IC.council_turn(F)
+        assert(court.votes[IC.COUNCIL] and court.war and #wars == 0, "the council ran switched off")
+        assert(IC.council_on() == false and IC.law_vote_of(F, IC.COUNCIL) == nil,
+            "a switched-off council still has a vote to show")
+    end)
+    IC.TUNE.council = true
+    assert(ok, err)
+    assert(IC.council_on() == true, "the council is off with its switch on")
+    gov_done()
+end)
+
+check("council: laws off keeps the council vote", function()
+    local court = W.council({}, {crown = 10, legion = 10})
+    law_vote(court, "ash")
+    court.votes.war = {option = "legions", proposer = "legion", ends = turn + 2, stance = "aye",
+                       won = {}, push = {}}
+    local v = W.vote(court, "abstain", "legion")
+    local keep = IC.TUNE.laws
+    IC.TUNE.laws = false
+    local ok, err = pcall(IC.settle_switches, F)
+    IC.TUNE.laws = keep
+    assert(ok, err)
+    assert(court.votes.labour == nil and court.votes.war == nil, "a law vote survived laws off")
+    assert(court.votes[IC.COUNCIL] == v, "laws off dropped the war council's vote")
+    gov_done()
+end)
+
+check("council: the save round trip", function()
+    local function field21()
+        local all = {}
+        for x in string.gmatch(cm:get_saved_value("derpy_ic_" .. F) .. "|", "([^|]*)|") do all[#all + 1] = x end
+        return all[21]
+    end
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    local v = W.vote(court, "nay", "legion", W.T3)
+    v.won[9002], v.won[77] = "nay", "aye"
+    v.push.crown, v.push.legion = 2, 1
+    v.answered = true
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    court.council_rest = turn - 1
+    law_vote(court, "ash", "aye", "legion")
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    local back = IC.court(F)
+    local w = back.votes[IC.COUNCIL]
+    assert(w and w.option == W.T3 and w.proposer == "legion" and w.stance == "nay"
+        and w.ends == turn + IC.TUNE.law_vote_turns and w.answered == true, "the council vote did not round-trip")
+    assert(w.won[9002] == "nay" and w.won[77] == "aye" and w.push.crown == 2 and w.push.legion == 1,
+        "the council vote's won or push did not round-trip")
+    assert(back.war and back.war.target == W.T1 and back.war.at == turn + 3 and back.war.proposer == "legion",
+        "the planned war did not round-trip")
+    assert(back.council_rest == turn - 1, "the council's rest did not round-trip")
+    assert(back.votes.labour and back.votes.labour.option == "ash", "the law vote beside it was lost")
+    -- A REST AND NO WAR; then neither, an empty field.
+    back.war = nil
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    assert(IC.court(F).war == nil and IC.court(F).council_rest == turn - 1, "a rest alone did not round-trip")
+    IC.court(F).council_rest = nil
+    IC.save(F)
+    assert(field21() == "", "no war and no rest wrote " .. tostring(field21()))
+    -- AN OLDER SAVE (Review Focus 5): no field 21, and a field 18 of law votes only.
+    court = IC.court(F)
+    court.votes[IC.COUNCIL] = nil
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    IC.save(F)
+    cm:set_saved_value("derpy_ic_" .. F, first_fields(cm:get_saved_value("derpy_ic_" .. F), 20))
+    IC.state = {}
+    IC.load(F)
+    back = IC.court(F)
+    assert(back.war == nil and back.council_rest == nil and back.votes[IC.COUNCIL] == nil,
+        "an older save holds a war or a council vote")
+    assert(back.votes.labour and back.votes.labour.option == "ash" and back.votes.labour.proposer == "legion",
+        "an older save lost its law vote")
+    gov_done()
+end)
+
+check("council: AI courts never vote on war", function()
+    W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
+    cm.get_human_factions = function() return {} end
+    assert(IC.council_party_pick(F, "legion") == nil, "an AI court's party picked a war")
+    local ok, why = IC.council_can_open(F, W.T1)
+    assert(not ok and why == "council_off", "an AI court may open a council vote: " .. tostring(why))
+    local act = nil
+    for _, a in ipairs(ALL_ACTS) do if a.key == "council" then act = a end end
+    assert(act and act.can(F, "legion") == nil, "an AI court's party act would propose a war")
+    use_acts({council = true})
+    local done, err = pcall(IC.turn, F)
+    use_acts(BUILD1_ACTS)
+    assert(done, err)
+    assert(IC.court(F).votes[IC.COUNCIL] == nil and IC.court(F).war == nil, "an AI court's turn opened a war vote")
+    gov_done()
+end)
+
+check("council: MP ops re-check", function()
+    local court, f = W.council({{"crown", 2000}}, {crown = 10, legion = 10})
+    f._cqi, f._gold = 41, 100
+    W.vote(court, "aye")
+    local got, was = {}, IC.after_op
+    IC.after_op = function(...) got[#got + 1] = {...} end
+    local ok, err = pcall(function()
+        assert(IC.mp_receive("ic1|law_overrule|council|1|1", 41) == F, "law_overrule did not reach the model")
+        local a = got[#got]
+        assert(a and a[2] == "law_overrule" and a[4] == false and a[5] == "gold"
+            and a[6] == IC.TUNE.war_overrule_gold - 100, "a short treasury overruled the war vote")
+        assert(court.votes[IC.COUNCIL], "a refused overrule closed the vote")
+        court.war = {target = W.T1, at = turn + 2, proposer = IC.CROWN}
+        assert(IC.mp_receive("ic1|war_calloff|1", 41) == F, "war_calloff did not reach the model")
+        a = got[#got]
+        assert(a and a[2] == "war_calloff" and a[4] == false and a[5] == "gold" and court.war,
+            "a short treasury called the war off")
+        assert(IC.mp_receive("ic1|war_calloff|0", 41) == F and got[#got][4] == true and court.war == nil,
+            "the Crown's influence did not call the war off")
+    end)
+    IC.after_op = was
+    assert(ok, err)
+    gov_done()
+end)
+
+-- THE WAR COUNCIL, task 3: the wars and the peace the player makes on the
+-- diplomacy screen without asking the court. Every event goes through the
+-- registered listener with a context table, as the engine raises it.
+
+-- A NegativeDiplomaticEvent: `proposer` declares war on `recipient`. `not_war`
+-- makes it some other negative event (a treaty ended); `confed` makes it the result
+-- of a confederation (CA's NegativeDiplomaticEvent:result_of_confederation).
+function W.declare(proposer, recipient, not_war, confed)
+    core.listeners["ic_war_declared"]({
+        proposer = function() return factions[proposer] end,
+        recipient = function() return factions[recipient] end,
+        is_war = function() return not not_war end,
+        result_of_confederation = function() return confed == true end,
+    })
+end
+
+-- A PositiveDiplomaticEvent of one kind ("is_peace_treaty", "is_trade_agreement"...).
+function W.treaty(kind, proposer, recipient)
+    local ctx = {proposer = function() return factions[proposer] end,
+                 recipient = function() return factions[recipient] end}
+    for _, k in ipairs({"is_peace_treaty", "is_trade_agreement", "is_alliance",
+                        "is_military_alliance", "is_defensive_alliance",
+                        "is_military_access", "is_non_aggression_pact",
+                        "is_vassalage", "is_state_gift"}) do
+        ctx[k] = function() return k == kind end
+    end
+    core.listeners["ic_book_peace"](ctx)
+end
+
+check("war reaction: a war the court was not asked about", function()
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10, hearth = 10, tower = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    -- T1 IS A FOE AND A CUSTOMER: the Legion is for the war and the Ledger against it.
+    -- The Hearth has no line on a Dwarf who is neither kin nor stronger, the tower has
+    -- no list, and the Crown votes its stance: none of them reacts.
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "an unasked war moved " .. W.moved(court, was))
+    local n, card = W.cards("war_unasked")
+    assert(n == 1 and card.primary == "factions_screen_name_" .. W.T1,
+        "war_unasked came " .. n .. " times, naming " .. tostring(card and card.primary))
+    local last = court.log[#court.log]
+    assert(last.kind == "war_unasked" and last.key == W.T1, "no Record line for the unasked war")
+    assert(court.war == nil and court.votes[IC.COUNCIL] == nil, "an unasked war opened a council business")
+    -- THE LISTENER SAVED IT.
+    local ledger = court.houses.ledger.loyalty
+    IC.state = {}
+    IC.load(F)
+    assert(IC.court(F).houses.ledger.loyalty == ledger, "the reaction was not saved")
+    gov_done()
+end)
+
+check("war reaction: the target of an open vote", function()
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    -- A VOTE ON ANOTHER TARGET stands: the war is not its business.
+    W.vote(court, "aye", IC.CROWN, W.T3)
+    local was = W.loyalties(court)
+    W.declare(F, W.T1)
+    assert(court.votes[IC.COUNCIL] and court.votes[IC.COUNCIL].option == W.T3,
+        "a war on another target closed the vote")
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "the other war moved " .. W.moved(court, was))
+    -- THE TARGET OF THE OPEN VOTE (turn on, so the parties have not reacted).
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    W.vote(court, "aye", IC.CROWN, W.T1)
+    was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    assert(court.votes[IC.COUNCIL] == nil, "the vote on the war stayed open")
+    assert(court.war == nil, "a bypassed vote planned a war")
+    -- ONLY THE PARTIES AGAINST IT PAY: the Legion, for it, gains nothing.
+    assert(W.moved(court, was) == "ledger:-10", "the bypass moved " .. W.moved(court, was))
+    assert(court.log[#court.log].kind == "war_bypass" and court.log[#court.log].key == W.T1,
+        "the vote closed with the Record line " .. tostring(court.log[#court.log].kind))
+    assert(W.cards("war_unasked") == 0 and W.cards("war_passed") == 0, "a bypass raised a card")
+    gov_done()
+end)
+
+check("war reaction: the planned target", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    assert(court.war == nil, "the planned war stayed planned once declared")
+    assert(W.moved(court, was) == "", "declaring the planned war moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the planned war raised the unasked card")
+    -- AND SAYS SO in the Record: the plan is gone, and nothing else would tell why.
+    local early = (court.log or {})[#(court.log or {})] or {}
+    assert(early.kind == "war_early" and early.key == W.T1,
+        "the planned war started early left the Record line " .. tostring(early.kind))
+    -- A WAR ON SOMEONE ELSE leaves the plan alone and is an unasked war. A turn
+    -- on: the declaration above marked every party for its own turn.
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    was = W.loyalties(court)
+    W.declare(F, W.T3)
+    assert(court.war and court.war.target == W.T1, "a war on another target cleared the plan")
+    assert(W.moved(court, was) == "temple:-10", "the other war moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+check("war reaction: the council's own war is free", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn, proposer = "legion"}
+    -- THE ENGINE RAISES THE EVENT INSIDE THE CALL: the stub fires the listener first.
+    local declare, fired = cm.force_declare_war, 0
+    cm.force_declare_war = function(self, a, b, x, y)
+        fired = fired + 1
+        W.declare(a, b)
+        return declare(self, a, b, x, y)
+    end
+    local was = W.loyalties(court)
+    shown = {}
+    local ok, err = pcall(IC.council_turn, F)
+    cm.force_declare_war = declare
+    assert(ok, err)
+    assert(fired == 1 and #wars == 1, fired .. " declarations")
+    assert(W.moved(court, was) == "", "the council's own war moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the council's own war raised the unasked card")
+    assert(court.war == nil, "the declared war stayed planned")
+    gov_done()
+end)
+
+check("war reaction: one per party per turn", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    local was = W.loyalties(court)
+    shown = {}
+    -- DECLARING ON T1 PULLS ITS ALLIES IN: three events in one moment.
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3 temple:3", "the first event moved " .. W.moved(court, was))
+    -- ONE DECLARATION IS ONE WAR: the whole court has reacted, so the allies pulled in
+    -- behind T1 move nobody. T2 is a foe and stronger, which the Hearth stands against
+    -- and T1 never touched it: still not charged. T3 is kin, and T1 again is T1.
+    W.declare(F, W.T2)
+    assert(W.moved(court, was) == "ledger:-10 legion:3 temple:3",
+        "the second event moved " .. W.moved(court, was))
+    W.declare(F, W.T3)
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3 temple:3",
+        "later events moved " .. W.moved(court, was))
+    -- ONE CARD FOR THE WAR: the allies behind it moved nobody.
+    assert(W.cards("war_unasked") == 1, "the unasked card came " .. W.cards("war_unasked") .. " times")
+    -- THE NEXT TURN THEY MOVE AGAIN, and the Hearth with them: a war on T2 charges
+    -- the party T1 did not touch.
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    was = W.loyalties(court)
+    W.declare(F, W.T2)
+    assert(W.moved(court, was) == "hearth:-10 ledger:-10 legion:3 temple:3",
+        "the next turn moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+check("war reaction: trade read from the snapshot", function()
+    local court, f = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    IC.register()
+    -- THE TURN FILLS THE SNAPSHOT, before the player has acted.
+    IC.turn(F)
+    -- THE TURN LOADS THE COURT from the save, which the fixture's own table is not.
+    court = IC.court(F)
+    local snap = IC._war_snap[F]
+    assert(snap and snap.turn == turn and snap.trade[W.T1], "the turn path filled no snapshot")
+    -- THE DECLARATION ENDED THE AGREEMENT before its event reached the court.
+    f._trade = {}
+    assert(IC.war_line(F, W.T1, "ledger") == nil, "the fixture still trades")
+    local was = W.loyalties(court)
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "the ended agreement moved " .. W.moved(court, was))
+    -- AN AGREEMENT SIGNED DURING THE TURN is ADDED to the snapshot, not read into a
+    -- new one: T1 was a customer when the turn began and has since left the world
+    -- (the declaration on it), T4 (no army, so the Legion is for the war) signs, and
+    -- the world now holds T4 alone. A refill would forget T1.
+    turn = turn + 1
+    f._trade = {[W.T1] = true}
+    IC.war_snapshot(F, true)
+    f._trade = {[W.T4] = true}
+    W.treaty("is_trade_agreement", W.T4, F)
+    f._trade = {}
+    local stored = IC._war_snap[F]
+    assert(stored.trade[W.T4], "the signed agreement was not noted")
+    assert(stored.trade[W.T1], "the signed agreement refilled the snapshot and lost the earlier partner")
+    assert(IC.war_line(F, W.T1, "ledger", true) == "nay", "the Ledger lost its customer")
+    was = W.loyalties(court)
+    W.declare(F, W.T4)
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "the signed partner moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+check("war reaction: peace", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    local was = W.loyalties(court)
+    shown = {}
+    W.treaty("is_peace_treaty", F, W.T2)
+    -- T2 IS A FOE AND STRONGER: peace costs the parties for the war 3, and the
+    -- parties against it (the Ledger and the Hearth, at the stronger) gain 3.
+    assert(W.moved(court, was) == "hearth:3 ledger:3 legion:-3 temple:-3", "peace moved " .. W.moved(court, was))
+    local last = court.log[#court.log]
+    assert(last.kind == "war_peace" and last.key == W.T2, "no Record line for the peace")
+    assert(#shown == 0, "peace raised a card")
+    -- THE SAME TURN, from the other side: each party reacted to a peace already.
+    W.treaty("is_peace_treaty", W.T2, F)
+    assert(W.moved(court, was) == "hearth:3 ledger:3 legion:-3 temple:-3", "the same turn moved " .. W.moved(court, was))
+    -- A WAR AFTER IT IS NO PEACE, so it reacts once of its own (the stamp is by kind):
+    -- T1, a foe and a customer, charges the Ledger and pays the Legion and the Temple.
+    was = W.loyalties(court)
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3 temple:3", "a war after the peace moved " .. W.moved(court, was))
+    -- THE NEXT TURN, a war first and then a peace with the other side proposing: the
+    -- war's stamp is the war's, and the peace still moves them.
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    W.declare(F, W.T1)
+    was = W.loyalties(court)
+    W.treaty("is_peace_treaty", W.T2, F)
+    assert(W.moved(court, was) == "hearth:3 ledger:3 legion:-3 temple:-3", "the other side's peace moved " .. W.moved(court, was))
+    -- OTHER TREATIES ARE NO PEACE: an alliance moves nobody.
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    was = W.loyalties(court)
+    W.treaty("is_alliance", F, W.T2)
+    W.treaty("is_military_access", F, W.T2)
+    assert(W.moved(court, was) == "", "a treaty that is no peace moved " .. W.moved(court, was))
+    gov_done()
+    -- A DWARF COURT: the Book names the Greenskins, so the Clan Warriors and the
+    -- Priesthood are skipped - IC.book_peace writes that wrong as a grudge - and the
+    -- Runesmiths' chain, whose line is the old foes, still pays.
+    W.dwarf()
+    cm.get_human_factions = function() return {W.DF} end
+    for _, slug in ipairs({"crown", "legion", "temple", "chain", "hearth"}) do IC.add_house(W.DF, slug) end
+    local dwarf = IC.court(W.DF)
+    dwarf.book[W.T2] = 2
+    turn = turn + 1
+    IC.war_snapshot(W.DF, true)
+    was = W.loyalties(dwarf)
+    W.treaty("is_peace_treaty", W.DF, W.T2)
+    assert(W.moved(dwarf, was) == "chain:-3", "a Dwarf peace moved " .. W.moved(dwarf, was))
+    for _, p in ipairs({"legion", "temple"}) do
+        local g = IC.grudges(W.DF, p)
+        assert(#g == 1 and g[1].code == "peace", p .. " has " .. #g .. " grudges")
+    end
+    gov_done()
+end)
+
+check("war reaction: not our declaration", function()
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    local was = W.loyalties(court)
+    local function still(what)
+        assert(W.moved(court, was) == "", what .. " moved " .. W.moved(court, was))
+        assert(next(IC._war_reacted) == nil, what .. " marked a party as reacted")
+    end
+    IC._war_reacted = {}
+    -- IT DECLARED ON US.
+    W.declare(W.T1, F)
+    still("a declaration on us")
+    -- A WAR BETWEEN OTHERS, and a treaty ended that is no war.
+    W.declare(W.T2, W.T1)
+    W.declare(F, W.T1, true)
+    still("a war between others, or a treaty ended")
+    -- THE COUNCIL SWITCHED OFF.
+    IC.TUNE.council = false
+    local ok, err = pcall(function()
+        W.declare(F, W.T1)
+        W.treaty("is_peace_treaty", F, W.T2)
+    end)
+    IC.TUNE.council = true
+    assert(ok, err)
+    still("a switched-off council")
+    -- AN AI COURT: no longer the player's. A trade agreement fills no snapshot for it.
+    cm.get_human_factions = function() return {} end
+    IC._war_snap = {}
+    W.declare(F, W.T1)
+    W.treaty("is_peace_treaty", F, W.T2)
+    W.treaty("is_trade_agreement", F, W.T4)
+    still("an AI court")
+    assert(IC._war_snap[F] == nil, "an AI court's trade agreement filled a snapshot")
+    -- A PLAYER WHOSE RACE HOLDS NO COURT: nothing is built for him.
+    cm.get_human_factions = function() return {W.T4} end
+    W.declare(W.T4, W.T1)
+    W.treaty("is_peace_treaty", W.T4, W.T1)
+    still("a player with no court")
+    assert(IC.state[W.T4] == nil, "a court was built for a race that has none")
+    gov_done()
+end)
+
+check("war reaction: a failure is caught and said", function()
+    W.council({}, {crown = 10, legion = 10})
+    IC.register()
+    local warned, warn = {}, IC.warn
+    IC.warn = function(text) warned[#warned + 1] = tostring(text) end
+    local ok, err = pcall(function()
+        -- A DECLARATION WHOSE PROPOSER CANNOT BE READ.
+        core.listeners["ic_war_declared"]({
+            is_war = function() return true end,
+            result_of_confederation = function() return false end,
+            proposer = function() error("proposer refused") end,
+            recipient = function() return factions[W.T1] end,
+        })
+        assert(#warned == 1 and string.find(warned[1], "the war council failed", 1, true),
+            "a failed declaration said " .. #warned .. " lines")
+        -- A WAR REACTION THAT FAILS ON A PEACE costs the Book nothing.
+        W.dwarf()
+        cm.get_human_factions = function() return {W.DF} end
+        IC.add_house(W.DF, "legion")
+        IC.court(W.DF).book[W.T2] = 2
+        local real = IC.war_react
+        IC.war_react = function() error("reaction refused") end
+        local fine, why = pcall(W.treaty, "is_peace_treaty", W.DF, W.T2)
+        IC.war_react = real
+        assert(fine, "the listener raised: " .. tostring(why))
+        assert(#warned == 2 and string.find(warned[2], "the war council failed", 1, true),
+            "a failed reaction said " .. #warned .. " lines")
+        assert(#IC.grudges(W.DF, "legion") == 1, "a failed reaction cost the Book its grudge")
+    end)
+    IC.warn = warn
+    assert(ok, err)
+    gov_done()
+end)
+
+check("war reaction: a load fills the snapshot", function()
+    local court, f = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    IC.save(F)
+    -- A LOAD: nothing in memory, no snapshot, and the first tick runs. A reaction
+    -- marked in a session that is gone must not outlive it: the Ledger reacts below.
+    IC.state, IC._war_snap, IC._war_reacted = {}, {}, {[F .. "|ledger|war"] = turn}
+    local ok, err = pcall(IC.first_tick)
+    assert(ok, "the first tick raised: " .. tostring(err))
+    local snap = IC._war_snap[F]
+    assert(snap and snap.turn == turn and snap.trade[W.T1] and snap.near[W.T1],
+        "the first tick filled no snapshot for the player's court")
+    -- THE AGREEMENT ENDS, then the war event: the load's snapshot still hears the Ledger.
+    f._trade = {}
+    court = IC.court(F)
+    local was = W.loyalties(court)
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "a war after a load moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+-- ONE DECLARATION IS ONE WAR. The declarations the court does not charge for (its
+-- own, the one it planned, the one it was voting on) also mark every party as
+-- having reacted, so the target's allies, drawn in at the same moment as events
+-- with the court as proposer, move nobody. T2 is the ally: a foe and stronger, so
+-- left alone it would charge the Hearth and the Ledger and pay the Legion and Temple.
+check("war reaction: a free war's allies are free", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn, proposer = "legion"}
+    local declare = cm.force_declare_war
+    cm.force_declare_war = function(self, a, b, x, y)
+        W.declare(a, b)
+        W.declare(a, W.T2)
+        return declare(self, a, b, x, y)
+    end
+    local was = W.loyalties(court)
+    shown = {}
+    local ok, err = pcall(IC.council_turn, F)
+    cm.force_declare_war = declare
+    assert(ok, err)
+    assert(#wars == 1, #wars .. " declarations")
+    assert(W.moved(court, was) == "", "the court's own war drew an ally in and moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the ally of the court's own war raised the unasked card")
+    gov_done()
+end)
+
+-- THE ENGINE'S ORDER IS NOT KNOWN: the ally's event may reach the court before the
+-- target's own. The free war is any war the court declared this turn, not one keyed
+-- on the faction the event names.
+check("war reaction: an ally heard before the court's own war is free", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn, proposer = "legion"}
+    local declare = cm.force_declare_war
+    cm.force_declare_war = function(self, a, b, x, y)
+        W.declare(a, W.T2)
+        W.declare(a, b)
+        return declare(self, a, b, x, y)
+    end
+    local was = W.loyalties(court)
+    shown = {}
+    local ok, err = pcall(IC.council_turn, F)
+    cm.force_declare_war = declare
+    assert(ok, err)
+    assert(#wars == 1, #wars .. " declarations")
+    assert(W.moved(court, was) == "", "the ally heard first moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the ally heard first raised the unasked card")
+    -- A FREE WAR ON ANOTHER TURN frees nothing: the flag is the turn's, and T2 alone
+    -- the turn after is an unasked war.
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    was = W.loyalties(court)
+    W.declare(F, W.T2)
+    assert(W.moved(court, was) ~= "", "yesterday's free war freed today's")
+    gov_done()
+end)
+
+check("war reaction: a planned war's allies are free", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    W.declare(F, W.T2)
+    assert(court.war == nil, "the planned war stayed planned")
+    assert(W.moved(court, was) == "", "the planned war drew an ally in and moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the ally of the planned war raised the unasked card")
+    gov_done()
+end)
+
+check("war reaction: a bypassed vote's allies are free", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10, hearth = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    W.vote(court, "aye", IC.CROWN, W.T1)
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    -- THE LEDGER, AGAINST THE VOTED WAR, PAID; and the ally moves nobody more.
+    assert(W.moved(court, was) == "ledger:-10", "the bypass moved " .. W.moved(court, was))
+    W.declare(F, W.T2)
+    assert(W.moved(court, was) == "ledger:-10", "the bypassed vote drew an ally in and moved " .. W.moved(court, was))
+    assert(W.cards("war_unasked") == 0, "the ally of the bypassed vote raised the unasked card")
+    gov_done()
+end)
+
+-- CA's NegativeDiplomaticEvent:result_of_confederation. The mod confederates
+-- Chaos Dwarf houses all the time, and the war a house brings along is not one the
+-- player declared.
+check("war reaction: a war inherited by confederation", function()
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war = {target = W.T1, at = turn + 3, proposer = "legion"}
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1, false, true)
+    W.declare(F, W.T2, false, true)
+    assert(W.moved(court, was) == "", "an inherited war moved " .. W.moved(court, was))
+    assert(court.war and court.war.target == W.T1, "an inherited war cleared the plan")
+    assert(next(IC._war_reacted) == nil, "an inherited war marked a party as reacted")
+    assert(W.cards("war_unasked") == 0, "an inherited war raised the unasked card")
+    -- THE SAME EVENT THE PLAYER DECLARED is reacted to, so the fixture is live.
+    court.war = nil
+    W.declare(F, W.T1)
+    assert(W.moved(court, was) == "ledger:-10 legion:3", "the same war, declared, moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+-- THE TURN'S TWO WAR STEPS FAIL APART: the snapshot and the council's turn each in
+-- a pcall of their own, so a throw in one cannot cost the other.
+check("war reaction: the turn's snapshot and council fail apart", function()
+    local court = W.council({}, {crown = 10, legion = 10, ledger = 10})
+    IC.register()
+    local warned, warn = {}, IC.warn
+    IC.warn = function(text)
+        if string.find(tostring(text), "the war council failed", 1, true) then warned[#warned + 1] = tostring(text) end
+    end
+    local snapshot, council = IC.war_snapshot, IC.council_turn
+    local ok, err = pcall(function()
+        -- THE SNAPSHOT FAILS: a war planned for today is still declared.
+        court.war = {target = W.T1, at = turn, proposer = "legion"}
+        IC.save(F)
+        IC.war_snapshot = function() error("snapshot refused") end
+        IC.turn(F)
+        IC.war_snapshot = snapshot
+        assert(#warned == 1, "a failed snapshot said " .. #warned .. " lines")
+        assert(#wars == 1, "a failed snapshot cost the planned war its declaration")
+        -- THE COUNCIL FAILS: the snapshot is still taken.
+        turn = turn + 1
+        IC._war_snap = {}
+        IC.council_turn = function() error("council refused") end
+        IC.turn(F)
+        IC.council_turn = council
+        assert(#warned == 2, "a failed council said " .. #warned .. " lines in all")
+        assert(IC._war_snap[F] and IC._war_snap[F].turn == turn, "a failed council cost the turn its snapshot")
+    end)
+    IC.war_snapshot, IC.council_turn, IC.warn = snapshot, council, warn
+    assert(ok, err)
+    gov_done()
+end)
+
+end -- WAR
+
+-- CLAIMS ON CONQUERED LAND, task 4: taking a province new to the court makes up to
+-- three rival parties claim its governorship. One do-block and one local (K), as
+-- the war council's. New claim checks go above the closing `end -- CLAIMS`.
+do
+local K = {
+    P       = "claim_prov_new",                         -- a province no culture calls home
+    FOUNDRY = "cr_oldworld_province_foundry_district",  -- the Forge's main culture's home
+    GATE    = "cr_oldworld_province_gate_district",     -- the Legion's main culture's home
+}
+
+-- A PLAYER COURT HOLDING `provinces` (K.P and K.FOUNDRY unless named), one region
+-- each: law_court's men (cqi 9000 + i) and parties, no claim open and no agenda.
+-- The default weights put the Ledger (30) above the Forge (20) above the Legion.
+function K.court(men, weights, provinces)
+    saved["derpy_ic_" .. F] = nil
+    saved["derpy_ic_agenda_" .. F] = nil
+    IC.agenda_state = {}
+    local court, chars = law_court(men, weights or {crown = 10, legion = 10, forge = 20, ledger = 30})
+    local f = make_faction(F, IC.CHD_SUBCULTURE, chars, provinces or {K.P, K.FOUNDRY})
+    f._cqi = 41
+    court.claims = {}
+    shown = {}
+    return court, f, chars
+end
+
+-- A GarrisonOccupiedEvent, as the engine raises it: `man` takes the region
+-- `region_key` ("region_" .. province unless named) of `province`.
+function K.took(man, province, region_key)
+    core.listeners["ic_took"](garrison_occupied(man, province, region_key))
+end
+
+-- THE CLAIMS ON ONE PROVINCE as "slug:cqi:why ...", in claim order.
+function K.list(court, province)
+    local open = (court.claims or {})[province]
+    if not open then return "" end
+    local out = {}
+    for _, c in ipairs(open.list) do out[#out + 1] = c.slug .. ":" .. tostring(c.cqi) .. ":" .. c.why end
+    return table.concat(out, " ")
+end
+
+-- WHO IC.claimants NAMES, in the same shape.
+function K.read(province, occupier)
+    local out = {}
+    for _, c in ipairs(IC.claimants(F, province, occupier)) do
+        out[#out + 1] = c.slug .. ":" .. tostring(c.cqi) .. ":" .. c.why
+    end
+    return table.concat(out, " ")
+end
+
+-- THE RECORD'S CLAIM LINES as "kind:slug ...", oldest first.
+function K.record(court)
+    local out = {}
+    for _, e in ipairs(court.log or {}) do
+        if string.sub(e.kind, 1, 5) == "claim" then out[#out + 1] = e.kind .. ":" .. tostring(e.slug) end
+    end
+    return table.concat(out, " ")
+end
+
+function K.loyalties(court)
+    local was = {}
+    for slug, h in pairs(court.houses) do was[slug] = h.loyalty end
+    return was
+end
+
+-- EVERY PARTY WHOSE LOYALTY MOVED since `was`, as "slug:delta", sorted.
+function K.moved(court, was)
+    local out = {}
+    for slug, h in pairs(court.houses) do
+        if h.loyalty ~= was[slug] then out[#out + 1] = slug .. ":" .. (h.loyalty - (was[slug] or 0)) end
+    end
+    table.sort(out)
+    return table.concat(out, " ")
+end
+
+-- HOW MANY CARDS OF ONE EVENT WERE RAISED, and the last one.
+function K.cards(slug)
+    local n, last = 0, nil
+    for i = 1, #shown do
+        if shown[i].index ~= nil and shown[i].index == IC.event_index(slug, F) then
+            n, last = n + 1, shown[i]
+        end
+    end
+    return n, last
+end
+
+-- RAISED ON F's K.P: legion:9001 by conquest, then the Ledger's 9003 and the Forge's
+-- 9002 by weight.
+function K.three(court)
+    local n = IC.claim_raise(F, K.P, 9001, "region_" .. K.P)
+    assert(n == 3 and K.list(court, K.P) == "legion:9001:conquest ledger:9003:weight forge:9002:weight",
+        "the fixture raised " .. tostring(n) .. ": " .. K.list(court, K.P))
+end
+
+check("claims: a new province only", function()
+    assert(IC.EVENTS.claims_laid and IC.EVENTS.claims_laid[1] == 2642 and IC.EVENTS.claims_laid[3] == false
+        and IC.EVENTS.claim_taken and IC.EVENTS.claim_taken[1] == 2643 and IC.EVENTS.claim_taken[3] == false,
+        "the claim cards are not 2642 and 2643 with the province as their subtitle")
+    local court, f, chars = K.court({{"legion", 100}, {"forge", 100}}, nil, {K.P, "claim_prov_held"})
+    f._extra_regions = {{province = "claim_prov_held", name = "region_claim_prov_held_2", cqi = 801}}
+    IC.register()
+    -- THE FIRST REGION OF A PROVINCE: claims, one card naming it, and the
+    -- capture's influence still paid.
+    K.took(chars[1], K.P)
+    assert(K.list(court, K.P) == "legion:9001:conquest forge:9002:weight",
+        "the new province's claims read " .. K.list(court, K.P))
+    assert(IC.TUNE.claim_turns == 3 and court.claims[K.P].ends == turn + IC.TUNE.claim_turns,
+        "the claims end on turn " .. tostring(court.claims[K.P].ends))
+    local n, card = K.cards("claims_laid")
+    assert(n == 1 and card.primary == "provinces_onscreen_" .. K.P,
+        "claims_laid came " .. n .. " times, naming " .. tostring(card and card.primary))
+    assert(IC.standing(F, 9001) == 100 + IC.TUNE.settlement_influence, "the capture's influence was not paid")
+    assert(K.record(court) == "claim:legion claim:forge", "the Record reads " .. K.record(court))
+    -- A PROVINCE WHOSE CLAIMS ARE STILL OPEN raises none again: a region lost and
+    -- retaken inside the three turns would lay a second set over the first, with a
+    -- new clock, a second card and a second Record line each.
+    local open = court.claims[K.P]
+    turn = turn + 1
+    assert(IC.claim_raise(F, K.P, 9001, "region_" .. K.P) == 0, "a province with claims open raised them again")
+    assert(court.claims[K.P] == open and open.ends == turn - 1 + IC.TUNE.claim_turns
+        and K.cards("claims_laid") == 1 and K.record(court) == "claim:legion claim:forge",
+        "a second capture relaid the claims: ends " .. tostring(court.claims[K.P].ends) .. ", Record "
+        .. K.record(court))
+    turn = turn - 1
+    -- A SECOND REGION OF A HELD PROVINCE raises none, whichever of the two it was.
+    K.took(chars[1], "claim_prov_held", "region_claim_prov_held_2")
+    K.took(chars[1], "claim_prov_held", "region_claim_prov_held")
+    assert(court.claims.claim_prov_held == nil, "a second region of a held province raised claims")
+    -- A REGION THE COURT DOES NOT HOLD (the event read before it changed hands) raises none.
+    court.claims = {}
+    K.took(chars[1], K.P, "region_somewhere_else")
+    assert(next(court.claims) == nil, "a region the court does not hold raised claims")
+    -- CLAIMS OFF raises none, through the event or asked directly.
+    IC.TUNE.claims = false
+    local ok, err = pcall(K.took, chars[1], K.P)
+    local asked, n = pcall(IC.claim_raise, F, K.P, 9001, "region_" .. K.P)
+    IC.TUNE.claims = true
+    assert(ok, err)
+    assert(asked, n)
+    assert(n == 0 and next(court.claims) == nil and K.cards("claims_laid") == 1,
+        "claims were raised with the switch off")
+    -- AN AI COURT raises none, through the event or asked directly.
+    cm.get_human_factions = function() return {} end
+    K.took(chars[1], K.P)
+    assert(IC.claim_raise(F, K.P, 9001, "region_" .. K.P) == 0 and next(court.claims) == nil,
+        "an AI court raised claims")
+    gov_done()
+end)
+
+check("claims: three claimants in order", function()
+    local court = K.court({{"legion", 100}, {"legion", 500}, {"legion", 300}, {"forge", 50},
+                           {"ledger", 50}, {"temple", 50}},
+                          {crown = 10, legion = 10, forge = 10, ledger = 30, temple = 20})
+    assert(IC.TUNE.claim_max == 3, "claim_max is " .. tostring(IC.TUNE.claim_max))
+    -- BY CONQUEST the occupier himself, BY HOME the Forge (the Foundry District is
+    -- its main culture's home), BY WEIGHT the Ledger at 30.
+    local got = K.read(K.FOUNDRY, 9001)
+    assert(got == "legion:9001:conquest forge:9004:home ledger:9005:weight", "the Foundry's claims read " .. got)
+    -- THE OCCUPIER HOLDS A POST: his party's richest free man claims for it.
+    court.offices[IC.OFFICES[1].slug] = 9001
+    got = K.read(K.FOUNDRY, 9001)
+    assert(got == "legion:9002:conquest forge:9004:home ledger:9005:weight",
+        "with the occupier seated the claims read " .. got)
+    -- THE HOME PARTY IS THE OCCUPIER'S: one Legion claim, and weight fills the rest.
+    court.offices = {}
+    got = K.read(K.GATE, 9001)
+    assert(got == "legion:9001:conquest ledger:9005:weight temple:9006:weight", "the Gate District's claims read " .. got)
+    -- THE HOME PARTY HAS NO FREE MAN: it makes no claim, and weight fills.
+    court.offices[IC.OFFICES[1].slug] = 9004
+    got = K.read(K.FOUNDRY, 9001)
+    assert(got == "legion:9001:conquest ledger:9005:weight temple:9006:weight",
+        "with the Forge's only man seated the claims read " .. got)
+    gov_done()
+end)
+
+check("claims: by weight fills the slots", function()
+    local court = K.court({{"crown", 50}, {"legion", 50}, {"ledger", 50}, {"forge", 50}, {"temple", 50}},
+                          {crown = 10, forge = 30, legion = 20, ledger = 20, temple = 10})
+    -- A CROWN OCCUPIER CLAIMS NOTHING. Three of the four rivals by share, the Legion
+    -- and the Ledger tied at 20 in IC.present_houses order - the Legion first, where
+    -- the alphabet would put the Ledger first.
+    local got = K.read(K.P, 9001)
+    assert(got == "forge:9004:weight legion:9002:weight ledger:9003:weight", "the claims read " .. got)
+    -- THE LARGEST HAS NO FREE MAN: passed, and the next one asked.
+    court.offices[IC.OFFICES[1].slug] = 9004
+    got = K.read(K.P, 9001)
+    assert(got == "legion:9002:weight ledger:9003:weight temple:9005:weight",
+        "with the Forge's man seated the claims read " .. got)
+    -- NO RIVAL WITH A FREE MAN: no claims, and no card.
+    for i = 2, 5 do court.offices[IC.OFFICES[i].slug] = 9001 + i - 1 end
+    assert(K.read(K.P, 9001) == "", "a court with nobody free names " .. K.read(K.P, 9001))
+    assert(IC.claim_raise(F, K.P, 9001, "region_" .. K.P) == 0 and court.claims[K.P] == nil
+        and K.cards("claims_laid") == 0, "a court with nobody free raised claims")
+    gov_done()
+end)
+
+check("claims: grant", function()
+    -- THE SIGNS: a loss is stored negative and added, as the laws' are.
+    assert(IC.TUNE.claim_granted == 8 and IC.TUNE.claim_passed == -4 and IC.TUNE.claim_refused == -6,
+        "a claim number moved or has the wrong sign")
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    local was = K.loyalties(court)
+    local ok, why = IC.claim_grant(F, K.P, "forge")
+    assert(ok, "the grant was refused: " .. tostring(why))
+    assert(court.govs[K.P] == 9002, "the Forge's man does not govern: " .. tostring(court.govs[K.P]))
+    assert(court.claims[K.P] == nil, "the claims stayed open")
+    -- PAID ONCE, though the grant went through IC.assign_governor and its hook.
+    assert(K.moved(court, was) == "forge:8 ledger:-4 legion:-4", "the grant moved " .. K.moved(court, was))
+    assert(K.record(court) == "claim:legion claim:ledger claim:forge claim_passed:legion claim_passed:ledger claim_granted:forge",
+        "the Record reads " .. K.record(court))
+    -- ANSWERED, it cannot be granted again, and nothing is paid twice.
+    was = K.loyalties(court)
+    ok, why = IC.claim_grant(F, K.P, "forge")
+    assert(not ok and why == "no_claim" and K.moved(court, was) == "",
+        "a closed claim came back " .. tostring(why) .. " and moved " .. K.moved(court, was))
+    gov_done()
+end)
+
+check("claims: refuse", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    local was = K.loyalties(court)
+    assert(IC.claim_refuse(F, K.P, "ledger"), "the refusal was refused")
+    assert(K.moved(court, was) == "ledger:-6", "the refusal moved " .. K.moved(court, was))
+    assert(K.list(court, K.P) == "legion:9001:conquest forge:9002:weight",
+        "the other claims did not stay: " .. K.list(court, K.P))
+    assert(court.govs[K.P] == nil, "a refusal named a governor")
+    assert(#IC.grudges(F, "ledger") == 0, "a Chaos Dwarf court wrote a grudge")
+    assert(string.find(K.record(court), "claim_refused:ledger", 1, true), "no Record line: " .. K.record(court))
+    -- THE LAST CLAIM REFUSED CLOSES THE PROVINCE, and a closed one refuses nothing.
+    assert(IC.claim_refuse(F, K.P, "legion") and IC.claim_refuse(F, K.P, "forge"), "a refusal was refused")
+    assert(court.claims[K.P] == nil, "every claim refused, the province stays open")
+    local ok, why = IC.claim_refuse(F, K.P, "forge")
+    assert(not ok and why == "no_claim", "a closed claim refused again: " .. tostring(why))
+    -- A DWARF COURT writes a demand grudge: a claim refused is a demand refused.
+    local d = "wh_main_dwf_karak_kadrin"
+    IC.state, IC._race_cache = {}, {}
+    cm.get_human_factions = function() return {d} end
+    local dwarf = make_character(7002, ANY_SEAT, nil)
+    dwarf._traits[IC.rkey("bg", IC.RACES.dwf.BACKGROUNDS.legion[1], IC.RACES.dwf)] = true
+    make_faction(d, IC.RACES.dwf.subculture, {dwarf}, {"prov_a"})
+    IC.add_house(d, IC.CROWN)
+    IC.add_house(d, "legion")
+    assert(IC.race_key(d) == "dwf", "the fixture is not a Dwarf court")
+    assert(IC.claim_raise(d, "prov_a", 7002, "region_prov_a") == 1, "the Dwarf court raised no claim")
+    assert(IC.claim_refuse(d, "prov_a", "legion"), "the Dwarf refusal was refused")
+    local book = IC.grudges(d, "legion")
+    assert(#book == 1 and book[1].code == "demand", #book .. " grudges, not one demand")
+    gov_done()
+end)
+
+check("claims: every route to a governor goes through the hook", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}, {"crown", 100}})
+    K.three(court)
+    -- A REFUSED APPOINTMENT SETTLES NOTHING: nobody governs, so nobody answered.
+    local was = K.loyalties(court)
+    assert(not IC.assign_governor(F, K.P, 99999), "a man who is not there was appointed")
+    assert(K.list(court, K.P) == "legion:9001:conquest ledger:9003:weight forge:9002:weight"
+        and K.moved(court, was) == "", "a refused appointment settled the claims: " .. K.moved(court, was))
+    -- THE GOVERNORS TAB'S CALL ON A CLAIMANT is a grant, paid once.
+    assert(IC.assign_governor(F, K.P, 9003), "the appointment was refused")
+    assert(court.claims[K.P] == nil and K.moved(court, was) == "forge:-4 ledger:8 legion:-4",
+        "appointing the Ledger's claimant moved " .. K.moved(court, was))
+    -- A CROWN MAN, through the Governors tab's own op: every claimant passed over.
+    IC.release_governor(F, K.P)
+    K.three(court)
+    was = K.loyalties(court)
+    assert(IC.mp_receive("ic1|gov|" .. K.P .. "|9004", 41) == F, "the Governors tab's op did not reach the model")
+    assert(court.govs[K.P] == 9004 and court.claims[K.P] == nil, "the Crown's man did not close the claims")
+    assert(K.moved(court, was) == "forge:-4 ledger:-4 legion:-4", "the Crown's man moved " .. K.moved(court, was))
+    -- A GOVERNOR FOR ANOTHER PROVINCE leaves them alone.
+    IC.release_governor(F, K.P)
+    K.three(court)
+    was = K.loyalties(court)
+    assert(IC.assign_governor(F, K.FOUNDRY, 9002), "the Foundry's appointment was refused")
+    assert(K.list(court, K.P) == "legion:9001:conquest ledger:9003:weight forge:9002:weight"
+        and K.moved(court, was) == "", "a governor elsewhere moved " .. K.moved(court, was))
+    -- AND HE GOVERNS ELSEWHERE NOW: the Forge's claim here is void.
+    local ok, why = IC.claim_grant(F, K.P, "forge")
+    assert(not ok and why == "claim_void", "a man governing the Foundry was granted " .. K.P .. ": " .. tostring(why))
+    gov_done()
+end)
+
+check("claims: the claim is the party's, and its man only its candidate", function()
+    -- THE FORGE CLAIMS WITH 9002, its richest; 9005 is another free Forge man.
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}, {"crown", 100}, {"forge", 50}})
+    K.three(court)
+    local was = K.loyalties(court)
+    assert(IC.assign_governor(F, K.P, 9005), "the appointment was refused")
+    assert(court.govs[K.P] == 9005 and court.claims[K.P] == nil, "the Forge's other man did not close the claims")
+    assert(K.moved(court, was) == "forge:8 ledger:-4 legion:-4",
+        "another man of the claiming party moved " .. K.moved(court, was))
+    assert(string.find(K.record(court), "claim_granted:forge", 1, true), "the Record reads " .. K.record(court))
+    gov_done()
+end)
+
+check("claims: a claim passes to its party's next free man", function()
+    -- THE FORGE CLAIMS WITH 9002, its richest; 9006 (75) and 9005 (50) are its other
+    -- free men, so the richer of them takes it up. The claim is made a home claim
+    -- here, so a re-pick that kept no `why` shows.
+    local men = {{"legion", 100}, {"forge", 100}, {"ledger", 100}, {"crown", 100}, {"forge", 50}, {"forge", 75}}
+    local court = K.court(men)
+    K.three(court)
+    court.claims[K.P].list[3].why = "home"
+    court.offices[IC.OFFICES[1].slug] = 9002
+    IC.claims_void(F)
+    assert(K.list(court, K.P) == "legion:9001:conquest ledger:9003:weight forge:9006:home",
+        "with its man seated the Forge's claim reads " .. K.list(court, K.P))
+    local was = K.loyalties(court)
+    assert(IC.assign_governor(F, K.P, 9006), "the appointment was refused")
+    assert(court.claims[K.P] == nil and K.moved(court, was) == "forge:8 ledger:-4 legion:-4",
+        "appointing the Forge's next man moved " .. K.moved(court, was))
+    -- AND AT THE CLICK, with no turn start between: Grant seats the next man.
+    court = K.court(men)
+    K.three(court)
+    court.offices[IC.OFFICES[1].slug] = 9002
+    was = K.loyalties(court)
+    local ok, why = IC.claim_grant(F, K.P, "forge")
+    assert(ok and court.govs[K.P] == 9006, "Grant seated " .. tostring(court.govs[K.P]) .. ": " .. tostring(why))
+    assert(K.moved(court, was) == "forge:8 ledger:-4 legion:-4", "the Grant moved " .. K.moved(court, was))
+    gov_done()
+end)
+
+check("claims: a claimant void mid-turn costs his party nothing", function()
+    -- THE LEDGER'S MAN TAKES AN OFFICE MID-TURN, then a Crown man is appointed: the
+    -- Ledger's claim is dropped first, so only the Legion and the Forge are passed over.
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}, {"crown", 100}})
+    K.three(court)
+    court.offices[IC.OFFICES[1].slug] = 9003
+    local was = K.loyalties(court)
+    assert(IC.assign_governor(F, K.P, 9004), "the appointment was refused")
+    assert(K.moved(court, was) == "forge:-4 legion:-4", "the Crown's man moved " .. K.moved(court, was))
+    assert(not string.find(K.record(court), "claim_passed:ledger", 1, true), "the Record charges the Ledger: " .. K.record(court))
+    -- GRANT AND REFUSE ON A VOID CLAIM are refused, and charge nobody.
+    local _f, chars
+    court, _f, chars = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    court.offices[IC.OFFICES[1].slug] = 9003
+    was = K.loyalties(court)
+    local ok, why = IC.claim_grant(F, K.P, "ledger")
+    assert(not ok and why == "claim_void", "a seated man's claim was granted: " .. tostring(why))
+    assert(K.list(court, K.P) == "legion:9001:conquest forge:9002:weight", "the seated man's claim stayed")
+    -- SAVED AS DROPPED, though the click was refused: a reload does not bring it back.
+    IC.state = {}
+    IC.load(F)
+    court = IC.court(F)
+    court.offices[IC.OFFICES[1].slug] = 9003
+    assert(K.list(court, K.P) == "legion:9001:conquest forge:9002:weight",
+        "the dropped claim came back from the save: " .. K.list(court, K.P))
+    table.remove(chars, 1)
+    ok, why = IC.claim_refuse(F, K.P, "legion")
+    assert(not ok and why == "claim_void", "a dead man's claim was refused: " .. tostring(why))
+    assert(K.moved(court, was) == "" and court.govs[K.P] == nil, "a void claim moved " .. K.moved(court, was))
+    assert(K.list(court, K.P) == "forge:9002:weight", "the void claims stayed: " .. K.list(court, K.P))
+    -- EVERY CLAIM VOID: the appointment closes the province and charges nobody.
+    court.offices[IC.OFFICES[2].slug] = 9002
+    assert(IC.assign_governor(F, K.P, 9003), "the appointment was refused")
+    assert(court.claims[K.P] == nil and K.moved(court, was) == "", "every claim void, it moved " .. K.moved(court, was))
+    gov_done()
+end)
+
+check("claims: lapse by share", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    local was = K.loyalties(court)
+    -- NOT YET: before its end nothing happens.
+    turn = turn + IC.TUNE.claim_turns - 1
+    IC.claims_turn(F)
+    assert(court.claims[K.P] and K.moved(court, was) == "" and K.cards("claim_taken") == 0,
+        "the claims lapsed early")
+    -- AT ITS END THE COURT DECIDES: the Ledger, at 30, is granted by Grant's path.
+    turn = turn + 1
+    IC.claims_turn(F)
+    assert(court.govs[K.P] == 9003 and court.claims[K.P] == nil, "the lapse granted " .. tostring(court.govs[K.P]))
+    assert(K.moved(court, was) == "forge:-4 ledger:8 legion:-4", "the lapse moved " .. K.moved(court, was))
+    local n, card = K.cards("claim_taken")
+    assert(n == 1 and card.primary == "provinces_onscreen_" .. K.P,
+        "claim_taken came " .. n .. " times, naming " .. tostring(card and card.primary))
+    assert(string.find(K.record(court), "claim_taken:ledger", 1, true)
+        and not string.find(K.record(court), "claim_granted", 1, true),
+        "the court's grant reads as the player's: " .. K.record(court))
+    gov_done()
+end)
+
+check("claims: lapse skips a busy claimant", function()
+    -- THE LARGEST CLAIMANT TOOK AN OFFICE FIRST (Review Focus 4): Grant refuses him,
+    -- and the lapse grants the next.
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    court.offices[IC.OFFICES[1].slug] = 9003
+    local was = K.loyalties(court)
+    local ok, why = IC.claim_grant(F, K.P, "ledger")
+    assert(not ok and why == "claim_void" and court.claims[K.P] and court.govs[K.P] == nil
+        and K.moved(court, was) == "", "a busy claimant was granted: " .. tostring(why))
+    turn = turn + IC.TUNE.claim_turns
+    IC.claims_turn(F)
+    assert(court.govs[K.P] == 9002, "the lapse granted " .. tostring(court.govs[K.P]))
+    assert(K.moved(court, was) == "forge:8 legion:-4", "the lapse moved " .. K.moved(court, was))
+    -- A DEAD CLAIMANT IS DROPPED: the Ledger's man is gone and the Forge's seated,
+    -- so the Legion's is granted.
+    local _f, chars
+    court, _f, chars = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    court.offices[IC.OFFICES[1].slug] = 9002
+    table.remove(chars, 3)
+    turn = turn + IC.TUNE.claim_turns
+    IC.claims_turn(F)
+    assert(court.govs[K.P] == 9001, "with the Ledger's man dead the lapse granted " .. tostring(court.govs[K.P]))
+    -- NOBODY LEFT: nothing is granted, and the province's entry closes.
+    court, _f, chars = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    for i = #chars, 1, -1 do table.remove(chars, i) end
+    was = K.loyalties(court)
+    turn = turn + IC.TUNE.claim_turns
+    IC.claims_turn(F)
+    assert(court.claims[K.P] == nil and court.govs[K.P] == nil and K.cards("claim_taken") == 0
+        and K.moved(court, was) == "", "with every claimant gone something was granted")
+    -- A CLAIMANT MADE BUSY BY THIS VERY LAPSE: the Ledger's one man is named on both
+    -- provinces, and the first grant seats him. Void by the second, that claim is
+    -- refused and the lapse goes on to the next party by share; giving up on it
+    -- leaves a province ungoverned with the Forge's free man waiting.
+    court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    assert(IC.claim_raise(F, K.FOUNDRY, 9001, "region_" .. K.FOUNDRY) == 3
+        and K.list(court, K.FOUNDRY) == "legion:9001:conquest forge:9002:home ledger:9003:weight",
+        "the Foundry's claims read " .. K.list(court, K.FOUNDRY))
+    turn = turn + IC.TUNE.claim_turns
+    IC.claims_turn(F)
+    assert(court.govs[K.P] == 9003 and court.govs[K.FOUNDRY] == 9002 and next(court.claims) == nil,
+        "the lapse seated " .. tostring(court.govs[K.P]) .. " on one province and "
+        .. tostring(court.govs[K.FOUNDRY]) .. " on the other")
+    assert(K.cards("claim_taken") == 2, "the two lapses raised " .. K.cards("claim_taken") .. " cards")
+    gov_done()
+end)
+
+check("claims: void", function()
+    -- THE PROVINCE LOST drops every claim on it; nothing is paid or granted.
+    local court, f = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    table.remove(f._provinces, 1)
+    local was = K.loyalties(court)
+    IC.claims_turn(F)
+    assert(court.claims[K.P] == nil and court.govs[K.P] == nil and K.moved(court, was) == "",
+        "a lost province kept its claims or moved " .. K.moved(court, was))
+    -- A PURGED PARTY'S CLAIMS GO WITH IT, through IC.drop_party_business, now, on
+    -- every province it claims.
+    court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    court.claims[K.FOUNDRY] = {ends = turn + 3, list = {{slug = "ledger", cqi = 9003, why = "weight"}}}
+    IC.remove_house(F, "ledger")
+    assert(K.list(court, K.P) == "legion:9001:conquest forge:9002:weight",
+        "the purged Ledger's claim stayed: " .. K.list(court, K.P))
+    assert(court.claims[K.FOUNDRY] == nil, "the purged Ledger's claim on the Foundry stayed")
+    -- AND THE LAST ONE GONE CLOSES THE PROVINCE.
+    IC.remove_house(F, "forge")
+    IC.remove_house(F, "legion")
+    assert(court.claims[K.P] == nil, "the province stayed open with every claimant's party gone")
+    gov_done()
+end)
+
+check("claims: demands skip a claimed province", function()
+    -- THE FORGE'S MAN CAN TAKE NO OFFICE (no influence), so its demand is a province.
+    local court = K.court({{"legion", 100}, {"forge", 0}, {"ledger", 100}})
+    K.three(court)
+    local t = IC.demand_target(F, "forge")
+    assert(t and t.kind == "gov" and t.key == K.FOUNDRY,
+        "with claims open on " .. K.P .. " the demand named " .. tostring(t and t.key))
+    court.claims[K.FOUNDRY] = {ends = turn + 3, list = {{slug = "legion", cqi = 9001, why = "weight"}}}
+    t = IC.demand_target(F, "forge")
+    assert(t == nil, "with claims open on both the demand named " .. tostring(t and t.key))
+    -- CLOSED, the province is an ordinary target again.
+    court.claims = {}
+    t = IC.demand_target(F, "forge")
+    assert(t and t.key == K.P, "with the claims closed the demand named " .. tostring(t and t.key))
+    gov_done()
+end)
+
+check("claims: the save round trip", function()
+    local function field22()
+        local all = {}
+        for x in string.gmatch(cm:get_saved_value("derpy_ic_" .. F) .. "|", "([^|]*)|") do all[#all + 1] = x end
+        return all[22]
+    end
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    court.claims[K.FOUNDRY] = {ends = turn + 1, list = {{slug = "forge", cqi = 9002, why = "home"}}}
+    court.war = {target = "wh_main_emp_empire", at = turn + 2, proposer = "legion"}
+    IC.save(F)
+    local want = K.P .. "," .. (turn + 3) .. ",legion:9001:conquest/ledger:9003:weight/forge:9002:weight;"
+        .. K.FOUNDRY .. "," .. (turn + 1) .. ",forge:9002:home"
+    assert(field22() == want, "field 22 reads " .. tostring(field22()))
+    IC.state = {}
+    IC.load(F)
+    local back = IC.court(F)
+    assert(K.list(back, K.P) == "legion:9001:conquest ledger:9003:weight forge:9002:weight"
+        and back.claims[K.P].ends == turn + 3, "the conquest's claims did not round-trip")
+    assert(K.list(back, K.FOUNDRY) == "forge:9002:home" and back.claims[K.FOUNDRY].ends == turn + 1,
+        "the Foundry's claim did not round-trip")
+    -- THE PANEL'S LIST: by province, then claim order.
+    local rows = {}
+    for _, r in ipairs(IC.claims_list(F)) do
+        rows[#rows + 1] = r.province .. "/" .. r.slug .. "/" .. r.cqi .. "/" .. r.why .. "/" .. r.ends
+    end
+    assert(table.concat(rows, " ") == table.concat({
+        K.P .. "/legion/9001/conquest/" .. (turn + 3), K.P .. "/ledger/9003/weight/" .. (turn + 3),
+        K.P .. "/forge/9002/weight/" .. (turn + 3), K.FOUNDRY .. "/forge/9002/home/" .. (turn + 1)}, " "),
+        "IC.claims_list reads " .. table.concat(rows, " "))
+    -- NOTHING OPEN WRITES AN EMPTY FIELD.
+    back.claims = {}
+    IC.save(F)
+    assert(field22() == "", "no claims wrote " .. tostring(field22()))
+    -- AN OLDER SAVE (Review Focus 5): no field 22, and the planned war beside it intact.
+    K.three(back)
+    IC.save(F)
+    cm:set_saved_value("derpy_ic_" .. F, first_fields(cm:get_saved_value("derpy_ic_" .. F), 21))
+    IC.state = {}
+    IC.load(F)
+    back = IC.court(F)
+    assert(next(back.claims) == nil, "an older save holds claims")
+    assert(back.war and back.war.target == "wh_main_emp_empire", "an older save lost its planned war")
+    -- A CLAIM THIS BUILD CANNOT READ is dropped on load, and the others survive.
+    IC.save(F)
+    local all = {}
+    for x in string.gmatch(cm:get_saved_value("derpy_ic_" .. F) .. "|", "([^|]*)|") do all[#all + 1] = x end
+    all[22] = K.P .. ",9,legion:9001:conquest/ledger:9003:bribe/forge:9002:weight"
+    cm:set_saved_value("derpy_ic_" .. F, table.concat(all, "|"))
+    IC.state = {}
+    IC.load(F)
+    assert(K.list(IC.court(F), K.P) == "legion:9001:conquest forge:9002:weight",
+        "a claim of an unknown kind was read as " .. K.list(IC.court(F), K.P))
+    gov_done()
+end)
+
+check("claims: switch off drops every open claim", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    IC.TUNE.claims = false
+    local ok, err = pcall(function()
+        IC.settle_switches(F)
+        assert(next(court.claims) == nil, "the switch left claims open")
+        -- AND NOTHING RUNS, though a claim is due.
+        court.claims[K.P] = {ends = turn, list = {{slug = "forge", cqi = 9002, why = "weight"}}}
+        local was = K.loyalties(court)
+        IC.claims_turn(F)
+        assert(court.govs[K.P] == nil and K.moved(court, was) == "", "the claims lapsed switched off")
+        local done, why = IC.claim_grant(F, K.P, "forge")
+        assert(not done and why == "claims_off", "a claim was granted switched off: " .. tostring(why))
+        assert(IC.claims_on() == false, "the claims are on with their switch off")
+    end)
+    IC.TUNE.claims = true
+    assert(ok, err)
+    assert(IC.claims_on() == true, "the claims are off with their switch on")
+    IC.settle_switches(F)
+    assert(court.claims[K.P], "the switch on dropped a claim")
+    gov_done()
+end)
+
+check("claims: MP ops re-check", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    K.three(court)
+    local got, was = {}, IC.after_op
+    IC.after_op = function(...) got[#got + 1] = {...} end
+    local ok, err = pcall(function()
+        for _, op in ipairs({"claim_grant", "claim_refuse"}) do
+            assert(IC.mp_receive("ic1|" .. op .. "|claim_prov_nowhere|forge", 41) == F, op .. " did not reach the model")
+            local a = got[#got]
+            assert(a and a[2] == op and a[4] == false and a[5] == "no_claim",
+                op .. " on an unknown province came back " .. tostring(a and a[5]))
+        end
+        assert(IC.mp_receive("ic1|claim_refuse|" .. K.P .. "|ledger", 41) == F and got[#got][4] == true
+            and K.list(court, K.P) == "legion:9001:conquest forge:9002:weight", "claim_refuse did not refuse the Ledger")
+        assert(IC.mp_receive("ic1|claim_grant|" .. K.P .. "|forge", 41) == F and got[#got][4] == true
+            and court.govs[K.P] == 9002, "claim_grant did not seat the Forge's man")
+    end)
+    IC.after_op = was
+    assert(ok, err)
+    gov_done()
+end)
+
+check("claims: the turn runs them, and a failure is caught and said", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    IC.register()
+    K.three(court)
+    turn = turn + IC.TUNE.claim_turns
+    local warned, warn = {}, IC.warn
+    IC.warn = function(text)
+        if string.find(tostring(text), "the claims failed", 1, true) then warned[#warned + 1] = tostring(text) end
+    end
+    local claims_turn = IC.claims_turn
+    local ok, err = pcall(function()
+        IC.turn(F)
+        assert(IC.court(F).govs[K.P] == 9003 and IC.court(F).claims[K.P] == nil, "the turn did not lapse the claims")
+        assert(#warned == 0, "a clean turn said " .. tostring(warned[1]))
+        -- A THROW IN THE CLAIMS is said, and the rest of the turn still runs.
+        turn = turn + 1
+        IC.claims_turn = function() error("claims refused") end
+        IC.turn(F)
+        assert(#warned == 1, "a failed claims step said " .. #warned .. " lines")
+    end)
+    IC.claims_turn, IC.warn = claims_turn, warn
+    assert(ok, err)
+    gov_done()
+end)
+
+end -- CLAIMS
+
+-- SECRETS, task 5: Dig for Secrets on a man of a rival party gives the player a
+-- secret on HIS PARTY, spent once on one of five uses. One do-block and one local
+-- (S), as the claims'. New secret checks go above the closing `end -- SECRETS`.
+do
+local S = {
+    -- law_court's men, cqi 9000 + i: the Crown's 9001, the Legion's 9002 and 9003,
+    -- the Forge's 9004, the Ledger's 9005 and 9006.
+    MEN = {{"crown", 300}, {"legion", 100}, {"legion", 50}, {"forge", 100},
+           {"ledger", 100}, {"ledger", 40}},
+    T   = "wh_main_emp_empire",     -- a council vote's target; no faction is made for it
+    D   = "wh_main_dwf_karak_kadrin",
+}
+
+-- A PLAYER COURT past its grace period, the Legion at 30 strength, no secret held
+-- and no agenda.
+function S.court(men, weights)
+    saved["derpy_ic_" .. F] = nil
+    saved["derpy_ic_agenda_" .. F] = nil
+    IC.agenda_state = {}
+    local court, chars = law_court(men or S.MEN, weights or {crown = 10, legion = 30, forge = 20, ledger = 10})
+    local f = make_faction(F, IC.CHD_SUBCULTURE, chars, {})
+    f._cqi = 41
+    court.secrets = {}
+    shown = {}
+    return court, f, chars
+end
+
+-- A DWARF COURT with one Legion man, 7002.
+function S.dwarf()
+    IC.state, IC._race_cache = {}, {}
+    cm.get_human_factions = function() return {S.D} end
+    local dwarf = make_character(7002, ANY_SEAT, nil)
+    dwarf._traits[IC.rkey("bg", IC.RACES.dwf.BACKGROUNDS.legion[1], IC.RACES.dwf)] = true
+    make_faction(S.D, IC.RACES.dwf.subculture, {dwarf}, {"prov_a"})
+    IC.add_house(S.D, IC.CROWN)
+    IC.add_house(S.D, "legion")
+    assert(IC.race_key(S.D) == "dwf", "the fixture is not a Dwarf court")
+    return IC.court(S.D)
+end
+
+-- THE ROLL PINNED for the length of fn: 1 lands every move, 100 misses every one.
+function S.roll(n, fn)
+    local was = cm.random_number
+    cm.random_number = function() return n end
+    local ok, err = pcall(fn)
+    cm.random_number = was
+    if not ok then error(err, 0) end
+end
+
+function S.loyalties(court)
+    local was = {}
+    for slug, h in pairs(court.houses) do was[slug] = h.loyalty end
+    return was
+end
+
+-- EVERY PARTY WHOSE LOYALTY MOVED since `was`, as "slug:delta", sorted.
+function S.moved(court, was)
+    local out = {}
+    for slug, h in pairs(court.houses) do
+        if h.loyalty ~= was[slug] then out[#out + 1] = slug .. ":" .. (h.loyalty - (was[slug] or 0)) end
+    end
+    table.sort(out)
+    return table.concat(out, " ")
+end
+
+-- THE RECORD'S LINES OF THESE KINDS as "kind:slug:key", oldest first.
+function S.record(court, kinds)
+    local want, out = {}, {}
+    for _, k in ipairs(kinds) do want[k] = true end
+    for _, e in ipairs(court.log or {}) do
+        if want[e.kind] then out[#out + 1] = e.kind .. ":" .. tostring(e.slug) .. ":" .. tostring(e.key) end
+    end
+    return table.concat(out, " ")
+end
+
+-- IC.secret_uses as "code.key" or "code", in order; a refused row carries "!why".
+function S.uses(fk, slug)
+    local out = {}
+    for _, u in ipairs(IC.secret_uses(fk, slug)) do
+        out[#out + 1] = (u.key and (u.code .. "." .. u.key) or u.code)
+            .. (u.may and "" or ("!" .. tostring(u.why)))
+    end
+    return table.concat(out, " ")
+end
+
+-- AN OPEN COUNCIL VOTE on S.T, the Crown's side `stance`.
+function S.council(court, stance)
+    court.votes[IC.COUNCIL] = {option = S.T, proposer = IC.CROWN, ends = turn + IC.TUNE.law_vote_turns,
+                               stance = stance, won = {}, push = {}}
+    return court.votes[IC.COUNCIL]
+end
+
+check("secrets: dig", function()
+    assert(IC.TUNE.plot_dig_cost == 120 and IC.TUNE.plot_chance_dig == 55, "the dig's price or odds moved")
+    -- AND 9007, a man of no party.
+    local men = {}
+    for i, m in ipairs(S.MEN) do men[i] = m end
+    men[#men + 1] = {nil, 100}
+    local court = S.court(men)
+    assert(IC.plot_cost("dig", F) == 120, "the dig costs " .. tostring(IC.plot_cost("dig", F)))
+    -- A MAN OF NO PARTY has no party to hold a secret on.
+    local ok0, why0 = IC.may_target(F, "dig", "9007")
+    assert(not ok0 and why0 == "no house", "a dig on a man of no party was " .. tostring(why0))
+    -- NOR ON THE CROWN: 9001 is your own man.
+    ok0, why0 = IC.may_target(F, "dig", "9001")
+    assert(not ok0 and why0 == "own party", "a dig on your own man was " .. tostring(why0))
+    -- THE USUAL EDGE: 300 influence against 100 is +20; even, none.
+    assert(IC.plot_chance(F, "dig", 9001, "9002") == 75,
+        "the dig's odds read " .. tostring(IC.plot_chance(F, "dig", 9001, "9002")))
+    court.standing[9002] = 300
+    assert(IC.plot_chance(F, "dig", 9001, "9002") == 55,
+        "at even influence the dig's odds read " .. tostring(IC.plot_chance(F, "dig", 9001, "9002")))
+    court.standing[9002] = 100
+    local was = S.loyalties(court)
+    S.roll(1, function()
+        local ok, how = IC.plot(F, "dig", 9001, "9002")
+        assert(ok and how == "landed", "the dig did not land: " .. tostring(how))
+    end)
+    -- ON HIS PARTY, never on the man.
+    local held = {}
+    for k, t in pairs(court.secrets) do held[#held + 1] = tostring(k) .. "=" .. tostring(t) end
+    assert(table.concat(held, " ") == "legion=" .. turn, "the dig holds " .. table.concat(held, " "))
+    assert(IC.standing(F, 9001) == 300 - 120, "the dig cost him " .. (300 - IC.standing(F, 9001)))
+    assert(S.moved(court, was) == "", "a landed dig moved " .. S.moved(court, was))
+    assert(S.record(court, {"dig"}) == "dig:crown:legion", "the Record reads " .. S.record(court, {"dig"}))
+    -- A SECOND DIG ON THAT PARTY, through its other man, is refused and costs nothing.
+    court.standing[9001] = 300
+    local ok, why = IC.may_target(F, "dig", "9003")
+    assert(not ok and why == "held", "a second dig on the Legion was " .. tostring(why))
+    ok, why = IC.plot(F, "dig", 9001, "9003")
+    assert(not ok and why == "held" and IC.standing(F, 9001) == 300,
+        "a second dig came back " .. tostring(why) .. " and left him " .. IC.standing(F, 9001))
+    -- A MISS stores nothing and costs the party the usual plot_fail_loyalty.
+    was = S.loyalties(court)
+    S.roll(100, function()
+        local ok2, how = IC.plot(F, "dig", 9001, "9004")
+        assert(ok2 and how == "failed", "the missed dig came back " .. tostring(how))
+    end)
+    assert(court.secrets.forge == nil, "a missed dig stored a secret")
+    assert(S.moved(court, was) == "forge:-" .. IC.tune(F, "plot_fail_loyalty"),
+        "a missed dig moved " .. S.moved(court, was))
+    assert(IC.standing(F, 9001) == 300 - 120, "a missed dig cost " .. (300 - IC.standing(F, 9001)))
+    gov_done()
+end)
+
+check("secrets: the grid stays four deep", function()
+    local function keys(race)
+        local out = {}
+        for _, p in ipairs(IC.plots_in("house", race)) do out[#out + 1] = p.key end
+        return table.concat(out, ",")
+    end
+    assert(keys("chd") == "unseat,recall,dig", "the Chaos Dwarf party column reads " .. keys("chd"))
+    assert(keys("dwf") == "unseat,recall,dig,weregild", "the Dwarf party column reads " .. keys("dwf"))
+    -- NO COLUMN OF EITHER GRID DEEPER THAN THE FOUR THE CARDS ARE SIZED FOR.
+    assert(ICUI.PLOT_DEPTH == 4, "the cards are sized for " .. ICUI.PLOT_DEPTH)
+    for _, race in ipairs({"chd", "dwf"}) do
+        for _, cat in ipairs(IC.PLOT_CATS) do
+            assert(#IC.plots_in(cat.key, race) <= ICUI.PLOT_DEPTH,
+                "the " .. race .. " " .. cat.key .. " column holds " .. #IC.plots_in(cat.key, race))
+        end
+    end
+    -- AND A DWARF COURT MAY DIG: its PLOT_KEYS names the move.
+    S.dwarf()
+    local ok, why = IC.may_target(S.D, "dig", "7002")
+    assert(ok, "a Dwarf court may not dig: " .. tostring(why))
+    gov_done()
+end)
+
+check("secrets: each use", function()
+    -- THE SIGNS: a loss is stored negative and added; the strength is an amount taken off.
+    assert(IC.TUNE.secret_use_loyalty == -5 and IC.TUNE.secret_expose_loyalty == -10
+           and IC.TUNE.secret_expose_weight == 10, "a secret number moved or has the wrong sign")
+    local office = IC.OFFICES[1].slug
+    -- THEIR MEN VOTE YOUR WAY, free. The Ledger is against the Ash Harvest the Crown backs.
+    local court = S.court()
+    local vote = law_vote(court, "ash", "aye")
+    court.secrets.ledger = turn
+    local was, purse, gold = S.loyalties(court), IC.standing(F, 9001), IC.treasury(F)
+    local won_was = {IC.standing(F, 9005), IC.standing(F, 9006)}
+    local ok, why = IC.use_secret(F, "ledger", "vote", "labour")
+    assert(ok, "the vote use was refused: " .. tostring(why))
+    assert(vote.won[9005] == "aye" and vote.won[9006] == "aye", "the Ledger's men were not won")
+    assert(vote.won[9002] == nil and vote.won[9003] == nil and vote.won[9004] == nil, "another party's man was won")
+    for _, m in ipairs(IC.law_tally(F, "labour").men) do
+        if m.party == "ledger" then
+            assert(m.side == "aye" and m.why == "won", m.cqi .. " votes " .. tostring(m.side) .. " for " .. tostring(m.why))
+        end
+    end
+    assert(IC.standing(F, 9001) == purse and IC.treasury(F) == gold, "the vote use was priced")
+    -- NOR ARE THE MEN IT WINS: they vote the Crown's side free, whatever they hold.
+    assert(IC.standing(F, 9005) == won_was[1] and IC.standing(F, 9006) == won_was[2],
+        "the men won were charged influence: " .. IC.standing(F, 9005) .. " and " .. IC.standing(F, 9006)
+        .. " of " .. won_was[1] .. " and " .. won_was[2])
+    assert(S.moved(court, was) == "ledger:-5", "the vote use moved " .. S.moved(court, was))
+    assert(court.secrets.ledger == nil, "the secret outlived its use")
+    assert(S.record(court, {"secret_used"}) == "secret_used:ledger:vote.labour",
+        "the Record reads " .. S.record(court, {"secret_used"}))
+    -- SPENT, it cannot be spent again.
+    ok, why = IC.use_secret(F, "ledger", "expose")
+    assert(not ok and why == "no_secret", "a spent secret was used again: " .. tostring(why))
+    -- THE COUNCIL'S VOTE TOO, to the Crown's side whichever it took.
+    local council = S.council(court, "nay")
+    court.secrets.legion = turn
+    assert(IC.use_secret(F, "legion", "vote", IC.COUNCIL), "the council vote use was refused")
+    assert(council.won[9002] == "nay" and council.won[9003] == "nay" and council.won[9004] == nil,
+        "the council use won " .. tostring(council.won[9002]) .. "/" .. tostring(council.won[9003]))
+    assert(S.record(court, {"secret_used"}) == "secret_used:ledger:vote.labour secret_used:legion:vote.council",
+        "the Record reads " .. S.record(court, {"secret_used"}))
+
+    -- DROP THEIR DEMAND: void, so no grant and no refusal, but the party rests as a
+    -- refused one does (the void alone sets none, and it would ask again at once).
+    court = S.court()
+    court.secrets.legion = turn
+    local a = IC.agenda(F)
+    a.demand = {slug = "legion", kind = "office", cqi = 9002, key = office, was = 0, ends = turn + 5}
+    was = S.loyalties(court)
+    assert(IC.use_secret(F, "legion", "demand"), "the demand use was refused")
+    assert(IC.agenda(F).demand == nil and court.offices[office] == nil, "the demand stayed or was granted")
+    assert(a.rest.legion == turn + IC.TUNE.party_demand_rest,
+        "a dropped demand rests the party until " .. tostring(a.rest.legion))
+    assert(#IC.grudges(F, "legion") == 0, "a dropped demand wrote a grudge")
+    assert(S.moved(court, was) == "legion:-5", "the demand use moved " .. S.moved(court, was))
+    assert(S.record(court, {"demand_void", "demand_refused", "demand_met", "secret_used"})
+           == "demand_void:legion:" .. office .. " secret_used:legion:demand",
+        "the Record reads " .. S.record(court, {"demand_void", "demand_refused", "demand_met", "secret_used"}))
+    assert(court.secrets.legion == nil, "the secret outlived the demand use")
+    -- AND ITS VOID SAYS WHY: the secret's own reason, which a vanished man's never carries.
+    local function last_void()
+        local got
+        for _, e in ipairs(court.log) do if e.kind == "demand_void" then got = e end end
+        return got
+    end
+    local reasons = IC.VOID_REASONS
+    assert(reasons.secret and reasons.secret ~= reasons.gone and reasons.secret ~= reasons.lost
+           and reasons.secret ~= reasons.short, "the secret has no void reason of its own")
+    local by_secret = last_void()
+    assert(by_secret.n == reasons.secret, "the secret's void carries " .. tostring(by_secret.n))
+    -- A GENUINE "GONE" keeps its own: a demand whose man is no more.
+    a.demand = {slug = "forge", kind = "office", cqi = 9999, key = office, was = 0, ends = turn + 5}
+    assert(IC.check_demand(F) == "void", "the vanished man's demand did not lapse")
+    local by_gone = last_void()
+    assert(by_gone ~= by_secret and by_gone.n == reasons.gone, "a vanished man's void carries " .. tostring(by_gone.n))
+    -- THE SAME LINE READ AS "GONE" says something else: only the reason differs.
+    local as_gone = {}
+    for k, v in pairs(by_secret) do as_gone[k] = v end
+    as_gone.n = reasons.gone
+    assert(ICUI.intrigue_text(by_secret) ~= ICUI.intrigue_text(as_gone),
+        "the secret's void reads as a vanished man's: " .. tostring(ICUI.intrigue_text(by_secret)))
+
+    -- CALL OFF THEIR SCHEME, as a party's departure drops one, and saved.
+    court = S.court()
+    court.secrets.legion = turn
+    a = IC.agenda(F)
+    a.plot = {slug = "legion", move = "unseat", actor = 9002, target = 9001, key = office, turn = turn}
+    IC.save_agenda(F)
+    was = S.loyalties(court)
+    assert(IC.use_secret(F, "legion", "scheme"), "the scheme use was refused")
+    assert(IC.agenda(F).plot == nil, "the scheme stayed")
+    assert(S.record(court, {"party_dropped", "secret_used"}) == "party_dropped:legion:unseat secret_used:legion:scheme",
+        "the Record reads " .. S.record(court, {"party_dropped", "secret_used"}))
+    local cards = 0
+    for i = 1, #shown do
+        if shown[i].index == IC.event_index("party_plot_dropped", F) then cards = cards + 1 end
+    end
+    assert(cards == 1, cards .. " plot-dropped cards")
+    IC.agenda_state = {}
+    assert(IC.agenda(F).plot == nil, "the called-off scheme came back from the save")
+    assert(S.moved(court, was) == "legion:-5", "the scheme use moved " .. S.moved(court, was))
+    assert(court.secrets.legion == nil, "the secret outlived the scheme use")
+
+    -- STOP THEIR COUNTDOWN.
+    court = S.court()
+    court.secrets.legion = turn
+    court.houses.legion.clock = 3
+    was = S.loyalties(court)
+    assert(IC.use_secret(F, "legion", "count"), "the count use was refused")
+    assert(court.houses.legion.clock == 0, "the count reads " .. tostring(court.houses.legion.clock))
+    assert(S.moved(court, was) == "legion:-5", "the count use moved " .. S.moved(court, was))
+    assert(court.secrets.legion == nil, "the secret outlived the count use")
+
+    -- EXPOSE THEM: strength and loyalty, and not the blackmail's 5 on top.
+    court = S.court()
+    court.secrets.legion = turn
+    IC.save(F)
+    was = S.loyalties(court)
+    local weight = court.houses.legion.weight
+    assert(IC.use_secret(F, "legion", "expose"), "the expose was refused")
+    assert(court.houses.legion.weight == weight - 10, "their strength went " .. weight .. " to " .. court.houses.legion.weight)
+    assert(S.moved(court, was) == "legion:-10", "the expose moved " .. S.moved(court, was))
+    assert(#IC.grudges(F, "legion") == 0, "a Chaos Dwarf court wrote a grudge")
+    assert(court.secrets.legion == nil, "the secret outlived the expose")
+    assert(S.record(court, {"secret_used"}) == "secret_used:legion:expose", "the Record reads " .. S.record(court, {"secret_used"}))
+    -- SAVED AT ONCE: a reload holds no secret and the lower strength.
+    IC.state = {}
+    IC.load(F)
+    assert(IC.court(F).secrets.legion == nil and IC.court(F).houses.legion.weight == weight - 10,
+        "the expose was not saved")
+    -- A PARTY AT 4 STRENGTH falls to 1, the floor every strength loss keeps, not to -6,
+    -- and still loses its 10 loyalty.
+    court = S.court()
+    court.secrets.legion = turn
+    court.houses.legion.weight = 4
+    was = S.loyalties(court)
+    assert(IC.use_secret(F, "legion", "expose"), "the expose at 4 strength was refused")
+    assert(court.houses.legion.weight == 1, "a party at 4 strength fell to " .. court.houses.legion.weight)
+    assert(S.moved(court, was) == "legion:-10", "the expose at 4 strength moved " .. S.moved(court, was))
+    -- A DWARF COURT writes an insult grudge for it.
+    local dc = S.dwarf()
+    dc.secrets = {legion = turn}
+    assert(IC.use_secret(S.D, "legion", "expose"), "the Dwarf expose was refused")
+    local book = IC.grudges(S.D, "legion")
+    assert(#book == 1 and book[1].code == "insult", #book .. " grudges, not one insult")
+    gov_done()
+end)
+
+-- A USE STILL HOLDS WHEN THE TURN COMES ROUND: IC.tick_secession counts an angry
+-- party again, and the demand act asks again, unless the use stopped both.
+-- Call Off Their Scheme has no rest to set: a party's next scheme waits on nothing.
+check("secrets: a use still holds at the next turn start", function()
+    -- STOP THEIR COUNTDOWN. The Legion holds 30 of 70, past secede_share, and after
+    -- the use sits under secede_loyalty: the turn start would count it again. The use
+    -- protects it for favour_secure_turns, as Secure Loyalty does, and the count
+    -- starts again once that is over, so the party is angry all along.
+    local court = S.court()
+    court.secrets.legion = turn
+    court.houses.legion.loyalty = IC.TUNE.secede_loyalty
+    court.houses.legion.clock = 3
+    assert(IC.use_secret(F, "legion", "count"), "the count use was refused")
+    local start, clocks = turn, {}
+    local ok, err = pcall(function()
+        for i = 1, IC.TUNE.favour_secure_turns do
+            turn = start + i
+            IC.tick_secession(F)
+            clocks[#clocks + 1] = tostring(court.houses.legion.clock)
+        end
+    end)
+    turn = start
+    assert(ok, err)
+    local want = {}
+    for _ = 2, IC.TUNE.favour_secure_turns do want[#want + 1] = "0" end
+    want[#want + 1] = tostring(IC.tune(F, "secede_turns"))
+    assert(table.concat(clocks, " ") == table.concat(want, " "),
+        "the countdown after the use ran " .. table.concat(clocks, " ") .. ", not " .. table.concat(want, " "))
+
+    -- DROP THEIR DEMAND. The parties' turn after it, the roll pinned to the strongest
+    -- motive (the Legion's), makes no Legion demand, and the rest is in the save; with
+    -- the rest cleared the same turn makes one, so the turn would have asked.
+    court = S.court()
+    court.secrets.legion = turn
+    court.houses.legion.loyalty = 50
+    local office = IC.OFFICES[1].slug
+    local a = IC.agenda(F)
+    a.demand = {slug = "legion", kind = "office", cqi = 9002, key = office, was = 0, ends = turn + 5}
+    assert(IC.use_secret(F, "legion", "demand"), "the demand use was refused")
+    -- SAVED BY THE USE ITSELF, before anything else writes the agenda.
+    IC.agenda_state = {}
+    assert(IC.agenda(F).rest.legion == start + IC.TUNE.party_demand_rest,
+        "the Legion's rest was not saved with the agenda: " .. tostring(IC.agenda(F).rest.legion))
+    local act
+    -- ALL_ACTS: the harness keeps only build 1's acts in IC.PARTY_ACTS.
+    for _, x in ipairs(ALL_ACTS) do if x.key == "demand" then act = x end end
+    assert(act, "no demand act")
+    turn = start + 1
+    use_acts({demand = true})
+    local ok2, err2 = pcall(function()
+        S.roll(1, function() IC.party_turn(F) end)
+        local d = IC.agenda(F).demand
+        assert(not (d and d.slug == "legion"), "the Legion demanded again the turn after its demand was dropped")
+        assert(act.can(F, "legion") == nil, "the demand act would ask the Legion again")
+        local ag = IC.agenda(F)
+        ag.rest.legion, ag.demand = nil, nil
+        S.roll(1, function() IC.party_turn(F) end)
+        d = IC.agenda(F).demand
+        assert(d and d.slug == "legion",
+            "with no rest the Legion asks nothing, so the check proves nothing: " .. tostring(d and d.slug))
+    end)
+    use_acts(BUILD1_ACTS)
+    turn = start
+    assert(ok2, err2)
+    gov_done()
+end)
+
+check("secrets: uses listed only when they apply", function()
+    local court = S.court()
+    -- NONE HELD: what applies is still listed, refused.
+    assert(S.uses(F, "legion") == "expose!no_secret", "with nothing open the Legion lists " .. S.uses(F, "legion"))
+    court.secrets.legion = turn
+    assert(S.uses(F, "legion") == "expose", "with nothing open the Legion lists " .. S.uses(F, "legion"))
+    -- A VOTE THE CROWN ABSTAINS ON is not listed.
+    court.votes.worship = {option = IC.LAWS.worship.order[2], proposer = "legion", ends = turn + 2,
+                           stance = "abstain", won = {}, push = {}}
+    S.council(court, "abstain")
+    assert(S.uses(F, "legion") == "expose", "an abstained vote is listed: " .. S.uses(F, "legion"))
+    -- ONE PER VOTE THE CROWN TOOK A SIDE ON, the laws in their order, then the council.
+    -- The Crown is against the Ash Harvest the Legion backs, so there is a man to win.
+    court.votes.worship.stance = "nay"
+    court.votes[IC.COUNCIL].stance = "aye"
+    local labour = law_vote(court, "ash", "nay")
+    -- ANOTHER PARTY'S DEMAND, SCHEME AND COUNTDOWN are not the Legion's.
+    local office = IC.OFFICES[1].slug
+    local a = IC.agenda(F)
+    a.demand = {slug = "forge", kind = "office", cqi = 9004, key = office, was = 0, ends = turn + 5}
+    a.plot = {slug = "forge", move = "unseat", actor = 9004, target = 9001, key = office, turn = turn}
+    court.houses.forge.clock = 2
+    assert(S.uses(F, "legion") == "vote.labour vote.worship vote.council expose",
+        "the Legion lists " .. S.uses(F, "legion"))
+    -- EACH VOTE ANSWERS TO ITS OWN SWITCH: laws off lists no law vote, council off
+    -- no council vote. Both read before either is asserted, so the switches come back.
+    local laws, council = IC.TUNE.laws, IC.TUNE.council
+    IC.TUNE.laws = false
+    local ok1, off_laws = pcall(S.uses, F, "legion")
+    IC.TUNE.laws, IC.TUNE.council = laws, false
+    local ok2, off_council = pcall(S.uses, F, "legion")
+    IC.TUNE.council = council
+    assert(ok1 and off_laws == "vote.council expose", "with the laws off the Legion lists " .. tostring(off_laws))
+    assert(ok2 and off_council == "vote.labour vote.worship expose",
+        "with the council off the Legion lists " .. tostring(off_council))
+    assert(S.uses(F, "forge") == "vote.labour!no_secret vote.worship!no_secret vote.council!no_secret "
+           .. "demand!no_secret scheme!no_secret count!no_secret expose!no_secret",
+        "the Forge lists " .. S.uses(F, "forge"))
+    -- A VOTE USE THAT WOULD WIN NOBODY IS NOT OFFERED: the Ledger is against the Ash
+    -- Harvest already, and the Forge's one man, 9004, once won to the Crown's side.
+    assert(not string.find(S.uses(F, "ledger"), "vote.labour", 1, true),
+        "the Ledger, already on the Crown's side, lists " .. S.uses(F, "ledger"))
+    court.secrets.forge = turn
+    labour.won[9004] = "nay"
+    assert(not string.find(S.uses(F, "forge"), "vote.labour", 1, true),
+        "the Forge, its one man won, lists " .. S.uses(F, "forge"))
+    local was0 = S.loyalties(court)
+    local ok0, why0 = IC.use_secret(F, "forge", "vote", "labour")
+    assert(not ok0 and why0 == "none_to_win", "a vote use that wins nobody came back " .. tostring(why0))
+    assert(court.secrets.forge == turn and S.moved(court, was0) == "", "the refused vote use spent something")
+    court.secrets.forge, labour.won[9004] = nil, nil
+    -- NOT LISTED IS NOT USABLE, and the refusal keeps the secret.
+    local was = S.loyalties(court)
+    for _, try in ipairs({{"demand"}, {"scheme"}, {"count"}, {"vote", "tribute"}, {"bribe"}}) do
+        local ok, why = IC.use_secret(F, "legion", try[1], try[2])
+        assert(not ok and why == "no_use", try[1] .. " for the Legion came back " .. tostring(why))
+    end
+    assert(court.secrets.legion == turn and S.moved(court, was) == "", "a refused use spent something")
+    -- THEIR OWN, listed in order: votes, then demand, scheme, count, expose.
+    a.demand.slug, a.plot.slug, court.houses.legion.clock = "legion", "legion", 2
+    assert(S.uses(F, "legion") == "vote.labour vote.worship vote.council demand scheme count expose",
+        "the Legion lists " .. S.uses(F, "legion"))
+    -- THE CROWN is no party a secret is held on.
+    assert(S.uses(F, IC.CROWN) == "", "the Crown lists " .. S.uses(F, IC.CROWN))
+    gov_done()
+end)
+
+check("secrets: lost when the party leaves", function()
+    local court = S.court()
+    court.secrets.legion, court.secrets.forge = turn, turn
+    court.standing[9001] = 1000
+    S.roll(1, function()
+        assert(IC.plot(F, "purge", 9001, "9002"), "the purge was refused")
+    end)
+    assert(court.houses.legion == nil, "the purge left the Legion at court")
+    assert(court.secrets.legion == nil, "the Legion's secret outlived it")
+    assert(court.secrets.forge == turn, "the purge took the Forge's secret too")
+    IC.state = {}
+    IC.load(F)
+    assert(IC.court(F).secrets.legion == nil and IC.court(F).secrets.forge == turn,
+        "the reload holds legion=" .. tostring(IC.court(F).secrets.legion))
+    gov_done()
+end)
+
+check("secrets: the save round trip", function()
+    local function field(n)
+        local all = {}
+        for x in string.gmatch(cm:get_saved_value("derpy_ic_" .. F) .. "|", "([^|]*)|") do all[#all + 1] = x end
+        return all[n]
+    end
+    local court = S.court()
+    court.secrets.legion, court.secrets.forge = 12, 15
+    court.claims.secret_prov = {ends = turn + 2, list = {{slug = "forge", cqi = 9004, why = "weight"}}}
+    IC.save(F)
+    assert(field(23) == "forge,15;legion,12", "field 23 reads " .. tostring(field(23)))
+    IC.state = {}
+    IC.load(F)
+    local back = IC.court(F)
+    assert(back.secrets.legion == 12 and back.secrets.forge == 15, "the secrets did not round-trip")
+    -- NOTHING HELD WRITES AN EMPTY FIELD.
+    back.secrets = {}
+    IC.save(F)
+    assert(field(23) == "", "no secrets wrote " .. tostring(field(23)))
+    -- AN OLDER SAVE (Review Focus 5): no field 23, and the claims beside it intact.
+    back.secrets.legion = 12
+    IC.save(F)
+    cm:set_saved_value("derpy_ic_" .. F, first_fields(cm:get_saved_value("derpy_ic_" .. F), 22))
+    IC.state = {}
+    IC.load(F)
+    back = IC.court(F)
+    assert(next(back.secrets) == nil, "an older save holds secrets")
+    assert(back.claims.secret_prov and back.claims.secret_prov.list[1].slug == "forge",
+        "an older save lost its claims")
+    gov_done()
+end)
+
+check("secrets: MP op re-checks", function()
+    local court = S.court()
+    local got, was = {}, IC.after_op
+    IC.after_op = function(...) got[#got + 1] = {...} end
+    local ok, err = pcall(function()
+        -- NO SECRET HELD: refused, and nothing moves.
+        local weight = court.houses.legion.weight
+        assert(IC.mp_receive("ic1|secret_use|legion|expose|", 41) == F, "secret_use did not reach the model")
+        local a = got[#got]
+        assert(a and a[2] == "secret_use" and a[4] == false and a[5] == "no_secret",
+            "secret_use with no secret came back " .. tostring(a and a[5]))
+        assert(court.houses.legion.weight == weight, "a refused expose took strength")
+        -- HELD, the wire spends it.
+        court.secrets.legion = turn
+        assert(IC.mp_receive("ic1|secret_use|legion|expose|", 41) == F and got[#got][4] == true
+            and court.houses.legion.weight == weight - IC.TUNE.secret_expose_weight
+            and court.secrets.legion == nil, "secret_use did not expose the Legion")
+        -- AND A VOTE'S CATEGORY crosses it.
+        court.secrets.ledger = turn
+        local vote = law_vote(court, "ash", "aye")
+        assert(IC.mp_receive("ic1|secret_use|ledger|vote|labour", 41) == F and got[#got][4] == true
+            and vote.won[9005] == "aye", "secret_use did not win the Ledger's vote")
+    end)
+    IC.after_op = was
+    assert(ok, err)
+    gov_done()
+end)
+
+end -- SECRETS
+
+-- THE WAR COUNCIL AND THE CLAIMS ON THE PANEL, task 8a: the Petitions rows, the war
+-- vote screen, the council move's faction picker and the Record. One do-block and
+-- one local (P), as the war council's. New checks go above `end -- WAR PANEL`.
+do
+local P = {
+    T    = "wh_main_dwf_karak_izor",    -- a Dwarf customer next door: the candidate
+    FAR  = "wh_main_grn_greenskins",    -- met and off the border: refused
+    PROV = "claim_prov_new",
+    BANNED = {"hashut", "zharr", "hell%-?forge", "slave", "labourer", "hobgoblin",
+              "convoy", "ziggurat", "daemon", "chaos dwarf", "guild"},
+}
+
+-- A PLAYER COURT past its grace period, law_court's men (cqi 9000 + i, each named
+-- "Man i") and parties, that has met T and FAR, trades with T and borders it. The
+-- two factions and the claimed province have names. No vote, war, claim or agenda.
+function P.court(men, weights)
+    IC._war_snap, IC._book, IC._war_reacted = {}, nil, {}
+    factions = {}
+    saved["derpy_ic_" .. F] = nil
+    saved["derpy_ic_agenda_" .. F] = nil
+    saved.derpy_no_early_wars_turns, saved.derpy_no_early_wars_released = nil, nil
+    IC.agenda_state = {}
+    make_faction(P.T, "wh_main_sc_dwf_dwarfs", {}, {"war_t1_prov"})
+    make_faction(P.FAR, "wh_main_sc_grn_greenskins", {}, {"war_t2_prov"})
+    local court, chars = law_court(men, weights or {crown = 10, legion = 10, ledger = 10, temple = 10})
+    local f = make_faction(F, IC.CHD_SUBCULTURE, chars, {"war_home_a", P.PROV})
+    f._met = {P.FAR, P.T}
+    f._trade = {[P.T] = true}
+    f._adjacent = {war_home_a = {"region_war_t1_prov"}}
+    court.claims = {}
+    IC_TEST_LOC = {["factions_screen_name_" .. P.T] = "Karak Izor",
+                   ["factions_screen_name_" .. P.FAR] = "the Greenskins",
+                   ["provinces_onscreen_" .. P.PROV] = "the New March"}
+    for i, c in ipairs(chars) do
+        c._forename = "derpy_p_fore_" .. i
+        IC_TEST_LOC[c._forename] = "Man " .. i
+    end
+    shown, wars = {}, {}
+    return court, f, chars
+end
+
+-- AN OPEN COUNCIL VOTE on `target` (T unless named), as IC.council_open writes it.
+function P.vote(court, stance, proposer, target)
+    court.votes[IC.COUNCIL] = {option = target or P.T, proposer = proposer or IC.CROWN,
+                               ends = turn + IC.TUNE.law_vote_turns, stance = stance or "aye",
+                               won = {}, push = {}}
+    return court.votes[IC.COUNCIL]
+end
+
+-- TWO CLAIMS ON PROV: the Legion's 9002 by conquest, then the Ledger's 9003 by weight.
+function P.claims(court)
+    court.claims[P.PROV] = {ends = turn + IC.TUNE.claim_turns,
+                            list = {{slug = "legion", cqi = 9002, why = "conquest"},
+                                    {slug = "ledger", cqi = 9003, why = "weight"}}}
+end
+
+-- A STRING AS IT READS: its pictures and its colour markup taken off.
+function P.words(text)
+    return plain((string.gsub(tostring(text or ""), "%[%[img:[^%]]*%]%]%[%[/img%]%]", "")))
+end
+
+-- EVERY ROW DRAWN, in order: its text cells as they read, and its two buttons.
+function P.rows(panel)
+    local out = {}
+    for i = 1, ICUI.MAX_ROWS do
+        local row = fake_find(panel, ICUI.ROW .. "_" .. i)
+        if row and row.visible then
+            local c = row.children
+            out[#out + 1] = {a = P.words(c.ic_row_a.text), b = P.words(c.ic_row_b.text),
+                             d = P.words(c.ic_row_d.text), e = c.ic_row_e, f = c.ic_row_f}
+        end
+    end
+    return out
+end
+
+-- WHAT `fn` SENT THROUGH ICUI.send, as "op:arg".
+function P.sends(fn)
+    local sent, was = {}, ICUI.send
+    ICUI.send = function(_f, op, arg) sent[#sent + 1] = op .. ":" .. tostring(arg) return true end
+    local ok, err = pcall(fn)
+    ICUI.send = was
+    assert(ok, err)
+    return table.concat(sent, " ")
+end
+
+-- ROW i ANSWERED: its first button (yes) or its second.
+function P.answer(i, yes)
+    local was = ICUI.clicked_index
+    ICUI.clicked_index = function() return i end
+    local ok, err = pcall(ICUI.on_petition_click, {component = {}}, yes)
+    ICUI.clicked_index = was
+    assert(ok, err)
+end
+
+-- EVERY VISIBLE WORD under `c`, text and tooltip, as one lower-case string.
+function P.drawn(c, out)
+    out = out or {}
+    if c.visible == false then return out end
+    out[#out + 1] = string.lower(tostring(c.text or "") .. " " .. tostring(c.tooltip or ""))
+    for _, k in ipairs(c.order or {}) do P.drawn(k, out) end
+    return out
+end
+
+function P.done()
+    IC_TEST_LOC = {}
+    ICUI.view, ICUI.law_cat, ICUI.pick, ICUI.notice = "court", nil, nil, nil
+    gov_done()
+end
+
+check("panel: petitions rows for a council vote, a planned war and claims", function()
+    local court, f = P.court({{"crown", 2000}, {"legion", 100}, {"ledger", 100}, {"legion", 50}})
+    -- THE GOVERNMENT ASK FIRST AND THE DEMAND LAST: the new rows go between them.
+    court.gov_ask = {gov = "forge", ends = turn + 2}
+    IC.agenda(F).demand = {slug = "legion", kind = "office", cqi = 9004, key = IC.OFFICES[1].slug,
+                           was = 0, ends = turn + 4}
+    P.vote(court, "abstain", "legion")
+    court.war = {target = P.FAR, at = turn + 2, proposer = "ledger"}
+    P.claims(court)
+    f._gold = 1000
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view = "petitions"
+        ICUI.refresh()
+        local rows, kinds = P.rows(panel), {}
+        for i = 1, #rows do kinds[i] = ICUI.petition_rows[i] and ICUI.petition_rows[i].kind or "?" end
+        assert(table.concat(kinds, " ") == "gov council war claim claim demand",
+            "the petitions run " .. table.concat(kinds, " "))
+        -- THE VOTE: who put it, on whom, how long; Vote, and no second button.
+        local r = rows[2]
+        assert(r.a == ICUI.house_name("legion", F) and r.b == "Proposes war on Karak Izor: 2 turns",
+            "the vote's row reads " .. r.a .. " / " .. r.b)
+        assert(r.e.visible and P.words(r.e.text) == ICUI.PETITION_BTN.vote and ICUI.PETITION_BTN.vote == "Vote"
+            and not r.f.visible, "the vote's buttons read " .. r.e.text .. " / " .. tostring(r.f.visible))
+        -- THE PLANNED WAR: Call Off twice, influence first and gold second, each priced
+        -- by its picture and named with its loyalty in its tooltip. Gold short: red.
+        r = rows[3]
+        -- BOTH PRICES ON THE ROW ITSELF, read off the tuning: a tooltip is unseen
+        -- by a player who does not hover, and by the preview.
+        assert(string.find(r.b, IC.TUNE.law_overrule_cost .. " influence", 1, true)
+            and string.find(r.b, IC.TUNE.war_overrule_gold .. " gold", 1, true),
+            "the war's row does not name both prices: " .. r.b)
+        assert(r.a == "War on the Greenskins"
+            and r.b == "Declared in 2 turns. Call it off for 2500 gold or 500 influence.",
+            "the war's row reads " .. r.a .. " / " .. r.b)
+        local loyal = tostring(-IC.TUNE.law_overrule_loyalty) .. " loyalty"
+        assert(ICUI.PETITION_BTN.calloff == "Call Off" and string.find(P.words(r.e.text), "Call Off", 1, true)
+            and string.find(r.e.text, ICUI.COST_ICON, 1, true) and not is_red(r.e),
+            "the influence Call Off reads " .. r.e.text)
+        assert(string.find(P.words(r.f.text), "Call Off", 1, true) and string.find(r.f.text, ICUI.GOLD_ICON, 1, true)
+            and is_red(r.f), "the gold Call Off, 1000 gold of 2500 in the treasury, reads " .. r.f.text)
+        local tip, tip2 = P.words(r.e.tooltip), P.words(r.f.tooltip)
+        assert(string.find(tip, IC.TUNE.law_overrule_cost .. " influence", 1, true)
+            and string.find(tip, loyal, 1, true), "the influence Call Off's tooltip reads " .. tip)
+        assert(string.find(tip2, IC.TUNE.war_overrule_gold .. " gold", 1, true)
+            and string.find(tip2, loyal, 1, true), "the gold Call Off's tooltip reads " .. tip2)
+        -- THE CLAIMS: the man, his party's crest, the province and its turns; Grant and
+        -- Refuse, the tooltip saying why he claims it and what each answer costs.
+        for k, c in ipairs({{"legion", 9002, "conquest"}, {"ledger", 9003, "weight"}}) do
+            r = rows[3 + k]
+            assert(r.a == "Man " .. (c[2] - 9000) and r.b == "Claims the New March: 3 turns",
+                c[1] .. "'s claim reads " .. r.a .. " / " .. r.b)
+            assert(P.words(r.e.text) == "Grant" and P.words(r.f.text) == "Refuse",
+                c[1] .. "'s claim answers " .. r.e.text .. " / " .. r.f.text)
+            assert(ICUI.petition_rows[3 + k].slug == c[1] and ICUI.petition_rows[3 + k].province == P.PROV,
+                c[1] .. "'s row carries the wrong claim")
+            tip = P.words(r.e.tooltip)
+            assert(string.find(tip, ICUI.CLAIM_WHY[c[3]], 1, true)
+                and string.find(tip, IC.TUNE.claim_granted .. " loyalty", 1, true)
+                and string.find(tip, -IC.TUNE.claim_passed .. " loyalty", 1, true)
+                and string.find(tip, -IC.TUNE.claim_refused .. " loyalty", 1, true),
+                c[1] .. "'s claim tooltip reads " .. tip)
+            assert(string.find(P.words(r.f.tooltip), -IC.TUNE.claim_refused .. " loyalty", 1, true),
+                c[1] .. "'s Refuse tooltip reads " .. P.words(r.f.tooltip))
+        end
+        -- EACH ANSWER SENT, through ICUI.send.
+        local want = {{3, true, "war_calloff:0"}, {3, false, "war_calloff:1"},
+                      {4, true, "claim_grant:" .. P.PROV .. "|legion"},
+                      {5, false, "claim_refuse:" .. P.PROV .. "|ledger"}}
+        for _, w in ipairs(want) do
+            local sent = P.sends(function() P.answer(w[1], w[2]) end)
+            assert(sent == w[3], "row " .. w[1] .. " sent " .. sent .. ", not " .. w[3])
+        end
+        -- THE MAN SHOWN IS THE CLAIM'S CURRENT ONE: re-picked after a void.
+        court.claims[P.PROV].list[1].cqi = 9004
+        ICUI.view = "petitions"
+        ICUI.refresh()
+        assert(P.rows(panel)[4].a == "Man 4", "the re-picked claim shows " .. P.rows(panel)[4].a)
+        -- VOTE OPENS THE VOTE SCREEN, and sends nothing.
+        local sent = P.sends(function() P.answer(2, true) end)
+        assert(sent == "" and ICUI.view == "laws" and ICUI.law_cat == IC.COUNCIL and ICUI.law_screen(F) == "vote",
+            "Vote sent " .. sent .. " and opened " .. tostring(ICUI.view) .. "/" .. tostring(ICUI.law_cat))
+    end)
+    IC.agenda(F).demand = nil
+    P.done()
+    assert(ok, err)
+end)
+
+check("panel: the petitions marker counts council and claims", function()
+    local court = P.court({{"crown", 300}, {"legion", 100}, {"ledger", 100}})
+    local base = ICUI.court_state(F).petitions
+    local v = P.vote(court, "abstain", "legion")
+    assert(ICUI.court_state(F).petitions == base + 1 and ICUI.attention(F).petitions,
+        "a party's war vote waiting for your answer is not a petition")
+    v.answered = true
+    assert(ICUI.court_state(F).petitions == base, "an answered war vote is still a petition")
+    P.vote(court, "aye", IC.CROWN)
+    assert(ICUI.court_state(F).petitions == base, "your own war vote is a petition")
+    court.votes[IC.COUNCIL] = nil
+    P.claims(court)
+    assert(ICUI.court_state(F).petitions == base + 2 and ICUI.attention(F).petitions,
+        "two open claims count " .. (ICUI.court_state(F).petitions - base))
+    P.done()
+end)
+
+check("panel: the war vote screen", function()
+    local court, f = P.court({{"crown", 3000}, {"temple", 100}, {"ledger", 100}},
+                             {crown = 10, temple = 10, ledger = 10})
+    local v = P.vote(court, "aye", "temple")
+    f._gold = 1000
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view, ICUI.law_cat = "laws", IC.COUNCIL
+        ICUI.refresh()
+        local c = panel.children
+        assert(c.ic_lv_icon.images[0] == "ui/flags/" .. P.T .. "/mon_64.png",
+            "the war vote's picture is " .. tostring(c.ic_lv_icon.images[0]))
+        -- A TARGET WHOSE FLAG CANNOT BE READ wears CA's declare-war picture, never the
+        -- court's own Crown, which is Keep the peace's.
+        local target = cm:get_faction(P.T)
+        local flag = target.flag_path
+        target.flag_path = function() return "" end
+        ICUI.refresh()
+        local got, side = c.ic_lv_icon.images[0], c.ic_lv_sicon_1.images[0]
+        target.flag_path = flag
+        assert(got == ICUI.WAR_ICON and side == ICUI.WAR_ICON and got ~= c.ic_lv_sicon_2.images[0]
+            and ICUI.WAR_ICON == "ui/campaign ui/diplomacy_icons/diplomatic_option_declare_war.png",
+            "a war vote on a faction with no flag shows " .. tostring(got) .. " and " .. tostring(side))
+        ICUI.refresh()
+        assert(P.words(c.ic_lv_name.text) == "War on Karak Izor", "the name reads " .. c.ic_lv_name.text)
+        assert(c.ic_lv_fx.text == string.format("Declared %d turns after it passes", IC.TUNE.war_prep_turns),
+            "the effect reads " .. c.ic_lv_fx.text)
+        assert(P.words(c.ic_lv_shead_1.text) == "Declare war" and P.words(c.ic_lv_shead_2.text) == "Keep the peace",
+            "the sides read " .. c.ic_lv_shead_1.text .. " / " .. c.ic_lv_shead_2.text)
+        assert(P.words(c.ic_lv_back.text) == "Back to petitions", "the way back reads " .. c.ic_lv_back.text)
+        -- THE GOLD, under Pass now and Fail now, red with 1000 in the treasury.
+        for i = 3, 4 do
+            local b = c["ic_lv_over_" .. i]
+            assert(b.visible and string.find(b.text, tostring(IC.TUNE.war_overrule_gold), 1, true)
+                and string.find(b.text, ICUI.GOLD_ICON, 1, true) and IC.TUNE.war_overrule_gold == 2500,
+                "ic_lv_over_" .. i .. " reads " .. tostring(b.text) .. ", shown " .. tostring(b.visible))
+            assert(is_red(b), "ic_lv_over_" .. i .. " is not red with the treasury 1500 short")
+        end
+        -- EACH PARTY'S LINE NAMES ITS FACT: the Priesthood for war on an old foe, the
+        -- Ledger against war on a customer; the Crown in the war's own words.
+        local level = {}
+        for i = 1, #ICUI.LB_XY do
+            local b = c[ICUI.LAWBLOCK .. "_" .. i]
+            if b.visible then level[b.children.ic_lb_name.text] = b.children.ic_lb_level.text end
+        end
+        assert(level[ICUI.house_name("temple", F)] == "For it: an old foe",
+            "the Priesthood's line reads " .. tostring(level[ICUI.house_name("temple", F)]))
+        assert(level[ICUI.house_name("ledger", F)] == "Against: they trade with you",
+            "the Ledger's line reads " .. tostring(level[ICUI.house_name("ledger", F)]))
+        assert(level[ICUI.house_name(IC.CROWN, F)] == "Votes for declaring war",
+            "the Crown's line reads " .. tostring(level[ICUI.house_name(IC.CROWN, F)]))
+        v.push.crown, v.push.ledger = 2, 1
+        ICUI.refresh()
+        assert(string.find(c[ICUI.LAWBLOCK .. "_1"].children.ic_lb_level.text, "pushes declaring war", 1, true),
+            "the pushing Crown reads " .. c[ICUI.LAWBLOCK .. "_1"].children.ic_lb_level.text)
+        local nay = c[ICUI.LAWBLOCK .. "_" .. (ICUI.LB_PER_SIDE + 1)].children.ic_lb_level.text
+        assert(string.find(nay, "Against: they trade with you  x", 1, true), "the pushing Ledger reads " .. nay)
+        -- THE GOLD BUTTONS SEND THEIR OWN OVERRULE, the third field gold.
+        f._gold = 3000
+        ICUI.refresh()
+        assert(not is_red(c.ic_lv_over_3), "Pass now for gold is red with 3000 in the treasury")
+        local sent = P.sends(function()
+            click({string = "ic_lv_over_3", component = c.ic_lv_over_3})
+            click({string = "ic_lv_over_4", component = c.ic_lv_over_4})
+        end)
+        assert(sent == "law_overrule:council|1|1 law_overrule:council|0|1", "the gold buttons sent " .. sent)
+        -- BACK GOES TO THE PETITIONS the vote was opened from.
+        click({string = "ic_lv_back", component = c.ic_lv_back})
+        assert(ICUI.view == "petitions" and ICUI.law_cat == nil,
+            "Back went to " .. tostring(ICUI.view) .. "/" .. tostring(ICUI.law_cat))
+        -- AND A WAR DECIDED NOW goes back there too: the board has nothing of it.
+        ICUI.view, ICUI.law_cat = "laws", IC.COUNCIL
+        ICUI.refresh()
+        click({string = "ic_lv_over_3", component = c.ic_lv_over_3})
+        assert(court.votes[IC.COUNCIL] == nil and court.war and court.war.target == P.T,
+            "Pass now for gold did not plan the war")
+        assert(ICUI.view == "petitions" and ICUI.law_cat == nil,
+            "a war decided left the screen on " .. tostring(ICUI.view) .. "/" .. tostring(ICUI.law_cat))
+    end)
+    P.done()
+    assert(ok, err)
+end)
+
+check("panel: the council picker", function()
+    P.court({{"crown", 2000}, {"temple", 100}, {"ledger", 100}})
+    ICUI.pick = {kind = "diplomats_faction", plot = "council"}
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.refresh()
+        local rows, by = P.rows(panel), {}
+        for _, r in ipairs(rows) do by[r.a] = r end
+        assert(#rows == 2 and by["Karak Izor"] and by["the Greenskins"], #rows .. " factions listed")
+        -- A CANDIDATE: Choose, and the court's vote today, off the model's own tally.
+        local p = IC.law_project(F, IC.COUNCIL, P.T)
+        local all = p.aye + p.nay + p.abstain
+        local want = string.format("Aye %d%%; Nay %d%%; %d%% would abstain",
+                                   ICUI.pct(p.aye, all), ICUI.pct(p.nay, all), ICUI.pct(p.abstain, all))
+        local r = by["Karak Izor"]
+        assert(P.words(r.e.text) == "Choose" and not is_red(r.e), "the candidate's button reads " .. r.e.text)
+        assert(p.aye > 0 and p.nay > 0 and r.d == want, "the candidate's shares read " .. r.d .. ", not " .. want)
+        -- A FACTION OFF THE BORDER: its refusal in red, the sentence on its tooltip, no shares.
+        r = by["the Greenskins"]
+        assert(is_red(r.e) and P.words(r.e.text) == ICUI.mission_refusal("far") and r.d == "",
+            "the far faction reads " .. r.e.text .. " / " .. r.d)
+        assert(ICUI.mission_refusal("far") ~= "No" and P.words(r.e.tooltip) == ICUI.reason_text("far"),
+            "the far faction's tooltip reads " .. tostring(r.e.tooltip))
+        assert(plain(panel.children.ic_hdr_d.text) ~= "", "the shares column has no header")
+        -- AND THE DIPLOMATS' OWN LIST is as it was: no shares, no header over them.
+        ICUI.pick = {kind = "diplomats_faction", plot = "diplomats"}
+        ICUI.refresh()
+        assert(P.rows(panel)[1].d == "" and plain(panel.children.ic_hdr_d.text) == "",
+            "Send Diplomats grew the council's column")
+    end)
+    P.done()
+    assert(ok, err)
+end)
+
+check("panel: every new war and claim Record kind draws a line", function()
+    local court = P.court({{"crown", 1000}, {"legion", 100}})
+    local war = IC.COUNCIL .. "." .. P.T
+    local cases = {
+        {"war_planned", "legion", P.T, 12}, {"war_begins", "legion", P.T, 0},
+        {"war_called", IC.CROWN, P.T, 0}, {"war_called", IC.CROWN, P.T, 1},
+        {"war_broken", "legion", P.T, 0}, {"war_void", "legion", P.T, 0},
+        {"war_void", "legion", P.T, 1}, {"war_void", "legion", P.T, 2},
+        {"war_unasked", IC.CROWN, P.T, 0}, {"war_peace", IC.CROWN, P.T, 0},
+        {"war_bypass", "legion", P.T, 0}, {"war_early", IC.CROWN, P.T, 0},
+        {"claim", "legion", P.PROV, 0}, {"claim_granted", "legion", P.PROV, 0},
+        {"claim_refused", "legion", P.PROV, 0}, {"claim_passed", "legion", P.PROV, 0},
+        {"claim_taken", "legion", P.PROV, 0}, {"council", IC.CROWN, P.T, 150},
+        -- THE LAW KINDS ON A WAR VOTE name the war, never the council.<faction> key.
+        {"law_propose", "legion", war, 0}, {"law_pass", "legion", war, 0},
+        {"law_fail", "legion", war, 0}, {"law_win", "ledger", war, 60},
+        {"law_push", IC.CROWN, war, 2}, {"law_overrule", IC.CROWN, war, 1},
+    }
+    local seen = {}
+    for _, c in ipairs(cases) do
+        local what = c[1] .. " " .. c[4]
+        local s = ICUI.intrigue_text({turn = 1, kind = c[1], slug = c[2], key = c[3], n = c[4]})
+        assert(s and s ~= "", what .. " draws nothing")
+        assert(not string.find(s, P.T, 1, true) and not string.find(s, P.PROV, 1, true)
+            and not string.find(s, IC.COUNCIL .. ".", 1, true), what .. " prints a raw key: " .. s)
+        assert(not string.find(string.lower(s), "placeholder", 1, true), what .. " is a placeholder: " .. s)
+        local name = c[3] == P.PROV and "the New March" or "Karak Izor"
+        assert(string.find(s, name, 1, true), what .. " does not name " .. name .. ": " .. s)
+        assert(not seen[s], what .. " reads as " .. tostring(seen[s]) .. " does: " .. s)
+        seen[s] = what
+    end
+    -- A CALL-OFF SAYS WHAT IT COST.
+    local inf = ICUI.intrigue_text({kind = "war_called", slug = IC.CROWN, key = P.T, n = 0})
+    local gold = ICUI.intrigue_text({kind = "war_called", slug = IC.CROWN, key = P.T, n = 1})
+    assert(string.find(inf, IC.TUNE.law_overrule_cost .. " influence", 1, true)
+        and string.find(gold, IC.TUNE.war_overrule_gold .. " gold", 1, true),
+        "the call-offs read: " .. inf .. " / " .. gold)
+    -- ONE COUNCIL MOVE, ONE LINE: the move's own, which names the war.
+    local before = #court.log
+    local ok, why = IC.plot(F, "council", 9001, P.T)
+    assert(ok and why == "landed", "the move was refused: " .. tostring(why))
+    local lines = {}
+    for i = before + 1, #court.log do
+        local s = ICUI.intrigue_text(court.log[i])
+        if s then lines[#lines + 1] = s end
+    end
+    assert(#lines == 1 and string.find(lines[1], "Karak Izor", 1, true),
+        "the council move wrote " .. #lines .. " lines: " .. table.concat(lines, " | "))
+    P.done()
+end)
+
+check("panel: every war and claim refusal has words", function()
+    -- THE CODES ARE THE MODEL'S, read out of the functions that return them, so a
+    -- refusal added there with no sentence here fails rather than reading "That
+    -- cannot be done right now."
+    local court = P.court({{"crown", 3000}, {"legion", 100}})
+    local fh = assert(io.open(FILE, "r"))
+    local src = fh:read("*a")
+    fh:close()
+    local codes, n = {}, 0
+    for _, name in ipairs({"IC.war_candidate", "IC.war_locked", "council_shut", "IC.council_can_open",
+                           "council_pay", "IC.law_overrule", "IC.war_calloff", "live_claim",
+                           "IC.claim_grant", "IC.claim_refuse"}) do
+        local at = string.find(src, "function " .. name .. "(", 1, true)
+        assert(at, name .. " is not in the model")
+        local body = string.sub(src, at, (string.find(src, "\nend\n", at, true)))
+        for code in string.gmatch(body, 'return [%w_]*,? ?"([%w_ ]+)"') do
+            if not codes[code] then codes[code], n = true, n + 1 end
+        end
+    end
+    assert(n >= 15, "only " .. n .. " refusal codes were found, so the reader is broken")
+    for code in pairs(codes) do
+        local s = ICUI.reason_text(code, 3)
+        assert(s ~= "That cannot be done right now.", code .. " has no sentence")
+    end
+    -- THE PICKER'S BUTTON names a council refusal in a word or two, never a bare No.
+    for _, code in ipairs({"at_war", "treaty", "far", "human", "rebel", "council_open", "council_war",
+                           "grace", "truce", "council_off"}) do
+        assert(ICUI.mission_refusal(code) ~= "No", code .. " is a bare No on the council's picker")
+    end
+    -- AND EACH NEW ANSWER THAT LANDS SAYS SO.
+    court.war = {target = P.T, at = turn + 2, proposer = "legion"}
+    ICUI.notice = nil
+    local ok, err = pcall(with_fake_panel, function()
+        ICUI.ANSWERS.war_calloff("0", true)
+        assert(ICUI.notice and ICUI.notice ~= "", "a call-off was answered with no words")
+        ICUI.notice = nil
+        ICUI.ANSWERS.claim_grant(P.PROV .. "|legion", true)
+        assert(ICUI.notice and string.find(ICUI.notice, ICUI.house_name("legion", F), 1, true),
+            "a granted claim reads " .. tostring(ICUI.notice))
+        ICUI.ANSWERS.claim_refuse(P.PROV .. "|legion", false, "claim_void")
+        assert(ICUI.notice == ICUI.reason_text("claim_void"), "a void claim reads " .. tostring(ICUI.notice))
+    end)
+    P.done()
+    assert(ok, err)
+end)
+
+DW.check("panel: a Dwarf court's war and claim words carry no Chaos Dwarf word", function()
+    local court = DW.court(true)
+    local king = cm:get_faction(DW.KK)._leader
+    make_faction(P.FAR, "wh_main_sc_grn_greenskins", {}, {"war_t2_prov"})
+    make_faction(P.T, "wh_main_sc_dwf_dwarfs", {}, {"war_t1_prov"})
+    local f = cm:get_faction(DW.KK)
+    f._met = {P.FAR, P.T}
+    IC_TEST_LOC["factions_screen_name_" .. P.FAR] = "the Greenskins"
+    IC_TEST_LOC["provinces_onscreen_" .. P.PROV] = "the New March"
+    court.votes = court.votes or {}
+    court.votes[IC.COUNCIL] = {option = P.FAR, proposer = "legion", ends = turn + 2, stance = "abstain",
+                               won = {}, push = {}}
+    court.war = {target = P.FAR, at = turn + 2, proposer = "legion"}
+    court.claims = {[P.PROV] = {ends = turn + 3, list = {{slug = "legion", cqi = king:command_queue_index(),
+                                                           why = "home"}}}}
+    local said = {}
+    with_fake_root(function(hud, panel)
+        ICUI.open()
+        for _, view in ipairs({{"petitions"}, {"laws", IC.COUNCIL}}) do
+            ICUI.view, ICUI.law_cat = view[1], view[2]
+            ICUI.refresh()
+            for _, s in ipairs(P.drawn(panel)) do said[#said + 1] = s end
+        end
+        ICUI.pick = {kind = "diplomats_faction", plot = "council"}
+        ICUI.refresh()
+        for _, s in ipairs(P.drawn(panel)) do said[#said + 1] = s end
+        ICUI.pick = nil
+        ICUI.close(true)
+    end, nil, {1920, 1080}, "dwf")
+    for _, kind in ipairs({"war_planned", "war_begins", "war_called", "war_broken", "war_void", "war_unasked",
+                           "war_peace", "war_bypass", "war_early", "claim", "claim_granted", "claim_refused",
+                           "claim_passed", "claim_taken"}) do
+        local key = string.sub(kind, 1, 3) == "war" and P.FAR or P.PROV
+        said[#said + 1] = string.lower(ICUI.intrigue_text({kind = kind, slug = "legion", key = key, n = 1}) or "")
+    end
+    for _, code in ipairs({"far", "council_war", "council_open", "truce", "claim_void"}) do
+        said[#said + 1] = string.lower(ICUI.reason_text(code, 3))
+    end
+    local all = table.concat(said, "\n")
+    assert(string.find(all, "call off", 1, true) and string.find(all, "war on the greenskins", 1, true),
+        "the walk never reached the war's rows")
+    for _, w in ipairs(P.BANNED) do
+        local at = string.find(all, w)
+        assert(not at, "a Dwarf court reads '" .. w .. "': " .. string.sub(all, math.max(1, (at or 1) - 60), (at or 1) + 40))
+    end
+    IC_TEST_LOC = {}
+end)
+
+-- SECRETS ON THE PANEL, task 8b: the fifth button's picker, the Help, the Record and
+-- the refusals. P's fixtures, so no new local.
+
+-- ROW i OF THE OPEN PICKER CLICKED, as its button reports it.
+function P.pick(i)
+    local was = ICUI.clicked_index
+    ICUI.clicked_index = function() return i end
+    local ok, err = pcall(ICUI.on_row_action, {component = {}})
+    ICUI.clicked_index = was
+    assert(ok, err)
+end
+
+check("panel: the fifth action button", function()
+    -- law_court's men: the Crown's 9001, the Legion's 9002 and 9004, the Ledger's 9003.
+    local court = P.court({{"crown", 2000}, {"legion", 100}, {"ledger", 100}, {"legion", 50}})
+    court.secrets = {}
+    ICUI.register()
+    local click = core.listeners["ic_click"]
+    local ok, err = pcall(with_fake_panel, function(panel)
+        ICUI.view, ICUI.sel, ICUI.pick, ICUI.notice = "court", "legion", nil, nil
+        ICUI.refresh()
+        local btn = panel.children.ic_act_secret
+        -- NO SECRET HELD: red, its tooltip pointing at Dig for Secrets, and a click
+        -- says why and opens nothing.
+        local why = ICUI.reason_text("no_secret")
+        assert(btn.visible and is_red(btn), "Use a Secret with no secret reads " .. tostring(btn.text))
+        assert(string.find(bare(btn.tooltip), why, 1, true) and string.find(why, "Dig for Secrets", 1, true),
+            "the refused tooltip reads " .. tostring(btn.tooltip))
+        local sent = P.sends(function() click({string = "ic_act_secret"}) end)
+        assert(sent == "" and ICUI.pick == nil and ICUI.notice == why,
+            "a click with no secret sent '" .. sent .. "' and said " .. tostring(ICUI.notice))
+        -- HELD, with a labour vote and a war vote the Crown is against and the Legion
+        -- for, and the Legion's demand open: four uses apply.
+        court.secrets.legion = turn
+        law_vote(court, "ash", "nay", "ledger")
+        P.vote(court, "nay", IC.CROWN)
+        IC.agenda(F).demand = {slug = "legion", kind = "office", cqi = 9004, key = IC.OFFICES[1].slug,
+                               was = 0, ends = turn + 4}
+        ICUI.notice = nil
+        ICUI.refresh()
+        assert(not is_red(btn), "a held secret is drawn refused: " .. tostring(btn.text))
+        sent = P.sends(function() click({string = "ic_act_secret"}) end)
+        assert(sent == "" and ICUI.pick and ICUI.pick.kind == "secret" and ICUI.pick.slug == "legion",
+            "a click with a secret held sent '" .. sent .. "' and opened " .. tostring(ICUI.pick and ICUI.pick.kind))
+        ICUI.refresh()
+        -- ITS ROWS ARE IC.secret_uses', in its order: the use, what it costs, Use.
+        local uses, rows = IC.secret_uses(F, "legion"), P.rows(panel)
+        assert(#uses == 4 and #rows == #uses, #uses .. " uses and " .. #rows .. " rows")
+        -- A LAW VOTE BY THE LAW'S NAME, THE WAR VOTE AS THE WAR: one runs at a time.
+        local name = {["vote.labour"] = "Their votes on " .. ICUI.law_title("labour.ash"),
+                      ["vote." .. IC.COUNCIL] = "Their votes on the war",
+                      demand = "Drop their demand", expose = "Expose them"}
+        local loyal = -IC.TUNE.secret_use_loyalty .. " loyalty"
+        local W = IC.TUNE.secret_expose_weight
+        for i, u in ipairs(uses) do
+            local r, code = rows[i], u.key and (u.code .. "." .. u.key) or u.code
+            assert(r.a == name[code], "row " .. i .. " (" .. code .. ") reads " .. r.a)
+            assert(P.words(r.e.text) == "Use" and not is_red(r.e), "row " .. i .. "'s button reads " .. tostring(r.e.text))
+            if u.code == "expose" then
+                -- STRENGTH STOPS AT 1: at 10 the Legion loses 9, so the row may not
+                -- promise the full figure as certain.
+                assert((string.find(r.b, "up to " .. W .. " strength", 1, true)
+                        or string.find(r.b, " " .. (court.houses.legion.weight - 1) .. " strength", 1, true))
+                    and string.find(r.b, -IC.TUNE.secret_expose_loyalty .. " loyalty", 1, true),
+                    "Expose's effect does not name its cost truly at strength "
+                    .. court.houses.legion.weight .. ": " .. r.b)
+            else
+                assert(string.find(r.b, loyal, 1, true), u.code .. "'s effect does not name " .. loyal .. ": " .. r.b)
+            end
+        end
+        -- EACH USE SENDS secret_use, party|code|key, through ICUI.send.
+        local want = {"secret_use:legion|vote|labour", "secret_use:legion|vote|" .. IC.COUNCIL,
+                      "secret_use:legion|demand|", "secret_use:legion|expose|"}
+        for i = 1, #uses do
+            sent = P.sends(function() P.pick(i) end)
+            assert(sent == want[i], "row " .. i .. " sent '" .. sent .. "', not " .. want[i])
+        end
+        -- A SECRET GONE WHILE THE PICKER IS UP: every row refused in red, in a word,
+        -- its sentence on the tooltip, and a click sends nothing.
+        court.secrets.legion = nil
+        ICUI.refresh()
+        for i, r in ipairs(P.rows(panel)) do
+            assert(is_red(r.e) and P.words(r.e.text) == ICUI.mission_refusal("no_secret")
+                and P.words(r.e.text) ~= "No" and P.words(r.e.tooltip) == ICUI.reason_text("no_secret"),
+                "refused row " .. i .. " reads " .. tostring(r.e.text) .. " / " .. tostring(r.e.tooltip))
+        end
+        sent = P.sends(function() P.pick(1) end)
+        assert(sent == "", "a refused use sent " .. sent)
+        court.secrets.legion = turn
+        ICUI.refresh()
+        -- AND SENT FOR REAL it is spent, the picker closes and the notice says so.
+        court.houses.legion.weight = 30
+        local weight = court.houses.legion.weight
+        P.pick(4)
+        assert(court.secrets.legion == nil and court.houses.legion.weight == weight - IC.TUNE.secret_expose_weight,
+            "the Expose did not reach the model")
+        assert(ICUI.pick == nil and (ICUI.notice or "") ~= "" and ICUI.notice ~= ICUI.reason_text(),
+            "the spent secret left the picker " .. tostring(ICUI.pick) .. " and said " .. tostring(ICUI.notice))
+    end)
+    IC.agenda(F).demand = nil
+    ICUI.sel = nil
+    P.done()
+    assert(ok, err)
+end)
+
+check("panel: help has 13 topics within 14 slots, and every line fills", function()
+    P.court({{"crown", 300}, {"legion", 100}})
+    assert(ICUI.HELP_SLOTS == 14 and #ICUI.HELP_BASE == 13,
+        #ICUI.HELP_BASE .. " topics for " .. ICUI.HELP_SLOTS .. " slots")
+    local war = ICUI.HELP_BASE[13]
+    assert(war.title == "The War Council" and war.icon == "crown",
+        "the 13th topic is " .. tostring(war.title) .. " / " .. tostring(war.icon))
+    local function holds(topic, name)
+        for i, line in ipairs(topic.lines) do
+            if string.find(line, "{" .. name .. "}", 1, true) then return i end
+        end
+        return nil
+    end
+    local function topic(title)
+        for _, t in ipairs(ICUI.HELP_BASE) do if t.title == title then return t end end
+    end
+    -- THE WAR COUNCIL IN THE BRIEF'S ORDER: who proposes and how long, the preparation,
+    -- the prices, a war or peace of your own, the grace period; then the facts, last.
+    local order = {"war_party_share", "law_vote_turns", "war_prep_turns", "war_overrule_gold",
+                   "war_bypass_loyalty", "grace_turns"}
+    local last = 0
+    for _, name in ipairs(order) do
+        local at = holds(war, name)
+        assert(at and at > last, "The War Council names {" .. name .. "} at " .. tostring(at) .. ", after " .. last)
+        last = at
+    end
+    assert(#war.lines > last and string.find(war.lines[#war.lines], "old foe", 1, true),
+        "The War Council does not end on the facts: " .. tostring(war.lines[#war.lines]))
+    -- THE DIG ROLLS, so its line may not promise a find.
+    local dig = topic("Intrigue").lines[holds(topic("Intrigue"), "plot_dig_cost")]
+    assert(IC.TUNE.plot_chance_dig < 100 and not string.find(dig, "finds", 1, true),
+        "the dig's Help line promises a find: " .. dig)
+    for _, name in ipairs({"law_overrule_cost"}) do assert(holds(war, name), "no {" .. name .. "}") end
+    -- THE CLAIMS ON PETITIONS, THE SECRETS ON INTRIGUE.
+    for _, t in ipairs({{"Petitions", {"claim_max", "claim_turns"}}, {"Intrigue", {"plot_dig_cost", "secret_use_loyalty"}}}) do
+        for _, name in ipairs(t[2]) do
+            assert(holds(topic(t[1]), name), t[1] .. " does not name {" .. name .. "}")
+        end
+    end
+    -- EVERY LINE OF EVERY PAGE FILLS, on either race; a Dwarf page names the Book of
+    -- Grudges where the war council asks for a neighbour, and no Chaos Dwarf word.
+    local vars = ICUI.help_vars(F)
+    for _, race in ipairs({IC.RACES.chd, IC.RACES.dwf}) do
+        local pages = ICUI.help_for(race)
+        assert(#pages == 13, race.key .. " has " .. #pages .. " pages")
+        local book, bar, grudge = false, false, false
+        for _, t in ipairs(pages) do
+            assert(#t.lines <= ICUI.HELP_SLOTS, race.key .. " " .. t.title .. " has " .. #t.lines .. " lines")
+            for _, line in ipairs(t.lines) do
+                local filled = plain(bare(ICUI.help_fill(line, vars)))
+                assert(not string.find(filled, "[{}]"), race.key .. " " .. t.title .. " still reads " .. filled)
+                if string.find(filled, "Book of Grudges", 1, true) and t.title == "The War Council" then book = true end
+                -- THE BAR'S LINE NAMES ALL FIVE BUTTONS; A DWARF CLAIM REFUSED IS A GRUDGE.
+                if string.find(filled, "chosen rival's bar", 1, true) and string.find(filled, "Use a Secret", 1, true) then
+                    bar = true
+                end
+                if t.title == "Petitions" and string.find(filled, "Refuse: %S+ and a grudge") then grudge = true end
+                if race.key == "dwf" then
+                    for _, w in ipairs(P.BANNED) do
+                        assert(not string.find(string.lower(filled), w), "a Dwarf page reads '" .. w .. "': " .. filled)
+                    end
+                end
+            end
+        end
+        assert(book == (race.key == "dwf"), race.key .. "'s War Council names the Book of Grudges: " .. tostring(book))
+        assert(bar, race.key .. "'s Help names no Use a Secret on the action bar's line")
+        assert(grudge == (race.key == "dwf"), race.key .. "'s claim line writes a grudge: " .. tostring(grudge))
+    end
+    P.done()
+end)
+
+check("panel: every new secret Record kind draws a line", function()
+    P.court({{"crown", 1000}, {"legion", 100}})
+    IC_TEST_LOC[IC.key("law_cat", "labour", F)] = "Labour"
+    local party = ICUI.house_name("legion", F)
+    local office = IC.OFFICES[1].slug
+    local cases = {
+        {"dig", IC.CROWN, "legion", 120}, {"secret_used", "legion", "vote.labour", 0},
+        {"secret_used", "legion", "vote." .. IC.COUNCIL, 0}, {"secret_used", "legion", "demand", 0},
+        {"secret_used", "legion", "scheme", 0}, {"secret_used", "legion", "count", 0},
+        {"secret_used", "legion", "expose", 0}, {"demand_void", "legion", office, IC.VOID_REASONS.secret},
+    }
+    local seen = {}
+    for _, c in ipairs(cases) do
+        local what = c[1] .. " " .. c[3]
+        local s = ICUI.intrigue_text({turn = 1, kind = c[1], slug = c[2], key = c[3], n = c[4]})
+        assert(s and s ~= "", what .. " draws nothing")
+        assert(not string.find(s, "_", 1, true) and not string.find(s, "vote%.%w")
+            and not string.find(s, "labour", 1, true) and not string.find(s, "{", 1, true),
+            what .. " prints a raw key: " .. s)
+        assert(not string.find(string.lower(s), "placeholder", 1, true), what .. " is a placeholder: " .. s)
+        assert(string.find(s, party, 1, true), what .. " does not name " .. party .. ": " .. s)
+        assert(not seen[s], what .. " reads as " .. tostring(seen[s]) .. " does: " .. s)
+        seen[s] = what
+        local low = string.lower(s)
+        for _, w in ipairs(P.BANNED) do assert(not string.find(low, w), what .. " reads '" .. w .. "': " .. s) end
+    end
+    -- THE DIG IS LOGGED ONLY WHEN IT FINDS ONE, and its line says so.
+    local dig = ICUI.intrigue_text({kind = "dig", slug = IC.CROWN, key = "legion", n = 120})
+    assert(string.find(dig, "finds a secret", 1, true) and string.find(dig, "120 influence", 1, true),
+        "the dig reads " .. dig)
+    -- A VOTE USE NAMES ITS VOTE; EVERY USE ITS COST.
+    local function used(key) return ICUI.intrigue_text({kind = "secret_used", slug = "legion", key = key, n = 0}) end
+    assert(string.find(used("vote.labour"), ICUI.law_cat_name("labour"), 1, true)
+        and string.find(used("vote." .. IC.COUNCIL), "war", 1, true),
+        "the vote uses read: " .. used("vote.labour") .. " / " .. used("vote." .. IC.COUNCIL))
+    for _, k in ipairs({"vote.labour", "demand", "scheme", "count"}) do
+        assert(string.find(used(k), -IC.TUNE.secret_use_loyalty .. " loyalty", 1, true), k .. " reads " .. used(k))
+    end
+    -- STRENGTH STOPS AT 1 and the log keeps no amount, so the figure is a ceiling.
+    assert(string.find(used("expose"), "up to " .. IC.TUNE.secret_expose_weight .. " strength", 1, true)
+        and string.find(used("expose"), -IC.TUNE.secret_expose_loyalty .. " loyalty", 1, true),
+        "the Expose reads " .. used("expose"))
+    -- A DEMAND THE SECRET DROPPED reads apart from one whose man or party is gone.
+    local gone = ICUI.intrigue_text({kind = "demand_void", slug = "legion", key = office, n = IC.VOID_REASONS.gone})
+    local void = ICUI.intrigue_text({kind = "demand_void", slug = "legion", key = office, n = IC.VOID_REASONS.secret})
+    assert(gone ~= void, "the secret's void reads as a vanished man's")
+    assert(not string.find(void, "them", 1, true), "the void calls the party them: " .. void)
+    -- A DEMAND OR A SCHEME USE WRITES TWO LINES, the model's outcome and the use's own.
+    -- The use's names the act and its price and never says the outcome again.
+    for _, k in ipairs({"demand", "scheme"}) do
+        local s = used(k)
+        assert(string.find(s, k, 1, true) and not string.find(s, "drop", 1, true)
+            and not string.find(s, "call", 1, true) and not string.find(s, "nothing", 1, true),
+            "the " .. k .. " use restates its outcome: " .. s)
+    end
+    P.done()
+end)
+
+check("panel: every new refusal has words", function()
+    local court = P.court({{"crown", 2000}, {"legion", 100}, {"ledger", 100}})
+    -- THE CODES ARE THE MODEL'S, read out of the functions that return them: the use
+    -- and the dig's two gates, IC.may_target and IC.can_plot.
+    local function src(path)
+        local fh = assert(io.open(path, "r"))
+        local s = fh:read("*a")
+        fh:close()
+        return s
+    end
+    local codes, n = {}, 0
+    for _, at in ipairs({{PARTIES_FILE, "IC.use_secret"}, {PARTIES_FILE, "IC.secret_uses"},
+                         {FILE, "IC.may_target"}, {FILE, "IC.can_plot"}}) do
+        local text = src(at[1])
+        local from = string.find(text, "function " .. at[2] .. "(", 1, true)
+        assert(from, at[2] .. " is not in " .. at[1])
+        local body = string.sub(text, from, (string.find(text, "\nend\n", from, true)))
+        -- A RETURNED REFUSAL, and a use row's `why`.
+        for _, pat in ipairs({'return [%w_]*,? ?"([%w_ ]+)"', 'why = [^"\n]*"([%w_]+)"'}) do
+            for code in string.gmatch(body, pat) do
+                if not codes[code] then codes[code], n = true, n + 1 end
+            end
+        end
+    end
+    for _, code in ipairs({"held", "no_secret", "no_use", "none_to_win"}) do
+        assert(codes[code], code .. " was not read out of the model, so the reader is broken")
+    end
+    assert(n >= 20, "only " .. n .. " codes were found")
+    for code in pairs(codes) do
+        assert(ICUI.reason_text(code, 3) ~= "That cannot be done right now.", code .. " has no sentence")
+    end
+    -- THE TARGET PICKER: a party whose secret is held reads why, never a bare No.
+    court.secrets = {legion = turn}
+    local ok, err = pcall(with_fake_panel, function()
+        ICUI.pick = {kind = "plot_target", plot = "dig"}
+        local hit = 0
+        for _, l in ipairs(ICUI.picker_lines(F, court)) do
+            if l.plate == "legion" then
+                hit = hit + 1
+                assert(is_red(l[5]) and plain(l[5]) ~= "No" and l.tip == ICUI.reason_text("held"),
+                    "a held party's man reads " .. tostring(l[5]) .. " / " .. tostring(l.tip))
+            elseif l.plate == "ledger" then
+                assert(not is_red(l[5]), "the Ledger's man is refused: " .. tostring(l[5]))
+            end
+        end
+        assert(hit == 1, hit .. " Legion rows")
+        -- AND THE SECOND PICKER, who carries it out, says the same word for every man.
+        ICUI.pick = {kind = "plot", plot = "dig", key = "9002"}
+        local lines = ICUI.picker_lines(F, court)
+        assert(#lines > 0, "the dig's actor picker lists nobody")
+        for _, l in ipairs(lines) do
+            assert(is_red(l[5]) and plain(l[5]) == ICUI.TARGET_REFUSAL.held and l.tip == ICUI.reason_text("held"),
+                "an actor against a held party reads " .. tostring(l[5]) .. " / " .. tostring(l.tip))
+        end
+        -- THE SECRET PICKER'S OWN REFUSAL, in a word.
+        assert(ICUI.mission_refusal("no_secret") ~= "No", "a use with no secret is a bare No")
+        -- A USE THE MODEL REFUSED keeps the picker up and says why.
+        ICUI.pick = {kind = "secret", slug = "legion"}
+        ICUI.ANSWERS.secret_use("legion|vote|labour", false, "none_to_win")
+        assert(ICUI.pick and ICUI.pick.kind == "secret" and ICUI.notice == ICUI.reason_text("none_to_win"),
+            "a refused use left " .. tostring(ICUI.pick) .. " and said " .. tostring(ICUI.notice))
+        -- AND THE COUNCIL PICKER'S REBEL, in its own sentence: none of the diplomats'.
+        ICUI.pick = {kind = "diplomats_faction", plot = "council"}
+        local war = ICUI.reason_text("rebel")
+        ICUI.pick = {kind = "diplomats_faction", plot = "diplomats"}
+        local envoy = ICUI.reason_text("rebel")
+        assert(war ~= envoy and not string.find(war, "diplomat", 1, true) and not string.find(envoy, "war", 1, true),
+            "the rebel refusals read: " .. war .. " / " .. envoy)
+        -- AND A MAN WON OVER ON A WAR VOTE is won over on the vote, not on a law, and
+        -- the sentence says "vote" once.
+        local win = ICUI.answer_text("law_win", IC.COUNCIL .. "|9002", F)
+        assert(not string.find(win, "law", 1, true) and select(2, string.gsub(win, "vote", "")) <= 1,
+            "a war vote's Win reads " .. tostring(win))
+    end)
+    P.done()
+    assert(ok, err)
+end)
+
+end -- WAR PANEL
+
+check("no parties' turn failed anywhere in the run", function()
+    -- LAST BUT ONE, after every block above it: IC.turn catches a failing
+    -- parties' turn, Book, war council or claims step and only says so, and the
+    -- capture listener does the same for claims it could not raise; this is what
+    -- keeps those catches from hiding a real fault from the run.
+    assert(#IC_PARTY_FAULTS == 0, #IC_PARTY_FAULTS .. " parties' turn(s) failed:\n  "
+        .. table.concat(IC_PARTY_FAULTS, "\n  "))
+end)
 
 check("no engine setter was ever handed anything but a boolean", function()
     -- LAST, so it has seen every draw every other check drove. See IC_NEED_BOOL.

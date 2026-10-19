@@ -132,13 +132,32 @@ line, with the Crown's pushes, men won over and abstentions; `IC.law_project` is
 with nothing pushed, which the board's percentages and bar draw. `IC.law_settle` walks the
 law's own `pro` and `con` lists, so the loyalty it pays lands in the data's order.
 
+### The war council, claims and secrets (2026-10-17)
+
+**The war council** is a law vote kept under `court.votes[IC.COUNCIL]` with the target as its
+option, so the law engine tallies, pushes and overrules it. A party's side comes from
+`IC.war_facts` (trade, near, weak, strong, kin, foe, and for Dwarfs the Book) through the
+race's `WAR_LINES`. A passed vote writes `court.war`, declared at turn start with the free-war
+flag set first, so `IC.war_react` (on `NegativeDiplomaticEvent`) charges nobody for the court's
+own war. A reaction to a war already begun reads trade and borders from `IC.war_snapshot`,
+taken at turn start, because a declaration has already ended the trade agreement when its
+event arrives.
+
+**Claims** are `court.claims[province]`, raised from `GarrisonOccupiedEvent` by
+`IC.claim_raise` when exactly one region of the province is the court's: the occupier's party,
+the home culture's main party, then by share, up to `claim_max`. Any appointment of a claiming
+party's man settles them through `IC.claims_on_assign`.
+
+**Secrets** are `court.secrets[party]`, one each, from the `dig` move. `IC.secret_uses` lists
+what one can be spent on now, in the order the picker shows it.
+
 ## 3. Save state
 
 All keys are `cm:set_saved_value` strings.
 
 | Key | Holds |
 |---|---|
-| `derpy_ic_<faction>` | the court, one per Chaos Dwarf faction: eighteen sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition, the rolled marker, each seat's last holder, stalled offices, news from other courts, the factions resting after Send Diplomats as `key,turn`, then the government, renown, the deeds markers, the laws in force and the open votes). A missing section reads as empty, so an older save still loads |
+| `derpy_ic_<faction>` | the court, one per Chaos Dwarf or Dwarf faction: twenty-three sections split by `\|` (parties, offices, overseers, terms, influence, record, province loyalty, ambition, the rolled marker, each seat's last holder, stalled offices, news from other courts, the factions resting after Send Diplomats as `key,turn`, then the government, renown, the deeds markers, the laws in force, the open votes with the war council's among them, the grudges, the Book's bands, the planned war, the claims and the secrets). A missing section reads as empty, so an older save still loads |
 | `derpy_ic_tuned` | the settings the campaign plays on, in `IC.TUNE_ORDER` order |
 | `derpy_ic_ui_prefs` | the panel's last tab and sorts (single player only) |
 | `derpy_ic_agenda_<faction>` | the human court's agenda: a warned move, feuds, feud rest, the live demand, open offers |
@@ -217,13 +236,13 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the five scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all five shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (1155 checks)` (2026-10-16). In a clone one check fails, "an absorbed faction's party wears its own ring on the pins": the ring art is generated locally and, like every image, never published. |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,287 mutants, all anchored (2026-10-16; the last full run was 1,179 mutants on 2026-10-06, build F4CF5CA4), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all five shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (1234 checks)` (2026-10-19). In a clone one check fails, "an absorbed faction's party wears its own ring on the pins": the ring art is generated locally and, like every image, never published. |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,385 mutants, all anchored (2026-10-19; the last full run was 1,179 mutants on 2026-10-06, build F4CF5CA4), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
-| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 30 files, 1914 components` (2026-10-06). |
+| Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 30 files, 1934 components` (2026-10-19). |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |
 | Look | `py tools/preview_iron_court.py` | Renders the tabs to PNGs in `.skilltree_cache/ui_preview/` with the game shut, through TWUI Studio's vendored source (not included). Positions are exact; glyph widths are not. |
-| Release | `py tools/check_ic_release.py`, `--pack`, `--selftest` | Both races at 1600, 1920 and 2560: text fit and backdrop contrast. `--pack` also reads the saved pack with RPFM shut and compares every table with `gen_iron_court.build()`, and every row and loc line of the reviewed snapshot `SNAPSHOT_MD5` pins (F5CF88CB since 2026-10-16; the file lives under `Modding Files/Backup/`, so a clone has none and `--pack` cannot run there) with the new pack. |
+| Release | `py tools/check_ic_release.py`, `--pack`, `--selftest` | Both races at 1600, 1920 and 2560: text fit and backdrop contrast. `--pack` also reads the saved pack with RPFM shut and compares every table with `gen_iron_court.build()`, and every row and loc line of the reviewed snapshot `SNAPSHOT_MD5` pins (58D5347C since 2026-10-19; the file lives under `Modding Files/Backup/`, so a clone has none and `--pack` cannot run there) with the new pack. |
 | Gate | `py tools/import_iron_court.py` | Every offline check below. Writes nothing in the repo. |
 | Pack | `py tools/deploy_iron_court.py --no-copy` | Needs RPFM's MCP server. Runs the gate, refuses duplicate keys, creates the pack, imports every table the generator declares, adds scripts, layouts and art, saves to `Modding Files/Modpacks/`, then re-reads the saved pack and refuses if any expected file is missing. |
 | Deploy | `py tools/deploy_iron_court.py` | The same, then copies into `data/`. Refuses while `Warhammer3` is running. |
@@ -320,6 +339,13 @@ Each of these cost a bug or a build to learn. Most fail silently.
   commander or a pooled lord never gains rank from `add_agent_experience`, and says nothing.
 - **No loc calls from turn handlers.** One can crash turn 1 inside a `pcall`. The model
   stores keys; the panel resolves them. `cm:get_faction` returns `false`, not nil.
+- **`cm:force_declare_war` raises `NegativeDiplomaticEvent` at once,** with the player as
+  proposer, and it breaks a `cm:force_diplomacy` war lock. An AI ally invited through it broke
+  its alliance instead of joining. `cm:force_make_peace` and a scripted trade agreement raise
+  no `PositiveDiplomaticEvent`, so the peace reaction can only be reached from the diplomacy
+  screen.
+- **`GarrisonOccupiedEvent` fires on Occupy only, never Sack or Raze,** and the region is
+  already the occupier's when it does (78 of 78 captures).
 - **A crash dump is in `%APPDATA%\The Creative Assembly\Warhammer3\crash_report\`,** not the
   game folder; the script log is in the game folder.
 
@@ -333,8 +359,9 @@ Each of these cost a bug or a build to learn. Most fail silently.
 - The 2026-09-20 specs (ambition, Military Doctrine loyalty), the 2026-09-23 spec (rival
   parties that act on their own), the 2026-09-24 spec (screen scaling), the 2026-09-25 spec
   (MCT settings and multiplayer), the 2026-09-27 spec (living courts, rebel armies) and the
-  2026-09-28 spec (the panel's answers, glows and bursts), with their plans in
-  `docs/plans/`.
+  2026-09-28 spec (the panel's answers, glows and bursts), the 2026-10-02 specs (governments,
+  deeds, laws), the 2026-10-04 spec (Dwarf courts), the 2026-10-15 spec (cultures) and the
+  2026-10-17 spec (the war council, claims and secrets), with their plans in `docs/plans/`.
 - `docs/history/`: dated handoffs, the most recent last. When a handoff and the code
   disagree, the code wins.
 
@@ -343,4 +370,6 @@ gold frame's nine-slice, the Petitions label fitting at 1600x900, and Send a Gif
 and turning red at 100 loyalty. From build 1BE494B4: whether the Trait Gained card shows the
 trait's own picture (if it keeps the helmet, that card does not read the category), and the
 pictures in the help page and tooltips. Thin light lines over the dial and move cards were seen at
-1600x900 on 2026-09-24; their cause was not found.
+1600x900 on 2026-09-24; their cause was not found. From build 58D5347C: the peace reaction and
+a defensive ally pull-in (both need the diplomacy screen), the new buttons at 1920 and 2560,
+Call off their scheme, and Expose.

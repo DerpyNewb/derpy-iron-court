@@ -18,6 +18,7 @@ anything is copied, and the sync will not run while it reports anything.
 """
 import glob
 import os
+import re
 import sys
 
 import sync_guilds_repo as SG
@@ -37,6 +38,9 @@ CA_ROWS = ("_donor_factions.tsv", "factions.tsv")
 # Anything that is art, a built pack, or a binary game format never goes public.
 REFUSED_EXT = (".png", ".dds", ".jpg", ".jpeg", ".webp", ".tga", ".pack", ".bin",
                ".loc", ".anim", ".rigid_model_v2", ".wem")
+# A Windows user-profile path, in any file: it names the machine's owner. sync_hll_repo's
+# pattern, less a <placeholder>; two leaked in published plans before this check existed.
+PRIVATE = re.compile(r"[A-Za-z]:[\\/]+Users[\\/]+(?!<)[^\\/\s]+", re.I)
 
 
 def _tsvs(root=ROOT):
@@ -118,7 +122,10 @@ _DOCS += [(p, "docs/plans/") for p in _dated("docs/superpowers/plans",
                                               "2026-10-04-iron-court-dwarfs-*.md")]
 _DOCS += [(p, "docs/history/") for p in _dated("docs/sessions", "HANDOFF_202610*_IRON_COURT*.md")]
 _DOCS += [("docs/superpowers/specs/2026-10-15-iron-court-cultures-design.md", "docs/design/"),
-          ("docs/superpowers/plans/2026-10-15-iron-court-cultures.md", "docs/plans/")]
+          ("docs/superpowers/plans/2026-10-15-iron-court-cultures.md", "docs/plans/"),
+          ("docs/superpowers/specs/2026-10-17-iron-court-war-claims-secrets-design.md", "docs/design/"),
+          ("docs/superpowers/plans/2026-10-17-iron-court-war-claims-secrets.md", "docs/plans/"),
+          ("docs/sessions/LIVE_TEST_20261019_IRON_COURT_WAR_CLAIMS_SECRETS.md", "docs/history/")]
 _DOCS = list(dict.fromkeys(_DOCS))
 
 
@@ -192,8 +199,8 @@ def manifest(root=ROOT):
     return [(p, p) for p in same] + [(src, dst + os.path.basename(src)) for src, dst in _DOCS]
 
 
-def refused(entries):
-    """Why each entry may not be published: CA's rows, art, packs and binaries."""
+def refused(entries, root=ROOT):
+    """Why each entry may not be published: CA's rows, art, packs, binaries and user profiles."""
     out = []
     for src, dst in entries:
         for p in (src, dst):
@@ -202,6 +209,12 @@ def refused(entries):
                 out.append("%s is CA's own DB rows" % p)
             elif os.path.splitext(name)[1].lower() in REFUSED_EXT:
                 out.append("%s is art or a binary game file" % p)
+        path = os.path.join(root, src)
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8", errors="replace") as fh:
+                hit = PRIVATE.search(fh.read())
+            if hit:
+                out.append("%s names a user profile: %s" % (src, hit.group(0)))
     return out
 
 
@@ -212,6 +225,11 @@ def _selftest():
     assert refused(m + [(_SRC + "_donor_factions.tsv",) * 2]), "CA's rows were not refused"
     assert refused(m + [("Modding Files/pack/ui/derpy_ic/bg.png",) * 2]), "art was not refused"
     assert refused([("a.md", "docs/x.PACK")]), "a pack under an upper-case name slipped by"
+    import tempfile
+    with tempfile.TemporaryDirectory() as td:
+        with open(os.path.join(td, "a.md"), "w") as fh:
+            fh.write("see C:" + "\\Users\\someone\\notes.md")
+        assert refused([("a.md", "a.md")], td), "a user-profile path was not refused"
     # CA's rows are really in the workspace folder, so leaving them out is the filter's doing.
     here = set(os.listdir(os.path.join(ROOT, _SRC)))
     assert set(CA_ROWS) <= here, "the CA rows moved; re-check what the folder holds"

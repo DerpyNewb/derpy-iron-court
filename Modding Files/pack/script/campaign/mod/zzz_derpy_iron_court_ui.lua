@@ -80,6 +80,8 @@ ICUI.RACE_WORDS = {
         plot_murder = "the Slayer Oath for %s",
         oath_sworn = "%s is sworn before the Ancestors: they cannot break with you for another %d turn%s.",
         refuse_unique = "He is too well known to take the Slayer Oath.",
+        refuse_far = "They do not border you and the Book of Grudges does not name them. "
+            .. "The court votes only on wars with its neighbours and its old wrongs.",
         -- THE ACTION BAR'S TWO MOVES, keyed by button. Their full names do not
         -- fit it; gen_ic_ui.py check 20g2 measures these too.
         ic_act_provoke = "Insult",
@@ -288,8 +290,8 @@ ICUI.PANEL_XY = {
     -- THE HELP PAGE: one card under all of it, the topics down its
     -- left like tabs, a rule, then the chosen topic's heading and its lines at
     -- 34px - not the list's 64px rows. gen_ic_ui.help_layout() deals these.
-    ic_help_box      = {18, 124, 1884, 540},
-    ic_help_rule     = {352, 144, 2, 472},
+    ic_help_box      = {18, 124, 1884, 592},
+    ic_help_rule     = {352, 144, 2, 552},
     ic_help_head     = {372, 140, 900, 44},
     ic_help_topic_1  = {36, 144, 300, 32},
     ic_help_topic_2  = {36, 184, 300, 32},
@@ -303,6 +305,8 @@ ICUI.PANEL_XY = {
     ic_help_topic_10 = {36, 504, 300, 32},
     ic_help_topic_11 = {36, 544, 300, 32},
     ic_help_topic_12 = {36, 584, 300, 32},
+    ic_help_topic_13 = {36, 624, 300, 32},
+    ic_help_topic_14 = {36, 664, 300, 32},
     ic_help_line_1   = {384, 196, 1500, 28},
     ic_help_line_2   = {384, 230, 1500, 28},
     ic_help_line_3   = {384, 264, 1500, 28},
@@ -315,6 +319,8 @@ ICUI.PANEL_XY = {
     ic_help_line_10  = {384, 502, 1500, 28},
     ic_help_line_11  = {384, 536, 1500, 28},
     ic_help_line_12  = {384, 570, 1500, 28},
+    ic_help_line_13  = {384, 604, 1500, 28},
+    ic_help_line_14  = {384, 638, 1500, 28},
     -- Moved left so it ends at 1840 and stops short of the close button.
     ic_influence     = {1540, 20, 300, 26},
     -- THE GOVERNORS VIEW'S PINS' HOLDER, the panel's first child.
@@ -424,11 +430,12 @@ ICUI.PANEL_XY = {
     ic_page_lbl      = {1600, 982, 164, 26},
     ic_page_next     = {1774, 978, 136, 34},
     -- THE PARTY ACTION BAR, in the pager's row, CENTRED under the grid. Court
-    -- only. ACT_BUTTONS in tools/gen_ic_ui.py derives the four.
-    ic_act_provoke   = {1114, 978, 132, 34},
-    ic_act_gift      = {1252, 978, 164, 34},
-    ic_act_secure    = {1422, 978, 216, 34},
-    ic_act_purge     = {1644, 978, 120, 34},
+    -- only. ACT_BUTTONS in tools/gen_ic_ui.py derives the five.
+    ic_act_provoke   = {1031, 978, 132, 34},
+    ic_act_gift      = {1169, 978, 164, 34},
+    ic_act_secure    = {1339, 978, 216, 34},
+    ic_act_purge     = {1561, 978, 120, 34},
+    ic_act_secret    = {1687, 978, 160, 34},
     ic_act_hint      = {976, 982, 926, 26},
     -- THE FILL BUTTON, the offices tab's alone, in the same row: that tab never
     -- pages. FILL_W in tools/gen_ic_ui.py.
@@ -478,6 +485,8 @@ ICUI.PANEL_XY = {
     ic_lv_nay = {1296, 236, 600, 26},
     ic_lv_over_1 = {1436, 914, 220, 34},
     ic_lv_over_2 = {1664, 914, 220, 34},
+    ic_lv_over_3 = {1436, 958, 220, 34},
+    ic_lv_over_4 = {1664, 958, 220, 34},
     ic_lv_overh = {1266, 918, 164, 26},
     ic_lv_screst_1 = {888, 324, 44, 44},
     ic_lv_screst_2 = {1838, 324, 44, 44},
@@ -1637,6 +1646,11 @@ function ICUI.court_state(faction)
     for _ in pairs(a.offers or {}) do s.petitions = s.petitions + 1 end
     for _ in pairs(a.feuds or {}) do s.petitions = s.petitions + 1 end
     if IC.governments_on() and court.gov_ask then s.petitions = s.petitions + 1 end
+    -- A PARTY'S WAR VOTE NOT YET ANSWERED, and every open claim: both are answered
+    -- from Petitions.
+    local war = IC.law_vote_of(faction, IC.COUNCIL)
+    if war and war.proposer ~= IC.CROWN and not war.answered then s.petitions = s.petitions + 1 end
+    if IC.claims_on() then s.petitions = s.petitions + #IC.claims_list(faction) end
     -- A PARTY'S LAW THE PLAYER HAS NOT ANSWERED.
     s.laws = 0
     for _, cat in ipairs(R.LAW_ORDER) do
@@ -2725,6 +2739,9 @@ ICUI.COL_W = {
     -- THE PETITION RUNS TO REFUSE. Column two's x to 10px short of ic_row_f,
     -- over the two cells this view leaves empty.
     petitions = {[2] = 830},
+    -- A SECRET'S USE AND ITS PRICE, to 20px short of Use, over the two cells the
+    -- secret picker leaves empty, as the Record's line runs.
+    secret   = {[2] = 970},
 }
 -- Set form, so a check can ask "is this cell one fill_rows writes?" without a
 -- linear scan. The crest cell is deliberately NOT in here: it is set by
@@ -3234,6 +3251,10 @@ ICUI.SOUNDS = {
     law_win     = "UI_CAM_HUD_Diplomacy_Response_Gift_Given",
     law_push    = "UI_CLICK_Intrigue_Improve",
     law_overrule = "UI_CAM_HUD_Diplomacy_Response_Unilateral_Action",
+    war_calloff = "UI_CAM_HUD_Diplomacy_Response_Unilateral_Action",
+    claim_grant = "UI_CAM_ANI_Mission_Complete_Stamp",
+    claim_refuse = "UI_CAM_EVENT_Mission_Failed",
+    secret_use  = "UI_CAM_HUD_Diplomacy_Response_Unilateral_Action",
     -- A CLICK THE COURT REFUSED, with the red line.
     refused     = "UI_CLICK_Cancel_Decline",
 }
@@ -4039,13 +4060,16 @@ end
 --
 -- THE LABELS AND HINTS ARE MEASURED BY tools/gen_ic_ui.py (check 20g2), which
 -- reads them out of these two tables, and a Dwarf court's own two out of
--- ICUI.RACE_WORDS - keep them one string per line.
-ICUI.ACT_KEYS = {"ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge"}
+-- ICUI.RACE_WORDS - keep them one string per line. Use a Secret reads the same
+-- on both races, so it has no race word.
+ICUI.ACT_KEYS = {"ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
+                 "ic_act_secret"}
 ICUI.ACT_LABEL = {
     ic_act_provoke = "Provoke",
     ic_act_gift = "Send a Gift",
     ic_act_secure = "Secure Loyalty",
     ic_act_purge = "Purge",
+    ic_act_secret = "Use a Secret",
 }
 ICUI.ACT_HINT = {
     "Click a party to act on it.",
@@ -4053,12 +4077,15 @@ ICUI.ACT_HINT = {
 }
 -- WHAT EACH BUTTON DOES. The two plots are aimed at the man who speaks for the
 -- party - the one its card shows - and securing loyalty is a favour, paid for
--- out of the treasury rather than out of a courtier's influence.
+-- out of the treasury rather than out of a courtier's influence. A secret is
+-- neither: it is spent from a picker of its uses (act_check only says whether
+-- the party holds one).
 ICUI.ACT_MOVE = {
     ic_act_provoke = {plot = "provoke"},
     ic_act_gift = {favour = "gift"},
     ic_act_secure = {favour = "secure"},
     ic_act_purge = {plot = "purge"},
+    ic_act_secret = {secret = true},
 }
 
 -- CAN THIS BUTTON ACT ON THAT PARTY? Asked of the model, never re-derived, and
@@ -4068,6 +4095,13 @@ ICUI.ACT_MOVE = {
 function ICUI.act_check(faction, key, slug)
     local move = ICUI.ACT_MOVE[key]
     local name = ICUI.house_name(slug, faction)
+    if move.secret then
+        -- HELD OR NOT, and nothing else: the uses a held secret has are the
+        -- picker's question (IC.secret_uses), as who carries a plot out is the
+        -- plot picker's.
+        if (IC.court(faction).secrets or {})[slug] then return true end
+        return false, ICUI.reason_text("no_secret")
+    end
     if move.favour then
         local may, why, spare = IC.can_favour(faction, move.favour, slug)
         if may then return true end
@@ -4142,7 +4176,10 @@ function ICUI.act_tip(faction, key, slug)
     local move = ICUI.ACT_MOVE[key]
     local name = ICUI.house_name(slug, faction)
     local lines = {}
-    if move.favour then
+    if move.secret then
+        lines[1] = string.format("%s: %s", ICUI.ACT_LABEL[key], name)
+        lines[2] = "Spend the secret you hold on this party. A secret can be used once."
+    elseif move.favour then
         local favour = ICUI.favour_of(move.favour, faction)
         lines[1] = string.format("%s: %s, %s gold", favour.name, name,
                                  IC.favour_cost(move.favour, faction))
@@ -4183,8 +4220,8 @@ function ICUI.act_tip(faction, key, slug)
     return ICUI.units(table.concat(lines, "\n"))
 end
 
--- THE BAR ITSELF. Three buttons for a chosen rival; one line of help for no
--- choice or for your own house, which none of the three can touch. A refused
+-- THE BAR ITSELF. Five buttons for a chosen rival; one line of help for no
+-- choice or for your own house, which none of the five can touch. A refused
 -- action is drawn red and still answers a click - with the reason - because a
 -- button that does nothing and says nothing reads as broken.
 function ICUI.draw_actions(panel, faction, court, px, py)
@@ -4318,7 +4355,19 @@ ICUI.LAW_VERDICT = {
     ["aye|loyal"] = "aye, loyal", ["nay|loyal"] = "nay, loyal",
     ["aye|disloyal"] = "aye, disloyal", ["nay|disloyal"] = "nay, disloyal",
     ["abstain|torn"] = "undecided", ["abstain|no_stance"] = "abstains",
+    -- A WAR VOTE'S PARTY ON ITS WAR LINE, keyed by the fact behind it (IC.war_facts).
+    -- Drawn in its block on the vote screen and measured there (20k), never on the
+    -- board's pane, which shows laws only.
+    ["aye|trade"] = "for it: they trade with you", ["nay|trade"] = "against: they trade with you",
+    ["aye|near"] = "for it: they border you", ["nay|near"] = "against: they border you",
+    ["aye|weak"] = "for it: they have fewer armies", ["nay|weak"] = "against: they have fewer armies",
+    ["aye|strong"] = "for it: they have more armies", ["nay|strong"] = "against: they have more armies",
+    ["aye|kin"] = "for it: they are kin", ["nay|kin"] = "against: they are kin",
+    ["aye|foe"] = "for it: an old foe", ["nay|foe"] = "against: an old foe",
+    ["aye|book"] = "for it: in the Book of Grudges", ["nay|book"] = "against: in the Book of Grudges",
 }
+-- THE SEVEN FACTS, so a war block knows a fact's verdict from a loyalty one.
+ICUI.WAR_FACTS = {trade = true, near = true, weak = true, strong = true, kin = true, foe = true, book = true}
 
 -- ONE PICTURE INTO SLOT 0, at the size layout() already gave the cell.
 local function law_pic(parent, name, path)
@@ -4665,7 +4714,7 @@ function ICUI.law_groups(t)
         local g = by[key]
         if not g then
             g = {party = m.party, side = side, w = 0, n = 0, won = m.why == "won", men = {},
-                 level = m.level or 0}
+                 level = m.level or 0, why = m.why}
             by[key] = g
             out[side][#out[side] + 1] = g
         end
@@ -4694,10 +4743,17 @@ local function mult_text(level)
     return string.format("x%.1f", m / 100)
 end
 
--- WHAT A BLOCK'S PARTY DOES, in words: for or against, and how hard.
-local function block_words(g, level)
+-- WHAT A BLOCK'S PARTY DOES, in words: for or against, and how hard. On a war
+-- vote a party on its war line says the fact that put it there instead.
+local function block_words(g, level, war)
     if g.won then return "Won over by you" end
+    local fact = war and ICUI.WAR_FACTS[g.why or ""] and ICUI.LAW_VERDICT[g.side .. "|" .. g.why]
+    if fact then
+        fact = string.upper(string.sub(fact, 1, 1)) .. string.sub(fact, 2)
+        return level > 0 and (fact .. "  " .. mult_text(level)) or fact
+    end
     local what = g.side == "aye" and "enacting it" or "keeping the law in force"
+    if war then what = g.side == "aye" and "declaring war" or "keeping the peace" end
     if level > 0 then
         local words = string.format("%s %s  %s", ICUI.LAW_LEVEL[level], what, mult_text(level))
         return string.upper(string.sub(words, 1, 1)) .. string.sub(words, 2)
@@ -4713,7 +4769,7 @@ function ICUI.fill_law_block(block, faction, cat, vote, g, index)
     -- THE PUSH IS WHAT HIS MEN WERE MULTIPLIED BY: a block of men whose culture
     -- votes against their party wears none, though the party pushed.
     local level = g.won and 0 or g.level
-    set_text(comp("ic_lb_level", block), block_words(g, level))
+    set_text(comp("ic_lb_level", block), block_words(g, level, cat == IC.COUNCIL))
     -- THE PIPS WEAR THE PARTY'S OWN PLATE when lit, the grey one when not.
     for p = 1, 3 do
         local c = comp(string.format("ic_lb_pip_%d", p), block)
@@ -4809,25 +4865,37 @@ function ICUI.draw_law_bar(panel, groups, t)
     end
 end
 
+-- A WAR VOTE (cat IC.COUNCIL) is drawn here too, its option the target faction:
+-- it branches only at the lines that differ. It is opened from Petitions and
+-- goes back there.
 function ICUI.draw_law_vote(panel, faction, cat)
     ICUI.fill_rows(panel, {}, "laws")
+    -- THE WAR VOTE'S TWO GOLD OVERRULES, over_3 and over_4, are put away first:
+    -- the refresh shows every ic_lv_ cell on a vote screen, and a law vote, a
+    -- draw error or the return below must not leave them up and blank.
+    for i = 3, 4 do show(comp("ic_lv_over_" .. i, panel), false) end
     local vote = IC.law_vote_of(faction, cat)
     if not vote then return "" end
+    local war = cat == IC.COUNCIL
     local t = IC.law_tally(faction, cat, vote)
     local groups = ICUI.law_groups(t)
     local left = math.max(0, vote.ends - cm:model():turn_number())
-    local old = IC.law_in_force(faction, cat)
-    law_pic(panel, "ic_lv_icon", ICUI.law_icon(cat, vote.option))
-    set_text(comp("ic_lv_name", panel), ICUI.law_name(cat, vote.option))
-    set_text(comp("ic_lv_fx", panel), table.concat(ICUI.law_short(cat, vote.option), ", "))
+    local old = not war and IC.law_in_force(faction, cat) or nil
+    local n = IC.TUNE.war_prep_turns
+    law_pic(panel, "ic_lv_icon", war and ICUI.war_icon(vote.option) or ICUI.law_icon(cat, vote.option))
+    set_text(comp("ic_lv_name", panel), war and ICUI.war_title(vote.option) or ICUI.law_name(cat, vote.option))
+    set_text(comp("ic_lv_fx", panel), war and string.format("Declared %d turn%s after it passes", n, n == 1 and "" or "s")
+        or table.concat(ICUI.law_short(cat, vote.option), ", "))
     set_text(comp("ic_lv_by", panel), "Proposed by "
         .. (vote.proposer == IC.CROWN and "you" or ICUI.house_name(vote.proposer, faction)))
     set_text(comp("ic_lv_turns", panel), string.format("%d turn%s left", left, left == 1 and "" or "s"))
-    set_text(comp("ic_lv_back", panel), "Back to the laws")
+    set_text(comp("ic_lv_back", panel), war and "Back to petitions" or "Back to the laws")
     ICUI.draw_law_bar(panel, groups, t)
     ICUI.lb_men = {}
-    local heads = {"Enact " .. ICUI.law_name(cat, vote.option), "Keep " .. ICUI.law_name(cat, old)}
-    local icons = {ICUI.law_icon(cat, vote.option), ICUI.law_icon(cat, old)}
+    local heads = war and {"Declare war", "Keep the peace"}
+        or {"Enact " .. ICUI.law_name(cat, vote.option), "Keep " .. ICUI.law_name(cat, old)}
+    local icons = war and {ICUI.war_icon(vote.option), IC.house_icon(IC.CROWN, faction)}
+        or {ICUI.law_icon(cat, vote.option), ICUI.law_icon(cat, old)}
     for s = 1, 2 do
         local side = s == 1 and "aye" or "nay"
         local mine = vote.stance == side
@@ -4849,7 +4917,8 @@ function ICUI.draw_law_vote(panel, faction, cat)
         local rest, w = 0, 0
         for k = ICUI.LB_PER_SIDE + 1, #list do rest, w = rest + 1, w + list[k].w end
         set_text(comp("ic_lv_smore_" .. s, panel),
-            rest > 0 and string.format("and %d more parties, %d influence", rest, w) or "")
+            rest > 0 and string.format("and %d more %s, %d influence", rest,
+                                       rest == 1 and "party" or "parties", w) or "")
     end
     -- NAMED UP TO TWO, COUNTED PAST THAT: the Crown abstaining takes every
     -- party with no stake with it, and seven rolled names overrun the line.
@@ -4889,9 +4958,19 @@ function ICUI.draw_law_vote(panel, faction, cat)
         law_light(b, l <= cur, label)
     end
     local can = IC.crown_purse(faction) >= IC.TUNE.law_overrule_cost
+    local rich = IC.treasury(faction) >= IC.TUNE.war_overrule_gold
     for i, word in ipairs({"Pass now", "Fail now"}) do
         local label = string.format("%s [[img:%s]][[/img]]%d", word, ICUI.COST_ICON, IC.TUNE.law_overrule_cost)
         set_text(comp("ic_lv_over_" .. i, panel), can and label or ICUI.red(label))
+        -- AND A WAR VOTE'S FOR GOLD, out of the treasury, under each: "Pass" and
+        -- "Fail", since "Pass now" with the gold price is 168px on a 167px button
+        -- at 1600 (20k).
+        if war then
+            local b = comp("ic_lv_over_" .. (i + 2), panel)
+            label = string.format("%s %s", i == 1 and "Pass" or "Fail", ICUI.gold(IC.TUNE.war_overrule_gold))
+            set_text(b, rich and label or ICUI.red(label))
+            show(b, true)
+        end
     end
     return ""
 end
@@ -4907,7 +4986,24 @@ function ICUI.law_name(category, option)
     return loc(IC.key("law_name", tostring(category) .. "_" .. tostring(option), ICUI.player()), tostring(option))
 end
 
+-- A WAR VOTE'S NAME, its key council.<faction>.
+function ICUI.war_title(target)
+    return "War on " .. ICUI.war_target(target)
+end
+
+-- A WAR VOTE'S PICTURE: the target's own flag, else CA's declare-war icon (ui.pack).
+-- Never IC.house_icon's fallback, the court's Crown sigil, which is Keep the
+-- peace's picture.
+ICUI.WAR_ICON = "ui/campaign ui/diplomacy_icons/diplomatic_option_declare_war.png"
+function ICUI.war_icon(target)
+    local ok, p = pcall(function() return cm:get_faction(tostring(target)):flag_path() end)
+    if not ok or type(p) ~= "string" or p == "" then return ICUI.WAR_ICON end
+    return (string.gsub(p, "\\", "/")) .. "/mon_64.png"
+end
+
 function ICUI.law_title(key)
+    local target = string.match(tostring(key), "^" .. IC.COUNCIL .. "%.(.+)$")
+    if target then return ICUI.war_title(target) end
     local cat, opt = string.match(tostring(key), "^(%w+)%.(%w+)$")
     if not cat or not IC.law_opt(cat, opt, ICUI.player()) then return tostring(key) end
     return ICUI.law_name(cat, opt)
@@ -5789,6 +5885,10 @@ end
 -- cannot describe, not print an empty one.
 function ICUI.intrigue_text(e)
     local house = ICUI.logged_name(e.slug, e.sw)
+    -- A WAR VOTE'S LAW LINES, logged under council.<faction>, name the war.
+    local war_on = string.sub(tostring(e.kind), 1, 4) == "law_"
+        and string.match(tostring(e.key), "^" .. IC.COUNCIL .. "%.(.+)$")
+    if war_on then return ICUI.war_law_text(e, house, ICUI.war_target(war_on)) end
     if e.kind == "appoint" then
         return string.format("A man of %s takes %s.", house, ICUI.office_name(e.key))
     elseif e.kind == "dismiss" then
@@ -5947,6 +6047,8 @@ function ICUI.intrigue_text(e)
         elseif e.n == IC.VOID_REASONS.short then
             return string.format("%s's demand lapses: its man never had the "
                 .. "influence or rank for that seat.", house)
+        elseif e.n == IC.VOID_REASONS.secret then
+            return string.format("%s drops its demand: you held a secret over it.", house)
         end
         return string.format("%s's demand lapses: the man or the party is gone.",
                              house)
@@ -6077,6 +6179,116 @@ function ICUI.intrigue_text(e)
         return string.format("%s %s its side on %s.", house, level, ICUI.law_title(e.key))
     elseif e.kind == "law_overrule" then
         return string.format("You overruled the court: %s %s.", ICUI.law_title(e.key),
+            (e.n == 1) and "passed" or "failed")
+    -- THE WAR COUNCIL. e.key is the target faction, e.slug who proposed. The
+    -- player's own move is this one line: its law_propose draws nothing.
+    elseif e.kind == "council" then
+        return string.format("%s spends %d influence to ask the court for war on %s.",
+            house, e.n or 0, ICUI.war_target(e.key))
+    elseif e.kind == "war_planned" then
+        return string.format("The court will declare war on %s on turn %d.",
+            ICUI.war_target(e.key), e.n or 0)
+    elseif e.kind == "war_begins" then
+        return string.format("The court declared war on %s, as it voted.", ICUI.war_target(e.key))
+    elseif e.kind == "war_called" then
+        -- n: 1 paid in gold, 0 in influence. The price is the tuning's, as it was paid.
+        local price = (e.n == 1) and string.format("%d gold", IC.TUNE.war_overrule_gold)
+            or string.format("%d influence", IC.TUNE.law_overrule_cost)
+        return string.format("You called off the war on %s for %s. The parties that wanted it "
+            .. "lost %d loyalty.", ICUI.war_target(e.key), price, -IC.TUNE.law_overrule_loyalty)
+    elseif e.kind == "war_broken" then
+        return string.format("A treaty with %s stood in the way of the court's war. The "
+            .. "parties that wanted it lost %d loyalty.", ICUI.war_target(e.key),
+            -IC.TUNE.war_broken_loyalty)
+    elseif e.kind == "war_void" then
+        -- n: 0 a vote whose target is gone, 1 one a treaty ended, 2 a planned war's.
+        if e.n == 2 then
+            return string.format("The war on %s was dropped: they are gone.", ICUI.war_target(e.key))
+        elseif e.n == 1 then
+            return string.format("You signed a treaty with %s, which ended the vote on war "
+                .. "with them. The parties that wanted it lost %d loyalty.", ICUI.war_target(e.key),
+                -IC.TUNE.war_bypass_loyalty)
+        end
+        return string.format("The vote on war with %s ended: they are gone, or at war "
+            .. "with you already.", ICUI.war_target(e.key))
+    elseif e.kind == "war_unasked" then
+        return string.format("You went to war with %s without asking the court. The parties "
+            .. "against it lost loyalty.", ICUI.war_target(e.key))
+    elseif e.kind == "war_peace" then
+        return string.format("You made peace with %s. The parties that wanted war lost loyalty, "
+            .. "and those against it gained.", ICUI.war_target(e.key))
+    elseif e.kind == "war_bypass" then
+        return string.format("You went to war with %s while the court was still voting. The "
+            .. "parties against it lost %d loyalty.", ICUI.war_target(e.key), -IC.TUNE.war_bypass_loyalty)
+    elseif e.kind == "war_early" then
+        return string.format("You started the planned war on %s early.", ICUI.war_target(e.key))
+    -- CLAIMS ON CONQUERED LAND. e.key is the province, e.slug the claiming party.
+    elseif e.kind == "claim" then
+        return string.format("%s claims the governorship of %s, newly taken.", house,
+            loc("provinces_onscreen_" .. tostring(e.key), e.key))
+    elseif e.kind == "claim_granted" then
+        return string.format("You granted %s's claim to %s.", house,
+            loc("provinces_onscreen_" .. tostring(e.key), e.key))
+    elseif e.kind == "claim_refused" then
+        return string.format("You refused %s's claim to %s.", house,
+            loc("provinces_onscreen_" .. tostring(e.key), e.key))
+    elseif e.kind == "claim_passed" then
+        return string.format("%s's claim to %s was passed over.", house,
+            loc("provinces_onscreen_" .. tostring(e.key), e.key))
+    elseif e.kind == "claim_taken" then
+        return string.format("No answer came, so the court granted %s's claim to %s.", house,
+            loc("provinces_onscreen_" .. tostring(e.key), e.key))
+    -- SECRETS. dig: e.key the party dug into, logged only when the dig finds one;
+    -- secret_used: e.slug the party, e.key the use ("vote.<category>" for a vote).
+    -- Each use's price is the tuning's, as it was paid.
+    elseif e.kind == "dig" then
+        return string.format("%s spends %d influence digging into %s and finds a secret.", house,
+            e.n or 0, ICUI.logged_name(e.key, e.kw))
+    elseif e.kind == "secret_used" then
+        local T = IC.TUNE
+        if e.key == "expose" then
+            -- UP TO: strength stops at 1, and the log keeps no amount.
+            return string.format("You exposed %s's secret before the court. It lost up to %d "
+                .. "strength and %d loyalty.", house, T.secret_expose_weight, -T.secret_expose_loyalty)
+        end
+        local rec = (ICUI.SECRET_USE[e.key or ""] or {}).rec
+        if rec then return string.format(rec, house, -T.secret_use_loyalty) end
+        local cat = string.match(tostring(e.key), "^vote%.(.+)$")
+        if not cat then return string.format("You used a secret on %s.", house) end
+        return string.format("You used a secret on %s: its men voted your way on %s. It lost %d "
+            .. "loyalty.", house, cat == IC.COUNCIL and "the war vote"
+            or ("the " .. ICUI.law_cat_name(cat) .. " vote"), -T.secret_use_loyalty)
+    end
+    return nil
+end
+
+-- A WAR'S TARGET, by CA's own name for the faction.
+function ICUI.war_target(key)
+    return loc("factions_screen_name_" .. tostring(key), tostring(key))
+end
+
+-- A WAR VOTE'S LINES IN THE RECORD, `target` its faction's name. The player's
+-- own proposal draws nothing: the council move's line already names the war,
+-- and one move is one line.
+function ICUI.war_law_text(e, house, target)
+    if e.kind == "law_propose" then
+        if e.slug == IC.CROWN then return nil end
+        return string.format("%s proposed war on %s. The court will vote on it.", house, target)
+    elseif e.kind == "law_pass" then
+        return string.format("The vote on war with %s passed.", target)
+    elseif e.kind == "law_fail" then
+        return string.format("The vote on war with %s failed.", target)
+    elseif e.kind == "law_win" then
+        return string.format("You won a man of %s over on war with %s for %d influence.",
+            house, target, e.n or 0)
+    elseif e.kind == "law_push" then
+        local level = ICUI.LAW_LEVEL[e.n or 0] or "pushes"
+        if e.slug == IC.CROWN then
+            return string.format("The Crown %s its side on war with %s.", level, target)
+        end
+        return string.format("%s %s its side on war with %s.", house, level, target)
+    elseif e.kind == "law_overrule" then
+        return string.format("You overruled the court on war with %s: it %s.", target,
             (e.n == 1) and "passed" or "failed")
     end
     return nil
@@ -6466,7 +6678,9 @@ ICUI.HELP = {
         "{@bullet}Missions: {@envoy}send an envoy to work in one of your provinces for a few turns, or {@diplomats}send diplomats to a faction you have met.",
         "{@loyalty}A failed move costs {plot_fail_loyalty} loyalty with the target party. They know what you tried.",
         "{@crown}Only Crown men can act, and a man sent on an errand or a mission must not be leading an army.",
-        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty and {@purge}Purge.",
+        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Purge and {@dig}Use a Secret.",
+        "{@dig}Dig for Secrets tries to find a secret on a man's party, for {@influence}{plot_dig_cost}. You hold one per party until you spend it.",
+        "{@bullet}Use a Secret wins their votes, ends their demand or scheme, or stops a countdown for {favour_secure_turns} turns: {secret_use_loyalty} loyalty. Or Expose them.",
     }},
     {title = "Petitions", icon = "petition", lines = {
         "{@petition}The parties ask things of you. Answer them on the Petitions tab.",
@@ -6478,6 +6692,9 @@ ICUI.HELP = {
         "{@battle}A claimed seat or equal shares can start a feud. For {party_feud_turns} turns, the two parties strike at each other.",
         "{@bullet}Back one side: +{arbit_side_loyalty} to it, and as much off the other. Make Peace: pay gold, and +{arbit_peace_loyalty} to both. Either ends the feud.",
         "{@bullet}A card warns you a turn before a rival strikes at your men's lives, seats or governors. Rumours and discredit come unwarned.",
+        "{@province}A province new to your court draws up to {claim_max} claims on its governorship, one per rival party.",
+        "{@party}The claimants: the party whose man took it, the party whose people live there, then the largest parties.",
+        "{@turns}Grant: +{claim_granted} loyalty, {claim_passed} to the other claimants. Refuse: {claim_refused}. Unanswered for {claim_turns} turns, the largest wins.",
     }},
     {title = "Leaving the court", icon = "rebel", lines = {
         "{@rebel}A party with {secede_share}% of the court or more and {secede_loyalty} loyalty or less begins a countdown of {secede_turns} turns.",
@@ -6508,6 +6725,22 @@ ICUI.HELP = {
         "{@bullet}A man you win over keeps his side for the whole vote, even if you change yours.",
         "{@influence}Pass now or Fail now decides the vote for {@influence}{law_overrule_cost}. The losing parties resent it.",
         "{@bullet}Your party's men pay every cost. Spending their influence reduces their votes.",
+    }},
+    {title = "The War Council", icon = "crown", lines = {
+        "{@crown}The war council is a court vote on war with a faction that borders you. One war vote runs at a time.",
+        "{@party}A party with {war_party_share}% of the court or more may propose a war. {@council}You propose one with Call the War Council, on Intrigue.",
+        "{@turns}A vote runs {law_vote_turns} turns. Men vote with their influence, as on a law, and you can push your side or win men over.",
+        "{@battle}A passed vote plans the war. The court declares it {war_prep_turns} turns later. One war is planned at a time.",
+        "{@influence}Pass now or Fail now decides the vote for {@influence}{law_overrule_cost}, or for {@gold}{war_overrule_gold}.",
+        "{@petition}A planned war waits on the Petitions tab. Call it off there, for the same two prices.",
+        "{@loyalty}Overruling a vote or calling off a war: {law_overrule_loyalty} loyalty to every party on the losing side.",
+        "{@rebel}A war you declare without the court: {war_bypass_loyalty} loyalty to the parties against it, +{war_bypass_gain} to those for it.",
+        "{@rebel}Declaring war on the target of an open vote ends the vote: {war_bypass_loyalty} loyalty to the parties against it, nothing to those for it.",
+        "{@battle}Starting a planned war early, from the diplomacy screen, is free.",
+        "{@bullet}Peace you make: -{war_peace_loyalty} loyalty to the parties for war, +{war_peace_loyalty} to those against it.",
+        "{@bullet}A treaty with the target ends its vote or its planned war, and the parties that wanted the war lose loyalty.",
+        "{@turns}No war vote opens in the court's first {grace_turns} turns, or while a truce at the start of the campaign holds.",
+        "{@party}Each party's side comes from facts: trade or a border with you, fewer or more armies than yours, kin, or an old foe.",
     }},
 }
 -- THE SHARED TEXT, kept: ICUI.use_race builds each race's page from it through
@@ -6576,7 +6809,7 @@ end
 
 -- THE PAGE'S CELLS. As many topic buttons and lines as the generator lays out;
 -- a topic or a line past them is a harness failure, not a silent cut.
-ICUI.HELP_SLOTS = 12
+ICUI.HELP_SLOTS = 14
 -- ONE PER LINE: check_lua_undeclared reads a multiple assignment's later
 -- targets as undeclared globals.
 ICUI.HELP_TOPIC_KEYS = {}
@@ -6869,7 +7102,7 @@ ICUI.TARGET_REFUSAL = {
     oathed = "Oath Taken", ["no seats"] = "No Offices",
     ["no provinces"] = "No Governor", spent = "Too Small",
     ["crown spent"] = "No Strength", ["no house"] = "No Party",
-    ["no grudge"] = "No Grudge",
+    ["no grudge"] = "No Grudge", held = "Secret Held",
 }
 -- "PARTY": every man this picker lists is one of the player's own lords or
 -- heroes (IC.candidates walks ONE faction's character list), so the column
@@ -6887,17 +7120,82 @@ ICUI.MISSION_PICKS = {
     envoy_province    = {"Province", "Governor", "Control", "Under way", ""},
     envoy_task        = {"Task", "What it does", "", "", ""},
     diplomats_faction = {"Faction", "At war", "Regard", "", ""},
+    -- NOT A MISSION, but the same shape: a use per row, not a man, and no sort.
+    secret            = {"Use", "What it does", "", "", ""},
 }
+-- THE WAR COUNCIL'S FACTION PICKER is the diplomats' list, its fourth column the
+-- court's vote on a candidate today, the Crown for it (IC.law_project).
+ICUI.COUNCIL_PICK = {"Faction", "At war", "Regard", "Vote today, with you for it", ""}
 
 -- A REFUSED ROW'S BUTTON, from the model's own refusal.
+ICUI.MISSION_REFUSAL = {
+    rebel = "Rebel", player = "Player", human = "Player", unmet = "Not Met", dead = "Gone",
+    self = "Yours", at_war = "At War", treaty = "Treaty", far = "Too Far",
+    council_open = "Vote Open", council_war = "War Planned", council_off = "Off",
+    grace = "Not Yet", truce = "Truce", no_secret = "No Secret",
+}
+
+-- A SECRET'S USES, by IC.secret_uses' codes: the row's name, what it does with its
+-- price (secret_use_loyalty, or Expose's strength and loyalty), the notice once it
+-- is spent, and its Record line (a vote's and Expose's are built there). A demand's
+-- and a scheme's line name the act and its price only: the model writes the outcome
+-- on a line of its own (demand_void, party_dropped).
+-- tools/gen_ic_ui.py check 20k measures every effect in the picker's column two
+-- (ICUI.COL_W.secret); keep each string on its own line.
+-- A VOTE USE'S NAME IS SHORT so the law's title fits after it: "Their men vote
+-- your way on" left "The..." of the longest at 1920, and "Win their votes on" clips
+-- two titles at 1600. 20k measures it with every title.
+ICUI.SECRET_USE = {
+    vote = {name = "Their votes on %s",
+        effect = "Every man of theirs in the vote takes your side, free. They lose %d loyalty.",
+        done = "Secret used. The men of %s now vote your way."},
+    demand = {name = "Drop their demand",
+        effect = "Their demand ends with no grant and no refusal. They lose %d loyalty.",
+        done = "Secret used. %s drops its demand.",
+        rec = "You used a secret on %s against its demand. It lost %d loyalty."},
+    scheme = {name = "Call off their scheme",
+        effect = "Their move against the Crown is dropped. They lose %d loyalty.",
+        done = "Secret used. %s calls off its scheme.",
+        rec = "You used a secret on %s against its scheme. It lost %d loyalty."},
+    count = {name = "Stop their countdown",
+        effect = "Their countdown to leave stops and cannot start for %d turns. They lose %d loyalty.",
+        done = "Secret used. %s stops its countdown.",
+        rec = "You used a secret on %s: its countdown stopped. It lost %d loyalty."},
+    -- UP TO: strength stops at 1 (IC.use_secret).
+    expose = {name = "Expose them",
+        effect = "They lose up to %d strength and %d loyalty%s.",
+        done = "Secret used. %s is exposed before the court."},
+}
+
+-- A USE'S ROW, its name and its effect. A vote use names a law by ICUI.law_title
+-- and the war council's as "the war": one war vote runs at a time, and its
+-- target's name does not fit (CA's longest left "the war on..." at 1920).
+-- A Dwarf court's Expose also writes an insult grudge (IC.use_secret).
+function ICUI.secret_row(faction, u)
+    local use, T = ICUI.SECRET_USE[u.code], IC.TUNE
+    if not use then return tostring(u.code), "" end
+    local name = use.name
+    if u.code == "vote" then
+        local option = tostring((IC.law_vote_of(faction, u.key) or {}).option)
+        name = string.format(use.name, u.key == IC.COUNCIL and "the war"
+            or ICUI.law_title(tostring(u.key) .. "." .. option))
+    end
+    if u.code == "expose" then
+        return name, string.format(use.effect, T.secret_expose_weight, -T.secret_expose_loyalty,
+            IC.race_key(faction) == "dwf" and ", and write a grudge against you" or "")
+    end
+    -- THE COUNT STAYS STOPPED as long as Secure Loyalty's protection (IC.use_secret).
+    if u.code == "count" then
+        return name, string.format(use.effect, T.favour_secure_turns, -T.secret_use_loyalty)
+    end
+    return name, string.format(use.effect, -T.secret_use_loyalty)
+end
 function ICUI.mission_refusal(why, turns)
     if why == "running" then return string.format("Running %d", turns or 0) end
     if why == "resting" then return string.format("Rest %d", turns or 0) end
-    if why == "rebel" then return "Rebel" end
-    if why == "player" then return "Player" end
     if why == "gov_cool" then return string.format("Wait %d", turns or 0) end
     if why == "gov_purse" then return "Short " .. ICUI.cost(turns or 0) end
-    return "No"
+    return ICUI.MISSION_REFUSAL[why or ""] or "No"
 end
 
 -- WHERE A MISSION GOES, in words: "Gash Kadrak, Armaments", or a faction's name.
@@ -6976,6 +7274,25 @@ function ICUI.mission_rows(faction)
             pcall(function() regard = m.faction:diplomatic_attitude_towards(faction) end)
             add({m.name, war and "At war" or "At peace",
                  string.format("%d", math.floor((regard or 0) + 0.5)), ""}, m.key)
+            -- A WAR COUNCIL CANDIDATE: how the court would vote today, off its tally.
+            if plot == "council" and keys[#lines] then
+                local p = IC.law_project(faction, IC.COUNCIL, m.key)
+                local all = p.aye + p.nay + p.abstain
+                lines[#lines][4] = string.format("Aye %d%%; Nay %d%%; %d%% would abstain",
+                    ICUI.pct(p.aye, all), ICUI.pct(p.nay, all), ICUI.pct(p.abstain, all))
+            end
+        end
+    elseif kind == "secret" then
+        -- THE MODEL'S OWN LIST (IC.secret_uses), in its order: each row sends its
+        -- code|key, and a row it refuses sends nothing and says why.
+        local slug = ICUI.pick.slug
+        for _, u in ipairs(IC.secret_uses(faction, slug)) do
+            local name, effect = ICUI.secret_row(faction, u)
+            lines[#lines + 1] = {name, ICUI.units(effect), "", "",
+                u.may and "Use" or ICUI.red(ICUI.mission_refusal(u.why)),
+                tip = (not u.may) and ICUI.reason_text(u.why) or nil,
+                icon = ICUI.crest(slug), icon_kind = "crest", plate = slug}
+            keys[#lines] = u.may and (u.code .. "|" .. (u.key or "")) or nil
         end
     end
     return lines, keys
@@ -7028,8 +7345,8 @@ function ICUI.reason_text(why, spare)
         return "He commands a force. Generals do not run errands."
     elseif why == "grace" then
         local left = IC.grace_left()
-        return string.format("The court is protected for %d more turn%s. A "
-            .. "countdown cannot begin yet.", left, left == 1 and "" or "s")
+        return string.format("The court is protected for %d more turn%s. No countdown "
+            .. "or war vote can begin yet.", left, left == 1 and "" or "s")
     elseif why == "cold" then
         return string.format(
             "They will not swear to you below %d loyalty. Raise their loyalty first.",
@@ -7102,6 +7419,11 @@ function ICUI.reason_text(why, spare)
     elseif why == "unmet" then
         return "You have not met that faction yet."
     elseif why == "rebel" then
+        -- TWO MODEL CALLS RETURN IT, IC.may_send_diplomats and IC.war_candidate,
+        -- so the war council's picker has a sentence of its own.
+        if ICUI.pick and ICUI.pick.plot == "council" then
+            return "No war vote can name rebels."
+        end
         return "Rebels keep no court to send diplomats to."
     elseif why == "player" then
         return "That is another player. Talk to them yourself."
@@ -7141,6 +7463,48 @@ function ICUI.reason_text(why, spare)
         return "He already votes with you."
     elseif why == "law_pushed" then
         return "You already push that hard."
+    elseif why == "no_secret" then
+        -- THE MODEL'S CODE (IC.secret_uses, IC.use_secret). Dig for Secrets is
+        -- named as the Intrigue tab names it, on both races.
+        return "You hold no secret on this party. Dig for Secrets first, on the Intrigue tab."
+    elseif why == "held" then
+        return "You already hold a secret on that party. Use it on the Court tab before you dig again."
+    elseif why == "none_to_win" then
+        return "Every man of theirs already votes your way on it."
+    elseif why == "no_use" then
+        return "That use no longer applies. Choose another."
+    -- THE WAR COUNCIL'S (IC.council_can_open, IC.war_candidate, IC.war_locked,
+    -- IC.law_overrule, IC.war_calloff) AND THE CLAIMS' (IC.claim_grant, IC.claim_refuse).
+    elseif why == "council_off" then
+        return "The war council is switched off in the settings."
+    elseif why == "council_open" then
+        return "The court is already voting on a war. One vote at a time."
+    elseif why == "council_war" then
+        return "The court has a war planned already. Call it off on the Petitions tab, or wait for it."
+    elseif why == "truce" then
+        return "The truce at the start of the campaign still holds. No war vote can begin until it ends."
+    elseif why == "dead" then
+        return "That faction is gone."
+    elseif why == "self" then
+        return "That is your own faction."
+    elseif why == "human" then
+        return "That is another player. Declare war on them yourself."
+    elseif why == "at_war" then
+        return "You are already at war with them."
+    elseif why == "treaty" then
+        return "You have an alliance, a vassal or a non-aggression pact with them. End it first."
+    elseif why == "far" then
+        return ICUI.said("refuse_far", "They do not border you. The court votes only on wars with its neighbours.")
+    elseif why == "war_none" then
+        return "There is no war planned to call off."
+    elseif why == "law_gold" then
+        return "Only a vote on war can be decided for gold."
+    elseif why == "claims_off" then
+        return "Claims on conquest are switched off in the settings."
+    elseif why == "no_claim" then
+        return "That claim is no longer open."
+    elseif why == "claim_void" then
+        return "That claim has lapsed: the province is no longer yours, or the party has no free man for it."
     end
     return "That cannot be done right now."
 end
@@ -7187,6 +7551,10 @@ function ICUI.pick_title()
     if ICUI.pick.kind == "doctrine" then
         return string.format("Choose your court's government: costs %s influence "
             .. "from your own party", ICUI.cost(IC.TUNE.gov_force_cost))
+    end
+    if ICUI.pick.kind == "secret" then
+        return string.format("Use your secret on %s: one use spends it",
+                             ICUI.house_name(ICUI.pick.slug))
     end
     local plot = ICUI.pick.plot and ICUI.plot_of(ICUI.pick.plot)
     if ICUI.pick.kind == "envoy_province" then
@@ -7250,8 +7618,31 @@ end
 
 -- THE PETITION BUTTONS' LABELS. tools/gen_ic_ui.py check 20k measures each
 -- against the button PETITION_BTN_CELL puts it on.
+-- Call Off is priced by its picture alone: "Call Off 2500" with the gold icon is
+-- 169px on a 140px button. The figures are on the war's row and in its tooltips.
 ICUI.PETITION_BTN = {accept = "Accept", refuse = "Refuse", hold = "Hold", back = "Back Them",
-                     peace = "Make Peace"}
+                     peace = "Make Peace", vote = "Vote", calloff = "Call Off", grant = "Grant"}
+
+-- WHY A MAN CLAIMS A PROVINCE (IC.claimants), in his claim's tooltip.
+ICUI.CLAIM_WHY = {
+    conquest = "His party's army took it.",
+    home = "It is the home of the people his party speaks for.",
+    weight = "His party has the largest share at court of those not yet claiming.",
+}
+
+-- A CLAIM'S TWO TOOLTIPS, Grant's and Refuse's: why he claims it and what each
+-- answer costs. A Dwarf court also writes a refused claim in its grudges.
+function ICUI.claim_tips(faction, c, now)
+    local T = IC.TUNE
+    local refuse = string.format("Refuse: his party loses %d loyalty%s.", -T.claim_refused,
+        IC.race_key(faction) == "dwf" and " and writes a grudge against you" or "")
+    local grant = string.format("%s Grant: he governs it and his party gains %d loyalty. "
+        .. "Every other party claiming it loses %d loyalty. %s If you do not answer within %s, "
+        .. "the court grants the claim of the party with the largest share.",
+        ICUI.CLAIM_WHY[c.why or ""] or "", T.claim_granted, -T.claim_passed, refuse,
+        turns(math.max(0, c.ends - now)))
+    return grant, refuse
+end
 
 -- THE CHOICE'S TWO TOOLTIPS, the row's and Hold's. The Conclave's pull has no
 -- party asking (a court nobody leads), so Hold angers nobody and says so. Left
@@ -7293,6 +7684,67 @@ function ICUI.draw_petitions(panel, faction, court)
             plate = ask.party,
         }
         ICUI.petition_rows[#lines] = {kind = "gov", slug = ask.party}
+    end
+
+    -- THE WAR COUNCIL'S VOTE: Vote opens its screen, where it is answered.
+    local war_vote = IC.law_vote_of(faction, IC.COUNCIL)
+    if war_vote then
+        lines[#lines + 1] = {
+            ICUI.house_name(war_vote.proposer, faction),
+            string.format("Proposes war on %s: %s", ICUI.war_target(war_vote.option),
+                          turns(math.max(0, war_vote.ends - now))),
+            "", "", B.vote, "",
+            tip = "Opens the vote, where you take a side, push it or decide it now.",
+            icon = ICUI.crest(war_vote.proposer), icon_kind = "crest", plate = war_vote.proposer,
+        }
+        ICUI.petition_rows[#lines] = {kind = "council", slug = war_vote.proposer}
+    end
+    -- THE WAR IT PLANNED, until it is declared: Call Off for gold or for influence.
+    -- BOTH PRICES ARE ON THE ROW, not only in the tooltips, and so the war's name
+    -- is in the first column: "War on <the longest CA faction name> in 3 turns"
+    -- with both prices is 1138px in an 824px column at 1920. The proposing
+    -- party is the row's crest and plate. gen_ic_ui.py 20k measures column two.
+    -- GOLD FIRST IN THE WORDS: gold is lines[6] and draws left of influence
+    -- (ic_row_f left of ic_row_e, which gen_ic_ui.py 20k holds).
+    local war = IC.council_on() and court.war or nil
+    if war then
+        local T = IC.TUNE
+        local cost, gold = T.law_overrule_cost, T.war_overrule_gold
+        local inf = string.format("%s [[img:%s]][[/img]]", B.calloff, ICUI.COST_ICON)
+        local paid = string.format("%s [[img:%s]][[/img]]", B.calloff, ICUI.GOLD_ICON)
+        local loyal = string.format("Every party that wanted the war loses %d loyalty.", -T.law_overrule_loyalty)
+        lines[#lines + 1] = {
+            ICUI.war_title(war.target),
+            string.format("Declared in %s. Call it off for %d gold or %d influence.",
+                          turns(math.max(0, war.at - now)), gold, cost),
+            "", "",
+            IC.crown_purse(faction) >= cost and inf or ICUI.red(inf),
+            IC.treasury(faction) >= gold and paid or ICUI.red(paid),
+            tip = string.format("Call Off for %d influence from the men of your own party. %s", cost, loyal),
+            tip2 = string.format("Call Off for %d gold from the treasury. %s", gold, loyal),
+            icon = war.proposer and ICUI.crest(war.proposer) or nil, icon_kind = "crest",
+            plate = war.proposer,
+        }
+        ICUI.petition_rows[#lines] = {kind = "war"}
+    end
+    -- THE CLAIMS ON CONQUERED LAND, one row a claimant: the man the claim names
+    -- now, who after a void may be a man re-picked from the same party.
+    for _, c in ipairs(IC.claims_on() and IC.claims_list(faction) or {}) do
+        local man = c.cqi and IC.character_by_cqi(faction, c.cqi)
+        local face = man and ICUI.portrait_path(c.cqi)
+        local grant, refuse = ICUI.claim_tips(faction, c, now)
+        lines[#lines + 1] = {
+            man and ICUI.character_name(man) or ICUI.house_name(c.slug, faction),
+            string.format("Claims %s: %s", loc("provinces_onscreen_" .. c.province, c.province),
+                          turns(math.max(0, c.ends - now))),
+            "", "", B.grant, B.refuse,
+            tip = grant, tip2 = refuse,
+            icon = face or ICUI.crest(c.slug),
+            icon_kind = face and "porthole" or "crest",
+            crest = face and ICUI.crest(c.slug) or nil,
+            plate = c.slug,
+        }
+        ICUI.petition_rows[#lines] = {kind = "claim", slug = c.slug, province = c.province}
     end
 
     -- THE DEMAND NEXT: there is only ever one, and it is the one with a
@@ -7393,9 +7845,19 @@ function ICUI.on_petition_click(context, yes)
     if not row then return end
     local p = ICUI.petition_rows[row]
     if not p then return end
+    -- A WAR VOTE IS ANSWERED ON ITS OWN SCREEN, the Laws tab's vote screen.
+    if p.kind == "council" then
+        ICUI.view, ICUI.law_cat, ICUI.notice = "laws", IC.COUNCIL, nil
+        ICUI.refresh()
+        return
+    end
     -- SENT, NOT CALLED: see IC.mp_send. The answer is ICUI.ANSWERS'.
     local op, arg
-    if p.kind == "demand" then
+    if p.kind == "war" then
+        op, arg = "war_calloff", yes and "0" or "1"
+    elseif p.kind == "claim" then
+        op, arg = (yes and "claim_grant" or "claim_refuse"), p.province .. "|" .. p.slug
+    elseif p.kind == "demand" then
         -- THE PARTY TRAVELS WITH IT, for the answer to name: the model's
         -- grant and refuse take no argument and ignore this one.
         op, arg = (yes and "grant" or "refuse"), (p.slug or "")
@@ -7424,7 +7886,8 @@ function ICUI.draw_picker(panel, faction, court)
         if #rows == 0 then
             rows[1] = {ICUI.MISSION_EMPTY[ICUI.pick.kind] or "Nowhere to send.", "", "", "", ""}
         end
-        ICUI.fill_rows(panel, rows, "pick")
+        -- THE SECRET'S EFFECTS NEED THE ROW: ICUI.COL_W.secret widens column two.
+        ICUI.fill_rows(panel, rows, ICUI.pick.kind == "secret" and "secret" or "pick")
         return ""
     end
     -- A GOVERNOR CHOSEN ON THE MAP is chosen from the Governors column, which
@@ -7444,6 +7907,7 @@ ICUI.MISSION_EMPTY = {
     envoy_province = "You hold no province to send an envoy to.",
     envoy_task = "No task is open to an envoy.",
     diplomats_faction = "You have met no other faction yet.",
+    secret = "That party has left the court, and its secret with it.",
 }
 
 -- THE MEN A CHARACTER PICKER LISTS, one line each, with ICUI.pick_rows filled
@@ -7548,7 +8012,9 @@ function ICUI.picker_lines(faction, court)
                     -- at.
                     action = "Other Party"
                 else
-                    action = "No"
+                    -- A VICTIM REFUSED SINCE HE WAS CHOSEN (a secret found on his
+                    -- party, say): the victim list's own word for it.
+                    action = ICUI.TARGET_REFUSAL[why_not] or "No"
                 end
             end
         end
@@ -7750,6 +8216,9 @@ function ICUI.on_pick_click(context, faction)
         ICUI.list_rescroll()
         ICUI.notice = nil
         return true
+    elseif ICUI.pick.kind == "secret" then
+        -- `chosen` IS code|key; the party is the picker's. The answer closes it.
+        ICUI.send(faction, "secret_use", ICUI.pick.slug .. "|" .. chosen)
     else
         ICUI.send(faction, "gov", ICUI.pick.key .. "|" .. tostring(chosen))
     end
@@ -7822,6 +8291,7 @@ function ICUI.refresh()
     local headers = ICUI.HEADERS[view]
     -- PICK_HEADERS IS THE CHARACTER LIST'S; a mission picker has its own.
     local mission = ICUI.pick and ICUI.MISSION_PICKS[ICUI.pick.kind]
+    if mission and ICUI.pick.plot == "council" then mission = ICUI.COUNCIL_PICK end
     if ICUI.pick then headers = mission or ICUI.HEADERS[view] or ICUI.PICK_HEADERS end
     if ICUI.pick and ICUI.pick.kind == "doctrine" then headers = nil end
     -- ONE HOME FOR THE STRIP: the court has no list, so it needs no second,
@@ -7971,7 +8441,7 @@ function ICUI.refresh()
             show(comp(name, panel), false)
         end
         -- AND THE ACTION BAR, which draw_actions shows. It sits in the pager's
-        -- row, so one left behind is three buttons beside another list's pager.
+        -- row, so one left behind is five buttons beside another list's pager.
         for _, name in ipairs(ICUI.ACT_KEYS) do
             show(comp(name, panel), false)
         end
@@ -8406,7 +8876,7 @@ function ICUI.on_party_click(context)
     ICUI.refresh()
 end
 
--- ONE OF THE THREE ACTIONS, against the chosen party. A refused one answers
+-- ONE OF THE FIVE ACTIONS, against the chosen party. A refused one answers
 -- with its reason instead of doing nothing - see draw_actions.
 function ICUI.on_act_click(key)
     local faction = ICUI.player()
@@ -8421,7 +8891,13 @@ function ICUI.on_act_click(key)
         return
     end
     local move = ICUI.ACT_MOVE[key]
-    if move.plot then
+    if move.secret then
+        -- A SECRET HELD ON THE PARTY: nothing sent yet. The picker of its uses
+        -- opens, and a use chosen there is what sends.
+        ICUI.pick = {kind = "secret", slug = slug}
+        ICUI.list_rescroll()
+        ICUI.notice = nil
+    elseif move.plot then
         -- STRAIGHT TO THE SECOND QUESTION. The party is chosen and the man it
         -- is aimed at is the one who speaks for it, so the only thing left to
         -- ask is who carries it out - the same picker, odds and refusals the
@@ -8447,10 +8923,11 @@ ICUI.ANSWERS = {}
 -- other op sends party first.
 function ICUI.answer_party(op, arg)
     -- A LAW'S ARGUMENT STARTS WITH A CATEGORY, not a party: no card to light.
-    if string.sub(op or "", 1, 4) == "law_" then return nil, {} end
+    if string.sub(op or "", 1, 4) == "law_" or op == "war_calloff" then return nil, {} end
     local f = {}
     for x in string.gmatch((arg or "") .. "|", "([^|]*)|") do f[#f + 1] = x end
-    local slug = (op == "favour") and f[2] or f[1]
+    -- A CLAIM'S ARGUMENT IS province|party.
+    local slug = (op == "favour" or op == "claim_grant" or op == "claim_refuse") and f[2] or f[1]
     if slug == "" then return nil end
     return slug, f
 end
@@ -8492,11 +8969,21 @@ function ICUI.answer_text(op, arg, faction, spare)
     elseif op == "law_stance" then
         return "You have taken a side."
     elseif op == "law_win" then
-        return "He is won over and votes with you on this law."
+        -- "VOTE", NOT "LAW": a war vote is won over on the same call.
+        return "He is won over and votes with you."
     elseif op == "law_push" then
         return "Your party pushes harder."
     elseif op == "law_overrule" then
         return "Vote overruled. The losing parties resent it."
+    elseif op == "war_calloff" then
+        return "War called off. The parties that wanted it resent it."
+    elseif op == "claim_grant" then
+        return string.format("Claim granted. A man of %s now governs %s.", name,
+            loc("provinces_onscreen_" .. tostring(f[1]), tostring(f[1])))
+    elseif op == "secret_use" then
+        -- party|code|key: the use's own notice.
+        local use = ICUI.SECRET_USE[f[2] or ""]
+        return use and string.format(use.done, name) or nil
     end
     return nil
 end
@@ -8539,7 +9026,32 @@ end
 ICUI.ANSWERS.law_stance = confirmed(true, false, "law_stance")
 ICUI.ANSWERS.law_win = confirmed(true, false, "law_win")
 ICUI.ANSWERS.law_push = confirmed(true, false, "law_push")
-ICUI.ANSWERS.law_overrule = confirmed(true, false, "law_overrule")
+local law_overruled = confirmed(true, false, "law_overrule")
+ICUI.ANSWERS.law_overrule = function(arg, done, why, spare)
+    law_overruled(arg, done, why, spare)
+    -- A WAR DECIDED goes back to Petitions, where its vote was opened from.
+    if done and string.match(arg or "", "^([%w_]+)|") == IC.COUNCIL then
+        ICUI.view, ICUI.law_cat = "petitions", nil
+    end
+end
+-- THE WAR COUNCIL'S CALL-OFF AND THE CLAIMS.
+ICUI.ANSWERS.war_calloff = confirmed(true, false, "war_calloff")
+ICUI.ANSWERS.claim_grant = confirmed(true, false, "claim_grant")
+ICUI.ANSWERS.claim_refuse = confirmed(false, false, "claim_refuse")
+-- A SECRET SPENT closes its picker onto the Court tab and says what it did; a use
+-- refused keeps the picker up with the reason, as the plot pickers do. No rim is
+-- lit: the party is not pleased.
+ICUI.ANSWERS.secret_use = function(arg, done, why, spare)
+    if not done then
+        ICUI.notice = ICUI.reason_text(why, spare)
+        ICUI.play(ICUI.SOUNDS.refused)
+        return
+    end
+    ICUI.pick = nil
+    ICUI.list_rescroll()
+    ICUI.notice = ICUI.answer_text("secret_use", arg, ICUI.player())
+    ICUI.confirm(nil, true, ICUI.SOUNDS.secret_use)
+end
 
 -- A PLOT'S TARGET PARTY, off the wire: the third field is the target MAN's cqi
 -- (on_pick_click), and the card is his party's. An errand has none.
@@ -8816,6 +9328,8 @@ function ICUI.register()
         -- THE VOTE SCREEN: the hand, the way back, and a block's Win button,
         -- whose block is its parent.
         elseif id == "ic_lv_back" and comp(ICUI.PANEL) then
+            -- A WAR VOTE GOES BACK TO PETITIONS, where it was opened from.
+            if ICUI.law_cat == IC.COUNCIL then ICUI.view = "petitions" end
             ICUI.law_cat, ICUI.notice = nil, nil
             ICUI.refresh()
         elseif string.match(id or "", "^ic_lv_st_%d$") and comp(ICUI.PANEL) and ICUI.law_cat then
@@ -8825,9 +9339,17 @@ function ICUI.register()
         elseif string.match(id or "", "^ic_lv_lvl_%d$") and comp(ICUI.PANEL) and ICUI.law_cat then
             ICUI.send(ICUI.player(), "law_push", ICUI.law_cat .. "|" .. string.match(id, "(%d)$"))
             ICUI.refresh()
-        elseif string.match(id or "", "^ic_lv_over_%d$") and comp(ICUI.PANEL) and ICUI.law_cat then
+        -- PASS NOW AND FAIL NOW ONLY. The war vote's gold overrules, over_3
+        -- and over_4, have their own branch below and must not fall into this
+        -- one: it reads the last digit as "pass" or "fail".
+        elseif string.match(id or "", "^ic_lv_over_[12]$") and comp(ICUI.PANEL) and ICUI.law_cat then
             local pass = string.match(id, "(%d)$") == "1"
             ICUI.send(ICUI.player(), "law_overrule", ICUI.law_cat .. "|" .. (pass and "1" or "0"))
+            ICUI.refresh()
+        -- THE SAME FOR GOLD, a war vote's only: over_3 passes, over_4 fails.
+        elseif string.match(id or "", "^ic_lv_over_[34]$") and comp(ICUI.PANEL) and ICUI.law_cat == IC.COUNCIL then
+            local pass = id == "ic_lv_over_3"
+            ICUI.send(ICUI.player(), "law_overrule", IC.COUNCIL .. "|" .. (pass and "1" or "0") .. "|1")
             ICUI.refresh()
         elseif string.match(id or "", "^ic_lb_win_%d$") and comp(ICUI.PANEL) and ICUI.law_cat then
             local block = ICUI.clicked_index(context)
@@ -9377,6 +9899,7 @@ end
 -- tab-shaped ribbons are not plates and keep their art.
 ICUI.PLATE_BUTTONS = {ic_card_button = true, ic_plot_go = true, ic_row_e = true,
                       ic_row_f = true, ic_lv_over_1 = true, ic_lv_over_2 = true,
+                      ic_lv_over_3 = true, ic_lv_over_4 = true,
                       ic_lv_back = true, ic_law_p_btn = true, ic_fill = true, ic_gov_btn = true}
 function ICUI.plate_button(id)
     id = tostring(id)

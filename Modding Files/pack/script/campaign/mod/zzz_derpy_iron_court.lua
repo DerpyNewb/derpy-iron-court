@@ -603,6 +603,11 @@ IC.TUNE = {
     plot_recall_loyalty   = 16,
     plot_chance_recall    = 60,
 
+    -- DIG FOR SECRETS (docs/superpowers/specs/2026-10-17-iron-court-war-claims-
+    -- secrets-design.md 4.3). The secret's own numbers are with the claims'.
+    plot_dig_cost         = 120,
+    plot_chance_dig       = 55,
+
     plot_patron_cost      = 130,
     plot_patron_standing  = 100,
     plot_patron_loyalty   = 6,
@@ -773,6 +778,37 @@ IC.TUNE = {
     law_pass_loss       = -5,
     law_fail_loss       = -5,
 
+    -- THE WAR COUNCIL (docs/superpowers/specs/2026-10-17-iron-court-war-claims-
+    -- secrets-design.md 2.9). Constants: only `council` is a switch, and only it
+    -- is in IC.TUNE_ORDER. A key that names a loss is stored negative and added.
+    council             = true,
+    war_prep_turns      = 3,    -- a passed war is declared this many turns later
+    war_party_share     = 15,   -- % of the court a party needs to propose a war
+    war_party_rest      = 8,    -- turns between two party proposals
+    war_party_motive    = 14,
+    plot_council_cost   = 150,
+    war_overrule_gold   = 2500, -- Pass now, Fail now or Call Off, from the treasury
+    war_broken_loyalty  = -15,  -- a treaty stood in the way of a war the court passed
+    war_bypass_loyalty  = -10,  -- you settled it without the court
+    war_bypass_gain     = 3,
+    war_peace_loyalty   = 3,
+
+    -- CLAIMS ON CONQUERED LAND (the same design, 3.5). Only `claims` is a switch,
+    -- and only it is in IC.TUNE_ORDER. A loss is stored negative and added.
+    claims              = true,
+    claim_max           = 3,    -- claims on one province, one per rival party
+    claim_turns         = 3,    -- turns before the court answers an unanswered claim
+    claim_granted       = 8,
+    claim_passed        = -4,   -- every other claimant, when the province goes to someone else
+    claim_refused       = -6,
+
+    -- SECRETS (the same design, 4.3): what spending one costs the party it is on.
+    -- No switch. A loss is stored negative and added; the strength is an amount
+    -- taken off.
+    secret_use_loyalty    = -5,   -- every use but Expose
+    secret_expose_weight  = 10,
+    secret_expose_loyalty = -10,
+
     -- THE SEVEN SWITCHES (the MCT page's Systems and Debug). All on: a campaign
     -- without MCT plays exactly as it did before they existed.
     parties_act         = true,
@@ -819,6 +855,8 @@ IC.TUNE_ORDER = {
     "laws",
     "dwarf_courts",
     "seed_min", "seed_max",
+    "council",
+    "claims",
 }
 
 -- NUMBERS NO DIFFICULTY SETS: read off the page on every difficulty, and named
@@ -988,9 +1026,41 @@ IC.LAWS = {
 }
 IC.LAW_SIDES = {aye = true, nay = true, abstain = true}
 
+-- THE WAR COUNCIL'S KEY in court.votes. Not a law category: IC.LAW_ORDER already
+-- has one called "war", and a vote under that key would be the law's.
+IC.COUNCIL = "council"
+
+-- WHO WANTS A WAR ON WHOM: per party, an ordered list of {fact, side}. The first
+-- fact that holds of the target is the party's line, and the panel shows the fact as
+-- its reason (IC.war_facts reads them: trade near weak strong kin foe book). A party
+-- no fact holds for votes on loyalty, and the tower, with no list, always does. The
+-- Crown and a confederated house are in no list: the Crown's men vote the stance.
+IC.WAR_LINES = {
+    temple = {{"foe", "aye"}, {"kin", "nay"}},
+    forge  = {{"weak", "aye"}},
+    chain  = {{"near", "aye"}},
+    legion = {{"foe", "aye"}, {"weak", "aye"}},
+    ledger = {{"trade", "nay"}, {"strong", "nay"}},
+    road   = {{"trade", "nay"}, {"near", "nay"}},
+    hearth = {{"kin", "nay"}, {"strong", "nay"}},
+}
+
+-- THE RACE'S OLD ENEMIES, as subculture keys: the `foe` fact.
+IC.WAR_FOES = {
+    "wh_main_sc_dwf_dwarfs",
+    "wh_main_sc_grn_greenskins",
+    "wh_main_sc_grn_savage_orcs",
+}
+
 function IC.laws_on(faction_key)
     return IC.TUNE.laws ~= false and IC.is_human(faction_key)
 end
+
+-- THE WAR COUNCIL'S SWITCH, separate from the laws': laws off leaves it running.
+function IC.council_on() return IC.TUNE.council ~= false end
+
+-- CLAIMS ON CONQUERED LAND'S SWITCH.
+function IC.claims_on() return IC.TUNE.claims ~= false end
 
 function IC.law_bundle(category, option, faction_key)
     return IC.key("law", category .. "_" .. option, faction_key)
@@ -1215,14 +1285,15 @@ end
 -- flip strands nothing, and one turned back on starts again with its warning.
 -- NOT ai_courts: off, it leaves the other courts' office bundles on their men.
 -- The difficulty and every number stay frozen. The MCT page names the same
--- ten. Governments off takes the bundle away and drops a waiting choice
+-- thirteen. Governments off takes the bundle away and drops a waiting choice
 -- (IC.settle_switches); drift off only stops the drift; deeds off stops new
 -- renown and drawing parties in, and what is held fades on its own. Laws off
 -- drops open votes and takes every law bundle off; the laws in force stay in
--- the save.
+-- the save. Council off drops the open war vote and the planned war. Claims off
+-- drops every open claim.
 IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",
                 "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws",
-                "dwarf_courts"}
+                "dwarf_courts", "council", "claims"}
 
 -- READ AT EVERY LOAD AND ON MCT'S Finalize, never in multiplayer, where each
 -- machine's MCT is its own. A change goes into the frozen copy too, so the save
@@ -1252,7 +1323,7 @@ function IC.refresh_live_tune()
     -- every one. With its switch off, each call below only clears.
     -- The courts still on disk are settled by IC.load.
     if off.secession or off.pressure or off.crown_split or off.governments
-       or off.gov_drift or off.laws ~= nil then
+       or off.gov_drift or off.laws ~= nil or off.council ~= nil or off.claims ~= nil then
         for faction_key in pairs(IC.state) do
             IC.settle_switches(faction_key)
             IC.save(faction_key)
@@ -1273,9 +1344,23 @@ function IC.settle_switches(faction_key)
         IC.court(faction_key).gov_ask = nil
     end
     if not IC.governments_on() then IC.apply_gov_bundle(faction_key) end
-    -- LAWS OFF DROPS THE OPEN VOTES; on or off, the bundles follow the switch.
-    -- The laws in force stay in the save.
-    if IC.TUNE.laws == false then IC.court(faction_key).votes = {} end
+    -- LAWS OFF DROPS THE OPEN LAW VOTES, and only those: the war council's vote
+    -- is its own switch's. On or off, the bundles follow the switch. The laws in
+    -- force stay in the save.
+    local court = IC.court(faction_key)
+    court.votes = court.votes or {}
+    if IC.TUNE.laws == false then
+        for cat in pairs(court.votes) do
+            if cat ~= IC.COUNCIL then court.votes[cat] = nil end
+        end
+    end
+    -- COUNCIL OFF DROPS ITS VOTE AND THE WAR IT PLANNED.
+    if not IC.council_on() then
+        court.votes[IC.COUNCIL] = nil
+        court.war = nil
+    end
+    -- CLAIMS OFF DROPS EVERY OPEN CLAIM.
+    if not IC.claims_on() then court.claims = {} end
     IC.apply_law_bundles(faction_key)
 end
 
@@ -1330,11 +1415,18 @@ local function new_court()
         -- party proposes.
         laws = {},
         votes = {},
+        -- THE WAR COUNCIL: votes[IC.COUNCIL] is its open vote, and war
+        -- ({target, at, proposer}), council_rest and war_free ([target] = turn,
+        -- in memory only) stay nil until there is one.
         -- THE BOOK: [faction key] = bands crossed.
         book = {},
         -- GRUDGES: [party] = {{code, turn}, ...},
         -- oldest first. Kept by party slot: a party that leaves keeps its book.
         grudges = {},
+        -- CLAIMS: [province key] = {ends = turn, list = {{slug, cqi, why}, ...}}.
+        claims = {},
+        -- SECRETS: [party] = the turn Dig for Secrets found one. One per party.
+        secrets = {},
     }
 end
 
@@ -1378,6 +1470,23 @@ IC.LOG_KINDS = {
     -- GRUDGES: key is the grudge's code; a settled
     -- one's n is 1 for a seat, 0 for the weregild.
     grudge = true, grudge_settled = true, weregild = true,
+    -- THE WAR COUNCIL. Its vote writes the law kinds with key "council.<target>";
+    -- these name the target as key, slug the proposer. council is the move;
+    -- war_planned's n is the turn it is declared; war_called's n is 1 for gold, 0
+    -- for influence; war_void's n is 0 for a vote whose target is gone, 1 for one
+    -- a treaty ended, 2 for a planned war whose target is gone. war_bypass is a war
+    -- the player declared on the target of an open vote, which closed it; war_early
+    -- a planned war he started himself before its turn.
+    council = true,
+    war_planned = true, war_begins = true, war_called = true, war_broken = true,
+    war_void = true, war_unasked = true, war_peace = true, war_bypass = true, war_early = true,
+    -- CLAIMS ON CONQUERED LAND: slug the claiming party, key the province.
+    -- claim_taken is a grant the court made itself, at the claim's end.
+    claim = true, claim_granted = true, claim_refused = true, claim_passed = true,
+    claim_taken = true,
+    -- SECRETS: dig is the move, key the party dug into; secret_used's slug is the
+    -- party, key the use ("vote.<category>" for a vote).
+    dig = true, secret_used = true,
 }
 
 -- WHO A PARTY WAS, for a line of the Record: its rolled name's two numbers, or
@@ -1510,6 +1619,16 @@ IC.EVENTS = {
     law_proposed       = {2633, true, true},
     law_passed         = {2634, true, true},
     law_failed         = {2635, true, true},
+    -- THE WAR COUNCIL. The caller's key is the target's name, the subtitle.
+    war_proposed       = {2636, true, false},
+    war_passed         = {2637, true, false},
+    war_failed         = {2638, true, false},
+    war_begins         = {2639, true, false},
+    war_broken         = {2640, true, false},
+    war_unasked        = {2641, true, false},
+    -- CLAIMS ON CONQUERED LAND. The caller's key is the province's name, the subtitle.
+    claims_laid        = {2642, true, false},
+    claim_taken        = {2643, true, false},
 }
 
 -- RAISED WITH cm:show_message_event_located; the record type must agree with
@@ -1939,11 +2058,35 @@ function IC.pack(faction_key)
     local book = {}
     for key, n in pairs(court.book or {}) do book[#book + 1] = key .. ":" .. tostring(n) end
     table.sort(book)
+    -- THE WAR COUNCIL: field 21 is the planned war as "target,at,proposer", or
+    -- nothing, then ";rest,turn" once a party has proposed one. Its open vote is
+    -- in field 18 with the laws', category IC.COUNCIL and the target as option.
+    local war = court.war
+    local council = (war and string.format("%s,%d,%s", war.target, war.at, war.proposer or IC.CROWN) or "")
+        .. (court.council_rest and (";rest," .. tostring(court.council_rest)) or "")
+    -- CLAIMS: field 22 is "province,ends,slug:cqi:why/slug:cqi:why" per province.
+    local claims = {}
+    for province, open in pairs(court.claims or {}) do
+        local list = {}
+        for i = 1, #open.list do
+            local c = open.list[i]
+            list[i] = string.format("%s:%d:%s", c.slug, c.cqi, c.why)
+        end
+        if #list > 0 then
+            claims[#claims + 1] = string.format("%s,%d,%s", province, open.ends, table.concat(list, "/"))
+        end
+    end
+    table.sort(claims)
+    -- SECRETS: field 23 is "slug,turn" per party.
+    local secrets = {}
+    for slug, t in pairs(court.secrets or {}) do secrets[#secrets + 1] = string.format("%s,%d", slug, t) end
+    table.sort(secrets)
     return join({join(houses, ";"), join(offices, ";"), join(govs, ";"),
                  join(terms, ";"), join(standing, ";"),
                  join(logged, ";"), join(prov, ";"), join(ambition, ";"),
                  court.rolled and "1" or "", join(last, ";"),
-                 join(stalled, ";"), join(news, ";"), join(sent, ";"), gov, join(renown, ";"), deeds, join(laws, ";"), join(votes, ";"), join(grudges, "/"), join(book, "/")}, "|")
+                 join(stalled, ";"), join(news, ";"), join(sent, ";"), gov, join(renown, ";"), deeds, join(laws, ";"), join(votes, ";"), join(grudges, "/"), join(book, "/"), council,
+                 join(claims, ";"), join(secrets, ";")}, "|")
 end
 
 local function split(text, sep)
@@ -2127,9 +2270,12 @@ function IC.unpack(faction_key, packed)
             court.laws[b[1]] = b[2]
         end
     end
+    -- A COUNCIL VOTE'S OPTION IS A FACTION KEY, not a law; it was written with
+    -- all eight fields, so a shorter one is not one this build wrote.
     for _, entry in ipairs(split(fields[18] or "", ";")) do
         local b = split(entry, ",")
-        if #b >= 7 and IC.law_opt(b[1], b[2], faction_key) then
+        if (b[1] == IC.COUNCIL and #b >= 8)
+           or (#b >= 7 and IC.law_opt(b[1], b[2], faction_key)) then
             local v = {option = b[2], proposer = b[3], ends = tonumber(b[4]) or 0,
                        stance = IC.LAW_SIDES[b[5]] and b[5] or "abstain", won = {}, push = {},
                        answered = (b[8] == "1") or nil}
@@ -2175,6 +2321,38 @@ function IC.unpack(faction_key, packed)
         if b[1] and n and n >= 1 then
             court.book[b[1]] = math.min(n, #IC.TUNE.book_bands)
         end
+    end
+    -- Field 21 is optional: a save from before the war council plans no war and
+    -- rests nobody.
+    for _, entry in ipairs(split(fields[21] or "", ";")) do
+        local b = split(entry, ",")
+        if b[1] == "rest" then
+            court.council_rest = tonumber(b[2])
+        elseif #b >= 3 and tonumber(b[2]) then
+            court.war = {target = b[1], at = tonumber(b[2]), proposer = b[3]}
+        end
+    end
+    -- Field 22 is optional: a save from before claims has none open. A claim
+    -- this build cannot read is dropped.
+    for _, entry in ipairs(split(fields[22] or "", ";")) do
+        local b = split(entry, ",")
+        local ends = tonumber(b[2])
+        if b[1] and ends and b[3] then
+            local list = {}
+            for _, piece in ipairs(split(b[3], "/")) do
+                local slug, cqi, why = string.match(piece, "^([%w_]+):(%d+):(%a+)$")
+                if slug and IC.CLAIM_WHY[why] then
+                    list[#list + 1] = {slug = slug, cqi = tonumber(cqi), why = why}
+                end
+            end
+            if #list > 0 then court.claims[b[1]] = {ends = ends, list = list} end
+        end
+    end
+    -- Field 23 is optional: a save from before secrets holds none.
+    for _, entry in ipairs(split(fields[23] or "", ";")) do
+        local b = split(entry, ",")
+        local t = tonumber(b[2])
+        if b[1] and t then court.secrets[b[1]] = t end
     end
     IC.state[faction_key] = court
     return court
@@ -2243,6 +2421,16 @@ function IC.law_voters(faction_key)
     return out
 end
 
+-- HIS STANCE BEFORE LOYALTY: the side a man of `party` takes on the option and
+-- why, or nil. On a war it is his party's war line and the fact that decides it
+-- (cultures take no side on wars); on a law his own stance, "for" or "against".
+function IC.vote_stance(faction_key, category, option, party, culture)
+    if category == IC.COUNCIL then return IC.war_line(faction_key, option, party) end
+    local s = IC.man_stance(category, option, party, culture, faction_key)
+    if s then return s, s == "aye" and "for" or "against" end
+    return nil
+end
+
 -- HIS LINE: the side a man of `party` votes, or nil, and why. With a `culture`
 -- that has a stance on the option it is his culture's side, otherwise his
 -- party's. Asked with no culture it is the party's own line.
@@ -2251,8 +2439,8 @@ function IC.law_line(faction_key, vote, category, party, culture)
         if vote.stance == "abstain" then return nil, "crown" end
         return vote.stance, "crown"
     end
-    local s = IC.man_stance(category, vote.option, party, culture, faction_key)
-    if s then return s, s == "aye" and "for" or "against" end
+    local s, why = IC.vote_stance(faction_key, category, vote.option, party, culture)
+    if s then return s, why end
     if vote.stance == "abstain" then return nil, "no_stance" end
     local house = IC.court(faction_key).houses[party]
     local loyalty = house and house.loyalty or IC.TUNE.loyalty_start
@@ -2311,8 +2499,13 @@ function IC.law_project(faction_key, category, option)
                         {option = option, stance = "aye", won = {}, push = {}})
 end
 
+-- A WAR VOTE ANSWERS TO ITS OWN SWITCH, a law vote to the laws'.
 function IC.law_vote_of(faction_key, category)
-    if not IC.laws_on(faction_key) then return nil end
+    if category == IC.COUNCIL then
+        if not (IC.council_on() and IC.is_human(faction_key)) then return nil end
+    elseif not IC.laws_on(faction_key) then
+        return nil
+    end
     return (IC.court(faction_key).votes or {})[category]
 end
 
@@ -2333,7 +2526,7 @@ function IC.law_win_price(faction_key, category, cqi)
     if man.side == vote.stance then return nil, "law_with_you" end
     local amb = IC.TUNE.law_win_ambition[IC.ambition_slug(faction_key, cqi) or "steady"] or 100
     local price = math.floor(man.n * IC.TUNE.law_win_rate * amb / 10000)
-    local s = IC.man_stance(category, vote.option, man.party, man.culture, faction_key)
+    local s = IC.vote_stance(faction_key, category, vote.option, man.party, man.culture)
     if s and s ~= vote.stance then price = price * 2 end
     return math.max(1, price)
 end
@@ -2457,11 +2650,30 @@ function IC.law_settle(faction_key, category, passed)
     return passed
 end
 
-function IC.law_overrule(faction_key, category, pass)
-    local vote = IC.law_vote_of(faction_key, category)
-    if not vote then return false, "law_none" end
+-- THE PRICE OF OVERRIDING THE COURT ON A WAR: law_overrule_cost of the Crown
+-- men's influence, or with `gold` war_overrule_gold from the treasury. Paid, or
+-- false, why and the shortfall.
+local function council_pay(faction_key, gold)
+    if gold then
+        local cost, have = IC.TUNE.war_overrule_gold, IC.treasury(faction_key)
+        if have < cost then return false, "gold", cost - have end
+        cm:treasury_mod(faction_key, -cost)
+        return true
+    end
     local ok, short = IC.spend_crown(faction_key, IC.TUNE.law_overrule_cost)
     if not ok then return false, "law_purse", short end
+    return true
+end
+
+-- `gold` IS THE WAR VOTE'S ALONE. A war vote settles through the council, whose
+-- passed vote plans a war instead of changing a law.
+function IC.law_overrule(faction_key, category, pass, gold)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not vote then return false, "law_none" end
+    local council = category == IC.COUNCIL
+    if gold and not council then return false, "law_gold" end
+    local ok, why, short = council_pay(faction_key, gold)
+    if not ok then return false, why, short end
     local losing = pass and "nay" or "aye"
     local court = IC.court(faction_key)
     local slugs = {}
@@ -2473,7 +2685,11 @@ function IC.law_overrule(faction_key, category, pass)
         end
     end
     IC.log(faction_key, "law_overrule", IC.CROWN, law_key(category, vote), pass and 1 or 0)
-    IC.law_settle(faction_key, category, pass)
+    if council then
+        IC.council_settle(faction_key, pass, "overrule")
+    else
+        IC.law_settle(faction_key, category, pass)
+    end
     IC.save(faction_key)
     return true
 end
@@ -2539,14 +2755,14 @@ function IC.law_party_push(faction_key, category)
     if not vote then return 0 end
     local slugs = {}
     for slug in pairs(court.houses) do
-        if slug ~= IC.CROWN and IC.law_stance(category, vote.option, slug, faction_key) then
+        if slug ~= IC.CROWN and IC.vote_stance(faction_key, category, vote.option, slug) then
             slugs[#slugs + 1] = slug
         end
     end
     table.sort(slugs)
     local steps = 0
     for _, slug in ipairs(slugs) do
-        local side = IC.law_stance(category, vote.option, slug, faction_key)
+        local side = IC.vote_stance(faction_key, category, vote.option, slug)
         local other = side == "aye" and "nay" or "aye"
         local level = (vote.push[slug] or 0) + 1
         if IC.TUNE.law_push_cost[level] then
@@ -2580,6 +2796,505 @@ function IC.law_turn(faction_key)
         end
     end
     IC.apply_law_bundles(faction_key)
+end
+
+-- THE WAR COUNCIL'S FACTS about a target faction, and each party's line on a war
+-- against it. Read-only: nothing here votes, spends or declares.
+
+-- ONE READ THAT FAILS costs that read and a warning, never the turn.
+local function war_try(own, what, fn)
+    local ok, err = pcall(fn)
+    if not ok then
+        IC.warn("IRON COURT: the war facts failed to read " .. what .. " of "
+                .. own:name() .. ": " .. tostring(err))
+    end
+end
+
+-- ARMIES, NOT GARRISONS: the count the Book weighs (book_sum) skips them too.
+local function war_armies(faction)
+    return faction:military_force_list(true):num_items()
+end
+
+-- EVERY FACTION HOLDING A REGION NEXT TO ONE OF OURS, and never ourselves. A
+-- region nobody holds answers a null interface.
+local function war_near(own)
+    local near, mine = {}, own:name()
+    local regions = own:region_list()
+    for i = 0, regions:num_items() - 1 do
+        war_try(own, "a border", function()
+            local next_door = regions:item_at(i):adjacent_region_list()
+            for j = 0, next_door:num_items() - 1 do
+                local owner = next_door:item_at(j):owning_faction()
+                if owner and not owner:is_null_interface() and owner:name() ~= mine then
+                    near[owner:name()] = true
+                end
+            end
+        end)
+    end
+    return near
+end
+
+-- EVERY FACTION WE HAVE MET THAT TRADES WITH US.
+local function war_trade(own)
+    local trade = {}
+    local met = own:factions_met()
+    for i = 0, met:num_items() - 1 do
+        war_try(own, "a trade agreement", function()
+            local other = met:item_at(i)
+            if own:trade_agreement_with(other) then trade[other:name()] = true end
+        end)
+    end
+    return trade
+end
+
+-- {turn, near, trade}, each a set of faction keys: unsaved, one a court, the way
+-- IC._book is. ONLY `fill` STORES IT, and fill is the turn path's: a declaration
+-- that ends an agreement cannot hide the customer from the parties that react to
+-- it, and what a machine holds never depends on its player opening the court.
+-- Any other read that finds no cache for this turn gets the same table built now,
+-- as a picture it keeps to itself. Declaring war ends trade, so the stored
+-- snapshot is also the only memory of it.
+IC._war_snap = {}
+
+function IC.war_snapshot(faction_key, fill)
+    local now = cm:model():turn_number()
+    local snap = IC._war_snap[faction_key]
+    if snap and snap.turn == now and not fill then return snap end
+    snap = {turn = now, near = {}, trade = {}}
+    local own = real_faction(faction_key)
+    -- NO FACTION YET (before the world exists): an empty answer, kept for nobody.
+    if not own then return snap end
+    war_try(own, "the borders", function() snap.near = war_near(own) end)
+    war_try(own, "the trade agreements", function() snap.trade = war_trade(own) end)
+    if fill then IC._war_snap[faction_key] = snap end
+    return snap
+end
+
+-- A TRADE AGREEMENT SIGNED THIS TURN (PositiveDiplomaticEvent with
+-- is_trade_agreement) joins the snapshot, which was taken before it. It runs on a
+-- model event on every machine, so a turn with no snapshot yet fills one first.
+function IC.war_note_trade(faction_key, other_key)
+    local snap = IC._war_snap[faction_key]
+    if not (snap and snap.turn == cm:model():turn_number()) then
+        snap = IC.war_snapshot(faction_key, true)
+    end
+    snap.trade[other_key] = true
+end
+
+-- THE SEVEN FACTS of one target, as {[fact] = true}. `snap` reads trade and near
+-- from the snapshot (a reaction to a war already begun); otherwise trade is live and
+-- near is still the cache's. Weak and strong are strict, so equal armies are
+-- neither. EACH LIVE READ IS GUARDED: a call that throws costs its fact, never the
+-- vote tally that asked.
+function IC.war_facts(faction_key, target_key, snap)
+    local out = {}
+    local own, them = real_faction(faction_key), real_faction(target_key)
+    if not own or not them then return out end
+    local R = IC.R(faction_key)
+    local seen = IC.war_snapshot(faction_key)
+    out.near = seen.near[target_key] or nil
+    if snap then out.trade = seen.trade[target_key] or nil end
+    war_try(own, "trade with " .. target_key, function()
+        if not snap and own:trade_agreement_with(them) then out.trade = true end
+    end)
+    war_try(own, "the armies against " .. target_key, function()
+        local mine, theirs = war_armies(own), war_armies(them)
+        out.weak = theirs < mine or nil
+        out.strong = theirs > mine or nil
+    end)
+    war_try(own, "the race of " .. target_key, function()
+        local sc = them:subculture()
+        out.kin = sc == R.subculture or nil
+        for i = 1, #R.WAR_FOES do
+            if R.WAR_FOES[i] == sc then out.foe = true end
+        end
+    end)
+    out.book = IC.in_book(faction_key, target_key) or nil
+    return out
+end
+
+-- A PARTY'S LINE: the side `party` takes on a war on the target, and the fact that
+-- decides it; the first fact in its list that holds. nil for a party with no list
+-- (the Crown, a confederated house, the tower) and for one no fact holds for.
+function IC.war_line(faction_key, target_key, party, snap)
+    local lines = IC.R(faction_key).WAR_LINES[party or ""]
+    if not lines then return nil end
+    local facts = IC.war_facts(faction_key, target_key, snap)
+    for i = 1, #lines do
+        if facts[lines[i][1]] then return lines[i][2], lines[i][1] end
+    end
+    return nil
+end
+
+-- ALLIED, A VASSAL OR AN OVERLORD (CA's one call covers the three), or a
+-- non-aggression pact, whichever side holds it.
+function IC.war_treaty(faction_key, target_key)
+    local own, them = real_faction(faction_key), real_faction(target_key)
+    if not own or not them then return false end
+    return own:is_ally_vassal_or_client_state_of(them) or them:is_ally_vassal_or_client_state_of(own)
+        or own:non_aggression_pact_with(them) or them:non_aggression_pact_with(own)
+end
+
+-- MAY THIS FACTION BE NAMED? true, or false and why. The first refusal in this
+-- order wins. A rebel here is also a quest battle faction and a rising of the
+-- race's own pool. A trade partner may be named: the Ledger and the Road vote
+-- against it. `far` = no border and, for a Dwarf court, no grudge. `seen` is a
+-- snapshot to read the border from, which a caller asking about many targets builds
+-- once; left out it is IC.war_snapshot's.
+function IC.war_candidate(faction_key, target_key, seen)
+    if target_key == faction_key then return false, "self" end
+    local own, them = real_faction(faction_key), real_faction(target_key)
+    if not own or not them or them:is_dead() then return false, "dead" end
+    if not own:is_known_faction(them) then return false, "unmet" end
+    if them:is_human() then return false, "human" end
+    local rising = false
+    for _, key in ipairs(IC.R(faction_key).REBEL_POOL) do
+        if key == target_key then rising = true end
+    end
+    if rising or them:is_rebel() or them:is_quest_battle_faction() then return false, "rebel" end
+    if own:at_war_with(them) then return false, "at_war" end
+    if IC.war_treaty(faction_key, target_key) then return false, "treaty" end
+    if not (seen or IC.war_snapshot(faction_key)).near[target_key]
+            and not IC.in_book(faction_key, target_key) then
+        return false, "far"
+    end
+    return true
+end
+
+-- EVERY FACTION THE COURT MAY NAME, sorted by key so every machine sorts alike:
+-- cm:random_number picks among them. ONE SNAPSHOT for all of them, stored or a
+-- picture, so a court with no cache this turn walks its map once and not once each.
+function IC.war_candidates(faction_key)
+    local out = {}
+    local own = real_faction(faction_key)
+    if not own then return out end
+    local seen = IC.war_snapshot(faction_key)
+    local met = own:factions_met()
+    for i = 0, met:num_items() - 1 do
+        war_try(own, "a faction met", function()
+            local key = met:item_at(i):name()
+            if IC.war_candidate(faction_key, key, seen) then out[#out + 1] = key end
+        end)
+    end
+    table.sort(out)
+    return out
+end
+
+-- THE WAR COUNCIL'S VOTE AND ITS PLANNED WAR. The vote is a law vote kept under
+-- court.votes[IC.COUNCIL] with the target as its option, and the law engine
+-- tallies, pushes, wins and overrules it; IC.vote_stance gives its men their war
+-- lines. Player courts only.
+
+-- THE PARTIES WHOSE WAR LINE ON THE TARGET IS `side`, in the race's party order.
+-- Lines from facts only: a party that votes on loyalty is on neither list.
+function IC.war_side(faction_key, target_key, side, snap)
+    local out = {}
+    for _, slug in ipairs(IC.present_houses(faction_key)) do
+        if IC.war_line(faction_key, target_key, slug, snap) == side then out[#out + 1] = slug end
+    end
+    return out
+end
+
+local function war_charge(faction_key, target_key, side, delta)
+    for _, slug in ipairs(IC.war_side(faction_key, target_key, side)) do
+        IC.move_loyalty(faction_key, slug, delta)
+    end
+end
+
+-- NO WAR MAY BE PUT TO THE COURT, OR DECLARED BY IT: true and why. The grace
+-- period, and the author's start-of-campaign truce (derpy_no_early_wars.lua),
+-- which locks war with cm:force_diplomacy that cm:force_declare_war would break
+-- straight through. Without that mod both saved values are nil.
+function IC.war_locked(_faction_key)
+    if IC.grace_left() > 0 then return true, "grace" end
+    if cm:get_saved_value("derpy_no_early_wars_turns") ~= nil
+       and not cm:get_saved_value("derpy_no_early_wars_released") then
+        return true, "truce"
+    end
+    return false
+end
+
+-- WHY NO COUNCIL VOTE MAY OPEN in this court today, whoever names whom, or nil.
+local function council_shut(faction_key)
+    if not (IC.council_on() and IC.is_human(faction_key)) then return "council_off" end
+    local court = IC.court(faction_key)
+    if (court.votes or {})[IC.COUNCIL] then return "council_open" end
+    if court.war then return "council_war" end
+    local locked, why = IC.war_locked(faction_key)
+    if locked then return why end
+    return nil
+end
+
+-- MAY THE COURT VOTE ON A WAR ON `target`? true, or false and why: the court's
+-- own refusal first, then IC.war_candidate's.
+function IC.council_can_open(faction_key, target)
+    local shut = council_shut(faction_key)
+    if shut then return false, shut end
+    if not target then return false, "dead" end
+    return IC.war_candidate(faction_key, target)
+end
+
+function IC.council_open(faction_key, target, proposer, stance)
+    local court = IC.court(faction_key)
+    court.votes = court.votes or {}
+    court.votes[IC.COUNCIL] = {option = target, proposer = proposer,
+        ends = cm:model():turn_number() + IC.TUNE.law_vote_turns,
+        stance = stance, won = {}, push = {}}
+    IC.log(faction_key, "law_propose", proposer, IC.COUNCIL .. "." .. target, 0)
+    -- A PARTY'S PROPOSAL rests the court from today (spec 2.5), voided or not.
+    -- THE PLAYER'S OWN MOVE rests nobody and has its result card already.
+    if proposer ~= IC.CROWN then
+        court.council_rest = cm:model():turn_number()
+        IC.feed(faction_key, "war_proposed", "factions_screen_name_" .. target)
+    end
+end
+
+-- THE WAR A PARTY WOULD PUT TO THE COURT, or nil: share enough, the court's rest
+-- run out, and a candidate its line is for, picked with cm:random_number so every
+-- machine picks the same.
+function IC.council_party_pick(faction_key, slug)
+    if council_shut(faction_key) then return nil end
+    local court = IC.court(faction_key)
+    if court.council_rest
+       and cm:model():turn_number() - court.council_rest < IC.TUNE.war_party_rest then
+        return nil
+    end
+    if IC.share(faction_key, slug) < IC.TUNE.war_party_share then return nil end
+    local list = {}
+    for _, key in ipairs(IC.war_candidates(faction_key)) do
+        if IC.war_line(faction_key, key, slug) == "aye" then list[#list + 1] = key end
+    end
+    if #list == 0 then return nil end
+    return list[cm:random_number(#list, 1)]
+end
+
+-- THE END OF A WAR VOTE. `how` is "tally", "overrule" or "bypass": the last is the
+-- player declaring the war himself while it was open (task 3's reaction, which
+-- charges the parties against it), so it closes passed and plans nothing, with
+-- no swing, no card and a Record line of its own. A passed vote moves the parties for it and against it
+-- by IC.law_swing, as a passed law does.
+function IC.council_settle(faction_key, passed, how)
+    local court = IC.court(faction_key)
+    local vote = (court.votes or {})[IC.COUNCIL]
+    if not vote then return nil end
+    court.votes[IC.COUNCIL] = nil
+    local now = cm:model():turn_number()
+    local target, key = vote.option, IC.COUNCIL .. "." .. vote.option
+    if passed then
+        if how ~= "bypass" then
+            local tally = IC.law_tally(faction_key, IC.COUNCIL, vote)
+            for _, step in ipairs({{"aye", IC.TUNE.law_pass_gain}, {"nay", IC.TUNE.law_pass_loss}}) do
+                for _, slug in ipairs(IC.war_side(faction_key, target, step[1])) do
+                    IC.move_loyalty(faction_key, slug, IC.law_swing(tally, slug, step[2]))
+                end
+            end
+            court.war = {target = target, at = now + IC.TUNE.war_prep_turns, proposer = vote.proposer}
+            IC.log(faction_key, "war_planned", vote.proposer, target, court.war.at)
+        end
+        -- A BYPASS IS NOT A VOTE THE COURT PASSED, and its Record line says so.
+        if how == "bypass" then
+            IC.log(faction_key, "war_bypass", vote.proposer, target, 0)
+        else
+            IC.log(faction_key, "law_pass", vote.proposer, key, 0)
+            IC.feed(faction_key, "war_passed", "factions_screen_name_" .. target)
+        end
+    else
+        if vote.proposer ~= IC.CROWN then IC.move_loyalty(faction_key, vote.proposer, IC.TUNE.law_fail_loss) end
+        IC.log(faction_key, "law_fail", vote.proposer, key, 0)
+        IC.feed(faction_key, "war_failed", "factions_screen_name_" .. target)
+    end
+    return passed
+end
+
+-- A VOTE WHOSE TARGET CHANGED UNDER IT, closed. `why` "gone" (dead, unmet, or at
+-- war with you already) costs nobody; "treaty" is a war you settled without the
+-- council, and the parties for it lose war_bypass_loyalty.
+function IC.council_void(faction_key, why)
+    local court = IC.court(faction_key)
+    local vote = (court.votes or {})[IC.COUNCIL]
+    if not vote then return false end
+    court.votes[IC.COUNCIL] = nil
+    if why == "treaty" then war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) end
+    IC.log(faction_key, "war_void", vote.proposer, vote.option, why == "treaty" and 1 or 0)
+    return true
+end
+
+-- GONE: dead, never met, or no faction at all.
+local function war_gone(own, them)
+    return not own or not them or them:is_dead() or not own:is_known_faction(them)
+end
+
+-- ONCE A TURN, player courts, after the laws: an open vote whose target changed
+-- is void, one at its end resolves and the rest is pushed; then a planned war
+-- whose turn has come is declared, or dropped.
+function IC.council_turn(faction_key)
+    if not (IC.council_on() and IC.is_human(faction_key)) then return nil end
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    local own = real_faction(faction_key)
+    local vote = (court.votes or {})[IC.COUNCIL]
+    if vote then
+        local them = real_faction(vote.option)
+        -- NO LONGER NEXT DOOR IS NOTHING: the border decides who may be named,
+        -- not whether a vote stands.
+        if war_gone(own, them) or own:at_war_with(them) then
+            IC.council_void(faction_key, "gone")
+        elseif IC.war_treaty(faction_key, vote.option) then
+            IC.council_void(faction_key, "treaty")
+        elseif now >= vote.ends then
+            IC.council_settle(faction_key,
+                IC.law_passes(IC.law_tally(faction_key, IC.COUNCIL, vote)), "tally")
+        else
+            IC.law_party_push(faction_key, IC.COUNCIL)
+        end
+    end
+    local war = court.war
+    if not war or now < war.at then return nil end
+    local them = real_faction(war.target)
+    local name = "factions_screen_name_" .. war.target
+    if war_gone(own, them) then
+        court.war = nil
+        IC.log(faction_key, "war_void", war.proposer, war.target, 2)
+    elseif own:at_war_with(them) then
+        -- ALREADY AT WAR: you started it early (IC.war_react logged war_early
+        -- then), or the target or a confederation brought the war. Nothing to
+        -- declare, nothing to charge.
+        court.war = nil
+    elseif IC.war_treaty(faction_key, war.target) then
+        court.war = nil
+        war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)
+        IC.log(faction_key, "war_broken", war.proposer, war.target, 0)
+        IC.feed(faction_key, "war_broken", name)
+    elseif IC.war_locked(faction_key) then
+        war.at = now + 1
+    else
+        -- THE COURT'S OWN WAR IS FREE: the flag goes up before the call, whose
+        -- declaration event the court's reaction to wars hears (task 3).
+        court.war = nil
+        court.war_free = court.war_free or {}
+        court.war_free[war.target] = now
+        cm:force_declare_war(faction_key, war.target, false, false)
+        IC.log(faction_key, "war_begins", war.proposer, war.target, 0)
+        IC.feed(faction_key, "war_begins", name)
+    end
+end
+
+-- CALLING OFF A PLANNED WAR, for the overrule's price in influence or in gold:
+-- every party whose line is aye loses law_overrule_loyalty. No card: the player
+-- did it.
+function IC.war_calloff(faction_key, gold)
+    if not (IC.council_on() and IC.is_human(faction_key)) then return false, "council_off" end
+    local court = IC.court(faction_key)
+    local war = court.war
+    if not war then return false, "war_none" end
+    local ok, why, short = council_pay(faction_key, gold)
+    if not ok then return false, why, short end
+    court.war = nil
+    war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)
+    IC.log(faction_key, "war_called", IC.CROWN, war.target, gold and 1 or 0)
+    IC.save(faction_key)
+    return true
+end
+
+-- WHICH PARTIES HAVE ALREADY REACTED TO A WAR OR A PEACE, [faction key .. "|" ..
+-- party .. "|" .. kind] = the turn. In memory only, as IC._book is: it covers one turn.
+IC._war_reacted = {}
+
+-- THE COURT'S REACTION TO A WAR OR A PEACE THE PLAYER MADE ON THE DIPLOMACY SCREEN
+-- WITHOUT ASKING IT (spec 2.7); true when it changed anything. `kind` "war" is a
+-- declaration on `target_key`, "peace" a treaty with it. The screen is not blocked,
+-- so the court hears after the fact, and reads the turn's snapshot: declaring war
+-- ended any trade agreement first. Only lines from facts count, and a party that
+-- votes on loyalty never reacts. A PARTY REACTS ONCE A TURN TO A WAR AND ONCE TO A
+-- PEACE: a declaration can pull the target's allies in at the same moment, and the
+-- court counts that as one war; a peace is no war, and is counted apart.
+function IC.war_react(faction_key, target_key, kind)
+    if kind ~= "war" and kind ~= "peace" then return false end
+    if not (IC.council_on() and IC.is_human(faction_key)
+            and IC.has_court(real_faction(faction_key))) then
+        return false
+    end
+    IC.loaded(faction_key)
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    local lines
+    -- THE PARTIES ON `side` that have not reacted this turn, each moved by `delta`;
+    -- how many that was. A Dwarf party whose aye line is the Book is left out of a
+    -- peace: IC.book_peace writes that wrong as a grudge.
+    local function pay(side, delta)
+        if not lines then
+            lines = {}
+            for _, slug in ipairs(IC.present_houses(faction_key)) do
+                local line, fact = IC.war_line(faction_key, target_key, slug, true)
+                if line then lines[#lines + 1] = {slug = slug, side = line, fact = fact} end
+            end
+        end
+        local moved = 0
+        for _, l in ipairs(lines) do
+            local key = faction_key .. "|" .. l.slug .. "|" .. kind
+            if l.side == side and IC._war_reacted[key] ~= now
+               and not (kind == "peace" and l.side == "aye" and l.fact == "book") then
+                IC._war_reacted[key] = now
+                IC.move_loyalty(faction_key, l.slug, delta)
+                moved = moved + 1
+            end
+        end
+        return moved
+    end
+    if kind == "peace" then
+        local n = pay("aye", -IC.TUNE.war_peace_loyalty) + pay("nay", IC.TUNE.war_peace_loyalty)
+        if n == 0 then return false end
+        IC.log(faction_key, "war_peace", IC.CROWN, target_key, 0)
+        return true
+    end
+    -- ONE DECLARATION IS ONE WAR, in every branch of a war: each marks EVERY party as
+    -- reacted, the ones with no line too. The target's allies are drawn in at the
+    -- same moment as events of their own, and left unmarked they would charge the
+    -- court for the war it planned, took a vote on or declared itself, or charge a
+    -- second time for an unasked one. A genuine second war in the same turn goes
+    -- uncharged; that is the cost. The war's stamp only: a peace still reacts.
+    local function settled()
+        for _, slug in ipairs(IC.present_houses(faction_key)) do
+            IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now
+        end
+    end
+    -- THE COURT'S OWN WAR is free: IC.council_turn raised the flag before the call.
+    -- ANY WAR IT DECLARED THIS TURN, not only one on this target: the engine's order
+    -- is not known, and an ally's event may come before the target's. Whether any
+    -- entry is today's does not depend on the order pairs() walks them in.
+    local free = false
+    for _target, at in pairs(court.war_free or {}) do
+        if at == now then free = true end
+    end
+    if free then
+        settled()
+        return false
+    end
+    -- THE PLANNED WAR, started early by the player's own hand, is done, and free.
+    if court.war and court.war.target == target_key then
+        court.war = nil
+        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)
+        settled()
+        return true
+    end
+    -- THE OPEN VOTE ON IT closes passed, with no war planned: the parties against
+    -- it pay, and the ones for it gain nothing for a war nobody waited for.
+    local vote = (court.votes or {})[IC.COUNCIL]
+    if vote and vote.option == target_key then
+        IC.council_settle(faction_key, true, "bypass")
+        pay("nay", IC.TUNE.war_bypass_loyalty)
+        settled()
+        return true
+    end
+    -- A WAR THE COURT WAS NOT ASKED ABOUT, and the whole court has now heard of it:
+    -- the events a declaration pulls in behind it move nobody, so the card and the
+    -- Record line are for the first, and only a war that moved somebody gets them.
+    local n = pay("nay", IC.TUNE.war_bypass_loyalty) + pay("aye", IC.TUNE.war_bypass_gain)
+    settled()
+    if n == 0 then return false end
+    IC.log(faction_key, "war_unasked", IC.CROWN, target_key, 0)
+    IC.feed(faction_key, "war_unasked", "factions_screen_name_" .. target_key)
+    return true
 end
 
 function IC.member_weight(faction_key, slug)
@@ -4559,6 +5274,9 @@ function IC.assign_governor(faction_key, province_key, cqi)
            province_key, 0)
     IC.save(faction_key)
     IC.apply_governor_bundles(faction_key)
+    -- LAST, ONCE THE MAN GOVERNS: the province's open claims are answered, which
+    -- makes every route to a governor a grant or a pass.
+    IC.claims_on_assign(faction_key, province_key, cqi)
     return true
 end
 
@@ -4627,6 +5345,300 @@ function IC.seats(faction_key)
     local out = {}
     for _, seat in ipairs(IC.seats_named(faction_key)) do
         out[#out + 1] = seat.key
+    end
+    return out
+end
+
+-- CLAIMS ON CONQUERED LAND (docs/superpowers/specs/2026-10-17-iron-court-war-
+-- claims-secrets-design.md 3). Taking a province new to a player's court makes up
+-- to claim_max rival parties claim its governorship. Every route to a governor
+-- answers them through one hook, IC.claims_on_assign, called last in
+-- IC.assign_governor.
+IC.CLAIM_WHY = {conquest = true, home = true, weight = true}
+
+-- THE RIVAL PARTIES, largest share first; a tie goes to IC.present_houses order,
+-- the same on every machine.
+local function rivals_by_share(faction_key)
+    local out = {}
+    for i, slug in ipairs(IC.present_houses(faction_key)) do
+        if slug ~= IC.CROWN then
+            out[#out + 1] = {slug = slug, i = i, share = IC.share(faction_key, slug)}
+        end
+    end
+    table.sort(out, function(a, b)
+        if a.share ~= b.share then return a.share > b.share end
+        return a.i < b.i
+    end)
+    return out
+end
+
+-- THE FACTION'S MEN, [cqi] = IC.candidates' entry; a man dead or gone is not here.
+local function men_of(faction_key)
+    local out = {}
+    for _, cand in ipairs(IC.candidates(faction_key)) do out[cand.cqi] = cand end
+    return out
+end
+
+-- RICHER FIRST, ties to the lower cqi: the parties' free_men order, which
+-- IC.claimants and the void's re-pick both use.
+local function richer(faction_key, x, y)
+    local sx, sy = IC.standing(faction_key, x), IC.standing(faction_key, y)
+    if sx ~= sy then return sx > sy end
+    return x < y
+end
+
+-- WHETHER `man` CAN CARRY `slug`'s CLAIM on `province_key`: alive, still of the
+-- party and free ("free" is IC.candidates' busy flag, as the demands read it).
+-- Governing this province himself counts as free, so the hook can ask after the
+-- appointment.
+local function carries(man, slug, province_key)
+    local busy = man and man.busy
+    return man ~= nil and man.slug == slug
+        and (not busy or (busy.kind == "gov" and busy.key == province_key))
+end
+
+-- VOID, ON ONE PROVINCE. A CLAIM IS ITS PARTY'S: when its man died, left or took
+-- another post, the party's richest man who can carry it takes it up, `why` and
+-- all, and only a party with nobody left loses it. A province no longer held keeps
+-- none; one left with none closes. Nothing is paid. How many claims changed.
+local function void_province(faction_key, province_key, men)
+    local court = IC.court(faction_key)
+    local open = (court.claims or {})[province_key]
+    if not open then return 0 end
+    local held = IC.held_region(faction_key, province_key) ~= nil
+    local keep, changed = {}, 0
+    for _, c in ipairs(open.list) do
+        local cqi = c.cqi
+        if held and not carries(men[cqi], c.slug, province_key) then
+            cqi = nil
+            for other, man in pairs(men) do
+                if carries(man, c.slug, province_key) and (not cqi or richer(faction_key, other, cqi)) then
+                    cqi = other
+                end
+            end
+        end
+        if held and cqi then
+            if cqi ~= c.cqi then c.cqi, changed = cqi, changed + 1 end
+            keep[#keep + 1] = c
+        else
+            changed = changed + 1
+        end
+    end
+    open.list = keep
+    if #keep == 0 then court.claims[province_key] = nil end
+    return changed
+end
+
+-- THE CLAIM OF `slug` ON `province_key`, or nil.
+local function claim_of(faction_key, province_key, slug)
+    local open = (IC.court(faction_key).claims or {})[province_key or ""]
+    for _, c in ipairs(open and open.list or {}) do
+        if c.slug == slug then return c end
+    end
+    return nil
+end
+
+-- BEFORE GRANT OR REFUSE: the province's void, then the claim. nil and a refusal
+-- code when there is none to answer: "no_claim", or "claim_void" when it was
+-- dropped just now (its man died, left or took another post since turn start,
+-- and his party has no other free man to take it up).
+local function live_claim(faction_key, province_key, slug)
+    if not claim_of(faction_key, province_key, slug) then return nil, "no_claim" end
+    if void_province(faction_key, province_key, men_of(faction_key)) > 0 then IC.save(faction_key) end
+    local c = claim_of(faction_key, province_key, slug)
+    if not c then return nil, "claim_void" end
+    return c
+end
+
+-- WHO CLAIMS `province_key`, in order (spec 3.2): the occupier's party by conquest
+-- (the occupier if he holds no post, else its richest free man), the main party of
+-- the culture whose home it is, then the rest by share, until claim_max. Rival
+-- parties only, one claim each; a party with no free man makes none.
+function IC.claimants(faction_key, province_key, occupier_cqi)
+    local R = IC.R(faction_key)
+    local court = IC.court(faction_key)
+    local men, occupier = {}, nil
+    for _, cand in ipairs(IC.candidates(faction_key)) do
+        if cand.cqi == occupier_cqi then occupier = cand end
+        if cand.slug and not cand.busy then
+            men[cand.slug] = men[cand.slug] or {}
+            table.insert(men[cand.slug], cand.cqi)
+        end
+    end
+    for _, list in pairs(men) do
+        table.sort(list, function(x, y) return richer(faction_key, x, y) end)
+    end
+    local out, claimed = {}, {}
+    local function claim(slug, cqi, why)
+        if #out >= IC.TUNE.claim_max or not slug or slug == IC.CROWN
+           or claimed[slug] or not court.houses[slug] then
+            return
+        end
+        cqi = cqi or (men[slug] or {})[1]
+        if not cqi then return end
+        claimed[slug] = true
+        out[#out + 1] = {slug = slug, cqi = cqi, why = why}
+    end
+    if occupier then claim(occupier.slug, not occupier.busy and occupier.cqi or nil, "conquest") end
+    local home = R.CULTURE_BY_SLUG[R.HOME_OF[province_key or ""] or ""]
+    if home then claim(home.main, nil, "home") end
+    for _, r in ipairs(rivals_by_share(faction_key)) do claim(r.slug, nil, "weight") end
+    return out
+end
+
+-- THE CLAIMS ON A PROVINCE JUST TAKEN; how many were laid. Only on a player's
+-- court with claims on, and only on a NEW province: exactly one region of it is
+-- the court's after the capture. `region_key`, when given, must be that one - read
+-- before the region changed hands the count would be off by one, and this way it
+-- raises nothing rather than claims on a province already held.
+function IC.claim_raise(faction_key, province_key, occupier_cqi, region_key)
+    if not (province_key and IC.claims_on() and IC.is_human(faction_key)) then return 0 end
+    local court = IC.court(faction_key)
+    court.claims = court.claims or {}
+    if court.claims[province_key] then return 0 end
+    local n, only = 0, nil
+    pcall(function()
+        local list = real_faction(faction_key):region_list()
+        for i = 0, list:num_items() - 1 do
+            local region = list:item_at(i)
+            if region and not region:is_null_interface()
+               and region:province():key() == province_key then
+                n, only = n + 1, region:name()
+            end
+        end
+    end)
+    if n ~= 1 or (region_key and only ~= region_key) then return 0 end
+    local list = IC.claimants(faction_key, province_key, occupier_cqi)
+    if #list == 0 then return 0 end
+    court.claims[province_key] = {ends = cm:model():turn_number() + IC.TUNE.claim_turns, list = list}
+    for i = 1, #list do IC.log(faction_key, "claim", list[i].slug, province_key, 0) end
+    IC.feed(faction_key, "claims_laid", "provinces_onscreen_" .. province_key)
+    IC.save(faction_key)
+    return #list
+end
+
+-- THE HOOK: whoever governs `province_key` now answers its claims. The void runs
+-- first, so a claimant whose man died, left or took another post since turn start
+-- costs his party nothing. A CLAIM IS ITS PARTY'S, its man only the candidate:
+-- any man of a claiming party appointed is that claim granted (claim_granted),
+-- and every other claimant loses claim_passed; anyone else passes them all over.
+-- Closed before anything is paid, so a grant that comes back through here
+-- settles once.
+function IC.claims_on_assign(faction_key, province_key, cqi)
+    local court = IC.court(faction_key)
+    local open = (court.claims or {})[province_key or ""]
+    if not open then return false end
+    void_province(faction_key, province_key, men_of(faction_key))
+    court.claims[province_key] = nil
+    local party = IC.house_of_cqi(faction_key, cqi)
+    for _, c in ipairs(open.list) do
+        if c.slug == party then
+            IC.move_loyalty(faction_key, c.slug, IC.TUNE.claim_granted)
+            IC.log(faction_key, open.lapsed and "claim_taken" or "claim_granted", c.slug, province_key, 0)
+        else
+            IC.move_loyalty(faction_key, c.slug, IC.TUNE.claim_passed)
+            IC.log(faction_key, "claim_passed", c.slug, province_key, 0)
+        end
+    end
+    IC.save(faction_key)
+    return true
+end
+
+-- GRANT: the claimant governs. IC.assign_governor's hook pays, so this pays
+-- nothing itself. A claim void since turn start is refused (live_claim).
+function IC.claim_grant(faction_key, province_key, slug)
+    if not IC.claims_on() then return false, "claims_off" end
+    local claim, why = live_claim(faction_key, province_key, slug)
+    if not claim then return false, why end
+    return IC.assign_governor(faction_key, province_key, claim.cqi)
+end
+
+-- REFUSE: that claimant loses claim_refused, and a Dwarf court writes a demand
+-- grudge (a claim refused is a demand refused). The other claims stay open. A
+-- claim void since turn start is refused, and charges nobody.
+function IC.claim_refuse(faction_key, province_key, slug)
+    if not IC.claims_on() then return false, "claims_off" end
+    local claim, why = live_claim(faction_key, province_key, slug)
+    if not claim then return false, why end
+    local court = IC.court(faction_key)
+    local open = court.claims[province_key]
+    local keep = {}
+    for _, c in ipairs(open.list) do
+        if c ~= claim then keep[#keep + 1] = c end
+    end
+    open.list = keep
+    if #keep == 0 then court.claims[province_key] = nil end
+    IC.move_loyalty(faction_key, slug, IC.TUNE.claim_refused)
+    IC.grudge_write(faction_key, slug, "demand")
+    IC.log(faction_key, "claim_refused", slug, province_key, 0)
+    IC.save(faction_key)
+    return true
+end
+
+-- VOID, ON EVERY PROVINCE (void_province): at turn start, and when a party leaves
+-- (IC.drop_party_business). How many claims were dropped or passed to another man.
+function IC.claims_void(faction_key)
+    local court = IC.court(faction_key)
+    if not next(court.claims or {}) then return 0 end
+    local men, provinces = men_of(faction_key), {}
+    for province in pairs(court.claims) do provinces[#provinces + 1] = province end
+    local dropped = 0
+    for _, province in ipairs(provinces) do
+        dropped = dropped + void_province(faction_key, province, men)
+    end
+    return dropped
+end
+
+-- ONCE A TURN, after the war council: void, then every claim at its end is
+-- answered by the court, which grants the remaining claim of the party with the
+-- largest share by Grant's path (an unanswered choice is accepted, as
+-- IC.gov_expire's is). How many it granted. Switched off there is nothing open
+-- (IC.settle_switches), and Grant refuses.
+function IC.claims_turn(faction_key)
+    local court = IC.court(faction_key)
+    if not next(court.claims or {}) then return 0 end
+    IC.claims_void(faction_key)
+    local now = cm:model():turn_number()
+    local due = {}
+    for province, open in pairs(court.claims) do
+        if now >= open.ends then due[#due + 1] = province end
+    end
+    table.sort(due)
+    local rivals = rivals_by_share(faction_key)
+    local granted = 0
+    for _, province in ipairs(due) do
+        local open = court.claims[province]
+        local by = {}
+        for _, c in ipairs(open.list) do by[c.slug] = true end
+        -- READ BY THE HOOK, which writes the court's grant as claim_taken.
+        open.lapsed = true
+        for _, r in ipairs(rivals) do
+            if by[r.slug] and IC.claim_grant(faction_key, province, r.slug) then
+                IC.feed(faction_key, "claim_taken", "provinces_onscreen_" .. province)
+                granted = granted + 1
+                break
+            end
+        end
+        open.lapsed = nil
+    end
+    if #due > 0 then IC.save(faction_key) end
+    return granted
+end
+
+-- FOR THE PANEL: {{province, slug, cqi, why, ends}, ...}, by province and then
+-- claim order. IC.state, not IC.court: asking must never create a court.
+function IC.claims_list(faction_key)
+    local court = faction_key and IC.state[faction_key]
+    local out = {}
+    if not court then return out end
+    local provinces = {}
+    for province in pairs(court.claims or {}) do provinces[#provinces + 1] = province end
+    table.sort(provinces)
+    for _, province in ipairs(provinces) do
+        local open = court.claims[province]
+        for _, c in ipairs(open.list) do
+            out[#out + 1] = {province = province, slug = c.slug, cqi = c.cqi, why = c.why, ends = open.ends}
+        end
     end
     return out
 end
@@ -6261,6 +7273,17 @@ IC.PLOTS = {
          "Recalls every governor from their party. -%d loyalty.",
          IC.TUNE.plot_recall_loyalty),
      blurb = "The Tower takes back its provinces."},
+    -- DIG FOR SECRETS: aimed at a man, held on his PARTY, and spent once from the
+    -- Court tab (IC.secret_uses).
+    {key = "dig", name = "Dig for Secrets",
+     icon = "ui/campaign ui/skills/wh2_dlc11_blackmail.png",
+     cat = "house",
+     cost = "plot_dig_cost",
+     effect = string.format(
+         "A secret on their party, used once. Each use: %d to %d loyalty.",
+         IC.TUNE.secret_use_loyalty,
+         IC.TUNE.secret_expose_loyalty),
+     blurb = "Every house hides something."},
     -- PAY THE WEREGILD: Dwarf courts only, GOLD from the treasury, and SURE: a
     -- blood-price is paid, not tried. In the party column, not Bonds.
     {key = "weregild", name = "Pay the Weregild", race = "dwf", gold = true, sure = true,
@@ -6361,6 +7384,18 @@ IC.PLOTS = {
          "Improves relations with a faction you have met. Each faction once per %d turns.",
          IC.TUNE.diplomats_rest),
      blurb = "Gifts and a long table."},
+    -- THE WAR COUNCIL: a faction target, as Send Diplomats is, but SURE (a vote is
+    -- called, not tried) and FIELD: unlike every other mission, a man leading an
+    -- army may call it. IC.council_can_open says who may be named.
+    {key = "council", name = "Call the War Council", aimed = false, target = "faction",
+     sure = true, field = true,
+     icon = "ui/campaign ui/skills/wh3_dlc23_character_ability_murderous_charge.png",
+     cat = "mission",
+     cost = "plot_council_cost",
+     effect = string.format(
+         "A court vote on war with a faction. Passed, war is declared %d turns later.",
+         IC.TUNE.war_prep_turns),
+     blurb = "The houses weigh the war."},
 }
 
 function IC.plot_is_aimed(plot_key)
@@ -6369,8 +7404,10 @@ function IC.plot_is_aimed(plot_key)
     return plot.aimed ~= false
 end
 
+-- A MOVE A GENERAL MAY NOT MAKE: aimed at nobody, and not marked `field`.
 function IC.is_civil_mission(plot_key)
-    return not IC.plot_is_aimed(plot_key)
+    local plot = IC.plot_by_key(plot_key)
+    return not IC.plot_is_aimed(plot_key) and not (plot and plot.field)
 end
 
 IC.FAVOURS = {
@@ -6664,6 +7701,7 @@ function IC.may_target(faction_key, plot_key, cqi)
     -- is a "province:code" or a faction key, not a cqi, and a refusal that waits
     -- on turns returns them third.
     if plot.target == "province" then return IC.may_send_envoy(faction_key, cqi) end
+    if plot_key == "council" then return IC.council_can_open(faction_key, cqi) end
     if plot.target == "faction" then return IC.may_send_diplomats(faction_key, cqi) end
     if not IC.plot_is_aimed(plot_key) then return true end
     -- NOTHING TO START IN THE GRACE PERIOD: Provoke is a countdown, and none
@@ -6701,6 +7739,12 @@ function IC.may_target(faction_key, plot_key, cqi)
         if #IC.provinces_of_house(faction_key, slug) == 0 then
             return false, "no provinces"
         end
+    end
+    -- ONE SECRET PER PARTY, whichever of its men is aimed at.
+    if plot_key == "dig" then
+        local slug = IC.house_of_character(victim, faction_key)
+        if not slug or not IC.court(faction_key).houses[slug] then return false, "no house" end
+        if (IC.court(faction_key).secrets or {})[slug] then return false, "held" end
     end
     if plot_key == "kinsman" then
         local slug = IC.house_of_character(victim, faction_key)
@@ -6959,6 +8003,9 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         end
         IC.move_loyalty(faction_key, against, -IC.TUNE.plot_recall_loyalty)
         IC.grudge_write(faction_key, against, "recall")
+    elseif plot_key == "dig" then
+        court.secrets = court.secrets or {}
+        court.secrets[against] = cm:model():turn_number()
     elseif plot_key == "patron" then
         IC.add_standing(faction_key, cqi, IC.TUNE.plot_patron_standing)
         IC.move_loyalty(faction_key, against, IC.TUNE.plot_patron_loyalty)
@@ -7001,6 +8048,8 @@ function IC.plot(faction_key, plot_key, actor_cqi, target)
         -- resting too would charge twice.
         cm:apply_dilemma_diplomatic_bonus(faction_key, target, IC.TUNE.diplomats_bonus)
         court.sent[target] = cm:model():turn_number()
+    elseif plot_key == "council" then
+        IC.council_open(faction_key, target, IC.CROWN, "aye")
     elseif plot_key == "weregild" then
         IC.grudge_settle(faction_key, against, "weregild")
         IC.move_loyalty(faction_key, against, IC.TUNE.plot_weregild_loyalty)
@@ -7512,6 +8561,27 @@ function IC.turn(faction_key)
     IC.apply_control_bundle(faction_key)
     -- BEFORE THE GOVERNMENT.
     IC.law_turn(faction_key)
+    -- THE WAR COUNCIL, caught and said like the parties' turn: it reads other
+    -- factions live, and one that fails must not cost the court its save. THE
+    -- SNAPSHOT of a player court is taken first, at the start of the turn: it is
+    -- what the court's reaction to a war the player declares reads (spec 2.2).
+    -- Each step in a pcall of its own: a throw in one cannot cost the other.
+    local ok_snap, err_snap = pcall(function()
+        if IC.is_human(faction_key) then IC.war_snapshot(faction_key, true) end
+    end)
+    if not ok_snap then
+        IC.warn("IRON COURT: the war council failed to take its snapshot in " .. faction_key
+                .. ": " .. tostring(err_snap))
+    end
+    local ok_war, err_war = pcall(IC.council_turn, faction_key)
+    if not ok_war then
+        IC.warn("IRON COURT: the war council failed in " .. faction_key .. ": " .. tostring(err_war))
+    end
+    -- CLAIMS ON CONQUERED LAND, caught and said the same way: it reads the map.
+    local ok_claims, err_claims = pcall(IC.claims_turn, faction_key)
+    if not ok_claims then
+        IC.warn("IRON COURT: the claims failed in " .. faction_key .. ": " .. tostring(err_claims))
+    end
     IC.gov_step(faction_key)
     IC.tick_pressure(faction_key)
     if not IC.feed_held then IC.flush_feed() end
@@ -8203,9 +9273,29 @@ IC.MP_OPS.law_push = function(fk, arg)         -- category|level
     local f = fields(arg)
     return answer(fk, "law_push", arg, IC.law_push(fk, f[1], tonumber(f[2])))
 end
-IC.MP_OPS.law_overrule = function(fk, arg)     -- category|1 pass, category|0 fail
+IC.MP_OPS.law_overrule = function(fk, arg)     -- category|1 pass, category|0 fail; |1 more pays gold
     local f = fields(arg)
-    return answer(fk, "law_overrule", arg, IC.law_overrule(fk, f[1], f[2] == "1"))
+    return answer(fk, "law_overrule", arg, IC.law_overrule(fk, f[1], f[2] == "1", f[3] == "1"))
+end
+-- THE WAR COUNCIL'S CALL-OFF.
+IC.MP_OPS.war_calloff = function(fk, arg)      -- 1 gold, 0 influence
+    return answer(fk, "war_calloff", arg, IC.war_calloff(fk, fields(arg)[1] == "1"))
+end
+-- CLAIMS ON CONQUERED LAND.
+IC.MP_OPS.claim_grant = function(fk, arg)      -- province|party
+    local f = fields(arg)
+    return answer(fk, "claim_grant", arg, IC.claim_grant(fk, f[1], f[2]))
+end
+IC.MP_OPS.claim_refuse = function(fk, arg)     -- province|party
+    local f = fields(arg)
+    return answer(fk, "claim_refuse", arg, IC.claim_refuse(fk, f[1], f[2]))
+end
+-- SECRETS. The key is a vote's category, and empty for every other use.
+IC.MP_OPS.secret_use = function(fk, arg)       -- party|code|key
+    local f = fields(arg)
+    local key = f[3]
+    if key == "" then key = nil end
+    return answer(fk, "secret_use", arg, IC.use_secret(fk, f[1], f[2], key))
 end
 
 -- THE DEEDS' DISCRIMINATORS. Keys read out of CA's db: the guardhouse chain is
@@ -8291,6 +9381,40 @@ function IC.register()
             end
         end)
         if not ok then IC.warn("IRON COURT: the Book failed on a treaty: " .. tostring(err)) end
+        -- THE WAR COUNCIL'S HALF, caught and said on its own: it reads other
+        -- factions live, and a failure in it must not cost the Book its grudge or
+        -- the Book's cost it the council. A trade agreement joins the player's
+        -- snapshot; a peace the player made is the court's to answer.
+        local ok_war, err_war = pcall(function()
+            local peace, trade = context:is_peace_treaty(), context:is_trade_agreement()
+            if not (peace or trade) then return end
+            local a, b = context:proposer(), context:recipient()
+            for _, pair in ipairs({{a, b}, {b, a}}) do
+                local own, them = pair[1], pair[2]
+                if IC.runs_court(own) and IC.is_human(own:name()) then
+                    if trade then IC.war_note_trade(own:name(), them:name()) end
+                    if peace and IC.war_react(own:name(), them:name(), "peace") then
+                        IC.save(own:name())
+                    end
+                end
+            end
+        end)
+        if not ok_war then IC.warn("IRON COURT: the war council failed on a treaty: " .. tostring(err_war)) end
+    end, true)
+
+    -- A WAR THE PLAYER DECLARED ON THE DIPLOMACY SCREEN. The proposer is the
+    -- court's own faction: an event that names it as the recipient is a war on
+    -- us, which the court has no say in. A war a confederation brought along
+    -- (result_of_confederation) is not one the player declared either.
+    core:add_listener("ic_war_declared", "NegativeDiplomaticEvent", true, function(context)
+        local ok, err = pcall(function()
+            if not context:is_war() or context:result_of_confederation() then return end
+            local proposer, recipient = context:proposer(), context:recipient()
+            if IC.war_react(proposer:name(), recipient:name(), "war") then
+                IC.save(proposer:name())
+            end
+        end)
+        if not ok then IC.warn("IRON COURT: the war council failed on a declaration: " .. tostring(err)) end
     end, true)
 
     core:add_listener("ic_confed", "FactionJoinsConfederation", true, function(context)
@@ -8476,6 +9600,18 @@ function IC.register()
         IC.loaded(faction:name())
         IC.add_standing(faction:name(), character:command_queue_index(),
                         IC.TUNE.settlement_influence)
+        -- AND CLAIMS, if the province is new to the court (IC.claim_raise asks).
+        -- Caught: the region comes off the event, and the influence is paid.
+        if IC.claims_on() and IC.is_human(faction:name()) then
+            local ok, err = pcall(function()
+                local region = context:garrison_residence():region()
+                IC.claim_raise(faction:name(), region:province():key(),
+                               character:command_queue_index(), region:name())
+            end)
+            if not ok then
+                IC.warn("IRON COURT: no claims raised in " .. faction:name() .. ": " .. tostring(err))
+            end
+        end
     end, true)
 
     core:add_listener("ic_rank", "CharacterRankUp", true, function(context)
@@ -8584,7 +9720,7 @@ IC.RACE_FIELDS = {
     "PARTY_TRAITS", "LEADER_TRAITS", "LEGEND_SUBTYPES", "TEMPLE_BUILDINGS",
     "MILITARY_DOCTRINE", "PARTY_TROOPS", "TROOPS_DEFAULT",
     "CULTURES", "LEGEND_CULTURE", "HOUSE_CULTURE", "PLACE_CULTURE", "CULTURE_TRADE",
-    "SUBTYPE_TRADE",
+    "SUBTYPE_TRADE", "WAR_LINES", "WAR_FOES",
 }
 IC.RACES = {}
 IC.RACE_ORDER = {}
@@ -8723,6 +9859,8 @@ function IC.first_tick()
     IC.freeze_tune()
     IC.register()
     IC.rebel_rename_all()
+    -- A LOAD STARTS THE WAR REACTIONS OVER: a mark is for the session that made it.
+    IC._war_reacted = {}
     local human = cm:get_human_factions()
     for i = 1, #human do
         local faction = real_faction(human[i])
@@ -8739,6 +9877,10 @@ function IC.first_tick()
             IC.reconcile_houses(human[i])
             IC.ensure_leaders(human[i])
             IC.seed_members(human[i])
+            -- A LOAD MID-TURN has no snapshot: the first tick takes it for every
+            -- player court, at the one moment every machine shares, so a war
+            -- declared afterwards is read against the same borders and trade.
+            IC.war_snapshot(human[i], true)
         end
     end
 end

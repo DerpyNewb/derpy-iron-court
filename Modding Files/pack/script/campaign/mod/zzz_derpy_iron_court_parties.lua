@@ -502,6 +502,17 @@ IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     end,
 }
 
+-- PUTTING A WAR TO THE COURT, on a faction its war line is for. It opens with
+-- the Crown abstaining, as a law does; the court's rest starts at the proposal.
+IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
+    key = "council",
+    can = function(faction_key, slug) return IC.council_party_pick(faction_key, slug) end,
+    motive = function() return T.war_party_motive end,
+    act = function(faction_key, slug, target)
+        IC.council_open(faction_key, target, slug, "abstain")
+    end,
+}
+
 IC.PARTY_ACTS[#IC.PARTY_ACTS + 1] = {
     key = "feud_move",
     can = function(faction_key, slug)
@@ -713,9 +724,13 @@ function IC.demand_target(faction_key, slug)
             end
         end
     end
+    -- NOT A PROVINCE WITH CLAIMS OPEN: answering them would settle this demand as
+    -- refused too, a second penalty for one decision. Closed, it is a target again.
+    local claims = court.claims or {}
     for _, province in ipairs(IC.seats(faction_key)) do
         local holder = court.govs[province]
-        if not holder or IC.house_of_cqi(faction_key, holder) == IC.CROWN then
+        if not claims[province]
+           and (not holder or IC.house_of_cqi(faction_key, holder) == IC.CROWN) then
             return {kind = "gov", cqi = men[1], key = province, was = holder or 0}
         end
     end
@@ -828,12 +843,15 @@ function IC.demand_state(faction_key, d)
 end
 
 -- The number a void demand's record line carries; 0 is also an older save's.
-IC.VOID_REASONS = {gone = 0, lost = 1, short = 2}
+-- `secret` is the player's: a secret spent to drop it (IC.use_secret).
+IC.VOID_REASONS = {gone = 0, lost = 1, short = 2, secret = 3}
 
 -- Idempotent: the record is cleared before anything else, so the mission
 -- event the engine raises from inside the calls below finds nothing left to
--- settle. `ended` means the engine has already closed the mission.
-function IC.settle_demand(faction_key, outcome, ended)
+-- settle. `ended` means the engine has already closed the mission. `reason`
+-- names a void the demand's state cannot see (an IC.VOID_REASONS key); left
+-- out, the state says why.
+function IC.settle_demand(faction_key, outcome, ended, reason)
     local a = IC.agenda(faction_key)
     local d = a.demand
     if not d then return false end
@@ -856,7 +874,7 @@ function IC.settle_demand(faction_key, outcome, ended)
         IC.news(faction_key, "demand_refused", d.slug)
         IC.feed(faction_key, "party_demand_refused")
     else
-        local _, why = IC.demand_state(faction_key, d)
+        local why = reason or select(2, IC.demand_state(faction_key, d))
         IC.log(faction_key, "demand_void", d.slug, d.key, IC.VOID_REASONS[why] or 0)
     end
     if not ended and IC.is_human(faction_key) then
@@ -1178,6 +1196,10 @@ end
 -- it the way the upkeep would have, card and all.
 function IC.drop_party_business(faction_key, slug)
     local a = IC.agenda(faction_key)
+    -- ITS SECRET: held on a party that is gone, it is held on nobody. Saved with
+    -- the court, which IC.remove_house saves after this.
+    local secrets = IC.court(faction_key).secrets
+    if secrets then secrets[slug] = nil end
     if a.demand and a.demand.slug == slug then IC.settle_demand(faction_key, "void") end
     if a.plot and a.plot.slug == slug then
         IC.log(faction_key, "party_dropped", slug, a.plot.move, 0)
@@ -1186,7 +1208,105 @@ function IC.drop_party_business(faction_key, slug)
     end
     IC.expire_offers(faction_key)
     IC.end_feuds(faction_key)
+    -- ITS CLAIMS: its men are no longer its, so the void drops them.
+    IC.claims_void(faction_key)
     IC.save_agenda(faction_key)
+end
+
+-- A SECRET'S VOTE USE ON `category`, which is not offered when it would win
+-- nobody: nil when no open vote there has the Crown's side, false when none of
+-- the party's men in its tally is off that side, true otherwise.
+local function vote_use(faction_key, slug, category)
+    local vote = IC.law_vote_of(faction_key, category)
+    if not (vote and (vote.stance == "aye" or vote.stance == "nay")) then return nil end
+    for _, m in ipairs(IC.law_tally(faction_key, category, vote).men) do
+        if m.party == slug and m.side ~= vote.stance then return true end
+    end
+    return false
+end
+
+-- SECRETS (docs/superpowers/specs/2026-10-17-iron-court-war-claims-secrets-design.md
+-- 4.2). A secret Dig for Secrets found on a party is spent once, on a use that
+-- applies now. The rows, in order: one per open vote the Crown has taken a side
+-- on and the party has a man to win in (the laws in their order, then the
+-- council), their demand, their warned plot (the scheme), their secession
+-- countdown, and Expose, which always applies. {code, key, may, why}: key is the
+-- vote's category, nil otherwise; every row is refused no_secret while none is
+-- held. The Crown lists none.
+function IC.secret_uses(faction_key, slug)
+    local out = {}
+    local court = IC.court(faction_key)
+    local house = slug ~= IC.CROWN and court.houses[slug or ""]
+    if not house then return out end
+    local held = (court.secrets or {})[slug] ~= nil
+    local function row(code, key)
+        out[#out + 1] = {code = code, key = key, may = held, why = not held and "no_secret" or nil}
+    end
+    local function vote_row(category)
+        if vote_use(faction_key, slug, category) then row("vote", category) end
+    end
+    for _, category in ipairs(IC.R(faction_key).LAW_ORDER) do vote_row(category) end
+    vote_row(IC.COUNCIL)
+    local a = IC.agenda(faction_key)
+    if a.demand and a.demand.slug == slug then row("demand") end
+    if a.plot and a.plot.slug == slug then row("scheme") end
+    if (house.clock or 0) > 0 then row("count") end
+    row("expose")
+    return out
+end
+
+-- SPEND IT: true, or false and why - no_secret; none_to_win for an open vote the
+-- Crown took a side on where every man of the party already votes that side; or
+-- no_use for any other use IC.secret_uses does not list now. Blackmail costs the
+-- party secret_use_loyalty; Expose costs it strength and secret_expose_loyalty
+-- instead, and on a Dwarf court an insult grudge.
+function IC.use_secret(faction_key, slug, code, key)
+    local court = IC.court(faction_key)
+    if not (court.secrets or {})[slug or ""] then return false, "no_secret" end
+    if code == "vote" and vote_use(faction_key, slug, key) == false then return false, "none_to_win" end
+    local listed = false
+    for _, u in ipairs(IC.secret_uses(faction_key, slug)) do
+        if u.code == code and u.key == key then listed = true end
+    end
+    if not listed then return false, "no_use" end
+    court.secrets[slug] = nil
+    local a = IC.agenda(faction_key)
+    local house = court.houses[slug]
+    if code == "vote" then
+        -- EVERY MAN OF THE PARTY the tally counts, won to the Crown's side, free.
+        local vote = IC.law_vote_of(faction_key, key)
+        for _, m in ipairs(IC.law_tally(faction_key, key, vote).men) do
+            if m.party == slug then vote.won[m.cqi] = vote.stance end
+        end
+    elseif code == "demand" then
+        IC.settle_demand(faction_key, "void", nil, "secret")
+        -- AND THEY WAIT, as a refused party waits: a void sets no rest, so the same
+        -- party would demand again at its next turn. A scheme has no rest to set.
+        a.rest[slug] = cm:model():turn_number() + T.party_demand_rest
+        IC.save_agenda(faction_key)
+    elseif code == "scheme" then
+        -- AS A PARTY'S DEPARTURE DROPS ONE (IC.drop_party_business), Record and card.
+        local move = a.plot.move
+        a.plot = nil
+        IC.save_agenda(faction_key)
+        IC.log(faction_key, "party_dropped", slug, move, 0)
+        IC.feed(faction_key, "party_plot_dropped")
+    elseif code == "count" then
+        house.clock = 0
+        -- AND PROTECTED, as Secure Loyalty protects (IC.favour): IC.tick_secession
+        -- counts a party still angry again at the next turn start otherwise.
+        house.protected = cm:model():turn_number() + IC.TUNE.favour_secure_turns
+    end
+    if code == "expose" then
+        house.weight = math.max(1, (house.weight or 0) - T.secret_expose_weight)
+        IC.move_loyalty(faction_key, slug, T.secret_expose_loyalty)
+        IC.grudge_write(faction_key, slug, "insult")
+    else
+        IC.move_loyalty(faction_key, slug, T.secret_use_loyalty)
+    end
+    IC.log(faction_key, "secret_used", slug, code == "vote" and ("vote." .. key) or code, 0)
+    IC.save(faction_key)
+    return true
 end
 
 -- Upkeep, not an event: offers past their turns, or from a party that left.

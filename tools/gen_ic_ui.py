@@ -471,13 +471,19 @@ PANEL_LAYOUT["ic_col_right"] = (COL_R_X, COL_TOP, COL_W, COL_HDR_H)
 # card covers the header strip every list view draws bare. It sorts first among
 # its own cells by name (ic_help_box < ic_help_head < _line_ < _rule < _topic_),
 # which is what puts it under them.
-HELP_SLOTS = 12
+#
+# FOURTEEN, for a thirteenth topic (The War Council) and topics that run to
+# fourteen lines (the claims and secrets lines land in existing topics). The card
+# is 592 tall: 20px over the first topic and 20px under the last one, whose bottom
+# is the rule's. Check 10c holds every cell inside it, the rule to the topic
+# column, the card above the alert bar and the count to the panel Lua's.
+HELP_SLOTS = 14
 
 
 def help_layout():
     """Every help-page cell and its box, at 1920. ICUI.PANEL_XY mirrors it."""
-    out = {"ic_help_box": (18, 124, 1884, 540),
-           "ic_help_rule": (352, 144, 2, 472),
+    out = {"ic_help_box": (18, 124, 1884, 592),
+           "ic_help_rule": (352, 144, 2, 40 * (HELP_SLOTS - 1) + 32),
            "ic_help_head": (372, 140, 900, 44)}
     for _i in range(HELP_SLOTS):
         out["ic_help_topic_%d" % (_i + 1)] = (36, 144 + 40 * _i, 300, 32)
@@ -644,6 +650,11 @@ def law_vote_cells():
         "ic_lv_overh": (1266, 918, 164, 26),
         "ic_lv_over_1": (1436, 914, 220, 34),
         "ic_lv_over_2": (1664, 914, 220, 34),
+        # THE WAR VOTE'S TWO GOLD OVERRULES, in the same two columns on the
+        # support row, under Pass now and Fail now. Hidden until the Lua shows
+        # them, on a war vote only.
+        "ic_lv_over_3": (1436, 958, 220, 34),
+        "ic_lv_over_4": (1664, 958, 220, 34),
     }
     for i in range(LAW_SEGS):
         out["ic_lv_seg_%d" % (i + 1)] = (18, 266, 34, 34)
@@ -709,7 +720,8 @@ LAW_PLATES = tuple("ic_gc_card_%d" % (_i + 1) for _i in range(GOV_CARDS)) + ("ic
 LAW_TAB_BUTTONS = ("ic_lv_st_1", "ic_lv_st_2", "ic_lv_st_3",
                    "ic_lv_lvl_1", "ic_lv_lvl_2", "ic_lv_lvl_3")
 # ON THE PAGER'S PLATE, as ic_gov_btn is: never lit.
-LAW_PAGE_BUTTONS = ("ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2") + tuple(
+LAW_PAGE_BUTTONS = ("ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2",
+                    "ic_lv_over_3", "ic_lv_over_4") + tuple(
     "ic_gc_btn_%d" % (_i + 1) for _i in range(GOV_CARDS))
 # CENTRED IN THE GUTTER rather than at the panel's midpoint: the two columns
 # are the same width but the left one starts at 18, so the true middle of the
@@ -728,17 +740,25 @@ PANEL_LAYOUT["ic_divider"] = (COL_L_X + COL_W + (COL_GUTTER - DIVIDER_W) // 2,
 # hugging the left edge to leave room for an absent pager reads as misaligned.
 #
 # AND CENTRED UNDER THE CROWN'S BOX (ACT_PAGED) while the pager is on screen:
-# four buttons are 630px and the pager 456, and the grid column is 926. The left column's bottom row is empty on the court tab, level
-# with the pager, and nothing else ever draws there. ICUI.draw_actions moves all
-# five between the two homes; check 9c holds each one where it belongs.
+# five buttons are 816px and the pager 456, and the grid column is 926. The left column's bottom row is empty on the court tab, level
+# with the pager, and nothing else ever draws there. The bar is six cells, the
+# five buttons and the hint, and check 9c holds each one where it belongs in both
+# homes; the Lua no longer moves the bar between them.
 #
 # THE TWO FAVOURS SIDE BY SIDE, between the two plots: both are paid in gold out
-# of the treasury, and PURGE, the move with no way back, stays at the end. Its
-# width is a Dwarf court's "Cast Out" (ICUI.RACE_WORDS), the longer of its two
-# labels.
+# of the treasury, and PURGE, the move with no way back, comes last of the four.
+# Its width is a Dwarf court's "Cast Out" (ICUI.RACE_WORDS), the longer of its
+# two labels.
+#
+# USE A SECRET IS THE FIFTH AND LAST: no move and no favour, but the spending of
+# what Dig for Secrets found on the chosen party. "Use a Secret" measures 127px at
+# 18px and 113px at the 1600 box's 16px; with the two 8px caps the 1600 box is
+# the one that binds, and needs a 1920 width of 156 (check 20g2 at every box, in
+# both homes). 160 leaves four pixels over there.
 ACT_GAP = 6
 ACT_BUTTONS = (("ic_act_provoke", 132), ("ic_act_gift", 164),
-               ("ic_act_secure", 216), ("ic_act_purge", 120))
+               ("ic_act_secure", 216), ("ic_act_purge", 120),
+               ("ic_act_secret", 160))
 ACT_PAGED = {}
 _bar_w = (sum(_w for _n, _w in ACT_BUTTONS)
           + ACT_GAP * (len(ACT_BUTTONS) - 1))
@@ -4451,15 +4471,20 @@ BTN_PLATE_MARGIN = max([ly["margin"] for ly in BTN_LAYERS] or [0])
 # 16px they do. "APPOINT" fits a 74px box by 7px and still draws over both ends
 # of the plate.
 # WHICH ROW BUTTON EACH PETITION LABEL GOES ON (check 20k): the answer a row
-# asks for on the main button, the other on the second.
+# asks for on the main button, the other on the second. Call Off is on both, the
+# planned war's row priced in influence on one and in gold on the other, and is
+# measured with the unit's picture after it, as draw_petitions writes it.
 PETITION_BTN_CELL = {"accept": "ic_row_e", "back": "ic_row_e",
                      "refuse": "ic_row_f", "peace": "ic_row_f",
-                     "hold": "ic_row_f"}
+                     "hold": "ic_row_f", "vote": "ic_row_e", "grant": "ic_row_e",
+                     "calloff": ("ic_row_e", "ic_row_f")}
 
 BTN_CELLS = {"ic_card_button", "ic_row_e", "ic_row_f", "ic_plot_go",
              "ic_act_provoke", "ic_act_gift", "ic_act_secure", "ic_act_purge",
+             "ic_act_secret",
              "ic_fill", "ic_gov_btn",
              "ic_law_p_btn", "ic_lv_back", "ic_lv_over_1", "ic_lv_over_2",
+             "ic_lv_over_3", "ic_lv_over_4",
              } | set("ic_lb_win_%d" % (i + 1) for i in range(LB_MEN))
 
 
@@ -7348,6 +7373,16 @@ def check():
         out.append("the action bar with the pager up spans x %d..%d and is not "
                    "centred under the Crown's box's %d..%d"
                    % (_pl, _pr, COL_L_X, COL_L_X + COL_W))
+    # 9d. NO BUTTON ON ANOTHER, in either home and at every box. Each box is
+    #     scaled with its own rounding, so two neighbours that touch at 1920 can
+    #     overlap by a pixel at 1600; the order is ACT_BUTTONS' and the bar reads
+    #     left to right in it.
+    for _home, _boxes in (("under the grid", PANEL_LAYOUT), ("beside the pager", ACT_PAGED)):
+        for (_k1, _w1), (_k2, _w2) in zip(ACT_BUTTONS, ACT_BUTTONS[1:]):
+            _r1, _r2 = _boxes[_k1], _boxes[_k2]
+            if _r1[0] + _r1[2] > _r2[0]:
+                out.append("%s and %s overlap %s: %s ends at x %d and %s starts at %d"
+                           % (_k1, _k2, _home, _k1, _r1[0] + _r1[2], _k2, _r2[0]))
 
     # 10. Nothing may overflow its parent.
     last = ordered[-1]
@@ -7356,6 +7391,79 @@ def check():
     for name, (x, y, w, h) in PANEL_LAYOUT.items():
         if x + w > PANEL_W or y + h > PANEL_H:
             out.append("%s overflows the panel at %d,%d %dx%d" % (name, x, y, w, h))
+
+    # 10b. THE VOTE SCREEN'S HAND. Four overrule buttons (the law vote's Pass now
+    #      and Fail now, the war vote's two gold ones under them), the stance row
+    #      and the support row all sit on the one plate. Each stands inside it and
+    #      clear of every other, and the second pair stands under the first in the
+    #      same column, level with the support row. Containment is asserted for
+    #      the overrules by name BEFORE the pairwise test picks cells by
+    #      containment, or a button that left the plate would drop out of it.
+    _hand = PANEL_LAYOUT["ic_lv_hand"]
+    _over = ["ic_lv_over_%d" % i for i in range(1, 5)]
+    for _n in _over:
+        if _n not in PANEL_LAYOUT:
+            out.append("%s has no cell: the vote screen's overrule row is short" % _n)
+    _over = [n for n in _over if n in PANEL_LAYOUT]
+
+    def _in_box(c, b):
+        return (c[0] >= b[0] and c[1] >= b[1]
+                and c[0] + c[2] <= b[0] + b[2] and c[1] + c[3] <= b[1] + b[3])
+
+    for _n in _over:
+        if not _in_box(PANEL_LAYOUT[_n], _hand):
+            out.append("%s at %s lies outside the vote screen's hand %s"
+                       % (_n, PANEL_LAYOUT[_n], _hand))
+    _held = sorted(n for n, c in PANEL_LAYOUT.items()
+                   if n.startswith("ic_lv_") and n != "ic_lv_hand" and _in_box(c, _hand))
+    for _hi, _n1 in enumerate(_held):
+        for _n2 in _held[_hi + 1:]:
+            _c1, _c2 = PANEL_LAYOUT[_n1], PANEL_LAYOUT[_n2]
+            if _c1[0] < _c2[0] + _c2[2] and _c2[0] < _c1[0] + _c1[2] \
+                    and _c1[1] < _c2[1] + _c2[3] and _c2[1] < _c1[1] + _c1[3]:
+                out.append("%s %s and %s %s overlap on the vote screen's hand"
+                           % (_n1, _c1, _n2, _c2))
+    if len(_over) == 4:
+        for _upper, _lower in (("ic_lv_over_1", "ic_lv_over_3"), ("ic_lv_over_2", "ic_lv_over_4")):
+            _cu, _cl = PANEL_LAYOUT[_upper], PANEL_LAYOUT[_lower]
+            # A PIXEL OF HEIGHT IS ROUNDING: each box is scaled by its own edges,
+            # so the same 34px is 28 or 29 at 1600 depending on where it starts.
+            if (_cl[0], _cl[2]) != (_cu[0], _cu[2]) or abs(_cl[3] - _cu[3]) > 1 \
+                    or _cl[1] != PANEL_LAYOUT["ic_lv_lvl_1"][1]:
+                out.append("%s %s is not %s's column on the support row at y %d"
+                           % (_lower, _cl, _upper, PANEL_LAYOUT["ic_lv_lvl_1"][1]))
+
+    # 10c. THE HELP PAGE'S CARD. Every topic button, line, the heading and the
+    #      rule stand inside it, the rule runs the topic column's length and no
+    #      further, the card ends above the alert bar, and the slot count is the
+    #      panel Lua's: ICUI.HELP_SLOTS is what the Lua loops its cells by, so a
+    #      count that differs is a topic with no button or a button with no cell.
+    _hb = PANEL_LAYOUT["ic_help_box"]
+    _topics = sorted((n for n in PANEL_LAYOUT if n.startswith("ic_help_topic_")),
+                     key=lambda n: int(n.rsplit("_", 1)[1]))
+    _lines = sorted((n for n in PANEL_LAYOUT if n.startswith("ic_help_line_")),
+                    key=lambda n: int(n.rsplit("_", 1)[1]))
+    if len(_topics) != HELP_SLOTS or len(_lines) != HELP_SLOTS:
+        out.append("the help page lays out %d topic cells and %d line cells for %d slots"
+                   % (len(_topics), len(_lines), HELP_SLOTS))
+    for _n in _topics + _lines + ["ic_help_head", "ic_help_rule"]:
+        if _n in PANEL_LAYOUT and not _in_box(PANEL_LAYOUT[_n], _hb):
+            out.append("%s at %s lies outside the help card %s" % (_n, PANEL_LAYOUT[_n], _hb))
+    if _topics:
+        _rl, _t1, _tn = PANEL_LAYOUT["ic_help_rule"], PANEL_LAYOUT[_topics[0]], PANEL_LAYOUT[_topics[-1]]
+        if _rl[1] != _t1[1] or _rl[1] + _rl[3] != _tn[1] + _tn[3]:
+            out.append("the help rule runs y %d..%d and the topic column y %d..%d"
+                       % (_rl[1], _rl[1] + _rl[3], _t1[1], _tn[1] + _tn[3]))
+    if _hb[1] + _hb[3] > PANEL_LAYOUT["ic_alert"][1]:
+        out.append("the help card ends at y %d, under the alert bar at %d"
+                   % (_hb[1] + _hb[3], PANEL_LAYOUT["ic_alert"][1]))
+    _hs = re.search(r"^ICUI\.HELP_SLOTS\s*=\s*(\d+)", io.open(os.path.join(
+        ROOT, "Modding Files", "pack", "script", "campaign", "mod",
+        "zzz_derpy_iron_court_ui.lua"), encoding="utf-8").read(), re.M)
+    if not _hs:
+        out.append("the panel Lua declares no ICUI.HELP_SLOTS, so the help page's cell count is unchecked")
+    elif int(_hs.group(1)) != HELP_SLOTS:
+        out.append("ICUI.HELP_SLOTS is %s and this file lays out %d" % (_hs.group(1), HELP_SLOTS))
 
     # 11. A component per SLICE and a crest per seat, or a party has nowhere
     #     to draw. The Lua walks 0..DIAL_SLICES-1 and 0..MAX_HOUSES-1 by name;
@@ -8342,12 +8450,41 @@ def check():
                 out.append("ICUI.PETITION_BTN.%s is on no known button, so %r is "
                            "unmeasured" % (_key, _label))
                 continue
-            _w = usable_w(ROW_LAYOUT[_cell][2], _cell)
-            _px = TEXT_STYLE.get(_cell, BODY)[0]
-            _got = _measure(_label, _px)
+            if _key == "calloff":
+                _label = _label + " " + COST_MARKUP
+            for _c in ((_cell,) if isinstance(_cell, str) else _cell):
+                _w = usable_w(ROW_LAYOUT[_c][2], _c)
+                _px = TEXT_STYLE.get(_c, BODY)[0]
+                _got = _measure(_label, _px)
+                if _got > _w:
+                    out.append("%s would clip: %r measures %.0fpx at %dpx on a %dpx "
+                               "button" % (_c, _label, _got, _px, _w))
+        # AND THE PLANNED WAR'S PETITION, which names both of Call Off's prices
+        # on the row (draw_petitions), in the petitions view's column two: its
+        # width read out of ICUI.COL_W, typed at 1920 and scaled with the box.
+        # Every figure wears its unit's picture (ICUI.units); turns as 99.
+        _pw = re.search(r"petitions\s*=\s*\{\[2\]\s*=\s*(\d+)\}", _ptext)
+        _wfmt = "Declared in %s. Call it off for %d gold or %d influence."
+        # GOLD FIRST because the gold Call Off (ic_row_f) draws left of influence's (ic_row_e).
+        if ROW_LAYOUT["ic_row_f"][0] >= ROW_LAYOUT["ic_row_e"][0]:
+            out.append("ic_row_f no longer draws left of ic_row_e: the war row's 'gold or influence' reads backwards")
+        if not _pw or _wfmt not in _ptext:
+            out.append("20k cannot read the planned war's petition or its column, "
+                       "so it is unmeasured")
+        else:
+            _mtext = io.open(os.path.join(ROOT, "Modding Files", "pack", "script", "campaign",
+                                          "mod", "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
+            _pic = "[[img:x]][[/img]]"
+            _t = (_wfmt.replace("%d", _pic + "%d")
+                  % (_pic + "99 turns",
+                     int(re.search(r"war_overrule_gold\s*=\s*(\d+)", _mtext).group(1)),
+                     int(re.search(r"law_overrule_cost\s*=\s*(\d+)", _mtext).group(1))))
+            _w = usable_w(int(int(_pw.group(1)) * BOX_W / 1920.0), "ic_row_b")
+            _px = TEXT_STYLE.get("ic_row_b", BODY)[0]
+            _got = _measure(_t, _px)
             if _got > _w:
-                out.append("%s would clip: %r measures %.0fpx at %dpx on a %dpx "
-                           "button" % (_cell, _label, _got, _px, _w))
+                out.append("the planned war's petition would clip: %r measures %.0fpx at "
+                           "%dpx in a %dpx column" % (_t, _got, _px, _w))
 
         # 20g. THE PARTY CARD AND THE CROWN'S BLOCK. Every string here comes
         #      out of the model's own tables; the only two that cannot are a
@@ -9268,12 +9405,36 @@ def check_law_text():
     tails = re.findall(r'"([^"]+)"', re.search(r"IC\.NAME_TAILS\s*=\s*\{(.*?)\n\}",
                                                 model, re.S).group(1))
     party = max(("%s of %s" % (h, t) for h in heads for t in tails), key=len)
-    verdicts = re.findall(r'\] = "([^"]+)"', re.search(r"ICUI\.LAW_VERDICT = \{(.*?)\n\}",
-                                                       ui, re.S).group(1))
+    # A WAR VOTE'S FACT VERDICTS (ICUI.WAR_FACTS) are drawn in a block's level line,
+    # capitalised; every other verdict is a law's, on the board's pane.
+    facts = set(re.findall(r"(\w+) = true", re.search(r"ICUI\.WAR_FACTS = \{([^}]*)\}", ui).group(1)))
+    dwarf = io.open(DWARF_LUA, encoding="utf-8").read()
+    for f in sorted(set(re.findall(r'\{"(\w+)", "(?:aye|nay)"\}', model + dwarf)) - facts):
+        out.append("20k: a party's war line can rest on %r, which ICUI.WAR_FACTS lacks" % f)
+    verdict_by = re.findall(r'\["(\w+)\|(\w+)"\] = "([^"]+)"', re.search(
+        r"ICUI\.LAW_VERDICT = \{(.*?)\n\}", ui, re.S).group(1))
+    verdicts = [v for _s, why, v in verdict_by if why not in facts]
+    war_verdicts = [v[0].upper() + v[1:] for _s, why, v in verdict_by if why in facts]
+    for f in sorted(facts):
+        for side in ("aye", "nay"):
+            if (side, f) not in [(s, w) for s, w, _v in verdict_by]:
+                out.append("20k: ICUI.LAW_VERDICT has no %s|%s" % (side, f))
     levels = re.findall(r'"([^"]+)"', re.search(r"ICUI\.LAW_LEVEL = \{([^}]*)\}",
                                                  ui).group(1))
     tune = dict((k, int(v)) for k, v in re.findall(
-        r"(law_\w+_cost|law_vote_turns)\s*=\s*(\d+)", model))
+        r"(law_\w+_cost|law_vote_turns|war_overrule_gold|war_prep_turns)\s*=\s*(\d+)", model))
+    # THE LONGEST FACTION A WAR VOTE CAN NAME: CA's own screen names, rebels and
+    # quest battle factions left out (IC.war_candidate refuses both), else a stand-in.
+    try:
+        import read_vanilla_loc as L
+        _fn = L.load("factions")
+        target = max((v for k, v in _fn.items() if k.startswith("factions_screen_name_") and v
+                      and "{{" not in v and "rebels" not in k and "_qb" not in k),
+                     key=lambda s: measure_text(s, 18))
+    except Exception:
+        target = "Crooked Moon Mutinous Gits Waaagh!"
+    prep = tune["war_prep_turns"]
+    war_fx = "Declared %d turn%s after it passes" % (prep, "" if prep == 1 else "s")
     push = [int(n) for n in re.findall(r"\d+", re.search(
         r"law_push_cost\s*=\s*\{([^}]*)\}", model).group(1))]
     big = max(push + [tune["law_overrule_cost"], tune["law_propose_cost"]])
@@ -9286,11 +9447,17 @@ def check_law_text():
          "Proposing costs [[img:%s]][[/img]]%d of your men's influence.",
          "Go to the vote", "Proposed by ", "%d turn%s left", "Back to the laws",
          "Aye %d%%  (%d)", "Abstaining %d%%", "Nay %d%%  (%d)", "The Crown's side",
-         "and %d more parties, %d influence", "Won over by you", "Votes for ",
+         "and %d more %s, %d influence", 'rest == 1 and "party" or "parties"',
+         "Won over by you", "Votes for ",
          "enacting it", "keeping the law in force", "%d influence", "Win: [[img:%s]][[/img]]%d",
          "+%d more", " (paid)", "%s [[img:%s]][[/img]]%d", "Pass now", "Fail now",
          "%d parties, %d influence", ". A party with no stake votes with you only from ",
-         ". A party with no stake follows your side, and you have not taken one.")
+         ". A party with no stake follows your side, and you have not taken one.",
+         # THE WAR VOTE'S LINES (draw_law_vote, block_words, ICUI.war_title).
+         '"War on "', "Declared %d turn%s after it passes", "Back to petitions",
+         '"Declare war", "Keep the peace"', '"declaring war" or "keeping the peace"',
+         'string.format("%s %s", i == 1 and "Pass" or "Fail", ICUI.gold(IC.TUNE.war_overrule_gold))',
+         '(fact .. "  " .. mult_text(level))')
     every = list(names.values())
     # SPLIT OVER TWO CELLS by ICUI.fit_two / fit_lines: as much as the first
     # holds, the rest on the second, which must hold it.
@@ -9313,14 +9480,15 @@ def check_law_text():
                              % (pic, tune["law_propose_cost"])],
         "ic_law_p_btn": ["Propose", "Go to the vote", "Short %d" % big, "Take a side",
                          "Laws are off", "Vote open", "In force", "Not now"],
-        "ic_lv_name": every,
-        "ic_lv_fx": [", ".join(v) for v in shorts.values()],
+        "ic_lv_name": every + ["War on " + target],
+        "ic_lv_fx": [", ".join(v) for v in shorts.values()] + [war_fx],
         "ic_lv_by": ["Proposed by " + party, "Proposed by you"],
         "ic_lv_turns": ["99 turns left"],
-        "ic_lv_back": ["Back to the laws"],
+        "ic_lv_back": ["Back to the laws", "Back to petitions"],
         "ic_lv_aye": ["Aye 100%  (99999)"], "ic_lv_abs": ["Abstaining 100%"],
         "ic_lv_nay": ["Nay 100%  (99999)"],
-        "ic_lv_shead_1": ["Enact " + n for n in every], "ic_lv_shead_2": ["Keep " + n for n in every],
+        "ic_lv_shead_1": ["Enact " + n for n in every] + ["Declare war"],
+        "ic_lv_shead_2": ["Keep " + n for n in every] + ["Keep the peace"],
         "ic_lv_stag_1": ["The Crown's side"],
         "ic_lv_smore_1": ["and 9 more parties, 99999 influence"],
         "ic_lv_abstain": ["Abstaining: %s%s" % (w, why) for w in ("%s (99999), %s (99999)" % (party, party),
@@ -9334,11 +9502,17 @@ def check_law_text():
                        + ["%s %s%d" % (b, pic, big) for b in ("Push a little", "Push hard",
                                                               "Push fully")],
         "ic_lv_over_1": ["%s %s%d" % (w, pic, tune["law_overrule_cost"]) for w in ("Pass now", "Fail now")],
+        # A WAR VOTE'S, FOR GOLD, under Pass now and Fail now.
+        "ic_lv_over_3": ["Pass %s%d" % (pic, tune["war_overrule_gold"])],
+        "ic_lv_over_4": ["Fail %s%d" % (pic, tune["war_overrule_gold"])],
         "ic_lb_name": [party],
         "ic_lb_level": ["Won over by you", "Votes for enacting it",
-                        "Votes for keeping the law in force"]
+                        "Votes for keeping the law in force", "Votes for declaring war",
+                        "Votes for keeping the peace"]
                        + ["%s %s  x9.9" % (l[0].upper() + l[1:], what) for l in levels
-                          for what in ("enacting it", "keeping the law in force")],
+                          for what in ("enacting it", "keeping the law in force",
+                                       "declaring war", "keeping the peace")]
+                       + ["%s  x9.9" % v for v in war_verdicts],
         "ic_lb_man_1": [_LONG_FORE],
         "ic_lb_inf_1": ["9999 influence"],
         "ic_lb_win_1": ["Win: %s%d" % (pic, 9999)],
@@ -9381,6 +9555,67 @@ def check_law_text():
     strings["ic_gm_hint"] = [f % (grace, "" if grace == 1 else "s") if "%d" in f else f
                              for f in gm_hint]
     two["ic_gc_name_1"] = gname
+    # THE PICKERS' OWN WORDS (ICUI.mission_rows): every mission header row and the war
+    # council's, the council's shares in column four, every refusal word and Use on a
+    # row's button, and a secret's effects in its picker's widened column two, read
+    # out of ICUI.COL_W and scaled with the box. Numbers as 99, each loyalty figure
+    # wearing its picture (ICUI.units), the Dwarf court's grudge on Expose.
+    need("Aye %d%%; Nay %d%%; %d%% would abstain", '"Running %d"', '"Rest %d"', '"Wait %d"',
+         'u.may and "Use" or', ", and write a grudge against you")
+    picks = re.search(r"ICUI\.MISSION_PICKS = \{(.*?)\n\}", ui, re.S)
+    council = re.search(r"ICUI\.COUNCIL_PICK = \{([^}]*)\}", ui)
+    refusals = [re.search(r"ICUI\.%s = \{(.*?)\n\}" % t, ui, re.S)
+                for t in ("MISSION_REFUSAL", "TARGET_REFUSAL")]
+    uses = re.search(r"ICUI\.SECRET_USE = \{(.*?)\n\}", ui, re.S)
+    col = re.search(r"secret\s*=\s*\{\[2\]\s*=\s*(\d+)\}", ui)
+    if not (picks and council and all(refusals) and uses and col):
+        out.append("20k cannot read the pickers' words out of the panel Lua, so they are unmeasured")
+    else:
+        heads = [re.findall(r'"([^"]*)"', r) for r in re.findall(r"\{([^}]*)\}", picks.group(1))]
+        heads.append(re.findall(r'"([^"]*)"', council.group(1)))
+        # A CAPTION RUNS ON TO THE NEXT CAPTION THAT SAYS ANYTHING, as the sort
+        # arrows' check reads it: "Regard" over the 45px number column is drawn
+        # into the blank or the gap beside it. Both captions start at their cell's
+        # inset, so the inset cancels and the room is the distance between the two;
+        # the last caption's is its own cell.
+        hdr = [PANEL_LAYOUT["ic_hdr_" + c] for c in "abcde"]
+        for row in heads:
+            for i, cap in enumerate(row[:5]):
+                if not cap:
+                    continue
+                nxt = [hdr[j][0] for j in range(i + 1, min(5, len(row))) if row[j]]
+                room = (nxt[0] - hdr[i][0] if nxt
+                        else usable_w(hdr[4][0] + hdr[4][2] - hdr[i][0], "ic_hdr_" + "abcde"[i]))
+                got = measure_text(cap, TEXT_STYLE.get("ic_hdr_a", TITLE)[0])
+                if got > room:
+                    out.append("a picker's %r heading measures %.0fpx in the %dpx to the next "
+                               "heading" % (cap, got, room))
+        strings["ic_row_d"] = ["Aye 100%; Nay 100%; 100% would abstain"]
+        strings["ic_row_e"] = ["Use", "Running 99", "Rest 99", "Wait 99"] + [
+            v for r in refusals for v in re.findall(r'=\s*"([^"]+)"', r.group(1))]
+        effects = re.findall(r'effect = "([^"]+)"', uses.group(1))
+        if len(effects) != 5:
+            out.append("20k reads %d secret uses' effects out of ICUI.SECRET_USE, not 5" % len(effects))
+        # A VOTE USE'S NAME WHOLE in the row's first cell, with every law's title
+        # (both races) and the war's: ICUI.fit_cut would cut the title, which is
+        # the one word telling two open votes apart.
+        vname = re.search(r'vote = \{name = "([^"]+)"', uses.group(1))
+        need('u.key == IC.COUNCIL and "the war"')
+        if not vname:
+            out.append("20k cannot read the secret's vote use name, so it is unmeasured")
+        else:
+            strings["ic_row_a"] = [vname.group(1) % t for t in
+                                   [v for k, v in loc.items() if k.startswith("derpy_ic_law_name_")]
+                                   + ["the war"]]
+        w = usable_w(int(int(col.group(1)) * BOX_W / 1920.0), "ic_row_b")
+        px = TEXT_STYLE.get("ic_row_b", BODY)[0]
+        for e in effects:
+            t = (e.replace("%d loyalty", pic + "99 loyalty").replace("%d", "99")
+                 .replace("%s", ", and write a grudge against you"))
+            got = measure_text(t, px)
+            if got > w:
+                out.append("a secret's effect would clip: %r measures %.0fpx at %dpx in a %dpx "
+                           "column" % (t, got, px, w))
     # SPLIT OVER GC_RULE_LINES CELLS by ICUI.fit_lines: greedy, as the Lua does.
     name = "ic_gc_rule_1_1"
     w, px = usable_w(PANEL_LAYOUT[name][2], name), TEXT_STYLE.get(name, BODY)[0]
@@ -9395,7 +9630,8 @@ def check_law_text():
             out.append("%s would clip: %r needs %d lines at %dpx in %dpx, it has %d"
                        % (name, t, lines, px, w, GC_RULE_LINES))
     for name, texts in sorted(strings.items()):
-        box = PANEL_LAYOUT.get(name) or LAW_LAYOUT.get(name) or LB_LAYOUT.get(name)
+        box = (PANEL_LAYOUT.get(name) or LAW_LAYOUT.get(name) or LB_LAYOUT.get(name)
+               or ROW_LAYOUT.get(name))
         if not box:
             out.append("20k measures %s and no layout holds it" % name)
             continue

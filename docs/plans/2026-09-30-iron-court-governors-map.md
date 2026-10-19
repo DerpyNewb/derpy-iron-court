@@ -4697,7 +4697,7 @@ Add one line for it to the table in `CLAUDE.md`'s `docs/CUSTOM_UI.md` row: appen
 
 - [ ] **Step 6: Memory**
 
-Update `C:\Users\GAYAO-Family\.claude\projects\g--Modding-for-resources\memory\wh3-world-space-ui-pin.md`:
+Update `<memory>/wh3-world-space-ui-pin.md`:
 - add the `maskimage` rule and the Phase 0 answers, with the build name;
 - keep it one fact per file: if the mask answer is a fact of its own, write `wh3-twui-maskimage.md` instead and link the two with `[[...]]`;
 - add its line to the UI hub, `index-ui.md`.

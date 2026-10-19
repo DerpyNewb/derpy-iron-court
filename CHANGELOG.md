@@ -5,6 +5,29 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-19 - build 58D5347C
+
+Deployed 2026-10-19. MD5 `58D5347C248BB2866EEE452C3142FCC5`, 15,545,769 bytes. Seen in game the
+same day, in a Chaos Dwarf court (turns 1 to 8) and a Dwarf court
+(`docs/history/LIVE_TEST_20261019_IRON_COURT_WAR_CLAIMS_SECRETS.md`). Design in
+`docs/design/2026-10-17-iron-court-war-claims-secrets-design.md`, plan in
+`docs/plans/2026-10-17-iron-court-war-claims-secrets.md`.
+
+- **The war council.** You or a party put a war on a faction to the court, which votes on it the
+  way it votes on laws. A passed war is declared 3 turns later. You can overrule the vote or call
+  the war off, for gold or influence. A Dwarf court can also name a faction in the Book of
+  Grudges.
+- **Claims on conquest.** Taking a province new to the court makes up to three rival parties
+  claim its governorship, granted or refused on the Petitions tab.
+- **Secrets.** Dig for Secrets finds leverage on one party, spent once on its votes, its demand,
+  its scheme, its countdown to leave, or to expose it.
+- MCT switches "War council" and "Claims on conquest".
+- Checks: harness 1234 checks; 1,385 mutants; the release snapshot re-pinned after every moved
+  line was read (64 rows and 32 loc lines added, nothing moved).
+- Known, for the author: spending a secret on a party at 5 loyalty or less takes it to the
+  breaking point, which the countdown's protection does not hold off. The overrule notice and
+  the bypass Record line claim losses when no party was against.
+
 ## 2026-10-16 - build F5CF88CB
 
 Deployed 2026-10-16. MD5

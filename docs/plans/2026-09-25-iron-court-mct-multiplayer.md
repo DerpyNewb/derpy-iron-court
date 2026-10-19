@@ -3055,7 +3055,7 @@ Ledger: `Task 7: <N> mutants, 0 unexplained`.
 **Files:**
 - Create: `docs/sessions/HANDOFF_20260925_IRON_COURT_MCT_MULTIPLAYER.md`
 - Modify: `docs/SESSION_INDEX.md` (one line)
-- Modify: `C:\Users\GAYAO-Family\.claude\projects\g--Modding-for-resources\memory\wh3-mct-has-no-campaign-gating.md`
+- Modify: `<memory>/wh3-mct-has-no-campaign-gating.md`
 - Deploy: `F:\SteamLibrary\steamapps\common\Total War WARHAMMER III\data\derpy_iron_court.pack`
 
 **Interfaces:**

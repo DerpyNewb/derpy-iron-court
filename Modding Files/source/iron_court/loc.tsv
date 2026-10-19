@@ -1183,6 +1183,30 @@ event_feed_strings_text_derpy_ic_event_law_passed_secondary	The court has voted 
 event_feed_strings_text_derpy_ic_event_law_failed_title	A Law Fails	false
 event_feed_strings_text_derpy_ic_event_law_failed_primary	The Old Law Stands	false
 event_feed_strings_text_derpy_ic_event_law_failed_secondary	The court has voted the law down, and the law in force stays. If a rival party proposed it, that party loses loyalty.	false
+event_feed_strings_text_derpy_ic_event_war_proposed_title	A War Before the Court	false
+event_feed_strings_text_derpy_ic_event_war_proposed_primary	The Court Will Vote	false
+event_feed_strings_text_derpy_ic_event_war_proposed_secondary	A party has put a war to the court. Each party votes with the influence of its men. Open the vote from the Petitions tab to take a side, push it or overrule it.	false
+event_feed_strings_text_derpy_ic_event_war_passed_title	The Court Votes for War	false
+event_feed_strings_text_derpy_ic_event_war_passed_primary	War Is Coming	false
+event_feed_strings_text_derpy_ic_event_war_passed_secondary	The court has voted for war. It will be declared in a few turns, so make your armies ready. You can still call it off from the Petitions tab, at a price.	false
+event_feed_strings_text_derpy_ic_event_war_failed_title	The Court Votes for Peace	false
+event_feed_strings_text_derpy_ic_event_war_failed_primary	The Peace Holds	false
+event_feed_strings_text_derpy_ic_event_war_failed_secondary	The court has voted the war down. If a rival party proposed it, that party loses loyalty.	false
+event_feed_strings_text_derpy_ic_event_war_begins_title	The Court Goes to War	false
+event_feed_strings_text_derpy_ic_event_war_begins_primary	War Is Declared	false
+event_feed_strings_text_derpy_ic_event_war_begins_secondary	The war the court voted for has been declared.	false
+event_feed_strings_text_derpy_ic_event_war_broken_title	A War Called Off	false
+event_feed_strings_text_derpy_ic_event_war_broken_primary	A Treaty Stands in the Way	false
+event_feed_strings_text_derpy_ic_event_war_broken_secondary	You signed a treaty with the faction the court voted to fight, so the war cannot be declared. The parties that wanted it lose loyalty.	false
+event_feed_strings_text_derpy_ic_event_war_unasked_title	A War the Court Was Not Asked	false
+event_feed_strings_text_derpy_ic_event_war_unasked_primary	You Went to War Alone	false
+event_feed_strings_text_derpy_ic_event_war_unasked_secondary	You declared war without putting it to the court. Parties that opposed this war lose loyalty; parties that wanted it gain a little.	false
+event_feed_strings_text_derpy_ic_event_claims_laid_title	Claims on New Land	false
+event_feed_strings_text_derpy_ic_event_claims_laid_primary	A Province to Govern	false
+event_feed_strings_text_derpy_ic_event_claims_laid_secondary	Parties claim the governorship of the province you have taken. Answer them on the Petitions tab. Unanswered, the claim of the strongest party is granted.	false
+event_feed_strings_text_derpy_ic_event_claim_taken_title	The Court Grants a Claim	false
+event_feed_strings_text_derpy_ic_event_claim_taken_primary	A Governor Is Named	false
+event_feed_strings_text_derpy_ic_event_claim_taken_secondary	No answer came, so the court granted the claim of its strongest party.	false
 event_feed_strings_text_derpy_ic_event_party_drawn_chain	Your slave-taking and razing drew the Chain to court. Your newest lord has joined it, and it will expect seats.	false
 event_feed_strings_text_derpy_ic_event_party_drawn_forge	The Hell-Forge's work drew the Forge to court. Your newest lord has joined it, and it will expect seats.	false
 event_feed_strings_text_derpy_ic_event_party_drawn_ledger	Your convoys drew the Ledger to court. Your newest lord has joined it, and it will expect seats.	false
@@ -1206,6 +1230,8 @@ event_feed_strings_text_derpy_ic_move_unseat_ok	Strike Their Seats: Success	fals
 event_feed_strings_text_derpy_ic_move_unseat_fail	Strike Their Seats: Failure	false
 event_feed_strings_text_derpy_ic_move_recall_ok	Recall Governors: Success	false
 event_feed_strings_text_derpy_ic_move_recall_fail	Recall Governors: Failure	false
+event_feed_strings_text_derpy_ic_move_dig_ok	Dig for Secrets: Success	false
+event_feed_strings_text_derpy_ic_move_dig_fail	Dig for Secrets: Failure	false
 event_feed_strings_text_derpy_ic_move_weregild_ok	Pay the Weregild: Success	false
 event_feed_strings_text_derpy_ic_move_weregild_fail	Pay the Weregild: Failure	false
 event_feed_strings_text_derpy_ic_move_oath_ok	Blood-Oath: Success	false
@@ -1228,6 +1254,8 @@ event_feed_strings_text_derpy_ic_move_envoy_ok	Send an Envoy: Success	false
 event_feed_strings_text_derpy_ic_move_envoy_fail	Send an Envoy: Failure	false
 event_feed_strings_text_derpy_ic_move_diplomats_ok	Send Diplomats: Success	false
 event_feed_strings_text_derpy_ic_move_diplomats_fail	Send Diplomats: Failure	false
+event_feed_strings_text_derpy_ic_move_council_ok	Call the War Council: Success	false
+event_feed_strings_text_derpy_ic_move_council_fail	Call the War Council: Failure	false
 effect_bundles_localised_title_derpy_ic_office_dwf_priest	High Priest of the Ancestors	false
 effect_bundles_localised_description_derpy_ic_office_dwf_priest	He tends the clan shrines and settles disputes in their names.	false
 derpy_ic_effects_derpy_ic_office_dwf_priest	Control +6, Building income +12%	false
@@ -2274,6 +2302,8 @@ event_feed_strings_text_derpy_ic_move_dwf_unseat_ok	Bar the Doors: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_unseat_fail	Bar the Doors: Failure	false
 event_feed_strings_text_derpy_ic_move_dwf_recall_ok	Recall Governors: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_recall_fail	Recall Governors: Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_dig_ok	Dig for Secrets: Success	false
+event_feed_strings_text_derpy_ic_move_dwf_dig_fail	Dig for Secrets: Failure	false
 event_feed_strings_text_derpy_ic_move_dwf_weregild_ok	Pay the Weregild: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_weregild_fail	Pay the Weregild: Failure	false
 event_feed_strings_text_derpy_ic_move_dwf_oath_ok	Ancestor Oath: Success	false
@@ -2296,6 +2326,8 @@ event_feed_strings_text_derpy_ic_move_dwf_envoy_ok	Send an Envoy: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_envoy_fail	Send an Envoy: Failure	false
 event_feed_strings_text_derpy_ic_move_dwf_diplomats_ok	Send Diplomats: Success	false
 event_feed_strings_text_derpy_ic_move_dwf_diplomats_fail	Send Diplomats: Failure	false
+event_feed_strings_text_derpy_ic_move_dwf_council_ok	Call the War Council: Success	false
+event_feed_strings_text_derpy_ic_move_dwf_council_fail	Call the War Council: Failure	false
 missions_localised_title_derpy_ic_demand_office	A Party Demands an Office	false
 missions_localised_description_derpy_ic_demand_office	A party demands a vacant office for one of its men. The party's card names the man and the office. Appoint him in time and its loyalty rises; miss the deadline or appoint someone else and it falls.	false
 missions_localised_mission_completed_text_derpy_ic_demand_office	The party's man holds the office it demanded.	false

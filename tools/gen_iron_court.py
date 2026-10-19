@@ -1415,6 +1415,51 @@ EVENTS = [
      "The Old Law Stands",
      "The court has voted the law down, and the law in force stays. If a rival "
      "party proposed it, that party loses loyalty."),
+    # THE WAR COUNCIL. The call site's subtitle is the target faction's name
+    # (factions_screen_name_<key>); the primary here is for when it has none.
+    ("war_proposed", True, "chd/faction", "Neutral",
+     "A War Before the Court",
+     "The Court Will Vote",
+     "A party has put a war to the court. Each party votes with the influence of "
+     "its men. Open the vote from the Petitions tab to take a side, push it or "
+     "overrule it."),
+    ("war_passed", True, "chd/faction", "Positive",
+     "The Court Votes for War",
+     "War Is Coming",
+     "The court has voted for war. It will be declared in a few turns, so make "
+     "your armies ready. You can still call it off from the Petitions tab, at a "
+     "price."),
+    ("war_failed", True, "chd/faction", "Negative",
+     "The Court Votes for Peace",
+     "The Peace Holds",
+     "The court has voted the war down. If a rival party proposed it, that party "
+     "loses loyalty."),
+    ("war_begins", True, "chd/faction", "Neutral",
+     "The Court Goes to War",
+     "War Is Declared",
+     "The war the court voted for has been declared."),
+    ("war_broken", True, "chd/army_morale_down", "Negative",
+     "A War Called Off",
+     "A Treaty Stands in the Way",
+     "You signed a treaty with the faction the court voted to fight, so the war "
+     "cannot be declared. The parties that wanted it lose loyalty."),
+    ("war_unasked", True, "chd/army_morale_down", "Negative",
+     "A War the Court Was Not Asked",
+     "You Went to War Alone",
+     "You declared war without putting it to the court. Parties that opposed "
+     "this war lose loyalty; parties that wanted it gain a little."),
+    # CLAIMS ON CONQUERED LAND. The call site's subtitle is the province's name
+    # (provinces_onscreen_<key>); the primary here is for when it has none.
+    ("claims_laid", True, "chd/diplomacy", "Neutral",
+     "Claims on New Land",
+     "A Province to Govern",
+     "Parties claim the governorship of the province you have taken. Answer them "
+     "on the Petitions tab. Unanswered, the claim of the strongest party is "
+     "granted."),
+    ("claim_taken", True, "chd/diplomacy", "Neutral",
+     "The Court Grants a Claim",
+     "A Governor Is Named",
+     "No answer came, so the court granted the claim of its strongest party."),
 ]
 
 # THE BODY party_drawn PASSES, one per party a deed can draw in. It replaces

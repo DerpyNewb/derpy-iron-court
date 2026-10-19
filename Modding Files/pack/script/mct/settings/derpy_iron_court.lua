@@ -117,6 +117,16 @@ local SWITCHES = {
      .. "You and the parties propose laws. You can push a law, win men over or overrule the vote. "
      .. "Off, no law applies and open votes end; the laws in force come back when "
      .. "you turn it on.", true},
+    {"council", "War council", "systems",
+     "The court votes on wars. You and the parties put a war on a faction to the "
+     .. "court, and a war it passes is declared a few turns later, so your armies can "
+     .. "get ready. You can overrule the vote or call the war off, for influence or "
+     .. "gold. Off, no war goes to a vote, and an open vote and a planned war end.", true},
+    {"claims", "Claims on conquest", "systems",
+     "When you take a province that is new to your court, up to three rival parties "
+     .. "claim its governorship. Grant or refuse each claim on the Petitions tab; a "
+     .. "claim left unanswered goes to the strongest party. Off, no claims are made, "
+     .. "and open claims end.", true},
     {"dwarf_courts", "Dwarf courts", "systems",
      "Dwarf factions run courts of their own: Dwarf parties, offices, governments "
      .. "and laws. Off, no Dwarf faction has a court, and one already running is "

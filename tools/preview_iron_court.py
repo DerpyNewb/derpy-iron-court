@@ -2,11 +2,13 @@
 """Render every Iron Court view to PNGs with the game shut, and validate the XML.
 
 Every view in VIEWS (plus DWF_VIEWS for the Dwarfs), at every size in SIZES, for both
-races, into .skilltree_cache/ui_preview/. A Chaos Dwarf view is drawn from gen_ic_ui.py's
-coordinates with its words parsed out of the shipped Lua; the laws views and every Dwarf
-view are what the shipped Lua itself left on the harness's fake tree (IC_DUMP and
-IC_DUMP_RACE, run under lua.exe). Our .twui.xml carries no offsets, because the Lua
-MoveTo's every piece, so the file alone would stack the panel in one corner.
+races, into .skilltree_cache/ui_preview/. Every Dwarf view, and the Chaos Dwarf views in
+CHD_DUMPED, are what the shipped Lua itself left on the harness's fake tree (IC_DUMP_RACE,
+run under lua.exe); the Chaos Dwarf laws views are IC_DUMP's. The other Chaos Dwarf views
+are older and drawn from gen_ic_ui.py's coordinates with their words parsed out of the
+shipped Lua. A new view goes through the dump: its picture is then the Lua's, never a
+Python copy of it. Our .twui.xml carries no offsets, because the Lua MoveTo's every
+piece, so the file alone would stack the panel in one corner.
 
 It reuses tools/preview_guilds_panel.py's two halves: TWUI Studio's reader validates the
 <hierarchy>/<components> links the way the engine does, and its rasteriser nine-slices
@@ -49,8 +51,10 @@ OUT_PICK_READY = os.path.join(PG.CACHE, "ic_pick_ready.png")
 # THE ZIGGURAT, the tab the panel opens on. Fourteen cards in four bands, half
 # of them empty.
 OUT_OFFICES = os.path.join(PG.CACHE, "ic_offices.png")
-# THE PETITIONS TAB: the one list with two buttons on a row. Its worst line is
-# the longest name demanding the longest province.
+# THE PETITIONS TAB: the one list with two buttons on a row. Every kind of row
+# at once: the government asked for, the war council's vote and its planned war
+# on CA's longest faction name, three claims on the longest province, the longest
+# man demanding it, and two offers, one refused.
 OUT_PETITIONS = os.path.join(PG.CACHE, "ic_petitions.png")
 # THE GOVERNORS VIEW: the column over the live map, as two
 # pictures, one per page shape. The map is a flat stand-in - a shut game has no
@@ -65,8 +69,14 @@ OUT_LAW_BOARD = os.path.join(PG.CACHE, "ic_law_board.png")
 OUT_LAW_VOTE = os.path.join(PG.CACHE, "ic_law_vote.png")
 # THE GOVERNMENT CHOOSER: five cards, off the same dump.
 OUT_GOV_CARDS = os.path.join(PG.CACHE, "ic_gov_cards.png")
+# THE WAR COUNCIL'S VOTE SCREEN, the secret picker (held, and the same list with
+# the secret gone, every row refused), and the Help: its first topic and the War
+# Council's.
 VIEWS = ("court", "intrigue", "pick", "pick_ready", "offices", "petitions",
-         "gm_provinces", "gm_picker", "law_board", "law_vote", "gov_cards")
+         "gm_provinces", "gm_picker", "law_board", "law_vote", "gov_cards",
+         "war_vote", "secret", "secret_refused", "help", "help_war")
+# THE CHAOS DWARF VIEWS DRAWN FROM THE HARNESS'S DUMP, as every Dwarf view is.
+CHD_DUMPED = ("petitions", "war_vote", "secret", "secret_refused", "help", "help_war")
 LUA_EXE = os.path.join("C:" + os.sep, "Program Files (x86)", "Lua", "5.1", "lua.exe")
 
 _LUA = {}
@@ -297,7 +307,11 @@ VIEW_OUT = {"court": OUT, "intrigue": OUT_INTRIGUE, "pick": OUT_PICK,
             "petitions": OUT_PETITIONS, "gm_provinces": OUT_GM, "gm_picker": OUT_GM_PICK,
             "law_board": OUT_LAW_BOARD, "law_vote": OUT_LAW_VOTE, "gov_cards": OUT_GOV_CARDS,
             "log": os.path.join(PG.CACHE, "ic_log.png"),
-            "help": os.path.join(PG.CACHE, "ic_help.png")}
+            "help": os.path.join(PG.CACHE, "ic_help.png"),
+            "help_war": os.path.join(PG.CACHE, "ic_help_war.png"),
+            "war_vote": os.path.join(PG.CACHE, "ic_war_vote.png"),
+            "secret": os.path.join(PG.CACHE, "ic_secret.png"),
+            "secret_refused": os.path.join(PG.CACHE, "ic_secret_refused.png")}
 
 
 def sized(path, bw):
@@ -419,7 +433,7 @@ def law_dump(_cache={}):
 
 DumpNode = collections.namedtuple(
     "DumpNode", "path name visible x y w h text images file resized")
-DWF_VIEWS = ("log", "help")          # drawn for the Dwarf court only (Review Focus 7)
+DWF_VIEWS = ("log",)                 # drawn for the Dwarf court only (Review Focus 7)
 DWF_DEMO_FACES = [
     "ui/portraits/portholes/no_culture/dwf_lord_campaign_01_0.png",
     "ui/portraits/portholes/no_culture/dwf_ch_runelord_campaign_01_0.png",
@@ -431,6 +445,22 @@ DWF_DEMO_FACES = [
 DWF_DEMO_KING_FACE = "ui/portraits/portholes/no_culture/dwf_ch_ungrim_0.png"
 DWF_DEMO_FORE = ["Kazador", "Hargrim", "Thorgard", "Durgnar", "Bronnir", "Grimbok",
                  "Ulfgrim", "Snorvald", "Morgrim", "Hakkin"]
+# THE LONGEST NAME A DWARF DEMAND IS DRAWN WITH: CA's longest Dwarf legendary
+# lord's. DEMO_LONG_MAN carries a Chaos Dwarf word.
+DWF_LONG_MAN = "Thorgrim Grudgebearer"
+
+
+def long_factions(names):
+    """(key, screen name) of CA's three longest faction screen names.
+
+    THE BOOK'S HARD CASE, met and weighed by the dump's court - a picture of three
+    short names answers nothing about a cut cell - and the first is the war
+    council's target: the war vote, the planned war and the secret's war use.
+    """
+    return sorted(((k[len("factions_screen_name_"):], t) for k, t in names.items()
+                   if k.startswith("factions_screen_name_")
+                   and not k.startswith("factions_screen_name_when_rebels_")
+                   and not t.startswith("{{")), key=lambda kt: (-len(kt[1]), kt[0]))[:3]
 
 
 def race_dump(race, _cache={}):
@@ -446,23 +476,32 @@ def race_dump(race, _cache={}):
     import read_vanilla_loc as L
     loc = dict((r["key"], r["text"]) for r in GIC.build()["loc"])
     names = L.load("factions")
-    loc["factions_screen_name_wh_main_dwf_karak_kadrin"] = names[
-        "factions_screen_name_wh_main_dwf_karak_kadrin"]
-    loc["derpy_demo_dwf_fore"], loc["derpy_demo_dwf_sur"] = "Ungrim", "Ironfist"
-    # THE BOOK'S HARD CASE: CA's three longest faction
-    # screen names, met and weighed by the dump's court - a picture of three short
-    # names answers nothing about a cut cell.
-    book = sorted(((k[len("factions_screen_name_"):], t) for k, t in names.items()
-                   if k.startswith("factions_screen_name_")
-                   and not k.startswith("factions_screen_name_when_rebels_")
-                   and not t.startswith("{{")), key=lambda kt: (-len(kt[1]), kt[0]))[:3]
+    if race == "dwf":
+        loc["factions_screen_name_wh_main_dwf_karak_kadrin"] = names[
+            "factions_screen_name_wh_main_dwf_karak_kadrin"]
+        fore, sur, king_face = "Ungrim", "Ironfist", DWF_DEMO_KING_FACE
+        faces, fores, long_man = DWF_DEMO_FACES, DWF_DEMO_FORE, DWF_LONG_MAN
+    else:
+        # THE CHAOS DWARF COURT the Python route draws: its Crown, leader and faces.
+        loc["derpy_demo_crown"] = DEMO_CROWN_NAME
+        fore, sur = DEMO_LEADERS[0].split()
+        king_face, faces = DEMO_FACES[0], DEMO_FACES[1:7]
+        fores, long_man = [r[0].split()[0] for r in DEMO_PICK], DEMO_LONG_MAN
+    loc["derpy_demo_race_fore"], loc["derpy_demo_race_sur"] = fore, sur
+    # THE PETITIONS' HARD CASE: the longest man for the longest province, and CA's
+    # name for whichever unit a party's troop offer names.
+    loc["derpy_demo_long_man"] = long_man
+    loc["provinces_onscreen_derpy_demo_long_prov"] = DEMO_LONG_PROVINCE
+    loc.update((k, v) for k, v in L.load("land_units").items()
+               if k.startswith("land_units_onscreen_name_"))
+    book = long_factions(names)
     for key, text in book:
         loc["factions_screen_name_" + key] = text
-    loc["derpy_demo_dwf_face_king"] = DWF_DEMO_KING_FACE
-    for i, fore in enumerate(DWF_DEMO_FORE):
-        loc["derpy_demo_fore_%d" % (i + 1)] = fore
-    for i, face in enumerate(DWF_DEMO_FACES):
-        loc["derpy_demo_dwf_face_%d" % (i + 1)] = face
+    loc["derpy_demo_race_face_king"] = king_face
+    for i, name in enumerate(fores):
+        loc["derpy_demo_fore_%d" % (i + 1)] = name
+    for i, face in enumerate(faces):
+        loc["derpy_demo_race_face_%d" % (i + 1)] = face
 
     def q(v):
         return '"%s"' % v.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
@@ -476,6 +515,16 @@ def race_dump(race, _cache={}):
                IC_DUMP_RACE_OUT=out_path, IC_DUMP_LOC=loc_path)
     env.pop("IC_TEST_ALL", None)
     env.pop("IC_DUMP", None)
+    # THE WAR COUNCIL'S TARGET (the Book's first) WEARS ITS OWN FLAG: CA's
+    # flags_path for it, which is not its key.
+    import read_vanilla_db as V
+    for _p, _v, rows in V.load(V.DB_PACK, "factions_tables"):
+        for row in rows:
+            if row.get("key") == book[0][0] and row.get("flags_path"):
+                env["IC_DUMP_FOE_FLAG"] = row["flags_path"]
+    # NOT SILENT: without it the war vote draws the stub's flag, which is no file.
+    if "IC_DUMP_FOE_FLAG" not in env:
+        print("WARNING: no CA flags_path for %s; the war vote's flag will not draw" % book[0][0])
     r = subprocess.run([LUA_EXE, os.path.join("tools", "_iron_court_harness.lua")],
                        cwd=ROOT, env=env, capture_output=True, text=True)
     if r.returncode != 0 or not os.path.isfile(out_path):
@@ -716,62 +765,11 @@ def plot_cards(G, race="chd"):
     return out
 
 
-def _party_tune():
-    """The parties file's T.party_* values, {name: int}."""
-    return dict((k, int(v)) for k, v in re.findall(
-        r"^T\.(\w+)\s*=\s*(-?\d+)", lua("parties"), re.M))
-
-
-def petitions_label():
-    """ICUI.petitions_label, resolved: its literals, then its three T values."""
-    body = lua("ui").split("function ICUI.petitions_label()")[1].split("\nend")[0]
-    lit = "".join(re.findall(r'"([^"]*)"', body.split(", IC.TUNE.")[0]))
-    tune = _party_tune()
-    for name in re.findall(r"IC\.TUNE\.(\w+)", body):
-        lit = lit.replace("%d", str(tune[name]), 1)
-    if "%" in lit:
-        raise ValueError("petitions_label did not resolve: " + lit)
-    return lit
-
-
 # THE LONGEST NAME CA GIVES A CHAOS DWARF and the longest province name the game
-# ships - the pair the demand row was measured against and rearranged for.
+# ships - the pair the demand row was measured against and rearranged for. The
+# race dump names the demand's man and the claims' province with them.
 DEMO_LONG_MAN = "Drazhoath the Ashen of Hashut"
 DEMO_LONG_PROVINCE = "Southlands World's Edge Mountains"
-
-
-def petition_rows(G, court):
-    """ICUI.draw_petitions' rows for the demo court: the demand, then the offers.
-
-    THE HARD CASE: the demand is the longest man for the longest province, and
-    the first offer calms the party with the longest name. The last offer is
-    refused - a troop offer to a court with no army to take it - so the red
-    ACCEPT is on the picture. The formats are lifted out of the Lua.
-    """
-    ui = bare(lua("ui"))
-    tune = _party_tune()
-    body = ui.split("function ICUI.draw_petitions(")[1].split("\nend")[0]
-    oversee = re.search(r'"(Demands to govern %s)"', body).group(1)
-    offers = re.search('"(Offers %s: %s)"', body).group(1)
-    what = ui.split("function ICUI.offer_what(")[1].split("\nend")[0]
-    calm = re.search(r'"(calm %s \(\+%d loyalty\))"', what).group(1)
-    troops = re.search(r'if row then return string\.format\("(%d %s)"', what).group(1)
-
-    def turns(n):
-        return "%d turn%s" % (n, "" if n == 1 else "s")
-
-    longest = max(court[1:], key=lambda row: len(row[1]))
-    rows = [dict(slug=court[1][0], face=DEMO_FACES[1], may=True, a=DEMO_LONG_MAN,
-                 b="%s: %s" % (oversee % DEMO_LONG_PROVINCE,
-                                turns(tune["party_demand_turns"])))]
-    rows.append(dict(slug=court[2][0], face=None, may=True, a=court[2][1],
-                     b=offers % (calm % (longest[1], tune["party_offer_calm"]),
-                                 turns(tune["party_offer_turns"]))))
-    rows.append(dict(slug=court[4][0], face=None, may=False, a=court[4][1],
-                     b=offers % (troops % (tune["party_offer_units"],
-                                           "Chaos Dwarf Warriors (Great Weapons)"),
-                                 turns(1))))
-    return rows
 
 
 def slice_counts(total, court):
@@ -993,6 +991,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
     G = _gen_at(box_w, race)
     ui = lua("ui")
     gm = view.startswith("gm_")
+    dumped = race != "chd" or view in CHD_DUMPED
     # THE COST ICON IS NAMED IN THE LUA AND IN NO .twui.xml, so the extractor has
     # to be told about it the way it is told about the lit tab's plate - otherwise
     # every price on the intrigue tab draws its number and no icon.
@@ -1039,7 +1038,7 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                       # A PICTURE IN THE TEXT: the government line's [[img:]] is the
                       # race's own icon, which no Chaos Dwarf list above holds.
                       + re.findall(r"\[\[img:([^\]]+)\]\]", nd.text)
-                      if p.startswith("ui/"))) if race != "chd" else []))
+                      if p.startswith("ui/"))) if dumped else []))
 
     def doc_of(name):
         # BELOW 1920 THE PANEL OPENS THE COMPACT COPY, and the fonts this
@@ -1237,13 +1236,14 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                       anchor="lm")
             tx += draw.textlength(body, font=f)
 
-    # A RACE OTHER THAN THE CHAOS DWARFS IS DRAWN FROM THE DUMP.
+    # A RACE OTHER THAN THE CHAOS DWARFS IS DRAWN FROM THE DUMP, and so is a Chaos
+    # Dwarf view in CHD_DUMPED.
     #
     # Every visible component the shipped Lua left on the fake tree, at its MoveTo
     # position, with the pictures and words it set, painted with its own file's
     # layers - and nothing typed here. Siblings in engine order: a file's components
     # in declaration order, the pools after them in creation order.
-    if race != "chd":
+    if dumped:
         nodes = race_dump(race)["%s@%d" % (view, box_w)]
         by_path = dict((nd.path, (i, nd)) for i, nd in enumerate(nodes))
         kids = collections.defaultdict(list)
@@ -1369,7 +1369,8 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         problems = ["%s@%d: %s is in no twui file it was created from" % (view, box_w, p)
                     for p in unknown]
         problems += ["%s@%d: draws Chaos Dwarf art %s, not in gen_ic_ui.DWF_KEEPS"
-                     % (view, box_w, p) for p in sorted(seen_art) if p and G.chd_art(p)]
+                     % (view, box_w, p) for p in sorted(seen_art)
+                     if race != "chd" and p and G.chd_art(p)]
         return out, n_art, missing + problems, drawn[0]
 
     # The panel, then the tab's own furniture.
@@ -1678,8 +1679,6 @@ def render(path=None, view="court", box_w=1920, race="chd"):
                 .replace("%d", str(len(_tiers)), 1)
                 .replace("%s", _widths, 1)
                 .replace("%d", _turns, 1))
-        elif view == "petitions":
-            STRINGS["ic_lbl_section"] = petitions_label()
         elif law:
             STRINGS["ic_lbl_section"] = LD["derpy_ic_panel/ic_lbl_section"].text
         elif view == "gm_provinces":
@@ -2020,52 +2019,6 @@ def render(path=None, view="court", box_w=1920, race="chd"):
         os.makedirs(os.path.dirname(out), exist_ok=True)
         canvas.convert("RGB").save(out)
         return out, n_art, missing, drawn
-
-    # The petitions: a demand, then the offers.
-    if view == "petitions":
-        rows = petition_rows(G, court)
-        # COLUMN TWO RUNS TO REFUSE on this view, and the Lua scales that width
-        # by its edges the way every other width is scaled.
-        _pw = int(re.search(r"petitions = \{\[2\] = (\d+)\}", ui).group(1))
-        _bx = _gen().ROW_LAYOUT["ic_row_b"][0]
-        _bw = _gen().sc(_bx + _pw, box_w) - _gen().sc(_bx, box_w)
-        for i, r in enumerate(rows):
-            rx = G.ROWS_X
-            ry = G.ROWS_Y + i * G.ROW_PITCH
-            paste(row_doc, named[("row", "derpy_ic_row")], rx, ry, G.ROW_W, G.ROW_H)
-
-            def rcell(key, s=None, repaint=None, w=None, _x=rx, _y=ry):
-                cx, cy, cw, ch = G.ROW_LAYOUT[key]
-                comp = named[("row", key)]
-                paste(row_doc, comp, _x + cx, _y + cy, w or cw, ch, repaint=repaint)
-                if s:
-                    text(row_doc, comp, s, _x + cx, _y + cy, w or cw, ch)
-
-            if r["face"]:
-                # HIS FACE ON HIS HOUSE'S PLATE and the crest beside his name,
-                # which is what says whose demand it is, since the party's
-                # name is not on the row.
-                rcell("ic_row_port", repaint={0: G.plate_path(r["slug"]),
-                                              1: r["face"], 2: None})
-                rcell("ic_row_crest", repaint={0: G.sigil_path(r["slug"])})
-            else:
-                # A CREST AS THE ROW'S PICTURE, on its house's plate and at the
-                # crest's size: set_row_icon resizes the cell to CREST_W x CREST_H
-                # and set_plate still writes the plate under it.
-                cx, cy, _cw, _ch = G.ROW_LAYOUT["ic_row_port"]
-                paste(row_doc, named[("row", "ic_row_port")], rx + cx, ry + cy,
-                      *G.CREST_BOX,
-                      repaint={0: G.plate_path(r["slug"]),
-                               1: G.sigil_path(r["slug"]), 2: None})
-            rcell("ic_row_a", r["a"])
-            rcell("ic_row_b", r["b"], w=_bw)
-            rcell("ic_row_f", "Refuse")
-            rcell("ic_row_e", "Accept" if r["may"] else red("Accept"))
-
-        out = path or sized(OUT_PETITIONS, box_w)
-        os.makedirs(os.path.dirname(out), exist_ok=True)
-        canvas.convert("RGB").save(out)
-        return out, n_art, missing, len(rows)
 
     # THE KIND OF EACH MAN, BY NAME. The office cards name the same men the
     # picker lists, and reading their kind back out of that one table is what
@@ -2530,16 +2483,6 @@ def selftest():
             "the panel colours its refusals [[col:%s]] and db/ui_colours_tables "
             "has no such row - the engine drops an unknown name silently" % name)
 
-    # THE PETITIONS PICTURE READS ITS WORDS OUT OF THE LUA, so a reworded row
-    # must fail here rather than draw a sentence the panel no longer writes.
-    _label = petitions_label()
-    assert "%" not in _label and str(_party_tune()["party_demand_met"]) in _label, (
-        "the petitions label resolved to %r" % _label)
-    _rows = petition_rows(G, court)
-    assert _rows[0]["a"] == DEMO_LONG_MAN and DEMO_LONG_PROVINCE in _rows[0]["b"], (
-        "the demand row is not the hard case: %r" % (_rows[0],))
-    assert any(not r["may"] for r in _rows) and any(r["may"] for r in _rows), (
-        "the petitions picture needs one refused ACCEPT and one that is not")
     # AND THE CARD'S NEW CELLS ARE IN THE FILE THE PICTURE DRAWS.
     for _cell in ("ic_party_state", "ic_party_trend", "ic_party_members",
                   "ic_party_offices", "ic_party_govs"):
@@ -2574,6 +2517,49 @@ def selftest():
             assert key in D, "the harness dumped no %s" % key
             want = "derpy_ic_panel_dwf" + ("_compact" if bw < 1920 else "")
             assert D[key][0].file.endswith(want), "%s was built from %s" % (key, D[key][0].file)
+    # AND THE CHAOS DWARF COURT'S, for the views drawn from it.
+    C = race_dump("chd")
+    for bw in SIZES:
+        for v in CHD_DUMPED:
+            key = "%s@%d" % (v, bw)
+            assert key in C, "the harness dumped no Chaos Dwarf %s" % key
+            want = "derpy_ic_panel" + ("_compact" if bw < 1920 else "")
+            assert C[key][0].file.endswith(want), "%s was built from %s" % (key, C[key][0].file)
+    # THE HARD CASE IS ON THE PICTURES, for both races: every kind of petition, the
+    # war's rows and its vote naming CA's longest faction, the longest province
+    # claimed three times and demanded, a refused button, and the secret's war use.
+    import read_vanilla_loc as _L
+    _target_key, _target = long_factions(_L.load("factions"))[0]
+    for _race, _D in (("chd", C), ("dwf", D)):
+        def cells(view, name, _D=_D):
+            return [n for n in _D[view + "@1920"] if n.visible and n.name == name]
+        _man = DEMO_LONG_MAN if _race == "chd" else DWF_LONG_MAN
+        assert _man in [n.text for n in cells("petitions", "ic_row_a")], (
+            "%s petitions: the longest man, %s, names no row" % (_race, _man))
+        assert cells("court", "ic_act_secret"), "%s court: Use a Secret is hidden" % _race
+        # CA'S FLAG, not the stub's ui/flags/<key>: CA's flags_path is not the key.
+        _flag = cells("war_vote", "ic_lv_icon")[0].images.get(0, "")
+        assert _flag.startswith("ui/flags/") and _target_key not in _flag, (
+            "%s war vote draws flag %r, not CA's" % (_race, _flag))
+        _b = [n.text for n in cells("petitions", "ic_row_b")]
+        for _want, _n in (("Asks for ", 1), ("Proposes war on %s: " % _target, 1),
+                          ("Declared in ", 1), ("Claims %s: " % DEMO_LONG_PROVINCE, 3),
+                          ("Demands to govern %s: " % DEMO_LONG_PROVINCE, 1), ("Offers ", 2)):
+            assert sum(1 for t in _b if t.startswith(_want)) == _n, (
+                "%s petitions: %d rows start %r" % (_race, sum(1 for t in _b if t.startswith(_want)), _want))
+        assert "War on " + _target in [n.text for n in cells("petitions", "ic_row_a")], (
+            "%s petitions: the planned war is not on %s" % (_race, _target))
+        assert any("_inactive" in n.images.get(0, "") for n in cells("petitions", "ic_row_e")), (
+            "%s petitions: no refused button" % _race)
+        assert cells("war_vote", "ic_lv_name")[0].text == "War on " + _target, (
+            "%s war vote reads %r" % (_race, cells("war_vote", "ic_lv_name")[0].text))
+        assert all(cells("war_vote", "ic_lv_over_%d" % i) for i in (3, 4)), (
+            "%s war vote: the gold buttons are hidden" % _race)
+        _uses = [n.text for n in cells("secret", "ic_row_a")]
+        assert len(_uses) == 6 and "Their votes on the war" in _uses, (
+            "%s secret picker lists %r" % (_race, _uses))
+        assert all("_inactive" in n.images.get(0, "") for n in cells("secret_refused", "ic_row_e")), (
+            "%s secret picker with no secret has a live row" % _race)
     off = dict((n.name, n) for n in D["offices@1920"])
     assert off["ic_off_title"].text == "THE GREAT HALL", off["ic_off_title"].text
     assert off["ic_throne_name"].text == "Karak Kadrin", off["ic_throne_name"].text
@@ -2623,7 +2609,7 @@ if __name__ == "__main__":
                             print("  art not found in any ui pack: " + m)
                     print("wrote %s  (%d art files, %d %s)"
                           % (out, n_art, drawn,
-                             "components" if race != "chd" else
+                             "components" if race != "chd" or view in CHD_DUMPED else
                              "of %d card slots filled" % len(_gen_at(bw).PARTY_GRID)
                              if view == "court" else "rows"))
         sys.exit(1 if problems else 0)
