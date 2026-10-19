@@ -13,8 +13,9 @@ Then commit and push from inside the repo folder.
 
 NOTHING OF CA'S OR GW'S IS PUBLISHED, the rule for every public repo from this
 workspace. No images - the backdrop, plates and rebel flags are all derived from CA art -
-and no DB rows copied out of CA's db.pack. `refused()` checks the manifest for both before
-anything is copied, and the sync will not run while it reports anything.
+and no DB rows copied out of CA's db.pack. Nor any file naming a Windows user profile.
+`refused()` checks the manifest for all three before anything is copied, and the sync will
+not run while it reports anything.
 """
 import glob
 import os
