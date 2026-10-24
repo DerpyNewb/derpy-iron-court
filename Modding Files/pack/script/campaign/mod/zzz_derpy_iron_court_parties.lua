@@ -1230,17 +1230,31 @@ end
 -- applies now. The rows, in order: one per open vote the Crown has taken a side
 -- on and the party has a man to win in (the laws in their order, then the
 -- council), their demand, their warned plot (the scheme), their secession
--- countdown, and Expose, which always applies. {code, key, may, why}: key is the
--- vote's category, nil otherwise; every row is refused no_secret while none is
--- held. The Crown lists none.
+-- countdown, and Expose, which always applies. {code, key, may, why, breaks}: key
+-- is the vote's category, nil otherwise; every row is refused no_secret while none
+-- is held. A BLACKMAIL USE WHOSE COST WOULD TAKE THEM TO THE BREAKING POINT is
+-- refused secret_break: it would buy a stopped countdown or a won vote from a
+-- party that leaves at the next turn start. Expose is the hostile use and is not
+-- refused; `breaks` marks it so the row can warn. The Crown lists none.
 function IC.secret_uses(faction_key, slug)
     local out = {}
     local court = IC.court(faction_key)
     local house = slug ~= IC.CROWN and court.houses[slug or ""]
     if not house then return out end
     local held = (court.secrets or {})[slug] ~= nil
+    -- AS IC.at_breaking_point WILL READ IT once the cost is paid: no break while
+    -- secession is off or in its grace turns.
+    local function breaks(cost)
+        return IC.secession_on()
+            and (house.loyalty or IC.TUNE.loyalty_start) + cost <= IC.TUNE.secede_break
+    end
     local function row(code, key)
-        out[#out + 1] = {code = code, key = key, may = held, why = not held and "no_secret" or nil}
+        local expose = code == "expose"
+        local why = not held and "no_secret"
+            or (not expose and breaks(T.secret_use_loyalty) and "secret_break")
+            or nil
+        out[#out + 1] = {code = code, key = key, may = why == nil, why = why,
+                         breaks = expose and breaks(T.secret_expose_loyalty) or nil}
     end
     local function vote_row(category)
         if vote_use(faction_key, slug, category) then row("vote", category) end
@@ -1256,19 +1270,21 @@ function IC.secret_uses(faction_key, slug)
 end
 
 -- SPEND IT: true, or false and why - no_secret; none_to_win for an open vote the
--- Crown took a side on where every man of the party already votes that side; or
--- no_use for any other use IC.secret_uses does not list now. Blackmail costs the
--- party secret_use_loyalty; Expose costs it strength and secret_expose_loyalty
--- instead, and on a Dwarf court an insult grudge.
+-- Crown took a side on where every man of the party already votes that side;
+-- no_use for any other use IC.secret_uses does not list now; or the refusal it
+-- lists the use with (secret_break). Blackmail costs the party secret_use_loyalty;
+-- Expose costs it strength and secret_expose_loyalty instead, and on a Dwarf court
+-- an insult grudge.
 function IC.use_secret(faction_key, slug, code, key)
     local court = IC.court(faction_key)
     if not (court.secrets or {})[slug or ""] then return false, "no_secret" end
     if code == "vote" and vote_use(faction_key, slug, key) == false then return false, "none_to_win" end
-    local listed = false
+    local listed
     for _, u in ipairs(IC.secret_uses(faction_key, slug)) do
-        if u.code == code and u.key == key then listed = true end
+        if u.code == code and u.key == key then listed = u end
     end
     if not listed then return false, "no_use" end
+    if not listed.may then return false, listed.why end
     court.secrets[slug] = nil
     local a = IC.agenda(faction_key)
     local house = court.houses[slug]

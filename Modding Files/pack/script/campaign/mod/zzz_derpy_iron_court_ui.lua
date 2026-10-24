@@ -6190,13 +6190,23 @@ function ICUI.intrigue_text(e)
             ICUI.war_target(e.key), e.n or 0)
     elseif e.kind == "war_begins" then
         return string.format("The court declared war on %s, as it voted.", ICUI.war_target(e.key))
+    -- e.c: HOW MANY PARTIES THE CHARGE REACHED (IC.log). 0 says nobody paid; nil is
+    -- a line saved before it was kept, which keeps the old words.
     elseif e.kind == "war_called" then
         -- n: 1 paid in gold, 0 in influence. The price is the tuning's, as it was paid.
         local price = (e.n == 1) and string.format("%d gold", IC.TUNE.war_overrule_gold)
             or string.format("%d influence", IC.TUNE.law_overrule_cost)
+        if e.c == 0 then
+            return string.format("You called off the war on %s for %s. No party wanted it.",
+                ICUI.war_target(e.key), price)
+        end
         return string.format("You called off the war on %s for %s. The parties that wanted it "
             .. "lost %d loyalty.", ICUI.war_target(e.key), price, -IC.TUNE.law_overrule_loyalty)
     elseif e.kind == "war_broken" then
+        if e.c == 0 then
+            return string.format("A treaty with %s stood in the way of the court's war.",
+                ICUI.war_target(e.key))
+        end
         return string.format("A treaty with %s stood in the way of the court's war. The "
             .. "parties that wanted it lost %d loyalty.", ICUI.war_target(e.key),
             -IC.TUNE.war_broken_loyalty)
@@ -6204,6 +6214,9 @@ function ICUI.intrigue_text(e)
         -- n: 0 a vote whose target is gone, 1 one a treaty ended, 2 a planned war's.
         if e.n == 2 then
             return string.format("The war on %s was dropped: they are gone.", ICUI.war_target(e.key))
+        elseif e.n == 1 and e.c == 0 then
+            return string.format("You signed a treaty with %s, which ended the vote on war "
+                .. "with them.", ICUI.war_target(e.key))
         elseif e.n == 1 then
             return string.format("You signed a treaty with %s, which ended the vote on war "
                 .. "with them. The parties that wanted it lost %d loyalty.", ICUI.war_target(e.key),
@@ -6211,13 +6224,30 @@ function ICUI.intrigue_text(e)
         end
         return string.format("The vote on war with %s ended: they are gone, or at war "
             .. "with you already.", ICUI.war_target(e.key))
+    -- AN UNASKED WAR AND A PEACE: n how many lost, c how many gained. Only a side
+    -- that moved is named; a line with no c is from before, and names both.
     elseif e.kind == "war_unasked" then
-        return string.format("You went to war with %s without asking the court. The parties "
-            .. "against it lost loyalty.", ICUI.war_target(e.key))
+        local tail = "The parties against it lost loyalty."
+        if e.c and e.n == 0 then
+            tail = "The parties for it gained loyalty."
+        elseif e.c and e.c > 0 then
+            tail = "The parties against it lost loyalty, and those for it gained."
+        end
+        return string.format("You went to war with %s without asking the court. %s",
+            ICUI.war_target(e.key), tail)
     elseif e.kind == "war_peace" then
-        return string.format("You made peace with %s. The parties that wanted war lost loyalty, "
-            .. "and those against it gained.", ICUI.war_target(e.key))
+        local tail = "The parties that wanted war lost loyalty, and those against it gained."
+        if e.c == 0 then
+            tail = "The parties that wanted war lost loyalty."
+        elseif e.c and e.n == 0 then
+            tail = "The parties against war gained loyalty."
+        end
+        return string.format("You made peace with %s. %s", ICUI.war_target(e.key), tail)
     elseif e.kind == "war_bypass" then
+        if e.c == 0 then
+            return string.format("You went to war with %s while the court was still voting. "
+                .. "No party was against it.", ICUI.war_target(e.key))
+        end
         return string.format("You went to war with %s while the court was still voting. The "
             .. "parties against it lost %d loyalty.", ICUI.war_target(e.key), -IC.TUNE.war_bypass_loyalty)
     elseif e.kind == "war_early" then
@@ -7132,7 +7162,7 @@ ICUI.MISSION_REFUSAL = {
     rebel = "Rebel", player = "Player", human = "Player", unmet = "Not Met", dead = "Gone",
     self = "Yours", at_war = "At War", treaty = "Treaty", far = "Too Far",
     council_open = "Vote Open", council_war = "War Planned", council_off = "Off",
-    grace = "Not Yet", truce = "Truce", no_secret = "No Secret",
+    grace = "Not Yet", truce = "Truce", no_secret = "No Secret", secret_break = "Would Break",
 }
 
 -- A SECRET'S USES, by IC.secret_uses' codes: the row's name, what it does with its
@@ -7166,6 +7196,8 @@ ICUI.SECRET_USE = {
         effect = "They lose up to %d strength and %d loyalty%s.",
         done = "Secret used. %s is exposed before the court."},
 }
+-- THE TOOLTIP ON AN EXPOSE THAT TAKES THEM TO 0 (IC.secret_uses' `breaks`).
+ICUI.SECRET_BREAKS = "This takes their loyalty to 0. They will break with you next turn."
 
 -- A USE'S ROW, its name and its effect. A vote use names a law by ICUI.law_title
 -- and the war council's as "the war": one war vote runs at a time, and its
@@ -7286,11 +7318,13 @@ function ICUI.mission_rows(faction)
         -- THE MODEL'S OWN LIST (IC.secret_uses), in its order: each row sends its
         -- code|key, and a row it refuses sends nothing and says why.
         local slug = ICUI.pick.slug
+        -- EXPOSE THAT BREAKS THEM is allowed, and its button says what it does.
         for _, u in ipairs(IC.secret_uses(faction, slug)) do
             local name, effect = ICUI.secret_row(faction, u)
             lines[#lines + 1] = {name, ICUI.units(effect), "", "",
-                u.may and "Use" or ICUI.red(ICUI.mission_refusal(u.why)),
-                tip = (not u.may) and ICUI.reason_text(u.why) or nil,
+                u.may and (u.breaks and "Break Them" or "Use") or ICUI.red(ICUI.mission_refusal(u.why)),
+                tip = (not u.may) and ICUI.reason_text(u.why)
+                    or (u.breaks and ICUI.SECRET_BREAKS) or nil,
                 icon = ICUI.crest(slug), icon_kind = "crest", plate = slug}
             keys[#lines] = u.may and (u.code .. "|" .. (u.key or "")) or nil
         end
@@ -7316,6 +7350,9 @@ function ICUI.reason_text(why, spare)
     elseif why == "breaking" then
         return "No oath holds a party at 0 loyalty. Raise its loyalty, or let "
             .. "it go."
+    elseif why == "secret_break" then
+        return "Their loyalty is too low. This would take it to 0, and they would "
+            .. "break with you next turn. Raise their loyalty first."
     elseif why == "your own house" then
         return "You do not buy the goodwill of your own party."
     elseif why == "no such house" then
@@ -8973,10 +9010,13 @@ function ICUI.answer_text(op, arg, faction, spare)
         return "He is won over and votes with you."
     elseif op == "law_push" then
         return "Your party pushes harder."
+    -- SPARE IS HOW MANY PARTIES PAID (IC.law_overrule, IC.war_calloff).
     elseif op == "law_overrule" then
-        return "Vote overruled. The losing parties resent it."
+        return spare == 0 and "Vote overruled. No party was on the losing side."
+            or "Vote overruled. The losing parties resent it."
     elseif op == "war_calloff" then
-        return "War called off. The parties that wanted it resent it."
+        return spare == 0 and "War called off. No party wanted it."
+            or "War called off. The parties that wanted it resent it."
     elseif op == "claim_grant" then
         return string.format("Claim granted. A man of %s now governs %s.", name,
             loc("provinces_onscreen_" .. tostring(f[1]), tostring(f[1])))

@@ -1507,13 +1507,16 @@ function IC.who_was(faction_key, slug)
     return nil
 end
 
-function IC.log(faction_key, kind, slug, key, n)
+-- `c` IS HOW MANY PARTIES A LINE'S LOYALTY CHARGE REACHED, on the lines that claim
+-- one (the war council's), so "the parties against it lost" is not said of nobody.
+-- nil on every other line, and on a line saved before it was kept.
+function IC.log(faction_key, kind, slug, key, n, c)
     if not IC.LOG_KINDS[kind] then return false end
     local court = IC.court(faction_key)
     court.log = court.log or {}
     court.log[#court.log + 1] = {
         turn = cm:model():turn_number(),
-        kind = kind, slug = slug, key = key, n = n,
+        kind = kind, slug = slug, key = key, n = n, c = c,
         sw = IC.who_was(faction_key, slug),
         kw = IC.who_was(faction_key, key),
     }
@@ -1964,9 +1967,10 @@ function IC.pack(faction_key)
     local logged = {}
     for i = 1, #(court.log or {}) do
         local e = court.log[i]
+        -- THE EIGHTH, `c`, only when the line has one: a build before it reads seven.
         logged[#logged + 1] = string.format("%d,%s,%s,%s,%s,%s,%s",
             e.turn or 0, e.kind or "-", e.slug or "-", e.key or "-",
-            tostring(e.n or 0), e.sw or "-", e.kw or "-")
+            tostring(e.n or 0), e.sw or "-", e.kw or "-") .. (e.c and ("," .. e.c) or "")
     end
     local prov, ambition, last = {}, {}, {}
     for office_slug, e in pairs(court.last or {}) do
@@ -2188,6 +2192,7 @@ function IC.unpack(faction_key, packed)
                 -- Older five-field saves kept no names.
                 sw   = bits[6] ~= "-" and bits[6] or nil,
                 kw   = bits[7] ~= "-" and bits[7] or nil,
+                c    = tonumber(bits[8]),
             }
         end
     end
@@ -2610,8 +2615,10 @@ function IC.law_swing(tally, slug, flat)
     return share < 0 and -size or size
 end
 
--- THE END OF A VOTE, by tally or by overrule.
-function IC.law_settle(faction_key, category, passed)
+-- THE END OF A VOTE, by tally or by overrule. `how` "overrule" writes no Record
+-- line and raises no card: the court did not pass or fail it, you did, and
+-- IC.law_overrule's own line says so.
+function IC.law_settle(faction_key, category, passed, how)
     local R = IC.R(faction_key)
     local court = IC.court(faction_key)
     local vote = court.votes[category]
@@ -2638,14 +2645,18 @@ function IC.law_settle(faction_key, category, passed)
             end
         end
         IC.apply_law_bundles(faction_key)
-        IC.log(faction_key, "law_pass", vote.proposer, key, 0)
-        IC.feed(faction_key, "law_passed")
+        if how ~= "overrule" then
+            IC.log(faction_key, "law_pass", vote.proposer, key, 0)
+            IC.feed(faction_key, "law_passed")
+        end
     else
         if vote.proposer ~= IC.CROWN then
             IC.move_loyalty(faction_key, vote.proposer, IC.TUNE.law_fail_loss)
         end
-        IC.log(faction_key, "law_fail", vote.proposer, key, 0)
-        IC.feed(faction_key, "law_failed")
+        if how ~= "overrule" then
+            IC.log(faction_key, "law_fail", vote.proposer, key, 0)
+            IC.feed(faction_key, "law_failed")
+        end
     end
     return passed
 end
@@ -2666,7 +2677,8 @@ local function council_pay(faction_key, gold)
 end
 
 -- `gold` IS THE WAR VOTE'S ALONE. A war vote settles through the council, whose
--- passed vote plans a war instead of changing a law.
+-- passed vote plans a war instead of changing a law. true, nil and how many
+-- parties were on the losing side: the notice says so when none was.
 function IC.law_overrule(faction_key, category, pass, gold)
     local vote = IC.law_vote_of(faction_key, category)
     if not vote then return false, "law_none" end
@@ -2679,19 +2691,21 @@ function IC.law_overrule(faction_key, category, pass, gold)
     local slugs = {}
     for slug in pairs(court.houses) do slugs[#slugs + 1] = slug end
     table.sort(slugs)
+    local lost = 0
     for _, slug in ipairs(slugs) do
         if slug ~= IC.CROWN and IC.law_line(faction_key, vote, category, slug) == losing then
             IC.move_loyalty(faction_key, slug, IC.TUNE.law_overrule_loyalty)
+            lost = lost + 1
         end
     end
     IC.log(faction_key, "law_overrule", IC.CROWN, law_key(category, vote), pass and 1 or 0)
     if council then
         IC.council_settle(faction_key, pass, "overrule")
     else
-        IC.law_settle(faction_key, category, pass)
+        IC.law_settle(faction_key, category, pass, "overrule")
     end
     IC.save(faction_key)
-    return true
+    return true, nil, lost
 end
 
 function IC.law_can_propose(faction_key, category, option)
@@ -2995,10 +3009,13 @@ function IC.war_side(faction_key, target_key, side, snap)
     return out
 end
 
+-- HOW MANY PARTIES IT CHARGED, which the Record line carries as `c`.
 local function war_charge(faction_key, target_key, side, delta)
-    for _, slug in ipairs(IC.war_side(faction_key, target_key, side)) do
+    local list = IC.war_side(faction_key, target_key, side)
+    for _, slug in ipairs(list) do
         IC.move_loyalty(faction_key, slug, delta)
     end
+    return #list
 end
 
 -- NO WAR MAY BE PUT TO THE COURT, OR DECLARED BY IT: true and why. The grace
@@ -3070,9 +3087,11 @@ end
 
 -- THE END OF A WAR VOTE. `how` is "tally", "overrule" or "bypass": the last is the
 -- player declaring the war himself while it was open (task 3's reaction, which
--- charges the parties against it), so it closes passed and plans nothing, with
--- no swing, no card and a Record line of its own. A passed vote moves the parties for it and against it
--- by IC.law_swing, as a passed law does.
+-- charges the parties against it and writes the Record line, since only it knows
+-- how many it charged), so it closes passed and plans nothing, with no swing and
+-- no card. A passed vote moves the parties for it and against it by IC.law_swing,
+-- as a passed law does. An overrule writes no "the vote passed" or "failed" line
+-- and raises no card: IC.law_overrule's line already says what you decided.
 function IC.council_settle(faction_key, passed, how)
     local court = IC.court(faction_key)
     local vote = (court.votes or {})[IC.COUNCIL]
@@ -3080,6 +3099,7 @@ function IC.council_settle(faction_key, passed, how)
     court.votes[IC.COUNCIL] = nil
     local now = cm:model():turn_number()
     local target, key = vote.option, IC.COUNCIL .. "." .. vote.option
+    local voted = how ~= "overrule" and how ~= "bypass"
     if passed then
         if how ~= "bypass" then
             local tally = IC.law_tally(faction_key, IC.COUNCIL, vote)
@@ -3091,17 +3111,16 @@ function IC.council_settle(faction_key, passed, how)
             court.war = {target = target, at = now + IC.TUNE.war_prep_turns, proposer = vote.proposer}
             IC.log(faction_key, "war_planned", vote.proposer, target, court.war.at)
         end
-        -- A BYPASS IS NOT A VOTE THE COURT PASSED, and its Record line says so.
-        if how == "bypass" then
-            IC.log(faction_key, "war_bypass", vote.proposer, target, 0)
-        else
+        if voted then
             IC.log(faction_key, "law_pass", vote.proposer, key, 0)
             IC.feed(faction_key, "war_passed", "factions_screen_name_" .. target)
         end
     else
         if vote.proposer ~= IC.CROWN then IC.move_loyalty(faction_key, vote.proposer, IC.TUNE.law_fail_loss) end
-        IC.log(faction_key, "law_fail", vote.proposer, key, 0)
-        IC.feed(faction_key, "war_failed", "factions_screen_name_" .. target)
+        if voted then
+            IC.log(faction_key, "law_fail", vote.proposer, key, 0)
+            IC.feed(faction_key, "war_failed", "factions_screen_name_" .. target)
+        end
     end
     return passed
 end
@@ -3114,8 +3133,8 @@ function IC.council_void(faction_key, why)
     local vote = (court.votes or {})[IC.COUNCIL]
     if not vote then return false end
     court.votes[IC.COUNCIL] = nil
-    if why == "treaty" then war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) end
-    IC.log(faction_key, "war_void", vote.proposer, vote.option, why == "treaty" and 1 or 0)
+    local charged = why == "treaty" and war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) or nil
+    IC.log(faction_key, "war_void", vote.proposer, vote.option, why == "treaty" and 1 or 0, charged)
     return true
 end
 
@@ -3162,8 +3181,8 @@ function IC.council_turn(faction_key)
         court.war = nil
     elseif IC.war_treaty(faction_key, war.target) then
         court.war = nil
-        war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)
-        IC.log(faction_key, "war_broken", war.proposer, war.target, 0)
+        local charged = war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)
+        IC.log(faction_key, "war_broken", war.proposer, war.target, 0, charged)
         IC.feed(faction_key, "war_broken", name)
     elseif IC.war_locked(faction_key) then
         war.at = now + 1
@@ -3181,7 +3200,7 @@ end
 
 -- CALLING OFF A PLANNED WAR, for the overrule's price in influence or in gold:
 -- every party whose line is aye loses law_overrule_loyalty. No card: the player
--- did it.
+-- did it. true, nil and how many parties wanted it, as IC.law_overrule answers.
 function IC.war_calloff(faction_key, gold)
     if not (IC.council_on() and IC.is_human(faction_key)) then return false, "council_off" end
     local court = IC.court(faction_key)
@@ -3190,10 +3209,10 @@ function IC.war_calloff(faction_key, gold)
     local ok, why, short = council_pay(faction_key, gold)
     if not ok then return false, why, short end
     court.war = nil
-    war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)
-    IC.log(faction_key, "war_called", IC.CROWN, war.target, gold and 1 or 0)
+    local charged = war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)
+    IC.log(faction_key, "war_called", IC.CROWN, war.target, gold and 1 or 0, charged)
     IC.save(faction_key)
-    return true
+    return true, nil, charged
 end
 
 -- WHICH PARTIES HAVE ALREADY REACTED TO A WAR OR A PEACE, [faction key .. "|" ..
@@ -3241,10 +3260,12 @@ function IC.war_react(faction_key, target_key, kind)
         end
         return moved
     end
+    -- n IS HOW MANY LOST AND c HOW MANY GAINED, on a peace and an unasked war: the
+    -- Record line names only the side that moved.
     if kind == "peace" then
-        local n = pay("aye", -IC.TUNE.war_peace_loyalty) + pay("nay", IC.TUNE.war_peace_loyalty)
-        if n == 0 then return false end
-        IC.log(faction_key, "war_peace", IC.CROWN, target_key, 0)
+        local lost, gained = pay("aye", -IC.TUNE.war_peace_loyalty), pay("nay", IC.TUNE.war_peace_loyalty)
+        if lost + gained == 0 then return false end
+        IC.log(faction_key, "war_peace", IC.CROWN, target_key, lost, gained)
         return true
     end
     -- ONE DECLARATION IS ONE WAR, in every branch of a war: each marks EVERY party as
@@ -3258,6 +3279,16 @@ function IC.war_react(faction_key, target_key, kind)
             IC._war_reacted[faction_key .. "|" .. slug .. "|war"] = now
         end
     end
+    -- THE PLANNED WAR, started early by the player's own hand, is done, and free.
+    -- BEFORE THE COURT'S OWN WAR: on a turn the court declared one (and you then
+    -- opened and overruled a second vote), the free branch would leave this plan
+    -- on Petitions, offering a paid Call Off for a war already being fought.
+    if court.war and court.war.target == target_key then
+        court.war = nil
+        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)
+        settled()
+        return true
+    end
     -- THE COURT'S OWN WAR is free: IC.council_turn raised the flag before the call.
     -- ANY WAR IT DECLARED THIS TURN, not only one on this target: the engine's order
     -- is not known, and an ally's event may come before the target's. Whether any
@@ -3270,29 +3301,25 @@ function IC.war_react(faction_key, target_key, kind)
         settled()
         return false
     end
-    -- THE PLANNED WAR, started early by the player's own hand, is done, and free.
-    if court.war and court.war.target == target_key then
-        court.war = nil
-        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)
-        settled()
-        return true
-    end
     -- THE OPEN VOTE ON IT closes passed, with no war planned: the parties against
-    -- it pay, and the ones for it gain nothing for a war nobody waited for.
+    -- it pay, and the ones for it gain nothing for a war nobody waited for. A
+    -- BYPASS IS NOT A VOTE THE COURT PASSED, and its Record line says so, with how
+    -- many paid.
     local vote = (court.votes or {})[IC.COUNCIL]
     if vote and vote.option == target_key then
         IC.council_settle(faction_key, true, "bypass")
-        pay("nay", IC.TUNE.war_bypass_loyalty)
+        local charged = pay("nay", IC.TUNE.war_bypass_loyalty)
+        IC.log(faction_key, "war_bypass", vote.proposer, target_key, 0, charged)
         settled()
         return true
     end
     -- A WAR THE COURT WAS NOT ASKED ABOUT, and the whole court has now heard of it:
     -- the events a declaration pulls in behind it move nobody, so the card and the
     -- Record line are for the first, and only a war that moved somebody gets them.
-    local n = pay("nay", IC.TUNE.war_bypass_loyalty) + pay("aye", IC.TUNE.war_bypass_gain)
+    local lost, gained = pay("nay", IC.TUNE.war_bypass_loyalty), pay("aye", IC.TUNE.war_bypass_gain)
     settled()
-    if n == 0 then return false end
-    IC.log(faction_key, "war_unasked", IC.CROWN, target_key, 0)
+    if lost + gained == 0 then return false end
+    IC.log(faction_key, "war_unasked", IC.CROWN, target_key, lost, gained)
     IC.feed(faction_key, "war_unasked", "factions_screen_name_" .. target_key)
     return true
 end

@@ -12,6 +12,14 @@ Astragoth log came from a probe of mine (stack `wh3_mcp_eval:4`).
 
 ## For the author to decide
 
+**All four decided and fixed 2026-10-24, build `1589E7FC` (deployed to data/, not seen in game):** (1) a blackmail
+use whose cost reaches the break is refused `secret_break` ("Would Break"), while Expose stays allowed and its button
+reads "Break Them" with a warning tooltip; (2) every war line that claims a loss carries how many parties paid (`IC.log`'s
+new optional `c`, saved as an eighth field) and says "No party..." at 0, which covers the two found here plus call-off,
+treaty-voided vote, broken war, and the unasked-war and peace lines, which had the same fault; (3) an overrule, law or
+war, writes only its own line (and the war's plan) with no "passed/failed" line or card; (4) the planned-war check runs
+before the court's own-war flag. Harness 1238 checks, 33 new mutants, 6 re-aimed.
+
 1. **A secret's own cost can break the party it is spent on.** No secret use checks the breaking point. "Stop their
    countdown" on the Cult of the Iron Collar at 5 loyalty took it to 0, which is `secede_break`. Protection cancels the angry
    state only, not `IC.at_breaking_point`, and the party's card already read "breaks with you next turn... an oath will not

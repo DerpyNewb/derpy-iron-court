@@ -31430,10 +31430,34 @@ check("laws: overrule decides now either way, and the losing parties lose loyalt
         and court.houses.ledger.loyalty == d0, "the wrong party paid for the overrule")
     law_vote(court, "ash", "aye")
     d0 = court.houses.ledger.loyalty
+    local lines0 = #(court.log or {})
+    shown = {}
     assert(IC.law_overrule(F, "labour", true) and IC.law_in_force(F, "labour") == "ash", "a passing overrule failed")
     assert(court.houses.ledger.loyalty
         == math.max(0, d0 + IC.TUNE.law_overrule_loyalty + IC.TUNE.law_pass_loss),
         "the Ledger did not pay for losing an overruled vote")
+    -- ONE RECORD LINE, the overrule's: "The court passed" it is not true, and neither
+    -- is the card that says the court voted it through. Both cards, both ways.
+    assert(#court.log == lines0 + 1 and court.log[#court.log].kind == "law_overrule",
+        "the overrule wrote " .. (#court.log - lines0) .. " lines, the last " .. tostring(court.log[#court.log].kind))
+    law_vote(court, "lash", "aye")
+    assert(IC.law_overrule(F, "labour", false), "a failing overrule was refused")
+    assert(#court.log == lines0 + 2 and court.log[#court.log].kind == "law_overrule",
+        "the failing overrule wrote " .. (#court.log - lines0 - 1) .. " lines")
+    for _, s in ipairs(shown) do
+        assert(s.index ~= IC.event_index("law_passed", F) and s.index ~= IC.event_index("law_failed", F),
+            "an overrule raised the court's own law card")
+    end
+    -- THE PROBE CAN SEE ONE: the same vote closed by its tally raises the card and
+    -- writes the court's line, so the silence above is the overrule's.
+    law_vote(court, "lash", "aye")
+    IC.law_settle(F, "labour", true)
+    local seen = false
+    for _, s in ipairs(shown) do
+        if s.index == IC.event_index("law_passed", F) then seen = true end
+    end
+    assert(seen and court.log[#court.log].kind == "law_pass",
+        "a tallied vote raised no law_passed card or line, so the overrule's silence proves nothing")
     court.standing[9001] = 0
     law_vote(court, "lash", "aye")
     local ok, why = IC.law_overrule(F, "labour", true)
@@ -37668,9 +37692,13 @@ check("council: passed plans the war", function()
     assert(IC.council_settle(F, true, "bypass") == true, "a bypassed vote did not close as passed")
     assert(court.votes[IC.COUNCIL] == nil and court.war == nil, "a bypassed vote planned a war")
     assert(W.moved(court, was) == "" and W.cards("war_passed") == 0, "a bypassed vote swung or raised a card")
-    -- ITS OWN RECORD LINE, never law_pass's: the court did not pass it.
-    assert(court.log[#court.log].kind == "war_bypass" and court.log[#court.log].key == W.T1,
-        "a bypassed vote's Record line is " .. tostring(court.log[#court.log].kind))
+    -- NO RECORD LINE OF ITS OWN, and never law_pass's: the court did not pass it. The
+    -- war_bypass line is IC.war_react's, which alone knows how many it charged.
+    local lines = #court.log
+    court.war = nil
+    W.vote(court, "aye")
+    IC.council_settle(F, true, "bypass")
+    assert(#court.log == lines, "a bypassed vote's close wrote " .. tostring(court.log[#court.log].kind))
     gov_done()
 end)
 
@@ -37713,6 +37741,8 @@ check("council: the planned war at its turn", function()
     assert(court.war == nil and #wars == 0, "a war was declared on an ally")
     assert(moved == "legion:-15 temple:-15", "the broken war moved " .. moved)
     assert(W.cards("war_broken") == 1, "war_broken was not raised")
+    assert(court.log[#court.log].kind == "war_broken" and court.log[#court.log].c == 2,
+        "the broken war records " .. tostring(court.log[#court.log].c) .. " charged, not 2")
     -- OTHERWISE THE COURT DECLARES IT, with the free-war flag set first.
     local declare, calls = cm.force_declare_war, {}
     cm.force_declare_war = function(self, a, b, x, y)
@@ -37760,6 +37790,8 @@ check("council: a target that changed voids the vote", function()
     local court, moved = changed(function(f) f._pacts = {[W.T1] = true} end)
     assert(court.votes[IC.COUNCIL] == nil, "a treaty left the vote standing")
     assert(moved == "legion:-10 temple:-10", "the treaty moved " .. moved)
+    assert(court.log[#court.log].n == 1 and court.log[#court.log].c == 2,
+        "the treaty's line records " .. tostring(court.log[#court.log].c) .. " charged, not 2")
     -- NO LONGER NEXT DOOR: the vote stands.
     court, moved = changed(function(f) f._adjacent = {} end)
     assert(court.votes[IC.COUNCIL] and moved == "", "a target off the border voided the vote")
@@ -37790,7 +37822,19 @@ check("council: overrule for influence and for gold", function()
                                {crown = 10, legion = 10, ledger = 10})
     W.vote(court, "aye")
     local purse, l0, d0 = IC.crown_purse(F), court.houses.legion.loyalty, court.houses.ledger.loyalty
-    assert(IC.law_overrule(F, IC.COUNCIL, true), "Pass now for influence was refused")
+    local lines0 = #court.log
+    shown = {}
+    local done, _why, lost = IC.law_overrule(F, IC.COUNCIL, true)
+    assert(done, "Pass now for influence was refused")
+    -- HOW MANY LOST, for the notice: the Ledger alone.
+    assert(lost == 1, "Pass now reports " .. tostring(lost) .. " losing parties, not the Ledger's 1")
+    -- TWO LINES, the overrule and the plan: no "the vote passed", and no card saying the
+    -- court voted for a war it was overruled on.
+    local added = {}
+    for i = lines0 + 1, #court.log do added[#added + 1] = court.log[i].kind end
+    assert(table.concat(added, " ") == "law_overrule war_planned",
+        "Pass now wrote the Record lines " .. table.concat(added, " "))
+    assert(W.cards("war_passed") == 0, "Pass now raised the court's war_passed card")
     assert(IC.crown_purse(F) == purse - IC.TUNE.law_overrule_cost, "Pass now did not cost 500 influence")
     assert(court.votes[IC.COUNCIL] == nil and court.war and court.war.at == turn + IC.TUNE.war_prep_turns,
         "Pass now did not plan the war")
@@ -37805,7 +37849,12 @@ check("council: overrule for influence and for gold", function()
     W.vote(court, "aye")
     f._gold = 3000
     purse, l0, d0 = IC.crown_purse(F), court.houses.legion.loyalty, court.houses.ledger.loyalty
+    lines0 = #court.log
+    shown = {}
     assert(IC.law_overrule(F, IC.COUNCIL, false, true), "Fail now for gold was refused")
+    assert(#court.log == lines0 + 1 and court.log[#court.log].kind == "law_overrule",
+        "Fail now wrote more than its overrule line: " .. tostring(court.log[#court.log].kind))
+    assert(W.cards("war_failed") == 0, "Fail now raised the court's war_failed card")
     assert(IC.TUNE.war_overrule_gold == 2500 and f._gold == 3000 - IC.TUNE.war_overrule_gold,
         "Fail now left " .. f._gold .. " gold of 3000")
     assert(IC.crown_purse(F) == purse, "gold spent influence as well")
@@ -37830,6 +37879,12 @@ check("council: overrule for influence and for gold", function()
         "a short treasury came back " .. tostring(why) .. ", " .. tostring(short))
     assert(f._gold == 1000 and IC.crown_purse(F) == purse,
         "the short treasury was charged: " .. f._gold .. " gold left of 1000")
+    -- NOBODY ON THE LOSING SIDE: a court of the Crown alone reports 0, so the notice
+    -- does not say the losing parties resent it.
+    court = W.council({{"crown", 2000}}, {crown = 10})
+    W.vote(court, "aye")
+    local ok0, _w0, lost0 = IC.law_overrule(F, IC.COUNCIL, true)
+    assert(ok0 and lost0 == 0, "an overrule nobody lost reports " .. tostring(lost0))
     gov_done()
 end)
 
@@ -37837,11 +37892,15 @@ check("council: call off for influence and for gold", function()
     local court, f = W.council({{"crown", 2000}}, {crown = 10, legion = 10, temple = 10, ledger = 10})
     court.war = {target = W.T1, at = turn + 2, proposer = "legion"}
     local purse, was = IC.crown_purse(F), W.loyalties(court)
-    assert(IC.war_calloff(F, false), "Call Off for influence was refused")
+    local done, _why, charged = IC.war_calloff(F, false)
+    assert(done, "Call Off for influence was refused")
     assert(court.war == nil and IC.crown_purse(F) == purse - IC.TUNE.law_overrule_cost,
         "Call Off for influence did not clear the war at 500")
     assert(W.moved(court, was) == "legion:-10 temple:-10", "Call Off moved " .. W.moved(court, was))
     assert(court.log[#court.log].kind == "war_called", "no Record line for the call-off")
+    -- HOW MANY PAID, to the notice and on the Record line.
+    assert(charged == 2 and court.log[#court.log].c == 2,
+        "Call Off counts " .. tostring(charged) .. " and records " .. tostring(court.log[#court.log].c))
     court.war = {target = W.T1, at = turn + 2, proposer = "legion"}
     f._gold = 2600
     purse, was = IC.crown_purse(F), W.loyalties(court)
@@ -37867,6 +37926,12 @@ check("council: call off for influence and for gold", function()
         "an empty purse came back " .. tostring(why) .. ", " .. tostring(short))
     assert(f._gold == gold and IC.crown_purse(F) == purse,
         "the empty purse refusal charged: " .. f._gold .. " gold, " .. IC.crown_purse(F) .. " influence")
+    -- NOBODY WANTED IT: a court with no party for the war counts 0, and records it.
+    court = W.council({{"crown", 2000}}, {crown = 10})
+    court.war = {target = W.T1, at = turn + 2, proposer = IC.CROWN}
+    done, why, charged = IC.war_calloff(F, false)
+    assert(done and charged == 0 and court.log[#court.log].c == 0,
+        "a call-off nobody wanted counts " .. tostring(charged) .. ", records " .. tostring(court.log[#court.log].c))
     gov_done()
 end)
 
@@ -38047,6 +38112,9 @@ check("war reaction: a war the court was not asked about", function()
         "war_unasked came " .. n .. " times, naming " .. tostring(card and card.primary))
     local last = court.log[#court.log]
     assert(last.kind == "war_unasked" and last.key == W.T1, "no Record line for the unasked war")
+    -- HOW MANY LOST AND HOW MANY GAINED, so the line names only a side that moved.
+    assert(last.n == 1 and last.c == 1, "the unasked war records " .. tostring(last.n) .. " lost and "
+        .. tostring(last.c) .. " gained, not the Ledger and the Legion")
     assert(court.war == nil and court.votes[IC.COUNCIL] == nil, "an unasked war opened a council business")
     -- THE LISTENER SAVED IT.
     local ledger = court.houses.ledger.loyalty
@@ -38080,7 +38148,92 @@ check("war reaction: the target of an open vote", function()
     assert(W.moved(court, was) == "ledger:-10", "the bypass moved " .. W.moved(court, was))
     assert(court.log[#court.log].kind == "war_bypass" and court.log[#court.log].key == W.T1,
         "the vote closed with the Record line " .. tostring(court.log[#court.log].kind))
+    assert(court.log[#court.log].c == 1, "the bypass records " .. tostring(court.log[#court.log].c)
+        .. " parties charged, not the Ledger's 1")
     assert(W.cards("war_unasked") == 0 and W.cards("war_passed") == 0, "a bypass raised a card")
+    -- NOBODY AGAINST IT: the Legion alone is for a war on T1, and the line says 0.
+    court = W.council({}, {crown = 10, legion = 10})
+    turn = turn + 1
+    IC.war_snapshot(F, true)
+    W.vote(court, "aye", IC.CROWN, W.T1)
+    W.declare(F, W.T1)
+    assert(court.log[#court.log].kind == "war_bypass" and court.log[#court.log].c == 0,
+        "a bypass nobody was against records " .. tostring(court.log[#court.log].kind) .. " "
+        .. tostring(court.log[#court.log].c))
+    gov_done()
+end)
+
+-- A PLANNED WAR STARTED EARLY ON A TURN THE COURT DECLARED ITS OWN: the plan is
+-- still the player's, so it clears and says so, instead of sitting on Petitions
+-- for its turns with a paid Call Off for a war already being fought.
+check("war reaction: a planned war started early on the court's own war turn", function()
+    local court = W.council({}, {crown = 10, legion = 10, temple = 10, ledger = 10})
+    IC.register()
+    IC.war_snapshot(F, true)
+    court.war_free = {[W.T3] = turn}
+    court.war = {target = W.T1, at = turn + 3, proposer = IC.CROWN}
+    local was = W.loyalties(court)
+    shown = {}
+    W.declare(F, W.T1)
+    assert(court.war == nil, "the plan stayed on Petitions after its war began")
+    assert(court.log[#court.log].kind == "war_early" and court.log[#court.log].key == W.T1,
+        "the early start left the Record line " .. tostring(court.log[#court.log].kind))
+    assert(W.moved(court, was) == "" and W.cards("war_unasked") == 0, "the early start charged somebody")
+    -- AND THE COURT'S OWN WAR'S ALLIES, heard after it, are still free.
+    W.declare(F, W.T2)
+    assert(W.moved(court, was) == "", "an ally behind the court's war moved " .. W.moved(court, was))
+    gov_done()
+end)
+
+-- A LINE THAT SAYS PARTIES LOST LOYALTY says it only when some did (IC.log's c),
+-- and a line saved before the count keeps the words it had.
+check("war reaction: no Record line or notice claims a loss nobody took", function()
+    local function line(kind, n, c)
+        return ICUI.intrigue_text({turn = 1, kind = kind, slug = IC.CROWN, key = W.T1, n = n, c = c}) or ""
+    end
+    local function has(s, word) return string.find(s, word, 1, true) ~= nil end
+    -- {kind, n}: the lines whose charge falls on one side.
+    for _, k in ipairs({{"war_called", 0}, {"war_called", 1}, {"war_broken", 0}, {"war_void", 1}, {"war_bypass", 0}}) do
+        local none, some, old = line(k[1], k[2], 0), line(k[1], k[2], 2), line(k[1], k[2], nil)
+        assert(none ~= "" and not has(none, "lost"), k[1] .. " with nobody charged reads: " .. none)
+        assert(has(some, "lost"), k[1] .. " with two charged reads: " .. some)
+        assert(old == some, k[1] .. " saved before the count reads: " .. old)
+    end
+    -- AN UNASKED WAR AND A PEACE: n lost, c gained, and only a side that moved is named.
+    assert(not has(line("war_unasked", 0, 2), "lost") and has(line("war_unasked", 0, 2), "gained"),
+        "an unasked war only the party for it felt reads: " .. line("war_unasked", 0, 2))
+    assert(has(line("war_unasked", 2, 0), "lost") and not has(line("war_unasked", 2, 0), "gained"),
+        "an unasked war only the party against it felt reads: " .. line("war_unasked", 2, 0))
+    assert(has(line("war_unasked", 1, 1), "lost") and has(line("war_unasked", 1, 1), "gained"),
+        "an unasked war both sides felt reads: " .. line("war_unasked", 1, 1))
+    assert(line("war_unasked", 0, nil) == line("war_unasked", 2, 0), "an old unasked line changed its words")
+    assert(has(line("war_peace", 2, 0), "lost") and not has(line("war_peace", 2, 0), "gained"),
+        "a peace only the party for war felt reads: " .. line("war_peace", 2, 0))
+    assert(not has(line("war_peace", 0, 2), "lost") and has(line("war_peace", 0, 2), "gained"),
+        "a peace only the party against war felt reads: " .. line("war_peace", 0, 2))
+    assert(line("war_peace", 0, nil) == line("war_peace", 1, 1), "an old peace line changed its words")
+    -- THE NOTICES: spare is how many paid, and nil (an old caller) keeps the old words.
+    for _, op in ipairs({"law_overrule", "war_calloff"}) do
+        local none, some = ICUI.answer_text(op, "council|1", F, 0), ICUI.answer_text(op, "council|1", F, 2)
+        assert(none and not has(none, "resent") and has(some, "resent")
+               and ICUI.answer_text(op, "council|1", F, nil) == some,
+            op .. " notices read: " .. tostring(none) .. " / " .. tostring(some))
+    end
+end)
+
+check("council: a Record line's count survives the save, and an old line has none", function()
+    W.council({}, {crown = 10})
+    IC.log(F, "war_called", IC.CROWN, W.T1, 1, 0)
+    IC.log(F, "war_bypass", IC.CROWN, W.T1, 0, 3)
+    IC.log(F, "war_void", IC.CROWN, W.T1, 2)
+    IC.save(F)
+    IC.state = {}
+    IC.load(F)
+    local log = IC.court(F).log
+    local a, b, c = log[#log - 2], log[#log - 1], log[#log]
+    assert(a.kind == "war_called" and a.n == 1 and a.c == 0, "the call-off came back with c " .. tostring(a.c))
+    assert(b.c == 3, "the bypass came back with c " .. tostring(b.c))
+    assert(c.kind == "war_void" and c.n == 2 and c.c == nil, "a line with no count came back with " .. tostring(c.c))
     gov_done()
 end)
 
@@ -38214,6 +38367,8 @@ check("war reaction: peace", function()
     assert(W.moved(court, was) == "hearth:3 ledger:3 legion:-3 temple:-3", "peace moved " .. W.moved(court, was))
     local last = court.log[#court.log]
     assert(last.kind == "war_peace" and last.key == W.T2, "no Record line for the peace")
+    assert(last.n == 2 and last.c == 2, "the peace records " .. tostring(last.n) .. " lost and "
+        .. tostring(last.c) .. " gained, not 2 and 2")
     assert(#shown == 0, "peace raised a card")
     -- THE SAME TURN, from the other side: each party reacted to a peace already.
     W.treaty("is_peace_treaty", W.T2, F)
@@ -38252,6 +38407,10 @@ check("war reaction: peace", function()
     was = W.loyalties(dwarf)
     W.treaty("is_peace_treaty", W.DF, W.T2)
     assert(W.moved(dwarf, was) == "chain:-3", "a Dwarf peace moved " .. W.moved(dwarf, was))
+    -- ONLY THE CHAIN MOVED, and lost: the line must not say anybody gained.
+    local dl = dwarf.log[#dwarf.log]
+    assert(dl.kind == "war_peace" and dl.n == 1 and dl.c == 0,
+        "the Dwarf peace records " .. tostring(dl.n) .. " lost and " .. tostring(dl.c) .. " gained")
     for _, p in ipairs({"legion", "temple"}) do
         local g = IC.grudges(W.DF, p)
         assert(#g == 1 and g[1].code == "peace", p .. " has " .. #g .. " grudges")
@@ -39496,6 +39655,10 @@ check("secrets: uses listed only when they apply", function()
     local court = S.court()
     -- NONE HELD: what applies is still listed, refused.
     assert(S.uses(F, "legion") == "expose!no_secret", "with nothing open the Legion lists " .. S.uses(F, "legion"))
+    -- AND NO SECRET IS THE FIRST ANSWER, even for a use not listed: the listing alone
+    -- would say no_use, which is not why.
+    local okn, whyn = IC.use_secret(F, "legion", "demand")
+    assert(not okn and whyn == "no_secret", "a use with no secret held came back " .. tostring(whyn))
     court.secrets.legion = turn
     assert(S.uses(F, "legion") == "expose", "with nothing open the Legion lists " .. S.uses(F, "legion"))
     -- A VOTE THE CROWN ABSTAINS ON is not listed.
@@ -39556,6 +39719,63 @@ check("secrets: uses listed only when they apply", function()
         "the Legion lists " .. S.uses(F, "legion"))
     -- THE CROWN is no party a secret is held on.
     assert(S.uses(F, IC.CROWN) == "", "the Crown lists " .. S.uses(F, IC.CROWN))
+    gov_done()
+end)
+
+-- A SECRET'S COST CAN BREAK THE PARTY IT IS SPENT ON: a stopped countdown at 5
+-- loyalty took it to 0, secede_break, and it would have left at the next turn start.
+-- Blackmail at that cost is refused; Expose, the hostile use, goes through and warns.
+check("secrets: a use that would break them is refused, and Expose warns", function()
+    local T = IC.TUNE
+    local court = S.court()
+    court.secrets.legion = turn
+    court.houses.legion.clock = 3
+    -- ONE ABOVE: the use leaves them at secede_break + 1, and is offered.
+    court.houses.legion.loyalty = T.secede_break - T.secret_use_loyalty + 1
+    assert(S.uses(F, "legion") == "count expose", "one above the break the Legion lists " .. S.uses(F, "legion"))
+    -- AT IT: refused, and the refusal spends nothing.
+    court.houses.legion.loyalty = T.secede_break - T.secret_use_loyalty
+    assert(S.uses(F, "legion") == "count!secret_break expose",
+        "at the break the Legion lists " .. S.uses(F, "legion"))
+    local was = S.loyalties(court)
+    local ok, why = IC.use_secret(F, "legion", "count")
+    assert(not ok and why == "secret_break", "a use that breaks them came back " .. tostring(why))
+    assert(court.secrets.legion == turn and S.moved(court, was) == "" and court.houses.legion.clock == 3,
+        "the refused use spent something")
+    -- THROUGH THE WIRE TOO: the op re-checks, as every other refusal does.
+    local done = IC.MP_OPS.secret_use(F, "legion|count|")
+    assert(not done and court.secrets.legion == turn, "the MP op spent a secret that breaks them")
+    -- EXPOSE: offered either way, marked from the point its 10 reaches the break.
+    local function expose()
+        for _, u in ipairs(IC.secret_uses(F, "legion")) do
+            if u.code == "expose" then return u end
+        end
+    end
+    court.houses.legion.loyalty = T.secede_break - T.secret_expose_loyalty + 1
+    assert(expose().may and not expose().breaks, "Expose one above the break is marked as breaking them")
+    court.houses.legion.loyalty = T.secede_break - T.secret_expose_loyalty
+    assert(expose().may and expose().breaks, "Expose at the break is not marked")
+    -- THE PICKER SAYS SO: the refused row red with its reason, Expose's button what it does.
+    court.houses.legion.loyalty = T.secede_break - T.secret_use_loyalty
+    ICUI.pick = {kind = "secret", slug = "legion"}
+    local okp, lines, keys = pcall(ICUI.mission_rows, F)
+    ICUI.pick = nil
+    assert(okp, lines)
+    assert(#lines == 2, #lines .. " picker rows")
+    assert(string.find(lines[1][5], "Would Break", 1, true) and keys[1] == nil
+           and lines[1][5] ~= ICUI.mission_refusal("secret_break")
+           and lines[1].tip == ICUI.reason_text("secret_break"),
+        "the refused row reads " .. tostring(lines[1][5]) .. " / " .. tostring(lines[1].tip))
+    assert(lines[2][5] == "Break Them" and keys[2] == "expose|" and lines[2].tip == ICUI.SECRET_BREAKS,
+        "Expose's row reads " .. tostring(lines[2][5]) .. " / " .. tostring(lines[2].tip))
+    -- IN THE GRACE TURNS NOBODY BREAKS (IC.at_breaking_point), so nothing is refused.
+    local grace = T.grace_turns
+    T.grace_turns = turn + 5
+    local okg, list = pcall(S.uses, F, "legion")
+    local okx, ex = pcall(expose)
+    T.grace_turns = grace
+    assert(okg and list == "count expose", "in the grace turns the Legion lists " .. tostring(list))
+    assert(okx and not ex.breaks, "in the grace turns Expose is marked as breaking them")
     gov_done()
 end)
 

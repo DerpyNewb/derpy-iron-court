@@ -149,7 +149,9 @@ the home culture's main party, then by share, up to `claim_max`. Any appointment
 party's man settles them through `IC.claims_on_assign`.
 
 **Secrets** are `court.secrets[party]`, one each, from the `dig` move. `IC.secret_uses` lists
-what one can be spent on now, in the order the picker shows it.
+what one can be spent on now, in the order the picker shows it. A blackmail row whose cost would
+reach `secede_break` is refused `secret_break`; Expose is never refused for it and carries
+`breaks = true` instead, which the picker shows as "Break Them".
 
 ## 3. Save state
 
@@ -166,7 +168,10 @@ All keys are `cm:set_saved_value` strings.
 A party is 16 comma fields: slug, weight, loyalty, secession clock, name head, name tail,
 confederated, pressed, protected-until, trait 1, trait 2, oath (ours), oath (theirs),
 snubbed, split count, a lord made for it in the recruitment pool. The record holds 40
-entries and writes `-` for an empty field, because `split` drops empty values.
+entries and writes `-` for an empty field, because `split` drops empty values. An entry is seven
+fields (turn, kind, party, key, n, and the two names), plus an eighth, `c`, only on the war lines
+that charge parties: how many paid, so the line never says "lost" of nobody. An older build reads
+the first seven and ignores it.
 
 The court is read with `string.gmatch(packed .. "|", "([^|]*)|")`, the star form, because
 `+` would drop an empty section and shift every later one. Section 7 says why it is not
@@ -236,8 +241,8 @@ Run everything from the repo root. Several tools hard-code the game at
 | Vanilla dump | `py tools/fetch_vanilla_tables.py <tables>` | Once. Needs RPFM open. Writes RPFM's JSON export into `.skilltree_cache/`, which is CA's data and not in this repo. The README lists the tables. |
 | Donor rows | export from `db.pack` in RPFM | `Modding Files/source/iron_court/_donor_factions.tsv`, four CA rows (see the README). |
 | Parse | `luac -p <file>` for the five scripts | Lua 5.1.5 |
-| Test | `lua tools/_iron_court_harness.lua` | Loads all five shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (1234 checks)` (2026-10-19). In a clone one check fails, "an absorbed faction's party wears its own ring on the pins": the ring art is generated locally and, like every image, never published. |
-| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,385 mutants, all anchored (2026-10-19; the last full run was 1,179 mutants on 2026-10-06, build F4CF5CA4), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
+| Test | `lua tools/_iron_court_harness.lua` | Loads all five shipped scripts against a stubbed campaign and a fake component tree. Prints `iron court harness: ok (1238 checks)` (2026-10-24). In a clone one check fails, "an absorbed faction's party wears its own ring on the pins": the ring art is generated locally and, like every image, never published. |
+| Mutation | `py tools/mutate_iron_court.py [name ...]` | 1,418 mutants, all anchored (2026-10-24; the 135 war, secret and law mutants run clean that day; the last full run was 1,179 mutants on 2026-10-06, build F4CF5CA4), each a plausible implementation mistake written into the shipped Lua, the harness run, the file restored. A survivor or a stale anchor fails. One run at a time. |
 | Data | `py tools/gen_iron_court.py --check`, then `--write` | Builds every DB row and loc line and refuses on a broken rule (below). |
 | Layouts | `py tools/gen_ic_ui.py --write`, then `--check` | Writes the layouts and generated pictures; `--check` writes nothing and reports `ok: 30 files, 1934 components` (2026-10-19). |
 | Art | `py tools/make_ic_backdrop.py --write`, `py tools/make_ic_rebel_flags.py --write` | The backdrop and the four banners. `--check` re-measures what ships. Inputs and outputs are CA-derived and not in this repo. |

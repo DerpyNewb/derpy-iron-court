@@ -9561,7 +9561,7 @@ def check_law_text():
     # out of ICUI.COL_W and scaled with the box. Numbers as 99, each loyalty figure
     # wearing its picture (ICUI.units), the Dwarf court's grudge on Expose.
     need("Aye %d%%; Nay %d%%; %d%% would abstain", '"Running %d"', '"Rest %d"', '"Wait %d"',
-         'u.may and "Use" or', ", and write a grudge against you")
+         'u.may and (u.breaks and "Break Them" or "Use") or', ", and write a grudge against you")
     picks = re.search(r"ICUI\.MISSION_PICKS = \{(.*?)\n\}", ui, re.S)
     council = re.search(r"ICUI\.COUNCIL_PICK = \{([^}]*)\}", ui)
     refusals = [re.search(r"ICUI\.%s = \{(.*?)\n\}" % t, ui, re.S)
@@ -9591,7 +9591,7 @@ def check_law_text():
                     out.append("a picker's %r heading measures %.0fpx in the %dpx to the next "
                                "heading" % (cap, got, room))
         strings["ic_row_d"] = ["Aye 100%; Nay 100%; 100% would abstain"]
-        strings["ic_row_e"] = ["Use", "Running 99", "Rest 99", "Wait 99"] + [
+        strings["ic_row_e"] = ["Use", "Break Them", "Running 99", "Rest 99", "Wait 99"] + [
             v for r in refusals for v in re.findall(r'=\s*"([^"]+)"', r.group(1))]
         effects = re.findall(r'effect = "([^"]+)"', uses.group(1))
         if len(effects) != 5:

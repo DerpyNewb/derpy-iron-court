@@ -8,6 +8,12 @@ order in §5.** Each is marked BUILT below with what shipped. The other five fol
 2026-09-20, so every §2 item is now built; 2.7 and 2.11 have not yet been seen live (see §5).
 Status as of 2026-10-09: §3's one-party map highlight is built too - probed in game and shipped on
 the Governors tab 2026-10-01 (`sessions/HANDOFF_20260930_IRON_COURT_GOVERNORS_MAP.md` §12).
+Since then, and beyond Rome 2's list: culture traits replaced the rolled place origins (built
+2026-10-16, `superpowers/specs/2026-10-15-iron-court-cultures-design.md`, in-game checklist not
+run), and a war council, party claims on conquered provinces and secrets were built as
+`58D5347C` on 2026-10-19 and live-tested the same day
+(`sessions/LIVE_TEST_20261019_IRON_COURT_WAR_CLAIMS_SECRETS.md`, which lists four open questions
+for the author).
 
 The question this answers: **which of Rome 2's politics mechanics does the Iron Court already
 have, which are missing, and of the missing ones, which can actually be built in WH3.**
@@ -33,7 +39,7 @@ Mapped section by section against the guide. Nothing in this table is a gap.
 | Gravitas per character | `court.standing[cqi]` | `IC.standing`, `IC.add_standing` |
 | Gravitas from battles, settlements, rank, and a trickle | `battle_influence`, `settlement_influence`, `rank_influence`, `influence_trickle` | the `ic_battle` / `ic_took` / `ic_rank` listeners |
 | Hire politicians for gravitas | `IC.HIRE`, bought into the lowest band at `hire_standing` | `IC.hire`, `IC.hired` |
-| Intrigues | four plots: Bribe, Discredit, Spread Rumours, A Forge Accident | `IC.PLOTS`, `IC.plot` |
+| Intrigues | four plots: Bribe, Discredit, Spread Rumours, A Forge Accident (nine by the end of the same day, §8; 21 in `IC.PLOTS` by build `58D5347C`, 2026-10-19, one of them Dwarf-only, the last added Dig for Secrets and Call the War Council) | `IC.PLOTS`, `IC.plot` |
 | Gravitas is the only thing that moves influence | weight moves on offices, governorships and plots only | `IC.house_weight` |
 | Loyalty breakdown: every term, and what it nets to | the Loyalty cell's tooltip, term by term with the seat each is about | `IC.loyalty_terms`, `ICUI.loyalty_tip` |
 | Three party traits, the third belonging to the leader | two rolled per party and kept forever; the third derived from the highest-standing member, so a knife rerolls it | `IC.PARTY_TRAITS`, `IC.LEADER_TRAITS`, `IC.party_leader` |
@@ -317,7 +323,8 @@ positives it produced in `docs/sessions/HANDOFF_20260918_IRON_COURT_WARNINGS_AND
 **Still open** (revised 2026-09-29): the stale term and **2.7** / **2.11** are done. Three
 functions are still defined and called by nothing: `ICUI.origin_name` (asked to draw it on the
 office card, the author chose a trait naming the man's PARTY instead - `derpy_ic_member_*`,
-2026-09-29 - and the origin stays a trait of its own), `ICUI.gov_effect` (superseded on purpose when the Effect column
+2026-09-29 - and the origin stays a trait of its own; since 2026-10-16 a culture trait replaces
+the place origins, and only a confederated house's origin trait remains), `ICUI.gov_effect` (superseded on purpose when the Effect column
 became province loyalty) and `IC.house_in_court`; the last two are gone from the staged Lua by
 2026-10-09, and `ICUI.origin_name` is still defined and called by nothing. Outside this pack, `cm:force_non_aggression_pact`
 is **undocumented** and called eight times across the four Ghorth start scripts in the lords pack.
@@ -486,6 +493,10 @@ key-art still. Two things about it are not obvious:
   the furnace comes through under every line of the governors, record, intrigue and offices
   views. That is the thinnest cover on the panel and the only one nobody had ever measured; two
   row cells read 4.3:1 and 4.5:1 at 45%.
+
+  Since the Dwarf court (2026-10-06) the tool cuts two grounds - the Dwarf one, from CA's Dwarf
+  loading screen, is dimmed to **32%** (`DIM_DWF`) - and measures every ink the panel writes
+  there (`INKS`: the cream plus `[[col:]]` red, yellow and green), not the cream alone.
 - It is in `art_paths()`, which is not decoration. Three things walk that set:
   `deploy_iron_court.py` ships it, `write_plates()` **prunes** anything under `ui/derpy_ic/`
   that is not in it, and check 3 proves every imagepath resolves. Left out, the file would have
@@ -502,6 +513,12 @@ There was no dilemma and no event feed, and there still is not. `IC.plot` was **
 — or it landed, always. Both scripts contain zero `show_message_event`, `trigger_dilemma` and
 `trigger_incident`, and the mod ships no dilemmas at all. The only record was the line `IC.log`
 writes to the RECORD tab.
+
+**No longer true for the event feed, since 2026-09-16:** `IC.feed` raises a card through
+`cm:show_message_event` (and `_located` for a realm's secession), on index records the mod ships
+from 2600 up, and holds the cards while the panel is open
+(`sessions/HANDOFF_20260916_IRON_COURT_SIX_LIVE_BUGS.md` §2). Still no dilemmas: the Iron Court
+scripts call neither `trigger_dilemma` nor `trigger_incident`.
 
 A dilemma is also the wrong instrument here. A custom dilemma paired with a choice listener is a
 **hard CTD that bricks saves** (see the memory note; the match is fatal and an empty handler

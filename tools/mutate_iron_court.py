@@ -6445,8 +6445,8 @@ end"""),
 
     # A BYPASS IS NOT A VOTE PASSED, and the Record must not say it was.
     ("war: a bypassed vote's Record line reads passed", M,
-     '''            IC.log(faction_key, "war_bypass", vote.proposer, target, 0)''',
-     '''            IC.log(faction_key, "law_pass", vote.proposer, key, 0)'''),
+     '''        IC.log(faction_key, "war_bypass", vote.proposer, target_key, 0, charged)''',
+     '''        IC.log(faction_key, "law_pass", vote.proposer, IC.COUNCIL .. "." .. target_key, 0)'''),
 
     ("war: a planned war started early leaves no Record line", M,
      '''        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)
@@ -6459,8 +6459,8 @@ end"""),
     # PEACE MOVES THE PARTIES THE OTHER WAY from a war: the ones that wanted the war
     # lose, the ones that did not gain.
     ("war: peace moves the parties the wrong way", M,
-     '''pay("aye", -IC.TUNE.war_peace_loyalty) + pay("nay", IC.TUNE.war_peace_loyalty)''',
-     '''pay("aye", IC.TUNE.war_peace_loyalty) + pay("nay", -IC.TUNE.war_peace_loyalty)'''),
+     '''pay("aye", -IC.TUNE.war_peace_loyalty), pay("nay", IC.TUNE.war_peace_loyalty)''',
+     '''pay("aye", IC.TUNE.war_peace_loyalty), pay("nay", -IC.TUNE.war_peace_loyalty)'''),
 
     # A WAR BORNE BY A CONFEDERATION is not one the player declared.
     ("war: a war a confederation brought along is charged", M,
@@ -6542,17 +6542,17 @@ end"""),
     # wanted it war_broken_loyalty, and so does one that voids the open vote
     # (war_bypass_loyalty).
     ("war: a treaty that breaks a planned war charges nobody", M,
-     '''        war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)
-''', ""),
+     '''        local charged = war_charge(faction_key, war.target, "aye", IC.TUNE.war_broken_loyalty)''',
+     '''        local charged = 0'''),
 
     ("war: a vote a treaty voids charges nobody", M,
-     '''    if why == "treaty" then war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) end''',
-     ""),
+     '''    local charged = why == "treaty" and war_charge(faction_key, vote.option, "aye", IC.TUNE.war_bypass_loyalty) or nil''',
+     '''    local charged = why == "treaty" and 0 or nil'''),
 
     # CALLING A WAR OFF costs every party that wanted it law_overrule_loyalty.
     ("war: calling a war off charges nobody", M,
-     '''    war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)
-''', ""),
+     '''    local charged = war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)''',
+     '''    local charged = 0'''),
 
     # AN AI COURT NEVER VOTES ON WAR: its vote would be tallied by nobody.
     ("war: an AI court opens a war vote", M,
@@ -6881,8 +6881,8 @@ end'''),
 ''', ""),
 
     ("secret: every row is usable without a secret", P,
-     '''may = held,''',
-     '''may = true,'''),
+     '''        local why = not held and "no_secret"''',
+     '''        local why = false and "no_secret"'''),
 
     ("secret: the Crown lists secret uses", P,
      '''    local house = slug ~= IC.CROWN and court.houses[slug or ""]''',
@@ -6962,6 +6962,146 @@ end'''),
     ICUI.notice = ICUI.answer_text("secret_use", arg, ICUI.player())''',
      '''    ICUI.list_rescroll()
     ICUI.notice = ICUI.answer_text("secret_use", arg, ICUI.player())'''),
+
+    # THE 2026-10-24 AUTHOR FIXES (docs/sessions/LIVE_TEST_20261019_IRON_COURT_WAR_CLAIMS_SECRETS.md,
+    # "For the author to decide"). Same prefixes, so `war:` and `secret:` still run them.
+
+    # A SECRET'S COST MUST NOT BREAK THE PARTY: blackmail at the break is refused,
+    # Expose is not and warns, and nothing breaks in the grace turns.
+    ("secret: a blackmail use that breaks them is offered", P,
+     '''            or (not expose and breaks(T.secret_use_loyalty) and "secret_break")''',
+     '''            or (false and "secret_break")'''),
+    ("secret: the break read in the grace turns", P,
+     '''        return IC.secession_on()
+            and (house.loyalty''',
+     '''        return true
+            and (house.loyalty'''),
+    ("secret: the break one short", P,
+     '''+ cost <= IC.TUNE.secede_break''',
+     '''+ cost < IC.TUNE.secede_break'''),
+    ("secret: a use the list refuses is spent anyway", P,
+     '''    if not listed.may then return false, listed.why end
+''', ""),
+    ("secret: Expose refused at the break too", P,
+     '''            or (not expose and breaks(T.secret_use_loyalty) and "secret_break")''',
+     '''            or (breaks(expose and T.secret_expose_loyalty or T.secret_use_loyalty) and "secret_break")'''),
+    ("secret: Expose that breaks them is not marked", P,
+     '''breaks = expose and breaks(T.secret_expose_loyalty) or nil}''',
+     '''breaks = nil}'''),
+    ("secret: Expose that breaks them reads Use", U,
+     '''u.may and (u.breaks and "Break Them" or "Use")''',
+     '''u.may and "Use"'''),
+    ("secret: Expose that breaks them has no warning", U,
+     '''                    or (u.breaks and ICUI.SECRET_BREAKS) or nil,''',
+     '''                    or nil,'''),
+
+    # AN OVERRULE IS NOT A VOTE THE COURT PASSED OR FAILED: one line, no card.
+    ("law: an overruled law writes the court's passed line", M,
+     '''        if how ~= "overrule" then
+            IC.log(faction_key, "law_pass", vote.proposer, key, 0)''',
+     '''        if true then
+            IC.log(faction_key, "law_pass", vote.proposer, key, 0)'''),
+    ("law: an overruled law writes the court's failed line", M,
+     '''        if how ~= "overrule" then
+            IC.log(faction_key, "law_fail", vote.proposer, key, 0)''',
+     '''        if true then
+            IC.log(faction_key, "law_fail", vote.proposer, key, 0)'''),
+    ("law: a law overrule settles as a tally", M,
+     '''        IC.law_settle(faction_key, category, pass, "overrule")''',
+     '''        IC.law_settle(faction_key, category, pass)'''),
+    ("war: an overruled war vote writes the court's line and card", M,
+     '''    local voted = how ~= "overrule" and how ~= "bypass"''',
+     '''    local voted = how ~= "bypass"'''),
+    ("war: a bypassed vote writes the court's passed line", M,
+     '''    local voted = how ~= "overrule" and how ~= "bypass"''',
+     '''    local voted = how ~= "overrule"'''),
+
+    # A LINE THAT SAYS PARTIES LOST says it only when some did.
+    ("war: an overrule reports no count", M,
+     '''    return true, nil, lost
+''', '''    return true
+'''),
+    ("war: an overrule always reports a loser", M,
+     '''    return true, nil, lost
+''', '''    return true, nil, 1
+'''),
+    ("war: a call-off always reports a party that wanted it", M,
+     '''    return true, nil, charged
+''', '''    return true, nil, 1
+'''),
+    ("war: war_charge counts one whoever it charged", M,
+     '''        IC.move_loyalty(faction_key, slug, delta)
+    end
+    return #list''',
+     '''        IC.move_loyalty(faction_key, slug, delta)
+    end
+    return 1'''),
+    ("war: the bypass line records nobody charged", M,
+     '''        IC.log(faction_key, "war_bypass", vote.proposer, target_key, 0, charged)''',
+     '''        IC.log(faction_key, "war_bypass", vote.proposer, target_key, 0, 0)'''),
+    ("war: the unasked line counts every party moved as lost", M,
+     '''    IC.log(faction_key, "war_unasked", IC.CROWN, target_key, lost, gained)''',
+     '''    IC.log(faction_key, "war_unasked", IC.CROWN, target_key, lost + gained)'''),
+    ("war: the peace line keeps no counts", M,
+     '''        IC.log(faction_key, "war_peace", IC.CROWN, target_key, lost, gained)''',
+     '''        IC.log(faction_key, "war_peace", IC.CROWN, target_key, 0)'''),
+    ("war: IC.log drops the count", M,
+     '''        kind = kind, slug = slug, key = key, n = n, c = c,''',
+     '''        kind = kind, slug = slug, key = key, n = n,'''),
+    ("war: the count is not saved", M,
+     '''.. (e.c and ("," .. e.c) or "")''',
+     '''.. ""'''),
+    ("war: the count is not loaded", M,
+     '''                c    = tonumber(bits[8]),
+''', ""),
+    ("war: a call-off nobody wanted still says they lost", U,
+     '''            return string.format("You called off the war on %s for %s. No party wanted it.",''',
+     '''            return string.format("You called off the war on %s for %s. The parties lost.",'''),
+    ("war: a line saved before the count reads as nobody charged", U,
+     '''        if e.c == 0 then
+            return string.format("You called off''',
+     '''        if not e.c or e.c == 0 then
+            return string.format("You called off'''),
+    ("war: a broken war nobody wanted still says they lost", U,
+     '''        if e.c == 0 then
+            return string.format("A treaty with %s stood in the way of the court's war.",''',
+     '''        if false then
+            return string.format("A treaty with %s stood in the way of the court's war.",'''),
+    ("war: a treaty-voided vote nobody wanted still says they lost", U,
+     '''        elseif e.n == 1 and e.c == 0 then''',
+     '''        elseif false then'''),
+    ("war: a bypass nobody opposed still says they lost", U,
+     '''                .. "No party was against it.", ICUI.war_target(e.key))''',
+     '''                .. "The parties against it lost loyalty.", ICUI.war_target(e.key))'''),
+    ("war: an unasked war only its backers felt says they lost", U,
+     '''        if e.c and e.n == 0 then
+            tail = "The parties for it gained loyalty."''',
+     '''        if false then
+            tail = "The parties for it gained loyalty."'''),
+    ("war: a peace only its losers felt says the others gained", U,
+     '''        if e.c == 0 then
+            tail = "The parties that wanted war lost loyalty."''',
+     '''        if false then
+            tail = "The parties that wanted war lost loyalty."'''),
+    ("war: the overrule notice says the losers resent it when there were none", U,
+     '''        return spare == 0 and "Vote overruled. No party was on the losing side."''',
+     '''        return false and "Vote overruled. No party was on the losing side."'''),
+    ("war: the call-off notice says they resent it when nobody wanted it", U,
+     '''        return spare == 0 and "War called off. No party wanted it."''',
+     '''        return false and "War called off. No party wanted it."'''),
+
+    # A PLANNED WAR STARTED EARLY ON THE COURT'S OWN WAR TURN is still the
+    # player's plan: the free flag read first leaves it on Petitions.
+    ("war: the court's own war flag read before the planned war", M,
+     '''    if court.war and court.war.target == target_key then
+        court.war = nil
+        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)''',
+     '''    for _t, at in pairs(court.war_free or {}) do
+        if at == now then settled() return false end
+    end
+    if court.war and court.war.target == target_key then
+        court.war = nil
+        IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)'''),
 ]
 
 

@@ -5,6 +5,26 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-10-24 - build 1589E7FC
+
+Deployed 2026-10-24. MD5 `1589E7FCB6997529E51827AEDFD81C42`, 15,550,824 bytes. Not seen in game yet. The four author
+decisions from the 10-19 live test (`docs/history/LIVE_TEST_20261019_IRON_COURT_WAR_CLAIMS_SECRETS.md`,
+"For the author to decide").
+
+- **A secret no longer breaks the party it is spent on.** A blackmail use (votes, demand, scheme,
+  countdown) whose 5 loyalty would take the party to 0 is refused, "Would Break". Expose is still
+  allowed; its button reads "Break Them" and its tooltip says the party leaves next turn.
+- **No line claims a loss nobody took.** Each war line that says parties lost loyalty now records
+  how many paid and says "No party..." when none did: the overrule and call-off notices, and the
+  call-off, bypass, treaty-ended vote and broken-war lines. The unasked-war and peace lines name
+  only the side that moved. Lines from older saves keep their old words.
+- **An overrule writes one line.** Overruling a law or a war vote no longer adds "the court
+  passed/failed" or raises the court's vote card; a war overrule keeps its "declared on turn N".
+- **A planned war started early on a turn the court declared its own war** now clears and gets its
+  Record line, instead of staying on Petitions with a paid Call Off.
+- Checks: harness 1238 checks; 1,418 mutants (the 135 war, secret and law mutants run clean); the
+  release gate re-run with the saved pack. No DB row or loc line moved.
+
 ## 2026-10-19 - build 58D5347C
 
 Deployed 2026-10-19. MD5 `58D5347C248BB2866EEE452C3142FCC5`, 15,545,769 bytes. Seen in game the

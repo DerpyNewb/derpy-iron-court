@@ -161,7 +161,8 @@ a Slayer.
   party; if he is found out, that party loses loyalty. A secret is spent once, with Use a
   Secret: on its men's votes in an open vote, its demand, its scheme against you, or its
   countdown to leave (stopped, and no new one for five turns), each for 5 of its loyalty;
-  or to expose the party, which costs it strength and 10 loyalty.
+  or to expose the party, which costs it strength and 10 loyalty. A use that would take the
+  party to 0 loyalty is refused, except Expose, which warns you it will leave.
 
 The panel opens from a round button on the top resource strip, beside the buttons of The
 Great Guilds and the Zharr Exchange when those mods are present. It has seven tabs: Court,
