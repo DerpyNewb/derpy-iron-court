@@ -127,6 +127,13 @@ local function make_character(cqi, rank, party, province_key, unique, origin,
             return {
                 is_null_interface = function() return false end,
                 cqi = function() return cqi end,
+                -- CA's NAME for the force's cqi (cqi above is the stub's own).
+                command_queue_index = function() return cqi end,
+                -- CA: "Returns true if the military force has the specified effect
+                -- bundle active". Off force_bundles, which the cm stubs fill.
+                has_effect_bundle = function(_, key)
+                    return (force_bundles[cqi] or {})[key] == true
+                end,
                 -- AN ARMY AND NOT A GARRISON unless a check says otherwise.
                 -- military_force_list counts both and rebel_kit must not march
                 -- a rebellion out of somebody's walls.
@@ -658,10 +665,18 @@ wrapper_refusals = {}
 -- and on around it, and every such army still waiting to land.
 fielded = {}
 feed_log = {}
+-- BY EVENT, and every trait taken off while character_trait_lost was open: that
+-- raises CA's "Trait Removed" card, which has no accept button. A late check reads it.
+feed_events = {}
+trait_removals = 0
+IC_LOUD_REMOVALS = {}
 pending_forces = {}
 -- Which dormant factions an army has woken, and every war forced.
 rebel_alive = {}
 wars = {}
+-- EVERY BUNDLE ON AN ARMY, [force cqi][bundle key] = true. The stub force's cqi is
+-- its general's, so a check reads a lord's army by his cqi.
+force_bundles = {}
 -- Every faction renamed, every threat score set and every agent spawned onto
 -- the map - the three calls the identity half of a secession makes.
 renames = {}
@@ -852,6 +867,7 @@ cm = {
     -- opened after it.
     disable_event_feed_events = function(_self, off, category, sub, event)
         feed_log[#feed_log + 1] = (off and "off:" or "on:") .. tostring(category)
+        if event and event ~= "" then feed_events[event] = off end
     end,
     -- KILLS LIKE THE GAME DOES, not just by recording the call: he leaves the
     -- faction's character list and CharacterConvalescedOrKilled fires, which is
@@ -1018,6 +1034,10 @@ cm = {
         end
     end,
     force_remove_trait = function(_, lookup, trait)
+        trait_removals = trait_removals + 1
+        if not feed_events.character_trait_lost then
+            IC_LOUD_REMOVALS[#IC_LOUD_REMOVALS + 1] = lookup .. "=" .. trait
+        end
         for _, f in pairs(factions) do
             for _, c in ipairs(f._characters) do
                 if "cqi:" .. c:command_queue_index() == lookup then
@@ -1031,6 +1051,21 @@ cm = {
         applied[bundle] = (applied[bundle] or 0) + 1
     end,
     remove_effect_bundle = function(_, bundle) applied[bundle] = nil end,
+    -- AN ARMY'S BUNDLE, by the force's cqi as a NUMBER (CA's wrapper refuses
+    -- anything else), forever as 0: the wrapper turns -1 into 0 and every CA call
+    -- passes 0. Into force_bundles.
+    apply_effect_bundle_to_force = function(_, bundle, cqi, turns)
+        assert(type(bundle) == "string", "a bundle key")
+        assert(type(cqi) == "number", "a force cqi must be a number")
+        assert(turns == 0, "forever on a force is 0")
+        force_bundles[cqi] = force_bundles[cqi] or {}
+        force_bundles[cqi][bundle] = true
+    end,
+    remove_effect_bundle_from_force = function(_, bundle, cqi)
+        assert(type(bundle) == "string", "a bundle key")
+        assert(type(cqi) == "number", "a force cqi must be a number")
+        if force_bundles[cqi] then force_bundles[cqi][bundle] = nil end
+    end,
     -- A PROVINCE BUNDLE COMES OFF A PROVINCE, by region; recorded as
     -- "bundle@region key".
     remove_effect_bundle_from_faction_province = function(_, bundle, region)
@@ -1080,8 +1115,9 @@ cm = {
                                       scopes = bundle.scopes}
         province_applied[bundle.key] = (province_applied[bundle.key] or 0) + 1
     end,
-    callback = function(_, fn, delay)
-        deferred[#deferred + 1] = delay or 0
+    callback = function(_, fn, delay, name)
+        -- Not the event feed's re-open after a trait removal: no model step.
+        if name ~= "derpy_ic_trait_quiet" then deferred[#deferred + 1] = delay or 0 end
         if fn then fn() end
     end,
     -- Kept by name, never run: a check that needs a poll runs it by hand.
@@ -5377,7 +5413,7 @@ check("a long list is cut at the end, never at the front", function()
     end
     -- AND IT SAYS HOW MANY IT DID NOT NAME, or the cap silently understates
     -- what a secession costs, which is worse than printing a long list.
-    assert(string.find(tip, "and " .. (#doomed - ICUI.TIP_PROVINCES)
+    assert(string.find(tip, "And " .. (#doomed - ICUI.TIP_PROVINCES)
                             .. " more", 1, true),
         "the tip hides " .. (#doomed - ICUI.TIP_PROVINCES)
         .. " provinces without saying so: " .. tip)
@@ -11621,7 +11657,7 @@ check("the ambition tip uses the generated trait name and model arithmetic", fun
     }
 
     local tip = ICUI.ambition_tip(F, 307)
-    assert(tip == "Ambitious Courtier: 400 influence x 1.25 = 5 for his party",
+    assert(tip == "Ambitious Courtier\nInfluence: 400\nHis ambition: x1.25\nWeight he adds to his party: 5",
         "the ambition tip reads " .. tostring(tip))
     assert(ICUI.ambition_tip(F, 999) == "",
         "a non-court character received an ambition tip")
@@ -11650,7 +11686,7 @@ check("the standing plate attaches ambition only when it has a tip", function()
         assert(ICUI.show_standing(), "the plate refused to draw")
         local plate = get()
         assert(plate.tooltip ==
-               "Ambitious Courtier: 400 influence x 1.25 = 5 for his party",
+               "Ambitious Courtier\nInfluence: 400\nHis ambition: x1.25\nWeight he adds to his party: 5",
                "the plate tooltip reads " .. tostring(plate.tooltip))
         assert(plate.tooltip_all_states == true,
             "the plate tooltip was not written to every state")
@@ -12333,7 +12369,7 @@ check("Secure Loyalty stops promising an oath that will not hold", function()
         assert(not string.find(tip, "already sworn", 1, true),
             "the refusal still reads as an oath that holds: " .. tip)
         -- AND IT SAYS THE TRUE THING INSTEAD, rather than falling silent.
-        assert(string.find(tip, "Raise their loyalty to stop them; an oath will not hold.", 1, true),
+        assert(string.find(tip, "Raise their loyalty to stop them. An oath will not hold.", 1, true),
             "the tooltip says this about a party at the floor: " .. tip)
         -- AND THE BUTTON IS REFUSED, with the floor's own sentence.
         assert(is_red(panel.children.ic_act_secure),
@@ -19622,7 +19658,10 @@ check("the party card says a party is scheming or feuding", function()
     local rec = {a = "legion", b = "forge", cause = "equal", since = 10, ends = 20}
     IC.agenda(F).feuds.legion, IC.agenda(F).feuds.forge = rec, rec
     assert(ICUI.card_mood(F, IC.court(F).houses["forge"], "forge") == "FEUDING")
-    assert(string.find(ICUI.agenda_tip(F, "forge"), "until turn 20", 1, true))
+    -- WHEN IT ENDS, as turns left: a turn number is not something a player counts from.
+    local left = math.max(0, 20 - cm:model():turn_number())
+    assert(string.find(ICUI.agenda_tip(F, "forge"), left .. " turn", 1, true),
+           "the feud does not say when it ends: " .. ICUI.agenda_tip(F, "forge"))
     assert(ICUI.agenda_tip(F, IC.CROWN) == "", "the Crown was given an agenda")
     cm.get_human_factions = function() return {} end
 end)
@@ -21542,7 +21581,7 @@ end)
 -- IC.LIVE_TUNE, so a key dropped from that list fails a check.
 local LIVE = {"parties_act", "secession", "pressure", "crown_split", "all_cards",
               "detailed_log", "governments", "gov_drift", "deeds", "laws", "dwarf_courts",
-              "council", "claims"}
+              "council", "claims", "ai_council", "disloyal_armies"}
 
 check("mid-campaign the live switches follow MCT and the rest of the save stays frozen", function()
     -- A SAVE FROZEN ON THE DEFAULTS, loaded by a player who has since turned
@@ -24198,7 +24237,7 @@ check("the governor's tooltip says when he is away and adds nothing", function()
         local o = IC.gov_rank_bonus(20)
         assert(o > 0, "rank 20 must add something for this check to mean anything")
         local here = ICUI.gov_rank_tip(F, "prov_a", man)
-        assert(string.find(here, "+" .. o .. " control", 1, true)
+        assert(string.find(here, "Control: +" .. o, 1, true)
             and not string.find(here, "away", 1, true), "in place: " .. here)
         IC.governor_active = function() return false end
         local away = ICUI.gov_rank_tip(F, "prov_a", man)
@@ -24602,7 +24641,7 @@ check("a party's numbers show what moved since the turn began, and nothing befor
         assert(string.find(after, "[[col:red]]" .. now .. "[[/col]] loyalty", 1, true),
             "a loss of " .. -moved .. " loyalty reads " .. after)
         local tip = card.children.ic_party_nums.tooltip or ""
-        assert(string.find(tip, "loyalty " .. moved, 1, true),
+        assert(string.find(tip, "Loyalty: " .. moved, 1, true),
             "the hover does not give the change: " .. tip)
         -- UNCHANGED SINCE THE BASELINE, NO COLOUR.
         ICUI.take_baseline(F)
@@ -27280,7 +27319,7 @@ check("a governor's tooltip calls public order what the game calls it: control",
         IC.governor_active = function() return active end
         local tip = ICUI.gov_rank_tip(F, "prov_a", holder)
         IC.governor_active = keep
-        assert(not tip:lower():find("public order", 1, true) and tip:find("control", 1, true),
+        assert(not tip:lower():find("public order", 1, true) and tip:find("Control", 1, true),
             "the governor's tooltip reads: " .. tip)
     end
 end)
@@ -27697,7 +27736,8 @@ check("a pin's tooltip names the province, its governor, what it adds to his par
         local tip = gm_pin(holder, 1).tooltip or ""
         assert(tip:find("prov_a", 1, true), tip)
         assert(tip:find(ICUI.character_name(g), 1, true), "no governor in: " .. tip)
-        assert(tip:find(ICUI.house_name("legion", F) .. ": +1 strength from this province", 1, true),
+        assert(tip:find("Party: " .. ICUI.house_name("legion", F) .. " (", 1, true)
+               and tip:find("Strength for his party: +1", 1, true),
             "no weight in: " .. tip)
         assert(tip:find("Loyalty: " .. IC.province_loyalty(F, "prov_a"), 1, true), tip)
         assert(tip:find("replace", 1, true), "a governed province does not say a click replaces: " .. tip)
@@ -28990,7 +29030,8 @@ check("a Provinces row draws its governor's face, his crest, or an empty seat", 
         assert(d.children.ic_gr_l2.text:find("(away)", 1, true), "an away governor reads " .. d.children.ic_gr_l2.text)
         -- WHAT HIS RANK ADDS rides on the tooltip.
         -- "he adds +", NOT "rank": map_tip's own governor line already says "rank N".
-        assert(a.tooltip:find("he adds +", 1, true), "row 1's tooltip does not say what his rank adds")
+        assert(a.tooltip:find("he adds to this province:\nControl: +", 1, true),
+               "row 1's tooltip does not say what his rank adds")
         -- A ROW IS CHOSEN, NOT APPOINTED: the pin's "Click to replace" is wrong here.
         assert(a.tooltip:find("Click to choose this province.", 1, true)
                and not a.tooltip:find("Click to replace", 1, true), "row 1's tooltip reads: " .. a.tooltip)
@@ -29234,7 +29275,7 @@ check("a pin's tooltip says what its province adds to its party", function()
     f._extra_regions = {{province = "prov_a", name = "region_prov_a_minor", cqi = 1990, level = 4}}
     IC.refresh_gov_weight(F)
     local tip = ICUI.map_tip(F, "prov_a")
-    local want = string.format("%s: +4 strength from this province (7 settlement levels), %d%% of the court",
+    local want = string.format("Party: %s (%d%% of the court)\nStrength for his party: +4\nSettlement levels: 7",
                                ICUI.house_name("legion", F), math.floor(IC.share(F, "legion") + 0.5))
     assert(tip:find(want, 1, true), "the tooltip reads: " .. tip)
     f._levels, f._extra_regions = nil, nil
@@ -29255,8 +29296,7 @@ check("a governorship still growing shows what it adds now and what it grows to"
     local worth = IC.gov_weight_of(3)
     assert(worth > 1, "the fixture's province is worth " .. worth .. ", so nothing is left to grow")
     local tip = ICUI.map_tip(F, "prov_a")
-    local want = string.format("%s: +1 strength from this province, growing to +%d (3 settlement levels)",
-                               ICUI.house_name("legion", F), worth)
+    local want = string.format("Strength for his party: +1, growing to +%d\nSettlement levels: 3", worth)
     assert(tip:find(want, 1, true), "the tooltip reads: " .. tip)
     with_fake_govmap(function(hud, panel, extra, holder)
         ICUI.view = "govs"
@@ -29352,8 +29392,8 @@ check("a pin opens the governor picker in the column, over the map, with the cou
         -- A BUSY MAN: drawn inactive, the reason first, and not choosable.
         local held, r = gm_pick_row(panel, 3402)
         assert(held and held.images[0] == ICUI.GM_ROW_ART.inactive[1], "a busy man's card does not look inactive")
-        assert(held.tooltip:find("^Busy%.") , "a busy man's tooltip does not open with why: " .. held.tooltip)
-        assert(held.tooltip:find(IC.standing(F, 3402) .. " influence. Holds: prov_b.", 1, true),
+        assert(held.tooltip:find("^%[%[col:red%]%]Busy%[%[/col%]%]") , "a busy man's tooltip does not open with why: " .. held.tooltip)
+        assert(held.tooltip:find("Influence: " .. IC.standing(F, 3402) .. "\nHolds: prov_b", 1, true),
             "a busy man's tooltip does not carry his influence and what he holds: " .. held.tooltip)
         sounds = {}
         for i = 1, #ICUI.gm_rows do
@@ -31902,7 +31942,7 @@ check("laws: past two abstaining parties the abstain line counts them instead of
         assert(string.find(t, "5 parties", 1, true), "the line does not count five parties: " .. t)
         assert(not string.find(t, ICUI.house_name("forge", F), 1, true), "the line still names them: " .. t)
         -- WITH THE CROWN ABSTAINING, loyalty is not why they sit out.
-        assert(string.find(t, "you have not taken one", 1, true) and not string.find(t, "loyalty", 1, true),
+        assert(string.find(t, "You have not taken one", 1, true) and not string.find(t, "loyalty", 1, true),
             "the Crown's abstention is blamed on loyalty: " .. t)
     end)
     law_vote(court, "ash", "aye", "legion")
@@ -38025,20 +38065,123 @@ check("council: the save round trip", function()
     gov_done()
 end)
 
-check("council: AI courts never vote on war", function()
-    W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
+-- RIVAL COURTS VOTE ON WARS TOO. The parties' council act, which the checks below
+-- drive by hand.
+function W.council_act()
+    for _, a in ipairs(ALL_ACTS) do if a.key == "council" then return a end end
+end
+
+check("council: an AI court's party puts a war to it, and the court declares what it passes", function()
+    local court = W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
+    local H = "wh3_dlc23_chd_conclave"
+    local h = make_faction(H, IC.CHD_SUBCULTURE, {}, {})
+    h._met = {F}
+    cm.get_human_factions = function() return {H} end
+    IC._war_snap = {}
+    -- THE SAME PICK a player's party makes: its weak neighbour.
+    assert(IC.council_party_pick(F, "legion") == W.T1,
+        "an AI court's party picked " .. tostring(IC.council_party_pick(F, "legion")))
+    -- ITS SNAPSHOT IS FILLED THERE, on the turn path, once: an AI court has no
+    -- turn-start fill, and every line read unfilled walks the map again.
+    local snap = IC._war_snap[F]
+    assert(snap and snap.turn == turn and snap.near[W.T1], "an AI court's pick filled no snapshot")
+    IC.council_party_pick(F, "legion")
+    assert(IC._war_snap[F] == snap, "a second pick in the turn refilled the snapshot")
+    W.council_act().act(F, "legion", W.T1)
+    local vote = court.votes[IC.COUNCIL]
+    assert(vote and vote.option == W.T1 and vote.proposer == "legion" and vote.stance == "abstain",
+        "the AI court's vote opened as " .. tostring(vote and vote.option) .. "/" .. tostring(vote and vote.stance))
+    assert(court.council_rest == turn, "a party's proposal did not rest the AI court")
+    assert(#shown == 0, "an AI court's vote raised a card on somebody's screen")
+    -- AT ITS END THE COURT TALLIES IT AND PLANS THE WAR. Only the Legion has a man.
+    turn = vote.ends
+    IC.council_turn(F)
+    assert(court.votes[IC.COUNCIL] == nil and court.war and court.war.target == W.T1
+        and court.war.at == turn + IC.TUNE.war_prep_turns,
+        "the AI court's vote planned " .. tostring(court.war and court.war.target))
+    -- NOTHING DECLARED BEFORE THE WAR'S TURN.
+    turn = court.war.at - 1
+    IC.council_turn(F)
+    assert(#wars == 0 and court.war, "an AI court declared before its war's turn")
+    -- ON ITS TURN: declared, recorded, and news to the player who has met them.
+    turn = turn + 1
+    IC.council_turn(F)
+    assert(#wars == 1 and wars[1] == F .. " vs " .. W.T1, "the AI court declared " .. tostring(wars[1]))
+    assert(court.war == nil and court.war_free[W.T1] == turn, "the AI court's war stayed planned")
+    local n = (IC.court(H).news or {})[1]
+    assert(n and n.kind == "war" and n.faction == F and n.b == W.T1,
+        "the player heard " .. tostring(n and n.kind) .. " about " .. tostring(n and n.b))
+    IC_TEST_LOC["factions_screen_name_" .. W.T1] = "Karak Izor"
+    local line = ICUI.news_text(n)
+    IC_TEST_LOC["factions_screen_name_" .. W.T1] = nil
+    assert(line and string.find(line, "voted for war on Karak Izor", 1, true),
+        "the news reads " .. tostring(line))
+    assert(#shown == 0, "an AI court's war raised a card")
+    gov_done()
+end)
+
+check("council: an AI court's turn opens its party's vote", function()
+    local court = W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
     cm.get_human_factions = function() return {} end
-    assert(IC.council_party_pick(F, "legion") == nil, "an AI court's party picked a war")
-    local ok, why = IC.council_can_open(F, W.T1)
-    assert(not ok and why == "council_off", "an AI court may open a council vote: " .. tostring(why))
-    local act = nil
-    for _, a in ipairs(ALL_ACTS) do if a.key == "council" then act = a end end
-    assert(act and act.can(F, "legion") == nil, "an AI court's party act would propose a war")
+    local due = IC.party_turn_due
+    IC.party_turn_due = function() return true end
     use_acts({council = true})
     local done, err = pcall(IC.turn, F)
     use_acts(BUILD1_ACTS)
+    IC.party_turn_due = due
     assert(done, err)
-    assert(IC.court(F).votes[IC.COUNCIL] == nil and IC.court(F).war == nil, "an AI court's turn opened a war vote")
+    local vote = IC.court(F).votes[IC.COUNCIL]
+    assert(vote and vote.option == W.T1 and vote.proposer == "legion",
+        "an AI court's turn opened " .. tostring(vote and vote.option))
+    gov_done()
+end)
+
+check("council: no AI war vote with the switch off, in a rising, or on a player", function()
+    local court = W.council({{"legion", 100}}, {crown = 50, legion = 30, ledger = 20})
+    cm.get_human_factions = function() return {} end
+    -- THE SWITCH OFF: no pick, no vote, and an open vote and planned war end.
+    IC.TUNE.ai_council = false
+    local ok, err = pcall(function()
+        assert(IC.council_party_pick(F, "legion") == nil, "a party picked a war with ai_council off")
+        local can, why = IC.council_can_open(F, W.T1)
+        assert(not can and why == "council_off", "an AI court may open a vote: " .. tostring(why))
+        W.vote(court, "abstain", "legion")
+        court.war = {target = W.T4, at = turn + 2, proposer = "legion"}
+        IC.settle_switches(F)
+        assert(court.votes[IC.COUNCIL] == nil and court.war == nil,
+            "ai_council off left an AI court's vote or war standing")
+        -- A PLAYER'S COURT IS NOT AN AI ONE: ai_council does not touch it.
+        cm.get_human_factions = function() return {F} end
+        assert(IC.council_party_pick(F, "legion") == W.T1, "ai_council off stopped a player's court")
+        cm.get_human_factions = function() return {} end
+    end)
+    IC.TUNE.ai_council = true
+    assert(ok, err)
+    -- WAR COUNCIL OFF stops the AI courts too.
+    IC.TUNE.council = false
+    local off = IC.council_for(F)
+    IC.TUNE.council = true
+    assert(off == false, "the AI court held a council with War council off")
+    -- A RISING never holds one.
+    assert(IC.council_for(F) == true, "the fixture's AI court holds no council")
+    local rising = IC.R(F).REBEL_POOL[1]
+    assert(rising and IC.council_for(rising) == false, "a rising may hold a war council")
+    -- A PLAYER IS NEVER NAMED: T1 made human drops out of the Legion's list.
+    cm.get_human_factions = function() return {W.T1} end
+    assert(IC.council_party_pick(F, "legion") == nil, "an AI court's party named a player")
+    -- NOR ITS OWN KIND: T1 made a Chaos Dwarf court drops out too, but a player's court
+    -- may still name it.
+    cm.get_human_factions = function() return {} end
+    local t1 = cm:get_faction(W.T1)
+    local race = t1.subculture
+    t1.subculture = function() return IC.CHD_SUBCULTURE end
+    local ai_pick = IC.council_party_pick(F, "legion")
+    local _, why = IC.war_candidate(F, W.T1)
+    cm.get_human_factions = function() return {F} end
+    local my_pick = IC.council_party_pick(F, "legion")
+    t1.subculture = race
+    assert(ai_pick == nil and why == "kin", "an AI court named its own kind: " .. tostring(why))
+    assert(my_pick == W.T1, "a player's court could not name its own kind")
     gov_done()
 end)
 
@@ -38803,11 +38946,44 @@ check("claims: a new province only", function()
     assert(asked, n)
     assert(n == 0 and next(court.claims) == nil and K.cards("claims_laid") == 1,
         "claims were raised with the switch off")
-    -- AN AI COURT raises none, through the event or asked directly.
+    -- AN AI COURT lays them through the event and answers them at once: nothing
+    -- is left open, no card is raised, and the first claim's man governs (the two
+    -- claimants are equally loyal).
     cm.get_human_factions = function() return {} end
     K.took(chars[1], K.P)
-    assert(IC.claim_raise(F, K.P, 9001, "region_" .. K.P) == 0 and next(court.claims) == nil,
-        "an AI court raised claims")
+    assert(next(court.claims) == nil and court.govs[K.P] == 9001 and K.cards("claims_laid") == 1,
+        "an AI court's claims read " .. K.list(court, K.P) .. ", governor " .. tostring(court.govs[K.P]))
+    gov_done()
+end)
+
+check("claims: an AI court grants the angriest claimant at once", function()
+    local court = K.court({{"legion", 100}, {"forge", 100}, {"ledger", 100}})
+    cm.get_human_factions = function() return {} end
+    court.houses.legion.loyalty, court.houses.ledger.loyalty, court.houses.forge.loyalty = 60, 30, 40
+    local was = K.loyalties(court)
+    -- RAISED AND ANSWERED IN ONE CALL: the Ledger, lowest at 30, governs.
+    local n = IC.claim_raise(F, K.P, 9001, "region_" .. K.P)
+    assert(n == 3, "the AI court laid " .. tostring(n) .. " claims")
+    assert(court.govs[K.P] == 9003, "the AI court seated " .. tostring(court.govs[K.P]))
+    assert(court.claims[K.P] == nil, "the AI court left its claims open")
+    assert(K.moved(court, was) == "forge:" .. IC.TUNE.claim_passed .. " ledger:" .. IC.TUNE.claim_granted
+        .. " legion:" .. IC.TUNE.claim_passed, "the claims moved " .. K.moved(court, was))
+    assert(K.cards("claims_laid") == 0, "an AI court's claims raised a card")
+    -- A TIE goes to the first claim, conquest first.
+    court.govs, court.claims = {}, {}
+    court.houses.legion.loyalty, court.houses.ledger.loyalty, court.houses.forge.loyalty = 40, 40, 40
+    IC.claim_raise(F, K.P, 9001, "region_" .. K.P)
+    assert(court.govs[K.P] == 9001, "a tie seated " .. tostring(court.govs[K.P]))
+    -- A GRANT THAT CANNOT BE MADE closes the claims and charges nobody.
+    court.govs, court.claims = {}, {}
+    was = K.loyalties(court)
+    local grant = IC.claim_grant
+    IC.claim_grant = function() return false, "claim_void" end
+    local ok, err = pcall(IC.claim_raise, F, K.P, 9001, "region_" .. K.P)
+    IC.claim_grant = grant
+    assert(ok, err)
+    assert(court.claims[K.P] == nil and court.govs[K.P] == nil and K.moved(court, was) == "",
+        "a failed AI grant left " .. K.list(court, K.P) .. " / moved " .. K.moved(court, was))
     gov_done()
 end)
 
@@ -40646,6 +40822,169 @@ check("panel: every new refusal has words", function()
 end)
 
 end -- WAR PANEL
+
+-- DISLOYAL ARMIES. One do-block and one local (A): the main chunk is near Lua's
+-- 200-local limit.
+do
+local A = {}
+
+-- THE BUNDLES ON ONE ARMY (its general's cqi), sorted, as "a,b".
+function A.on(cqi)
+    local out = {}
+    for k in pairs(force_bundles[cqi] or {}) do out[#out + 1] = k end
+    table.sort(out)
+    return table.concat(out, ",")
+end
+
+-- A PLAYER COURT, every man leading an army: 9001 the Legion's field army, 9002 a
+-- Legion garrison, 9003 the Crown's, 9004 the Ledger's, 9005 a legend of the
+-- Legion's trade, 9006 a Legion hero embedded in an army (CA answers his
+-- has_military_force true, and military_force() the army he rides with).
+function A.court()
+    local court, chars = law_court({{"legion", 0}, {"legion", 0}, {"crown", 0}, {"ledger", 0},
+                                    {"legion", 0, true}, {"legion", 0}},
+                                   {crown = 10, legion = 10, ledger = 10})
+    for i = 1, 6 do chars[i]._force = true end
+    chars[2]._citizenry = true
+    chars[6]._agent = "champion"
+    court.houses.legion.loyalty, court.houses.ledger.loyalty = 50, 50
+    force_bundles = {}
+    return court, chars
+end
+
+check("disloyal armies: a rival lord's army wears its party's bundle, and only his", function()
+    local court = A.court()
+    local R, V = IC.army_bundle("restless", F), IC.army_bundle("wavering", F)
+    assert(R == "derpy_ic_army_restless" and V == "derpy_ic_army_wavering", "the keys are " .. R .. ", " .. V)
+    make_faction("wh_main_dwf_karak_kadrin", "wh_main_sc_dwf_dwarfs", {}, {})
+    assert(IC.army_bundle("wavering", "wh_main_dwf_karak_kadrin") == "derpy_ic_army_dwf_wavering",
+        "a Dwarf court's army wears " .. IC.army_bundle("wavering", "wh_main_dwf_karak_kadrin"))
+    local function none_but(cqi, want)
+        for c = 9001, 9006 do
+            local got = A.on(c)
+            assert(got == (c == cqi and want or ""), "army " .. c .. " wears '" .. got .. "'")
+        end
+    end
+    -- CONTENT: nothing on anyone.
+    assert(IC.apply_army_bundles(F) == 0, "a content court changed an army")
+    none_but(nil)
+    -- AT THE LINE: the Legion's field army, and not its garrison, the Crown's, the
+    -- Ledger's, the legend's or the hero's.
+    court.houses.legion.loyalty = IC.TUNE.secede_loyalty
+    court.houses.crown.loyalty = 0
+    assert(IC.apply_army_bundles(F) == 1, "the line did not put exactly one bundle on")
+    none_but(9001, R)
+    -- AND NOTHING AGAIN while it holds: no army is touched twice.
+    assert(IC.apply_army_bundles(F) == 0, "an army already wearing its bundle was touched")
+    -- ONE ABOVE THE LINE: off.
+    court.houses.legion.loyalty = IC.TUNE.secede_loyalty + 1
+    IC.apply_army_bundles(F)
+    none_but(nil)
+    -- COUNTING DOWN, whatever its loyalty: wavering, and restless not with it.
+    court.houses.legion.loyalty = IC.TUNE.secede_loyalty
+    IC.apply_army_bundles(F)
+    court.houses.legion.clock = 3
+    IC.apply_army_bundles(F)
+    none_but(9001, V)
+    court.houses.legion.loyalty = 90
+    IC.apply_army_bundles(F)
+    none_but(9001, V)
+    -- THE SWITCH OFF takes it off through settle_switches; back on, it returns.
+    IC.TUNE.disloyal_armies = false
+    local ok, err = pcall(IC.settle_switches, F)
+    IC.TUNE.disloyal_armies = true
+    assert(ok, err)
+    none_but(nil)
+    IC.settle_switches(F)
+    none_but(9001, V)
+    -- A PARTY THAT IS GONE: its men sit with the Crown, so nothing.
+    court.houses.legion.clock = 0
+    court.houses.legion.loyalty = 0
+    IC.apply_army_bundles(F)
+    none_but(9001, R)
+    IC.remove_house(F, "legion")
+    IC.apply_army_bundles(F)
+    none_but(nil)
+    -- A COURT TAKEN OFF THE MAP clears every army: no turn of it will again.
+    court = IC.court(F)
+    IC.add_house(F, "legion")
+    court.houses.legion.clock = 3
+    IC.apply_army_bundles(F)
+    none_but(9001, V)
+    local gone, why = pcall(IC.dismantle, F)
+    assert(gone, why)
+    none_but(nil)
+    gov_done()
+end)
+
+check("disloyal armies: the turn wears them, and Secure Loyalty lifts the heavier one at once", function()
+    local court, chars = A.court()
+    local f = factions[F]
+    f._cqi, f._gold = 41, 100000
+    turn = IC.TUNE.grace_turns + 50
+    -- LOW AND NOT YET COUNTING, with a third of the court: the load at the turn's
+    -- start already wears restless, and the clocks start the count mid-turn, so only
+    -- the wear at the turn's end can show wavering.
+    court.houses.legion.loyalty, court.houses.legion.clock = 10, 0
+    -- THE TURN LOADS THE COURT FROM THE SAVE, so the fixture is saved first.
+    IC.save(F)
+    local done, err = pcall(IC.turn, F)
+    court = IC.court(F)
+    assert(done, err)
+    assert((court.houses.legion.clock or 0) > 0, "the fixture's turn started no count")
+    assert(A.on(9001) == IC.army_bundle("wavering", F),
+        "a count begun this turn left the Legion's army wearing '" .. A.on(9001) .. "'")
+    -- SECURE LOYALTY STOPS THE COUNT, and the army's bundle follows the same click.
+    court.houses.legion.clock, court.houses.legion.loyalty = 3, 10
+    IC.apply_army_bundles(F)
+    assert(A.on(9001) == IC.army_bundle("wavering", F), "the fixture is not counting down")
+    assert(IC.mp_receive("ic1|favour|secure|legion", 41) == F, "Secure Loyalty did not reach the model")
+    assert(court.houses.legion.clock == 0, "Secure Loyalty did not stop the count")
+    assert(A.on(9001) == IC.army_bundle("restless", F),
+        "after Secure Loyalty the army wears '" .. A.on(9001) .. "'")
+    gov_done()
+end)
+
+end -- DISLOYAL ARMIES
+
+check("no trait was taken off a man with the card open", function()
+    -- AFTER every block that removes one. See IC_LOUD_REMOVALS.
+    assert(trait_removals > 0, "no check removed a trait, so this one saw nothing")
+    assert(#IC_LOUD_REMOVALS == 0, #IC_LOUD_REMOVALS .. " removal(s) raised the card:\n  "
+        .. table.concat(IC_LOUD_REMOVALS, "\n  "))
+end)
+
+check("the card is shut for a removal and opened after the last one", function()
+    IC._seeding, IC._trait_quiet, feed_events = {}, nil, {}
+    local remove, saved_cb = cm.force_remove_trait, cm.callback
+    local shut_then = {}
+    cm.force_remove_trait = function(self, lookup, trait)
+        shut_then[#shut_then + 1] = feed_events.character_trait_lost == true
+        return remove(self, lookup, trait)
+    end
+    local later = {}
+    cm.callback = function(_self, fn, delay) later[#later + 1] = {fn = fn, delay = delay} end
+    local ok, err = pcall(function()
+        IC.remove_trait("cqi:1", "x")
+        IC.remove_trait("cqi:1", "y")
+        assert(shut_then[1] and shut_then[2], "the event was open when a trait came off")
+        assert(#later == 2 and later[1].delay > 0, "the event was not opened later")
+        later[1].fn()
+        assert(feed_events.character_trait_lost == true,
+            "the first removal's opening ran over the second's card")
+        later[2].fn()
+        assert(feed_events.character_trait_lost == false, "the event was left shut")
+        -- NOT IN THE MIDDLE OF A SEEDING, which opens it itself after its last lord.
+        IC._seeding = {[F] = true}
+        later = {}
+        IC.remove_trait("cqi:1", "z")
+        later[1].fn()
+        assert(feed_events.character_trait_lost == true,
+            "a removal opened the event in the middle of a seeding")
+    end)
+    cm.force_remove_trait, cm.callback, IC._seeding = remove, saved_cb, {}
+    assert(ok, err)
+end)
 
 check("no parties' turn failed anywhere in the run", function()
     -- LAST BUT ONE, after every block above it: IC.turn catches a failing

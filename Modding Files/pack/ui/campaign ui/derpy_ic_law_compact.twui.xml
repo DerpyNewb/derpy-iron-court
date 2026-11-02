@@ -39,7 +39,7 @@
 			this="IC580004-D000-4000-B000000000000004"
 			id="derpy_ic_law"
 			tooltipslocalised="true"
-			componentleveltooltip="Choose this law||Click to read it on the right, and to propose it or go to its vote."
+			componentleveltooltip="Choose this law||Click to read it, propose it or go to its vote on the right."
 			soundcategory="UI_GBL_TMP_Round_Medium_Button"
 			uniqueguid="IC580004-D000-4000-B000000000000004"
 			currentstate="IC580005-D000-4000-B000000000000005"

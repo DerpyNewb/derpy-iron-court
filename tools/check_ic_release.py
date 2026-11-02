@@ -44,8 +44,19 @@ LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
 # Re-pinned 2026-10-19 after the war council, claims and secrets plan: nothing moved; 64 rows
 # added (8 event cards x 2 races x 4 tables) and 32 loc lines (24 card lines, 8 move
 # results), every one read before the re-pin.
-SNAPSHOT_MD5 = "58d5347c248bb2866eee452c3142fcc5"
-SNAPSHOT_SIZE = 15545769
+# Re-pinned 2026-11-02 after rival courts' wars and disloyal armies (build 1BB222C5): two loc
+# lines moved, both secede_warn bodies gaining "While it counts, armies led by its lords lose
+# 8 leadership."; 4 force bundles, their 4 junction rows and 12 loc lines added, every one
+# read before the re-pin.
+# Re-pinned 2026-11-02 after the whole-mod text pass (build CB7E4918): 383 loc rows moved, 122
+# distinct rewrites, nothing added or removed, every one read before the re-pin. The
+# snapshot file is Backup/derpy_iron_court.pack.snapshot_CB7E4918.
+# Re-pinned the same day after the tooltip pass (build 3DC579B4): 92 loc rows moved, all of
+# them effect lists now one effect a line (48 picker lines, 16 culture traits, 28 office
+# titles), figures unchanged, every one read. Then build 75D3F280: the 48 picker lines
+# gained "Culture: " and nothing else moved. Snapshot: snapshot_75D3F280.
+SNAPSHOT_MD5 = "75d3f28039905414b4edd10d426f3cff"
+SNAPSHOT_SIZE = 15528675
 
 
 def fit_problems():

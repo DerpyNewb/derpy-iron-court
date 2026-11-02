@@ -42,9 +42,9 @@ local LIVE_NOTE = " You can change this during a campaign."
 local in_mp = false
 
 m:add_new_section("preset", "Difficulty")
-m:add_new_section("start", "Starting court")
+m:add_new_section("start", "Starting Court")
 m:add_new_section("systems", "Systems")
-m:add_new_section("numbers", "Custom numbers")
+m:add_new_section("numbers", "Custom Numbers")
 m:add_new_section("debug", "Debug")
 
 -- ONE DROPDOWN THAT OWNS THE NUMBERS. Pick anything but Custom and it decides
@@ -58,8 +58,8 @@ o_preset:set_tooltip_text("How many rival parties your court starts with, how lo
     .. "yourself. You can change the Systems switches on any difficulty.")
 o_preset:set_assigned_section("preset")
 o_preset:add_dropdown_value("gentle", "Gentle",
-    "One rival party. Loyalty falls more slowly, with longer "
-    .. "warning before parties leave. Parties start more loyal. Gifts cost less and influence comes faster.", false)
+    "One rival party. Parties start more loyal and lose loyalty more slowly. "
+    .. "They give longer warning before leaving. Gifts cost less and influence comes faster.", false)
 o_preset:add_dropdown_value("default", "Default",
     "Two rival parties. The Iron Court as designed.", true)
 o_preset:add_dropdown_value("harsh", "Harsh",
@@ -68,10 +68,10 @@ o_preset:add_dropdown_value("harsh", "Harsh",
     false)
 o_preset:add_dropdown_value("ruthless", "Political Chaos",
     "Five rival parties fill the court. Loyalty falls "
-    .. "fast. Parties give three turns of warning before leaving, five in a "
-    .. "Dwarf court. Every favour costs dearly.", false)
+    .. "fast. Parties give three turns of warning before leaving (five in a "
+    .. "Dwarf court). Every favour costs dearly.", false)
 o_preset:add_dropdown_value("custom", "Custom",
-    "Set every number under Custom numbers yourself.", false)
+    "Set every number under Custom Numbers yourself.", false)
 o_preset:set_default_value("default")
 
 -- The Systems switches: key, label, section, tooltip, live. Every switch
@@ -82,55 +82,66 @@ local SWITCHES = {
      .. "Off, parties take no new actions. Governors still gain experience and anything "
      .. "already under way still settles.", true},
     {"ai_courts", "Other Chaos Dwarf and Dwarf factions have courts", "systems",
-     "Other Chaos Dwarf and Dwarf factions have their own courts, which "
-     .. "can split. Off, only your court runs.", false},
+     "Other Chaos Dwarf and Dwarf factions have their own courts. Their courts "
+     .. "can split too. Off, only your court runs.", false},
     {"secession", "Parties can secede", "systems",
-     "A party with a large share of the court and low loyalty gives warning, then leaves, taking provinces "
-     .. "with it. Off, parties cannot leave and existing countdowns stop.", true},
+     "A party with a large share of the court and low loyalty gives warning before it leaves. "
+     .. "It takes provinces with it. Off, parties cannot leave and existing countdowns stop.", true},
     {"pressure", "A weak Crown pushes rivals out", "systems",
-     "When your own party's share of the court falls too low, the biggest rival "
-     .. "party may be pushed to leave. Off, it never is.", true},
+     "The biggest rival party may be pushed to leave when your own party's share "
+     .. "of the court falls too low. Off, it never is.", true},
     {"crown_split", "Your own party can split", "systems",
-     "When your own party's loyalty falls to 25 or below, some of its men can break "
-     .. "away as a new rival party. Off, it cannot split and existing countdowns stop.", true},
+     "Some of your own party's men can break away as a new rival party when its "
+     .. "loyalty falls to 25 or below. Off, your party cannot split and existing "
+     .. "countdowns stop.", true},
     {"all_cards", "Show routine event messages", "systems",
-     "When off, routine news (empty seats, parties joining or dissolving, feuds "
-     .. "starting or ending, a party passed over for its own office, rival plans "
-     .. "dropped, and countdowns and sabotage that end) goes only to the court's "
-     .. "Record tab. Warnings, demands, offers and the results of your own moves "
-     .. "always show an event message.", true},
+     "Off, routine news goes only to the court's Record tab: empty seats, parties "
+     .. "joining or dissolving, feuds starting or ending, a party passed over for its "
+     .. "own office, rival plans dropped, and countdowns and sabotage that end. "
+     .. "Warnings, demands, offers and the results of your own moves always show an "
+     .. "event message.", true},
     {"governments", "Governments", "systems",
      "Each court has a government that changes one of its rules. Off, no court has "
-     .. "one, and no government's effects apply.", true},
+     .. "one and no government's effects apply.", true},
     {"gov_drift", "Governments change with the court", "systems",
      "A party that leads the court for long enough asks for its own government. "
      .. "Off, your government changes only when you change it.", true},
     {"deeds", "Your deeds move the court", "systems",
-     "Victories, research and your race's own deeds (Chaos Dwarfs: the Hell-Forge, "
-     .. "rites, temples, slaves, razing and convoys; Dwarfs: settled grudges) "
-     .. "give the matching party renown, which counts toward its share and fades "
-     .. "each turn. A party not in your court that earns enough sends the next lord "
-     .. "you recruit. Off, nothing new is earned and nobody is drawn in; renown "
-     .. "already earned fades away.", true},
+     "Victories, research and your race's own deeds give the matching party renown. "
+     .. "Chaos Dwarf deeds are the Hell-Forge, rites, temples, slaves, razing and "
+     .. "convoys. Dwarf deeds are settled grudges. Renown counts toward a party's "
+     .. "share and fades each turn. A party outside your court that earns enough "
+     .. "sends the next lord you recruit. Off, nothing new is earned and nobody is "
+     .. "drawn in. Renown already earned fades away.", true},
     {"laws", "Laws", "systems",
      "The court votes on laws: four kinds, five laws each. "
      .. "You and the parties propose laws. You can push a law, win men over or overrule the vote. "
-     .. "Off, no law applies and open votes end; the laws in force come back when "
+     .. "Off, no law applies and open votes end. The laws in force come back when "
      .. "you turn it on.", true},
     {"council", "War council", "systems",
      "The court votes on wars. You and the parties put a war on a faction to the "
-     .. "court, and a war it passes is declared a few turns later, so your armies can "
-     .. "get ready. You can overrule the vote or call the war off, for influence or "
-     .. "gold. Off, no war goes to a vote, and an open vote and a planned war end.", true},
+     .. "court. A war it passes is declared a few turns later so your armies can "
+     .. "get ready. You can overrule the vote or call the war off for influence or "
+     .. "gold. Off, no war goes to a vote and any open vote or planned war ends.", true},
     {"claims", "Claims on conquest", "systems",
-     "When you take a province that is new to your court, up to three rival parties "
-     .. "claim its governorship. Grant or refuse each claim on the Petitions tab; a "
-     .. "claim left unanswered goes to the strongest party. Off, no claims are made, "
-     .. "and open claims end.", true},
+     "Up to three rival parties claim the governorship of each province you take "
+     .. "that is new to your court. Grant or refuse each claim on the Petitions tab. A "
+     .. "claim left unanswered goes to the strongest party. Rival courts answer their "
+     .. "own claims at once. Off, no claims are made and open claims end.", true},
+    {"ai_council", "Rival courts vote on wars", "systems",
+     "Other Chaos Dwarf and Dwarf courts hold war councils too. Their parties put wars "
+     .. "on neighbouring factions to a vote. A war the court passes is declared a "
+     .. "few turns later. They never vote for war on a player or on their own kind. Needs War council on. "
+     .. "Off, no rival court votes on a war and their open votes and planned wars end.", true},
+    {"disloyal_armies", "Disloyal armies", "systems",
+     "An army led by a lord of a rival party loses 4 leadership while that party's "
+     .. "loyalty is at or below the line where it would leave. It loses 8 while the "
+     .. "party counts down to leave. Armies led by the ruler's own party never lose "
+     .. "it in any court. Off, no army loses leadership this way.", true},
     {"dwarf_courts", "Dwarf courts", "systems",
      "Dwarf factions run courts of their own: Dwarf parties, offices, governments "
-     .. "and laws. Off, no Dwarf faction has a court, and one already running is "
-     .. "taken off the map at its next turn.", true},
+     .. "and laws. Off, no Dwarf faction has a court. A court already running "
+     .. "closes at that faction's next turn.", true},
     {"detailed_log", "Detailed log", "debug",
      "Writes the court's routine events to script_log.txt. Failures are always "
      .. "written.", true},
@@ -162,8 +173,8 @@ local NUMBERS = {
      "Turns between a party's warning and its departure. Dwarf courts wait half "
      .. "as long again, rounded up."},
     {"pressure_below", "Crown share below which rivals are pushed out", 10, 0, 30, 1,
-     "When your own party's share of the court falls below this, the biggest "
-     .. "rival party can be pushed to leave."},
+     "The biggest rival party can be pushed to leave when your own party's share "
+     .. "of the court falls below this."},
     {"influence_trickle", "Influence a man earns each turn", 5, 0, 20, 1,
      "The influence a man earns every turn while he is not leading an army."},
     {"settlement_influence", "Influence for taking a settlement", 24, 0, 60, 1,
@@ -179,15 +190,15 @@ local NUMBERS = {
      "Fewest rivals in a new court. Set both limits to the same "
      .. "number for exactly that many rivals."},
     {"rivals_max", "Most rival parties", 2, 1, 5, 1,
-     "The most rival parties a new court starts with, up to five, which fills the "
-     .. "court. There are only four rebel banners, three in a Dwarf court. Once all "
-     .. "are in use, a party that leaves takes the banner of a fallen house, or joins "
-     .. "a rebellion already under way if no house has fallen."},
+     "The most rival parties a new court starts with. Five fills the court. There "
+     .. "are only four rebel banners (three in a Dwarf court). Once all are in use, "
+     .. "a party that leaves takes the banner of a fallen house. If no house has "
+     .. "fallen, it joins a rebellion already under way."},
     {"term_turns", "Office term, in turns", 10, 2, 20, 1,
-     "How many turns an appointment runs; the Conclave and the Council of Elders "
-     .. "shorten it. Dismissing a man before his term is up angers his party. When a "
-     .. "term ends, the same man cannot take that office again for 3 turns, 1 under "
-     .. "those two governments, and his party is not rewarded when he does."},
+     "How many turns an appointment runs. The Conclave and the Council of Elders "
+     .. "shorten it. Dismissing a man before his term is up angers his party. After "
+     .. "his term, a man waits 3 turns before he can hold that office again (1 under "
+     .. "those two governments). His party gains no loyalty when he takes it back."},
     {"gov_levels_per_weight", "Settlement levels per point of governor strength", 2, 1, 5, 1,
      "A governor's party gains one point of strength per this many settlement "
      .. "levels in his province, rounded up. Every governor is worth at least one."},
@@ -218,7 +229,7 @@ local STARTS = {
     {"seed_min", "Fewest members per party at the start", 3, 0, 8, 1,
      "On the first turn, each party receives lords until it has "
      .. "between this many and the number below. They wait in your lord "
-     .. "recruitment pool until you hire them, and are hired at the rank a new "
+     .. "recruitment pool until you hire them. They join at the rank a new "
      .. "lord would have. Set both to 0 to give none."},
     {"seed_max", "Most members per party at the start", 6, 0, 8, 1,
      "Most members a party can have after receiving starting lords. Each party "

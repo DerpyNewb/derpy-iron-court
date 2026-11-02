@@ -112,6 +112,11 @@ a Slayer.
   office its enemy holds, switching its bonus off for three turns, and an angry party can
   withhold its men's service, so the offices they hold give nothing until it calms down or
   you Secure its loyalty. The office card says so in red and names who did it.
+- **Disloyal armies.** An army led by a lord of a rival party loses 4 leadership while that
+  party's loyalty is at or below the line where it would leave (20 on Default), and 8 while
+  it counts down to leave. Secure Loyalty lifts the heavier penalty at once. Your own party's
+  lords, your faction leader and legendary lords never lose it. The same holds in every
+  court, so a rival empire's disloyal lords fight worse too.
 - **Petitions.** The live demand and every offer, each with Accept and Refuse. Accepting a
   demand seats the man in the post he asked for. Feuds between your parties are listed too:
   Back Them takes one side, Make Peace pays to calm both. So are a war put to the court (its
@@ -120,8 +125,12 @@ a Slayer.
   offices, governors, loyalty and secession, so a rival empire can split into a war on the
   map. Its parties scheme, feud and make demands as well, three of these courts a round in
   a fixed rotation, and its ruler answers demands at once and sends gifts to a party that
-  is counting down. The Record tab reports what happens in the courts of factions
-  you have met, and a card with a camera button shows where a rival court has split.
+  is counting down. Its parties also put wars on neighbouring factions to its war council,
+  and a war it passes is declared on the map 3 turns later, though never on a player or on
+  its own kind, and never by a faction that rose in rebellion. Its ruler grants claims on a newly taken
+  province at once, to the least loyal claimant. The Record tab reports what happens in the
+  courts of factions you have met, and a card with a camera button shows where a rival
+  court has split.
 - **Confederation.** A confederated Chaos Dwarf faction joins your court as a party, as
   loyal as its own court was (held between 25 and 75).
 - **Governments.** Every court has one of six governments: the Conclave, Rule of the High
@@ -209,11 +218,11 @@ With the Mod Configuration Tool installed, the Iron Court page has:
 - **Systems:** rival parties act on their own; other Chaos Dwarf and Dwarf factions have
   courts; parties can secede; a weak Crown pushes rivals out; your own party can split; show
   routine event messages; governments; governments change with the court; your deeds move the
-  court; laws; the war council; claims on conquest; Dwarf courts. Plus a detailed log for
-  bug reports.
+  court; laws; the war council; claims on conquest; Dwarf courts; rival courts vote on wars;
+  disloyal armies. Plus a detailed log for bug reports.
 
 The difficulty, the numbers, the starting court and "other factions have courts" are fixed
-when a campaign starts. The other thirteen switches can be changed at any time in single player. Without MCT,
+when a campaign starts. The other fifteen switches can be changed at any time in single player. Without MCT,
 every campaign plays on Default.
 
 **Multiplayer:** supported but not yet tried on two machines. Every panel action is sent

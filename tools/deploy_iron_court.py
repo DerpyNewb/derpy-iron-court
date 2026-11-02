@@ -16,14 +16,13 @@ AN UNKNOWN FLAG IS REFUSED: ignoring it would let a mistyped --selftest build
 and deploy the pack.
 
 Needs RPFM OPEN - the MCP server only exists while it is. The registered MCP tools
-are often absent (the server starts after Claude Code); import_house_ancillaries.call
-talks raw HTTP to the same server either way.
+are often absent (the server starts after Claude Code); rpfm_client.call talks raw
+HTTP to the same server either way.
 
-CREATE, IMPORT AND SAVE MUST BE ONE RUN: pack state lives only as long as one MCP
-session, so there is no resuming this half way through.
+CREATE, IMPORT AND SAVE MUST BE ONE RUN: rpfm_client closes the new pack when this
+script exits, saved or not, so there is no resuming this half way through.
 """
 import io
-import json
 import os
 import shutil
 import subprocess
@@ -128,9 +127,12 @@ def deploy(src, data_dir, wait=False, running=game_running, sleep=None,
             return 1
         print("Warhammer3 is running; deploying when it closes")
         sys.stdout.flush()
-        while running():
-            sleep(poll)
-        sleep(poll)     # its file handles go a moment after the process does
+        while True:
+            while running():
+                sleep(poll)
+            sleep(poll)     # its file handles go a moment after the process does
+            if not running():   # relaunched in that pause (2026-11-02): wait for that one too
+                break
     dest = os.path.join(data_dir, os.path.basename(src))
     new = open(src, "rb").read()
     if os.path.exists(dest):
@@ -164,12 +166,12 @@ def _selftest():
         # Running, no wait: refused, live copy untouched.
         assert deploy(src, data, running=lambda: True, bak_dir=bdir) == 1
         assert open(live, "rb").read() == b"old"
-        # Running twice then closed, with wait: waits, backs up, deploys.
-        states = [True, True, True, False]
+        # Running, closed, relaunched during the settle pause, closed: waits out both.
+        states = [True, True, False, True, False, False]
         slept = []
         assert deploy(src, data, wait=True, running=lambda: states.pop(0),
                       sleep=slept.append, bak_dir=bdir) == 0
-        assert len(slept) == 3, slept
+        assert len(slept) == 3 and not states, (slept, states)
         assert open(live, "rb").read() == b"new"
         assert os.listdir(data) == ["p.pack"], os.listdir(data)  # no backup in data/
         baks = [f for f in os.listdir(bdir) if ".bak_pre_auto_" in f]
@@ -204,19 +206,18 @@ def main(argv):
         return 1
     print("gates green")
 
-    from import_house_ancillaries import call, check_keys
+    from import_house_ancillaries import check_keys
+    from rpfm_client import call, db, ensure_game, new_pack
 
-    # A schema binding is per MCP SESSION even though the game key is global, so
-    # this is not optional. rebuild_dependencies=False skips the 105MB rebuild.
-    call("set_game_selected", {"game_name": "warhammer_3", "rebuild_dependencies": False})
+    ensure_game()
 
     plan = []
     for table_name, version, stem in TABLES:
         plan.append(("db/%s/%s" % (table_name, G.PACK_NAME),
-                     {"DB": [G.PACK_NAME, table_name, version]},
+                     db(table_name, version),
                      os.path.join(SRC, stem + ".tsv")))
     plan.append(("text/db/%s.loc" % G.PACK_NAME,
-                 {"Loc": G.PACK_NAME},
+                 {"type": "loc"},
                  os.path.join(SRC, "loc.tsv")))
 
     # Duplicated combined keys, before anything is written. The game says nothing
@@ -230,14 +231,13 @@ def main(argv):
             sys.stderr.write("REFUSING: missing %s\n" % tsv)
             return 1
 
-    key = call("new_pack", {})["String"]
+    key = new_pack()
 
     for path, spec, tsv in plan:
         # import_tsv CANNOT create a table: the file must already exist, and
-        # new_packed_file's `path` is the full file path, not the folder.
-        call("new_packed_file", {"pack_key": key, "path": path,
-                                 "new_file": json.dumps(spec)})
-        call("import_tsv", {"pack_key": key, "table_path": path, "tsv_path": tsv})
+        # create_file's `path` is the full file path, not the folder.
+        call("create_file", {"pack": key, "path": path, "kind": spec})
+        call("import_tsv", {"pack": key, "path": path, "tsv_path": tsv})
         print("  %s" % path)
 
     for src, dest in SCRIPTS + UI + ART + HUB:
@@ -245,14 +245,13 @@ def main(argv):
         if not os.path.isfile(full):
             sys.stderr.write("REFUSING: missing %s\n" % full)
             return 1
-        call("add_packed_files", {"pack_key": key, "source_paths": [full],
-                                  "destination_paths": json.dumps([{"File": dest}])})
+        call("add_files_from_disk", {"pack": key, "paths": [full], "pack_paths": [dest]})
         print("  %s" % dest)
 
     outdir = os.path.dirname(OUT)
     if not os.path.isdir(outdir):
         os.makedirs(outdir)
-    call("save_pack_as", {"pack_key": key, "path": OUT})
+    call("save_pack", {"pack": key, "path": OUT})
     print("saved %s (%d bytes)" % (OUT, os.path.getsize(OUT)))
 
     # WHAT WAS SAVED, READ BACK. Each add call reports success even when the

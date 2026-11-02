@@ -266,12 +266,29 @@ CULTURE_EFFECTS = [E_C_WOM, E_C_BTIME, E_C_RUSH, E_C_SIEGE, E_C_LEAD, E_C_GDP,
                    E_C_MOVE, E_C_AMBUSH, E_C_LOOT, E_C_SEA, E_C_RESEARCH,
                    E_C_MDEF, E_C_MATK]
 
+# DISLOYAL ARMIES: leadership on the army itself. CA ships this effect and scope in
+# 66 of its own force bundles, at -10 to -1.
+E_ARMY_LEAD = ("wh_main_effect_force_stat_leadership", "force_to_force_own", True)
+ARMY_EFFECTS = [E_ARMY_LEAD]
+
 ALL_EFFECTS = [E_ARMAMENTS, E_WORKLOAD, E_RAWMAT, E_ORDER, E_GDP, E_SLAVE_ORDER,
                E_UPKEEP, E_REPLEN, E_PB_LABOUR,
                E_RESEARCH, E_MOVEMENT, E_CONSTRUCT, E_RECRUIT, E_AGENT, E_RAID,
                E_HOBGOBLIN,
                E_ENVOY_CTL, E_ENVOY_ARM, E_ENVOY_RAW, E_ENVOY_LAB] + LAW_EFFECTS + DWF_EFFECTS \
-              + CULTURE_EFFECTS
+              + CULTURE_EFFECTS + ARMY_EFFECTS
+
+# THE TWO ARMY BUNDLES in IC.ARMY_LEVELS' order, the same words for both races.
+# The icon is the one CA's morale-down force bundles wear.
+ARMY_BUNDLES = [
+    ("restless", "Divided Loyalties",
+     "This army's lord belongs to a rival party whose loyalty has fallen low. His "
+     "troops fight with less heart."),
+    ("wavering", "A Party Preparing to Leave",
+     "This army's lord belongs to a rival party that is preparing to leave your "
+     "court. His troops fight with far less heart."),
+]
+ARMY_ICON = "morale.png"
 
 # THE ZIGGURAT.
 #
@@ -408,7 +425,7 @@ CROWN = "crown"
 # A MEMBER TRAIT'S FLAVOUR, ONE PER PARTY, so 140 member traits do not all read
 # alike. A party's six rolled names share its line; "confed" is a house that came over by confederation.
 MEMBER_FLAVOUR = {
-    "crown":  "He answers to you, and the court knows it.",
+    "crown":  "He answers to you and the court knows it.",
     "confed": "His house came over whole and still keeps its own counsel.",
     "temple": "He votes the way the priests say Hashut would.",
     "forge":  "He weighs every law by what it does to the furnaces.",
@@ -428,20 +445,20 @@ DWF_MEMBER_FLAVOUR = {
     "legion": "He speaks for the clan warriors, who settle grudges with axes.",
     "ledger": "He knows what every hold owes, to the last coin.",
     "tower":  "He keeps the runes' secrets, even from the king.",
-    "road":   "He keeps the Underway open, one tunnel at a time.",
+    "road":   "He keeps the tunnels of the Underway open.",
     "hearth": "He speaks for the families who keep the holds fed and warm.",
 }
 
 PARTY_GOV_BLURB = {
     "crown":   "Your retainers answer for this province.",
-    "temple":  "The temples take the province in hand and it grows for Hashut.",
+    "temple":  "The temples take the province in hand and keep its slaves meek.",
     "forge":   "Forge-guild overseers run the province like a workshop floor.",
     "chain":   "The slavers work the province to the bone and account for every hour.",
     "legion":  "A garrison town under a soldier costs less to keep than it should.",
-    "ledger":  "Brokers keep the province's books, and the tribute arrives whole.",
-    "tower":   "Tower clerks read everything that passes through, and pass it on.",
+    "ledger":  "Brokers keep the province's books and the tribute arrives whole.",
+    "tower":   "Tower clerks read everything that passes through and pass it on.",
     "road":    "The caravan men keep the roads open whatever the season.",
-    "hearth":  "The old clans hold it, and men come back to the muster faster.",
+    "hearth":  "The old clans hold it and its wounded return to the muster faster.",
 }
 
 # WHAT A MAN IS, and therefore who he sits with. Every lord carries exactly one
@@ -494,8 +511,8 @@ BG_COLOUR = {
     "wrangler":   "He handles hobgoblins, which means he trusts nothing that moves.",
     "immortal":   "He has stood in the front rank and expects the courtesy of it.",
     "infernal":   "Masked so long that the face underneath is a rumour.",
-    "siege":      "He has taken walls down for a living and finds doors insulting.",
-    "broker":     "He prices everything, including this conversation.",
+    "siege":      "He brought walls down for a living and looks at every gate the same way.",
+    "broker":     "He puts a price on everything, his own loyalty first.",
     "tribute":    "He collects from those who cannot pay. Coin is only one way.",
     "harbour":    "He knows what every hull on the Sea of Dread is carrying.",
     "apprentice": "Never finished the Tower. Nobody asks him why.",
@@ -788,7 +805,7 @@ OFFICES = [
         "name": "High Priest of Hashut",
         "affinity": "temple",
         "tier": 1,
-        "blurb": "The Father of Darkness is served loudly, and the people are quiet.",
+        "blurb": "The Father of Darkness is served loudly and the people keep quiet.",
         "vacant_blurb": "The temples stand unattended and the sermons go unsaid.",
         "effects": [(E_ORDER, 2, BOON), (E_GDP, 4, BOON)],
         "vacancy": [(E_ORDER, 2, MALUS)],
@@ -798,7 +815,7 @@ OFFICES = [
         "name": "Grand Overseer of the Forge",
         "affinity": "forge",
         "tier": 1,
-        "blurb": "The forges of Zharr-Naggrund answer to one voice, and it is his.",
+        "blurb": "The forges of Zharr-Naggrund answer to his voice alone.",
         "vacant_blurb": "No hand guides the forges. Output slips and no one is blamed.",
         "effects": [(E_ARMAMENTS, 5, BOON), (E_RAWMAT, 4, BOON)],
         "vacancy": [(E_ARMAMENTS, 2, MALUS)],
@@ -808,7 +825,7 @@ OFFICES = [
         "name": "Keeper of the Black Ledger",
         "affinity": "ledger",
         "tier": 2,
-        "blurb": "Every debt in the Dark Lands is written down, and he holds the book.",
+        "blurb": "Every debt in the Dark Lands is written in the book he holds.",
         "vacant_blurb": "The books go unbalanced and the tribute arrives light.",
         "effects": [(E_GDP, 6, BOON)],
         "vacancy": [(E_GDP, 3, MALUS)],
@@ -818,7 +835,7 @@ OFFICES = [
         "name": "Warden of the Marches",
         "affinity": "legion",
         "tier": 2,
-        "blurb": "The outer holds are watched, and the watchers are paid on time.",
+        "blurb": "The outer holds are watched and the watchers are paid on time.",
         "vacant_blurb": "The marches keep themselves, badly and at their own expense.",
         "effects": [(E_UPKEEP, 5, BOON), (E_REPLEN, 5, BOON)],
         "vacancy": [(E_ORDER, 2, MALUS)],
@@ -829,7 +846,7 @@ OFFICES = [
         "affinity": "tower",
         "tier": 2,
         "blurb": "He carries the Sorcerer-Prophets' word down the Tower, unaltered.",
-        "vacant_blurb": "The Tower's word arrives late, and altered on the way.",
+        "vacant_blurb": "The Tower's word arrives late and altered on the way.",
         "effects": [(E_RESEARCH, 5, BOON)],
         "vacancy": [(E_RESEARCH, 2, MALUS)],
     },
@@ -838,7 +855,7 @@ OFFICES = [
         "name": "Keeper of the Chains",
         "affinity": "chain",
         "tier": 3,
-        "blurb": "He counts the work gangs, and the gangs know he counts them.",
+        "blurb": "He counts the work gangs and the gangs know it.",
         "vacant_blurb": "Uncounted, the work gangs move at their own pace.",
         "effects": [(E_WORKLOAD, 10, BOON)],
         "vacancy": [(E_WORKLOAD, 4, MALUS)],
@@ -868,8 +885,8 @@ OFFICES = [
         "name": "Warden of the Caravan Roads",
         "affinity": "road",
         "tier": 3,
-        "blurb": "The roads out of Zharr are his, and they are quicker than they were.",
-        "vacant_blurb": "The roads are unwatched, and the caravans take the long way round.",
+        "blurb": "The roads out of Zharr are his. They are quicker than they were.",
+        "vacant_blurb": "The roads go unwatched and the caravans take the long way round.",
         "effects": [(E_MOVEMENT, 4, BOON)],
         "vacancy": [(E_MOVEMENT, 2, MALUS)],
     },
@@ -879,7 +896,7 @@ OFFICES = [
         "affinity": "hearth",
         "tier": 4,
         "blurb": "Brick and slag leave his kilns cheaper than anyone can explain.",
-        "vacant_blurb": "The kilns burn on unwatched, and the bill still arrives.",
+        "vacant_blurb": "The kilns burn on unwatched and the bill still arrives.",
         "effects": [(E_CONSTRUCT, 8, BOON)],
         "vacancy": [(E_CONSTRUCT, 4, MALUS)],
     },
@@ -889,7 +906,7 @@ OFFICES = [
         "affinity": "hearth",
         "tier": 4,
         "blurb": "The hobgoblin tribes that work the ash fields march cheap for whoever feeds them.",
-        "vacant_blurb": "The ash fields go untended, and the hobgoblins want more to march.",
+        "vacant_blurb": "The ash fields go untended and the hobgoblins want more to march.",
         "effects": [(E_HOBGOBLIN, 15, BOON)],
         "vacancy": [(E_HOBGOBLIN, 5, MALUS)],
     },
@@ -908,7 +925,7 @@ OFFICES = [
         "name": "Warden of the Muster",
         "affinity": "legion",
         "tier": 4,
-        "blurb": "He knows what a warrior costs, and he pays no more than that.",
+        "blurb": "He knows what a warrior costs and pays no more than that.",
         "vacant_blurb": "Every company is hired at whatever it asks for.",
         "effects": [(E_RECRUIT, 8, BOON)],
         "vacancy": [(E_RECRUIT, 4, MALUS)],
@@ -918,7 +935,7 @@ OFFICES = [
         "name": "Keeper of the Banners",
         "affinity": "legion",
         "tier": 4,
-        "blurb": "Raiding is an accounting exercise, and he keeps the account.",
+        "blurb": "He counts the takings of every raid, down to the last slave.",
         "vacant_blurb": "The raiders keep their own accounts, and most of the takings.",
         "effects": [(E_RAID, 10, BOON)],
         "vacancy": [(E_RAID, 5, MALUS)],
@@ -994,12 +1011,12 @@ def _tier_lc(tier):
 STANDING_BAND = {
     0: ("Unproven at Court",
         "The Iron Court has yet to learn his name.",
-        "Too little influence for any seat at court. Influence comes from winning "
-        "battles, taking settlements, gaining ranks, holding a seat or a province, "
-        "and under most governments from each turn spent without an army."),
+        "Too little influence for any seat at court. He gains it by winning battles, "
+        "taking settlements, gaining ranks and holding a seat or a province. Most "
+        "governments also reward each turn he spends without an army."),
     4: ("Noticed at Court",
         "The court has begun to say his name.",
-        "Has enough influence for a seat on %s, the lowest tier." % _tier_lc(4)),
+        "Has enough influence for a seat on %s, the lowest at court." % _tier_lc(4)),
     3: ("Spoken For at Court",
         "A party has spoken for him at court.",
         "Has enough influence for a seat on %s." % _tier_lc(3)),
@@ -1018,17 +1035,17 @@ AMBITION_BANDS = {
                  "His influence counts 25% less towards his party's strength."),
     "steady": ("Content", "He asks for what he is owed, and no more.",
                "His influence counts in full towards his party's strength."),
-    "ambitious": ("Aspiring", "Every honour becomes another claim on the Iron Court.",
+    "ambitious": ("Aspiring", "He takes every honour as a claim on the Iron Court.",
                   "His influence counts 25% more towards his party's strength."),
 }
 # A Dwarf court is not called the Iron Court (the influence band dropped it too).
-DWF_AMBITION_COLOUR = {"ambitious": "Every honour becomes another claim at court."}
+DWF_AMBITION_COLOUR = {"ambitious": "He takes every honour as a claim at court."}
 
 ORIGIN_COLOUR = {
     "conclave":     "He names the tower that taught him before he gives his own name.",
     "astragoth":    "Old blood and old rites. His back has never bent.",
     "azgorh":       "Azgorh's forges left their smell in his clothes.",
-    "zhatan":       "Raised in the Warhost, where a man is his last campaign.",
+    "zhatan":       "Raised in the Warhost, where a man is judged by his last campaign.",
     "skullstack":   "Company-raised: he prices a man before he greets him.",
     "khorakk":    "Born to the bull-cult. He demands the respect due to it.",
     "uzkulak":    "His house sails with the Warfleet and counts other men's cargo.",
@@ -1181,11 +1198,11 @@ EVENTS = [
     ("plot_ok", True, "chd/diplomacy", "Positive",
      "The Court Moves",
      "Your Move Succeeded",
-     "Your move has succeeded and taken effect. The Record tab lists what it did."),
+     "Your move has succeeded. The Record tab lists what it did."),
     ("plot_fail", True, "chd/army_morale_down", "Negative",
      "The Court Refuses",
      "Your Move Failed",
-     "Your move has failed, and its price is spent all the same. If it was "
+     "Your move has failed and its price is spent all the same. If it was "
      "aimed at a party, that party knows who tried and its loyalty falls."),
     # THE ONE THE PLAYER DID NOT DO. A term running out empties a seat with no
     # input from the player at all, which is exactly why it needs telling.
@@ -1194,7 +1211,7 @@ EVENTS = [
      "A Seat Stands Empty",
      "Several Terms Have Run Out",
      "When a term at court runs out, its officer leaves the seat. An empty "
-     "office gives no bonus until you fill it on the Offices tab, and its last "
+     "office gives no bonus until you fill it on the Offices tab. Its last "
      "holder cannot take it straight back."),
     ("party_joined", True, "chd/faction", "Positive",
      "A Party Enters the Court",
@@ -1208,9 +1225,9 @@ EVENTS = [
      "Its Countdown Has Begun",
      "A party has begun counting down to leave your court. When the count ends, "
      "it leaves and takes provinces with it. Secure Loyalty on the Court tab "
-     "stops the count. Raising its loyalty or cutting its share stops it too, "
-     "unless you provoked it or the Crown's low share started it. Its card shows "
-     "the turns left."),
+     "stops the count. Raising its loyalty or cutting its share can also stop it. "
+     "The Court tab shows the turns left. "
+     "While it counts, armies led by its lords lose 8 leadership."),
     # TRANSIENT, ALONE: six offices can snub six parties in one turn.
     # The call site's subtitle is the claimed seat's name.
     ("snub", False, "chd/army_morale_down", "Negative",
@@ -1230,7 +1247,7 @@ EVENTS = [
      "A Party Has Broken With You",
      "Rebels Rise Against You",
      "A party has left your court and risen in rebellion with land and an army "
-     "of its own. Its rebels are at war with you. Its seats are empty, and the "
+     "of its own. Its rebels are at war with you. Its seats are empty. The "
      "men it left behind now serve your own party."),
     # AND THE ONE THAT COMES BEFORE ANY OF THEM. secede_warn fires only when a
     # party has a big enough share of the court to be worth counting down; a
@@ -1240,9 +1257,9 @@ EVENTS = [
     ("loyalty_warn", True, "chd/army_morale_down", "Negative",
      "A Party Turns Against You",
      "Its Loyalty Is Running Low",
-     "A rival party's loyalty has fallen low. Give it a seat, or send it a gift "
-     "from the Court tab. From turn 11, unless secession is switched off, a party "
-     "whose loyalty runs out leaves and takes land with it."),
+     "A rival party's loyalty has fallen low. Give it a seat or send it a gift "
+     "from the Court tab. A party whose loyalty runs out will leave your court "
+     "and take land with it."),
     # YOUR OWN HOUSE, COMING APART. The Crown cannot secede from itself; this is
     # what its loyalty running out costs. chd/faction is the same picture party_joined
     # draws, because the thing that happened is the same thing: a party the
@@ -1250,8 +1267,8 @@ EVENTS = [
     ("splinter", True, "chd/faction", "Negative",
      "Your Own House Splits",
      "A Rival Party Is Born",
-     "Some of your own party's men have broken away to form a rival party, "
-     "taking part of your share of the court. Your party's loyalty returns to "
+     "Some of your own party's men have broken away to form a rival party. "
+     "They take part of your share of the court. Your party's loyalty returns to "
      "its starting level. The new party will expect seats."),
     # THE SECOND NOTICE ON A SECESSION. secede_warn lands at the top of a
     # five-turn clock, and Provoke shortens that clock and skips the opening
@@ -1267,7 +1284,7 @@ EVENTS = [
     ("splinter_warn", True, "chd/faction", "Negative",
      "Your Own House Is Turning",
      "A Split Is Coming",
-     "Your own party's loyalty has fallen too low, and some of its men are "
+     "Your own party's loyalty has fallen too low. Some of its men are "
      "forming a party of their own. Raise its loyalty before they break away."),
     # A PARTY WITH NOTHING TO TAKE. A party with nobody in it and no province to
     # its name breaks up instead of seceding; seceding, it would take over
@@ -1275,14 +1292,14 @@ EVENTS = [
     ("dissolved", True, "chd/faction", "Neutral",
      "A Party Dissolves",
      "No Men and No Land Left",
-     "The party had no men left and no province to take, so it broke up instead "
-     "of leaving. Its share of the court is gone, and you lose nothing."),
+     "The party had no men left and no province to take. It has broken up. "
+     "Its share of the court is gone and you lose nothing."),
     ("party_plot_warn", True, "chd/army_morale_down", "Negative",
      "A Party Moves Against You",
      "Its Move Lands Next Turn",
      "A rival party plans to strike at you next turn. The Intrigue tab names the "
-     "party and its move. Raise that party's loyalty, or leave its plotter "
-     "without the influence to pay for the move, to stop it."),
+     "party and its move. To stop it, raise that party's loyalty or leave its "
+     "plotter without the influence to pay for the move."),
     ("party_plot_ok", True, "chd/army_morale_down", "Negative",
      "The Court Strikes at You",
      "A Rival's Move Lands",
@@ -1306,24 +1323,24 @@ EVENTS = [
      "the Petitions tab to end it."),
     ("party_feud_end", True, "chd/faction", "Neutral",
      "A Feud Ends",
-     "Either May Strike at You Now",
-     "The feud between two rival parties is over. Neither is busy with the "
-     "other, and either may move against you again."),
+     "The Feud Is Over",
+     "The feud between two rival parties is over. Either may move against you "
+     "again."),
     ("party_feud_murder", True, "chd/army_morale_down", "Negative",
      "Blood Between Parties",
-     "A Man of Your Faction Is Dead",
-     "A feud at court has turned to murder: one feuding party has had a man "
-     "from the other killed. He was one of your men, though not of your own party."),
+     "One of Your Own Is Dead",
+     "A feud at court has turned to murder. One feuding party has had a man "
+     "from the other killed. He served you but did not sit with your own party."),
     ("party_demand", True, "chd/diplomacy", "Neutral",
      "A Party Makes a Demand",
      "A Post for One of Its Men",
      "A party demands a post for one of its men. Its card names the man and the "
-     "post. Answer on the Petitions tab: grant it and its loyalty rises; refuse "
+     "post. Answer on the Petitions tab. Grant it and its loyalty rises. Refuse "
      "it or let the time run out and its loyalty falls."),
     ("party_demand_refused", True, "chd/army_morale_down", "Negative",
      "A Demand Refused",
      "Its Loyalty Falls",
-     "A party's demand went unmet, and its loyalty has fallen. The Record tab "
+     "A party's demand went unmet and its loyalty has fallen. The Record tab "
      "names the party."),
     ("party_offer", True, "chd/diplomacy", "Positive",
      "A Party Offers a Favour",
@@ -1340,7 +1357,7 @@ EVENTS = [
      "next turn."),
     ("party_sabotage", True, "chd/army_morale_down", "Negative",
      "An Office Sabotaged",
-     "Its Bonus Is Lost for Now",
+     "The Office Stands Idle",
      "A feuding party has sabotaged an office its rival holds. The office gives "
      "no bonus for a few turns."),
     ("party_withhold", True, "chd/army_morale_down", "Negative",
@@ -1361,43 +1378,43 @@ EVENTS = [
     ("officer_died", True, "chd/army_morale_down", "Negative",
      "An Officer Is Dead",
      "A Post Stands Empty",
-     "One of your officers has died, and the post he held is empty. Fill it on "
+     "One of your officers has died and the post he held is empty. Fill it on "
      "the Offices or Governors tab."),
     # BOTH COUNTS: a party's secession and your own house's split.
     ("threat_over", True, "chd/diplomacy", "Positive",
      "A Party Stands Down",
      "The Countdown Stops",
-     "A party that was counting down to break with you has stopped, for now. "
-     "Keep watch on its loyalty: a new count can start."),
+     "A party that was counting down to break with you has stopped. "
+     "Watch its loyalty. A new count can start."),
     # The call site's subtitle names the seat when only one is back.
     ("stall_end", True, "chd/diplomacy", "Positive",
      "An Office Is Back at Work",
-     "Their Bonuses Apply Again",
-     "The stoppage has run its course, and each office it stopped gives its "
+     "The Stoppage Is Over",
+     "The stoppage has run its course. Each office it stopped gives its "
      "bonus again."),
     # THE GOVERNMENT.
     ("gov_changed", True, "chd/faction", "Positive",
      "A New Government",
      "A Court Rule Changes",
-     "A new government rules the court, with its own court rule and faction "
-     "effect. The parties behind it gain loyalty, and those behind the old one "
+     "A new government rules the court with its own court rule and faction "
+     "effect. The parties behind it gain loyalty. Those behind the old one "
      "lose some."),
     ("gov_pressure", True, "chd/faction", "Neutral",
      "The Court Pulls Another Way",
      "A Choice Waits",
      "The leading party asks for its own government. On the Petitions tab, "
      "accept it or pay influence to keep your current one. Accepting angers the "
-     "old government's party; holding angers the party that asked."),
+     "old government's party. Keeping yours angers the party that asked."),
     # DEEDS. gov_intro is raised once per player court;
     # party_drawn's body is a per-party line (PARTY_DRAWN) naming its deed.
     ("gov_intro", True, "chd/faction", "Neutral",
      "Your Deeds Move the Court",
      "What Raises Each Party",
-     "Your deeds strengthen parties at court. Victories raise the Legion; Hell-Forge work raises the Forge; Tower rites and temples raise the Priesthood; slaves and razing raise the Chain; convoys raise the Road; research raises the Tower. A strong party asks for its own government. Your current government is shown in the Crown's box."),
+     "Your deeds strengthen parties at court. Victories raise the Legion and Hell-Forge work raises the Forge. Tower rites and temples raise the Priesthood. Slaves and razing raise the Chain. Convoys raise the Road and research raises the Tower. A strong party asks for its own government. The Crown's box shows your current government."),
     ("party_drawn", True, "chd/faction", "Positive",
      "A Party Comes to Court",
      "Drawn by Your Deeds",
-     "Your deeds have drawn a new party into your court, and your newest lord "
+     "Your deeds have drawn a new party into your court. Your newest lord "
      "has joined it. It has strength at court now and will expect seats."),
     # THE LAWS.
     ("law_proposed", True, "chd/faction", "Neutral",
@@ -1408,12 +1425,12 @@ EVENTS = [
     ("law_passed", True, "chd/faction", "Positive",
      "A Law Passes",
      "The Law Is Changed",
-     "The court has voted the law through, and it is now in force. Parties that "
-     "backed it gain loyalty; parties that opposed it lose some."),
+     "The court has voted the law through and it is now in force. Parties that "
+     "backed it gain loyalty. Parties that opposed it lose some."),
     ("law_failed", True, "chd/faction", "Negative",
      "A Law Fails",
      "The Old Law Stands",
-     "The court has voted the law down, and the law in force stays. If a rival "
+     "The court has voted the law down and the law in force stays. If a rival "
      "party proposed it, that party loses loyalty."),
     # THE WAR COUNCIL. The call site's subtitle is the target faction's name
     # (factions_screen_name_<key>); the primary here is for when it has none.
@@ -1426,8 +1443,8 @@ EVENTS = [
     ("war_passed", True, "chd/faction", "Positive",
      "The Court Votes for War",
      "War Is Coming",
-     "The court has voted for war. It will be declared in a few turns, so make "
-     "your armies ready. You can still call it off from the Petitions tab, at a "
+     "The court has voted for war. It will be declared in a few turns. Make "
+     "your armies ready. You can still call it off from the Petitions tab at a "
      "price."),
     ("war_failed", True, "chd/faction", "Negative",
      "The Court Votes for Peace",
@@ -1441,13 +1458,13 @@ EVENTS = [
     ("war_broken", True, "chd/army_morale_down", "Negative",
      "A War Called Off",
      "A Treaty Stands in the Way",
-     "You signed a treaty with the faction the court voted to fight, so the war "
+     "You signed a treaty with the faction the court voted to fight. The war "
      "cannot be declared. The parties that wanted it lose loyalty."),
     ("war_unasked", True, "chd/army_morale_down", "Negative",
      "A War the Court Was Not Asked",
      "You Went to War Alone",
      "You declared war without putting it to the court. Parties that opposed "
-     "this war lose loyalty; parties that wanted it gain a little."),
+     "this war lose loyalty. Parties that wanted it gain a little."),
     # CLAIMS ON CONQUERED LAND. The call site's subtitle is the province's name
     # (provinces_onscreen_<key>); the primary here is for when it has none.
     ("claims_laid", True, "chd/diplomacy", "Neutral",
@@ -1459,19 +1476,19 @@ EVENTS = [
     ("claim_taken", True, "chd/diplomacy", "Neutral",
      "The Court Grants a Claim",
      "A Governor Is Named",
-     "No answer came, so the court granted the claim of its strongest party."),
+     "No answer came. The court granted the claim of its strongest party."),
 ]
 
 # THE BODY party_drawn PASSES, one per party a deed can draw in. It replaces
 # the event's own body, so it carries that body's news as well as the deed.
 PARTY_DRAWN = {
-    "legion": "Your victories drew the Legion to court. Your newest lord has joined it, and it will expect seats.",
-    "forge": "The Hell-Forge's work drew the Forge to court. Your newest lord has joined it, and it will expect seats.",
-    "temple": "Your temples and the Tower's rites drew the Priesthood to court. Your newest lord has joined it, and it will expect seats.",
-    "chain": "Your slave-taking and razing drew the Chain to court. Your newest lord has joined it, and it will expect seats.",
-    "road": "Your convoys drew the Road to court. Your newest lord has joined it, and it will expect seats.",
-    "ledger": "Your convoys drew the Ledger to court. Your newest lord has joined it, and it will expect seats.",
-    "tower": "Your research drew the Tower to court. Your newest lord has joined it, and it will expect seats.",
+    "legion": "Your victories drew the Legion to court. Your newest lord has joined it. It will expect seats.",
+    "forge": "The Hell-Forge's work drew the Forge to court. Your newest lord has joined it. It will expect seats.",
+    "temple": "Your temples and the Tower's rites drew the Priesthood to court. Your newest lord has joined it. It will expect seats.",
+    "chain": "Your slave-taking and razing drew the Chain to court. Your newest lord has joined it. It will expect seats.",
+    "road": "Your convoys drew the Road to court. Your newest lord has joined it. It will expect seats.",
+    "ledger": "Your convoys drew the Ledger to court. Your newest lord has joined it. It will expect seats.",
+    "tower": "Your research drew the Tower to court. Your newest lord has joined it. It will expect seats.",
 }
 
 # RAISED WITH cm:show_message_event_located. The record type must agree with the
@@ -1488,11 +1505,11 @@ DEMAND_REWARD = "derpy_ic_demand_reward"
 DEMAND_REWARD_TEXT = "The party's loyalty rises."
 DEMANDS = [
     ("derpy_ic_demand_office", "A Party Demands an Office",
-     "A party demands a vacant office for one of its men. The party's card names the man and the office. Appoint him in time and its loyalty rises; miss the deadline or appoint someone else and it falls.",
+     "A party demands a vacant office for one of its men. The party's card names the man and the office. Appoint him in time and its loyalty rises. Miss the deadline or appoint someone else and it falls.",
      "The party's man holds the office it demanded.",
      "Appoint the man named on the party's card to the office it demands."),
     ("derpy_ic_demand_province", "A Party Demands a Province",
-     "A party demands a province for one of its men. The party's card names the man and the province. Make him governor in time and its loyalty rises; miss the deadline or appoint someone else and it falls.",
+     "A party demands a province for one of its men. The party's card names the man and the province. Make him governor in time and its loyalty rises. Miss the deadline or appoint someone else and it falls.",
      "The party's man governs the province it demanded.",
      "Make the man named on the party's card governor of the province it demands."),
 ]
@@ -1548,10 +1565,10 @@ CONTROL_BANDS = [
      [(E_ORDER, 6, BOON), (E_GDP, 12, BOON), (E_UPKEEP, 15, BOON),
       (E_LAW_INFLUENCE, 5, BOON)]),
     ("mastery", 60, "Master of the Court",
-     "The parties argue, and then they do as they are told.",
+     "The parties argue and then do as they are told.",
      [(E_ORDER, 4, BOON), (E_GDP, 8, BOON), (E_UPKEEP, 10, BOON)]),
     ("command", 40, "In Command of the Court",
-     "The Crown leads the parties, though not without argument.",
+     "The Crown leads the parties. They still argue.",
      [(E_ORDER, 2, BOON)]),
     ("contested", 10, "A Contested Court",
      "No decree passes without a bargain struck.",
@@ -1603,7 +1620,7 @@ LAWS = [
         ("measure", "The Measure", "Keep the work gangs to their usual quotas.", []),
         ("lash", "The Lash", "More slaves are taken. The lash works them to death.",
          [(E_LAW_CAPTIVES, 15, BOON), (E_LAW_RUSH, 30, BOON), (E_LAW_LAB_LD, 4, MALUS)]),
-        ("kept", "The Kept Stock", "Feed the stock. Keep it alive. Take fewer slaves.",
+        ("kept", "The Kept Stock", "Feed the stock and keep it alive. Fewer slaves are taken.",
          [(E_LAW_LAB_UPKEEP, 50, BOON), (E_LAW_LAB_RANK, 2, BOON), (E_LAW_CAPTIVES, 10, MALUS)]),
         ("quota", "The Furnace Quota", "The stock pays for every forge's quota.",
          [(E_WORKLOAD, 15, BOON), (E_LAW_RAW_USED, 15, BOON), (E_LAW_LAB_UPKEEP, 25, MALUS)]),
@@ -1672,7 +1689,7 @@ CHD_CULTURES = [
      "colour": "He grew up by the Mingol mines and keeps a hearth of his own.",
      "boons": [(E_C_REPLEN, 4), (E_C_UPKEEP, 10)], "drawback": (E_C_BTIME, 1)},
     {"slug": "wastes", "name": "Howling Wastes", "archetype": "Pathfinder",
-     "colour": "He grew up on the Howling Wastes, where a road is only as safe as its last traveller.",
+     "colour": "He grew up on the Howling Wastes, where no road stays safe for long.",
      "boons": [(E_C_MOVE, 10), (E_C_AMBUSH, 10)], "drawback": (E_C_REPLEN_DOWN, 10)},
     {"slug": "gash", "name": "Gash Kadrak", "archetype": "Tribute-Taker",
      "colour": "He grew up in Gash Kadrak, where tribute goes to the man who can collect it.",
@@ -1681,7 +1698,7 @@ CHD_CULTURES = [
 
 DWF_CULTURES = [
     {"slug": "karaz", "name": "Karaz-a-Karak", "archetype": "Royal Traditionalist",
-     "colour": "He grew up where the High King sits, and he quotes precedent before he quotes prices.",
+     "colour": "He grew up where the High King sits and quotes precedent before prices.",
      "boons": [(E_C_GDP, 8), (E_C_ORDER, 3)], "drawback": (E_C_BTIME, 1)},
     {"slug": "black", "name": "The Black Holds", "archetype": "Engineer",
      "colour": "He grew up among the toolmakers and gyro hangars of the Black Holds.",
@@ -1690,19 +1707,19 @@ DWF_CULTURES = [
      "colour": "He grew up on the quays of Barak Varr, the sea-gate of the Karaz Ankor.",
      "boons": [(E_C_SEA, 25), (E_C_GDP, 6)], "drawback": (E_C_RECRUIT, 10)},
     {"slug": "kadrin", "name": "Karak Kadrin", "archetype": "Slayer",
-     "colour": "He grew up in the Slayer Keep, where a man's best day is his last.",
+     "colour": "He grew up in the Slayer Keep among those who seek a worthy death.",
      "boons": [(E_C_MATK, 5), (E_C_REPLEN, 4)], "drawback": (E_C_GDP, 15)},
     {"slug": "azul", "name": "Karak Azul", "archetype": "Runesmith",
-     "colour": "He grew up in a hold renowned for the quality of its weapons.",
+     "colour": "He grew up among the weaponsmiths of Karak Azul.",
      "boons": [(E_C_RESEARCH, 5), (E_C_MDEF, 5)], "drawback": (E_C_BCOST, 10)},
     {"slug": "deeps", "name": "The Deeps", "archetype": "Deep-Miner",
      "colour": "He grew up near the gem and silver mines and trusts what is dug out of the rock.",
      "boons": [(E_C_GDP, 8), (E_C_BCOST, 10)], "drawback": (E_C_ORDER, 3)},
     {"slug": "grey", "name": "Grey Mountains", "archetype": "Hold-Keeper",
-     "colour": "He grew up in a hold that struggles to keep its numbers up and wastes no one.",
+     "colour": "He grew up in a dwindling hold of the Grey Mountains, where no one is wasted.",
      "boons": [(E_C_SIEGE, 20), (E_C_UPKEEP, 10)], "drawback": (E_C_REPLEN_DOWN, 10)},
     {"slug": "passkeeps", "name": "The Pass-Keeps", "archetype": "Pass-Warden",
-     "colour": "He grew up in a keep that guards a pass or an entrance to the Underway.",
+     "colour": "He grew up guarding the mountain passes and the gates of the Underway.",
      "boons": [(E_C_MOVE, 10), (E_C_AMBUSH, 10)], "drawback": (E_C_GDP, 8)},
 ]
 
@@ -1755,37 +1772,50 @@ def culture_effects(c):
     return away, home
 
 
+def fx_lines(rows):
+    """Effect rows as tooltip lines, one each in CA's wording: a boon green and a
+    drawback red, the tags CA's own effect text uses."""
+    return ["[[col:%s]]%s[[/col]]" % ("red" if i == MALUS else "green", effect_line(e, m, i))
+            for e, m, i in rows]
+
+
 def culture_explanation(c):
     """The trait's tooltip: the figures in CA's wording, the two rules and the
     law votes. Built from culture_effects, so it cannot differ from the away
     bundle. No archetype: four of them are also trade names, and the bundle's
     own description still carries it."""
     away, _home = culture_effects(c)
-    boons = ", ".join(effect_line(e, m, i) for e, m, i in away[:-1])
-    drawback = effect_line(*away[-1])
-    return ("While he governs a province: %s, but %s. On the Old World map the benefits are "
-            "%d%% stronger at home, rounded up, and a province another culture calls home "
-            "loses %d Control while he governs it. He also votes with his culture on some laws."
-            % (boons, drawback, CULTURE_HOME_PCT - 100, CULTURE_FRICTION))
+    return "\n".join(["While he governs a province:"] + fx_lines(away) + [
+        "",
+        "In a province his culture calls home the benefits are %d%% stronger."
+        % (CULTURE_HOME_PCT - 100),
+        "A province another culture calls home loses %d Control while he governs it."
+        % CULTURE_FRICTION,
+        "He also votes with his culture on some laws."])
 
 
 def culture_picker_line(c, case):
-    """The governor picker's tooltip line for a culture in a province of `case`
+    """The governor picker's tooltip lines for a culture in a province of `case`
     ("away", "home" or "foreign"). Built from the rows culture_effects hands
     emit(), so its figures are the bundle's: CA's wording of every effect, the
     drawback last, and for a foreign province the friction on top."""
     away, home = culture_effects(c)
-    rows = home if case == "home" else away
-    boons = ", ".join(effect_line(e, m, i) for e, m, i in rows[:-1])
-    drawback = effect_line(*rows[-1])
-    where = {"away": "", "home": ", at home here",
-             "foreign": ", in a province another culture calls home"}[case]
-    line = "%s%s. Governing: %s. Drawback: %s." % (c["name"], where, boons, drawback)
+    # "Culture:", the trait's own word: a bare "Howling Wastes" in a governor
+    # picker reads as the province.
+    lines = ["Culture: " + c["name"]]
+    if case == "home":
+        lines.append("His culture's home: the benefits are %d%% stronger."
+                     % (CULTURE_HOME_PCT - 100))
+    elif case == "foreign":
+        lines.append("Another culture calls this province home.")
+    lines.append("While he governs here:")
+    lines += fx_lines(home if case == "home" else away)
     if case == "foreign":
         # The friction bundle is a province bundle, so the province loses the
         # Control, not the man (culture_explanation says the same).
-        line += " The province also loses %d Control." % CULTURE_FRICTION
-    return line
+        lines.append("[[col:red]]The province also loses %d Control.[[/col]]"
+                     % CULTURE_FRICTION)
+    return "\n".join(lines)
 
 
 # THE RACES. `prefix` is the Lua table prefix the race's tables are declared
@@ -2011,7 +2041,7 @@ DWF_OFFICES = [
      "vacancy": [(E_DWF_GROWTH, 2, MALUS)]},
     {"slug": "scribes", "name": "Keeper of the Lore", "affinity": "tower", "tier": 4,
      "blurb": "He finds old designs the smiths can put to work.",
-     "vacant_blurb": "The smiths repeat work from neglected old books.",
+     "vacant_blurb": "The old books go unread. The smiths redo work long since done.",
      "effects": [(E_RESEARCH, 5, BOON)],
      "vacancy": [(E_RESEARCH, 2, MALUS)]},
     {"slug": "banners", "name": "Keeper of the Clan Banners", "affinity": "legion", "tier": 4,
@@ -2043,7 +2073,7 @@ DWF_GOVERNMENTS = [
     ("chain", "The Iron Law",
      "Ancestor Oath, Stand His Patron and Oath on the Anvil cost a third less. "
      "A broken oath costs 10 more loyalty.",
-     "An oath sworn in the hold is kept, or it is written down.",
+     "An oath broken in the hold goes into the Book of Grudges.",
      [(E_DWF_SETTLER_SRC, 1, BOON)]),
     ("convoy", "The Reckoning-Throne",
      "Send a Gift and Secure Loyalty cost a third less. Skimming the Tally angers the "
@@ -2126,12 +2156,12 @@ DWF_TIER_NAME = {1: "The First Seats", 2: "The Elders' Bench", 3: "The Long Hall
 DWF_STANDING_BAND = {
     0: ("Unproven at Court",
         "The court has yet to learn his name.",
-        "Too little influence for any seat at court. Influence comes from winning "
-        "battles, taking settlements, gaining ranks, holding a seat or a province, "
-        "and under most governments from each turn spent without an army."),
+        "Too little influence for any seat at court. Influence comes from battles "
+        "won, settlements taken, ranks gained and seats or provinces held. Most "
+        "governments also grant it for each turn spent without an army."),
     4: ("Noticed at Court",
         "The court has begun to say his name.",
-        "Has enough influence for a seat at the Hall Doors, the lowest tier."),
+        "Has enough influence for a seat at the Hall Doors, the lowest at court."),
     3: ("Spoken For at Court",
         "A clan elder has spoken for him at court.",
         "Has enough influence for a seat in the Long Hall."),
@@ -2170,16 +2200,16 @@ RACES["dwf"] = {
     "STANDING_BAND": DWF_STANDING_BAND,
     # THE BODY party_drawn PASSES, one per party a Dwarf deed draws.
     "PARTY_DRAWN": {
-        "legion": "Your victories and settled grudges drew the Clan Warriors to court. Your newest lord has joined them, and they will expect seats.",
-        "tower": "Your research drew the Runesmiths to court. Your newest lord has joined them, and they will expect seats.",
-        "temple": "Your settled grudges drew the Ancestor Priesthood to court. Your newest lord has joined them, and they will expect seats.",
+        "legion": "Your victories and settled grudges drew the Clan Warriors to court. Your newest lord has joined them. They will expect seats.",
+        "tower": "Your research drew the Runesmiths to court. Your newest lord has joined them. They will expect seats.",
+        "temple": "Your settled grudges drew the Ancestor Priesthood to court. Your newest lord has joined them. They will expect seats.",
     },
     # THE EVENTS IN DWF.EVENT_LOC: title, primary (subtitle), secondary (body).
     "EVENT_TEXT": {
         "gov_intro": (
             "Your Deeds Move the Court",
             "Victory, Grudges and Research",
-            "Victory strengthens the Clan Warriors at court. A settled grudge strengthens the Clan Warriors and the Ancestor Priesthood. Research strengthens the Runesmiths. A strong party asks for its own government. The throne's box shows who rules the court."),
+            "Victory strengthens the Clan Warriors at court. A settled grudge strengthens the Clan Warriors and the Ancestor Priesthood. Research strengthens the Runesmiths. A strong party asks for its own government. The Court tab shows the government in power."),
         "realm_secede": (
             "A Rival Court Splits",
             "Oathbreakers in Arms",
@@ -2191,9 +2221,9 @@ RACES["dwf"] = {
             "Its Countdown Has Begun",
             "A party has begun counting down to leave your court. When the count ends, "
             "it leaves and takes provinces with it. Secure Loyalty on the Court tab "
-            "stops the count. Raising its loyalty or cutting its share stops it too, "
-            "unless you insulted it or the Crown's low share started it. Its card shows "
-            "the turns left."),
+            "stops the count. Raising its loyalty or cutting its share can also stop it. "
+            "The Court tab shows the turns left. While it counts, armies led by its "
+            "lords lose 8 leadership."),
     },
     "BUNDLE_ICON": "trait_dwarf.png",
     "CULTURES": DWF_CULTURES,
@@ -2406,6 +2436,28 @@ def dwf_plot_names():
     return dict(re.findall(r'\n    (\w+) = \{name = "([^"]+)"', _dwf_block("PLOT_TEXT")))
 
 
+# HOW EACH CULTURE'S PEOPLE GOVERN, the away bundle's description after
+# "The <archetype>s". Indexed directly: a culture with no line is a KeyError.
+CULTURE_GOV_LINE = {
+    "zharr": "govern in Hashut's name.",
+    "stump": "govern by what their furnaces turn out.",
+    "gorgoth": "govern with the whip.",
+    "zornuzkul": "govern from the walls.",
+    "plain": "govern by ledger and seal.",
+    "mines": "govern by keeping their warriors fed and warm.",
+    "wastes": "govern from the road.",
+    "gash": "govern by what they can collect.",
+    "karaz": "govern by precedent.",
+    "black": "govern by the blueprint.",
+    "barakvarr": "govern from the counting-house.",
+    "kadrin": "govern without fear of death.",
+    "azul": "govern by rune and old lore.",
+    "deeps": "govern by what the rock yields.",
+    "grey": "govern so that the hold wastes no one.",
+    "passkeeps": "govern from the gatehouse.",
+}
+
+
 def emit_cultures(emit, emit_trait, loc, race):
     """One race's culture rows: per culture an away bundle, a home bundle, a name
     loc and the trait; and one friction bundle for the race. Both bundles are
@@ -2420,9 +2472,10 @@ def emit_cultures(emit, emit_trait, loc, race):
     for c in R["CULTURES"]:
         away, home = culture_effects(c)
         emit(K("gov_cult", c["slug"]), "Governor: " + c["name"],
-             "The %s's way of governing." % c["archetype"], "province", away, icon=icon)
+             "The %ss %s" % (c["archetype"], CULTURE_GOV_LINE[c["slug"]]),
+             "province", away, icon=icon)
         emit(K("gov_cult_home", c["slug"]), "Governor at Home: " + c["name"],
-             "At home the benefits are %d%% stronger, rounded up." % (CULTURE_HOME_PCT - 100),
+             "At home the benefits are %d%% stronger." % (CULTURE_HOME_PCT - 100),
              "province", home, icon=icon)
         loc.append({"key": K("cult_name", c["slug"]), "text": c["name"], "tooltip": "false"})
         for case, kind in (("away", "cult_gov"), ("home", "cult_gov_home"),
@@ -2457,11 +2510,14 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
              office["vacant_blurb"], "faction", down, icon=icon)
         text(K("office_name", office["slug"]), office["name"])
         emit_trait(K("title", office["slug"]), office["name"], office["blurb"],
-                   ", ".join(effect_line(e, m, i) for e, m, i in up),
+                   "\n".join(fx_lines(up)),
                    "He no longer holds the office.", "derpy_ic_cat_office")
     for slug, _floor, name, blurb, effects in R["CONTROL_BANDS"]:
         emit(K("control", slug), name, blurb, "faction", effects, icon=icon)
         text(K("control_name", slug), name)
+    for level, name, blurb in ARMY_BUNDLES:
+        emit(K("army", level), name, blurb, "force",
+             [(E_ARMY_LEAD, model_tune("army_%s_lead" % level), MALUS)], icon=ARMY_ICON)
     gov_icons = model_gov_icons("DWF")
     for slug, name, rule, blurb, effects in R["GOVERNMENTS"]:
         emit(K("doctrine", slug), name, blurb, "faction", effects, icon=gov_icons.get(slug))
@@ -2490,19 +2546,15 @@ def emit_dwf(emit, emit_trait, emit_member, loc):
         text(K("origin_name", slug), display)
         emit_trait(K("house", slug), "Born: " + display[0].upper() + display[1:],
                    R["ORIGIN_COLOUR"][slug],
-                   "Where he was born. While the hold he came from sits at your court, "
-                   "he sits with its party, unless he is a legendary character or your "
-                   "faction leader. Some holds also set his culture.",
+                   "Where he was born. He sits with his hold's party while it is at "
+                   "your court. Some holds also shape his culture.",
                    "His origin has been struck from the rolls.", "derpy_ic_cat_origin")
     emit_cultures(emit, emit_trait, loc, "dwf")
     for party, _d, _e, _m in R["PARTIES"]:
         for slug, display in R["BACKGROUNDS"][party]:
             text(K("bg_name", slug), display)
             emit_trait(K("bg", slug), display, R["BG_COLOUR"][slug],
-                       "His former trade, which names his party. Legendary characters, your "
-                       "faction leader and any man whose party is not at court sit with "
-                       "your own party instead, and a man from a confederated hold sits "
-                       "with that hold while it is at court.",
+                       "His former trade ties him to his party.",
                        "He no longer follows this trade.", party_cat(party))
     for tier in [0] + sorted(R["TIER_NAME"]):
         name, colour, explain = R["STANDING_BAND"][tier]
@@ -2628,6 +2680,11 @@ def build():
         # court every turn and a loc call from a turn handler is a turn-1 CTD.
         loc.append({"key": bundle_key("control_name", slug),
                     "text": name, "tooltip": "false"})
+
+    # ONE PER ARMY LEVEL; the leadership lost is the model's own knob.
+    for level, name, blurb in ARMY_BUNDLES:
+        emit(bundle_key("army", level), name, blurb, "force",
+             [(E_ARMY_LEAD, model_tune("army_%s_lead" % level), MALUS)], icon=ARMY_ICON)
 
     # ONE PER GOVERNMENT, and the model puts exactly one of them on the faction.
     # "doctrine", not "gov": the governors' bundles already use derpy_ic_gov_.
@@ -2755,9 +2812,8 @@ def build():
         emit_trait(origin_trait_key(slug),
                    "Born: " + display[0].upper() + display[1:],
                    ORIGIN_COLOUR[slug],
-                   "Where he was born. While the house he came from sits at your court, "
-                   "he sits with its party, unless he is a legendary character or your "
-                   "faction leader. Some houses also set his culture.",
+                   "Where he was born. He sits with his house's party while it is at "
+                   "your court. Some houses also shape his culture.",
                    "His origin has been struck from the rolls.", "derpy_ic_cat_origin")
 
     # WHERE HE GREW UP (the Chaos Dwarf cultures; the Dwarf ones come out of
@@ -2772,10 +2828,7 @@ def build():
         emit_trait(bg_trait_key(slug),
                    display,
                    BG_COLOUR[slug],
-                   "His former trade, which names his party. Legendary characters, your "
-                   "faction leader and any man whose party is not at court sit with your "
-                   "own party instead, and a man from a confederated house sits with that "
-                   "house while it is at court.",
+                   "His former trade ties him to his party.",
                    "He no longer follows this trade.", party_cat(party))
 
     # WHICH PARTY HE SITS WITH, shown on the character panel. Kept in step by IC.stamp_members at
@@ -2785,8 +2838,7 @@ def build():
     def emit_member(key, party, cat, flavour):
         emit_trait(key, "Party: " + party[0].upper() + party[1:],
                    flavour,
-                   "His party at court. Changes when parties form, break away or dissolve, "
-                   "or when a party with no leader takes an idle lord of your own party.",
+                   "His party at court. It can change as parties form, break away or dissolve.",
                    "He sits with another party now.", cat)
 
     emit_member(member_trait_key(CROWN), "the Crown", party_cat(CROWN),
@@ -2802,11 +2854,8 @@ def build():
                             MEMBER_FLAVOUR[party])
 
     for office in OFFICES:
-        # ONE LINE, and deliberately so. Vanilla does put doubled newlines in
-        # trait explanation_text (16 of them, all wh3_main_trait_realm_*), but a
-        # newline inside a TSV FIELD splits the row - the gate caught exactly that,
-        # counting 174 rows where build() made 161 - and TSV has no portable escape
-        # for one. A single line needs no escaping at all.
+        # ONE EFFECT A LINE, the way CA's trait tooltips list them. The newlines
+        # reach the pack through write_tsvs' escape.
         #
         # The effects and nothing else. "He was raised to this office by your word"
         # said what the title already says; the effects are what the tooltip was
@@ -2814,8 +2863,7 @@ def build():
         emit_trait(office_trait_key(office["slug"]),
                    office["name"],
                    office["blurb"],
-                   ", ".join(effect_line(e, m, i)
-                             for e, m, i in scaled(office, "effects")),
+                   "\n".join(fx_lines(scaled(office, "effects"))),
                    "He no longer holds the office.",
                    "derpy_ic_cat_office")
 
@@ -3488,6 +3536,47 @@ def check_governments(race="chd"):
 
 # THE PLAIN-WORDS RULE for player text: none of these as a word.
 JARGON = ("cap", "caps", "accrue", "accrues", "rep", "AI", "HUD", "standing")
+
+
+def check_army_bundles():
+    """The model's IC.ARMY_LEVELS and ARMY_BUNDLES are one list in one order; the
+    bundle the model applies is one this file builds for both races, a force
+    bundle losing the model's leadership; and the countdown card quotes that
+    number."""
+    out = []
+    lua = _model_lua()
+    m = re.search(r"IC\.ARMY_LEVELS\s*=\s*\{([^}]*)\}", lua)
+    model_levels = re.findall(r'"(\w+)"', m.group(1)) if m else []
+    mine = [a[0] for a in ARMY_BUNDLES]
+    if model_levels != mine:
+        out.append("IC.ARMY_LEVELS is %s and ARMY_BUNDLES is %s" % (model_levels, mine))
+    m = re.search(r'function IC\.army_bundle\(level, faction_key\) return '
+                  r'IC\.key\("(\w+)", level, faction_key\) end', lua)
+    kind = m.group(1) if m else "?"
+    tables = build()
+    built = {r["key"]: r for r in tables["effect_bundles"]}
+    fx = {}
+    for j in tables["effect_bundles_to_effects_junctions"]:
+        fx.setdefault(j["effect_bundle_key"], []).append(j)
+    for race in ("chd", "dwf"):
+        for level in mine:
+            key = bundle_key(kind, level, race)
+            row = built.get(key)
+            want = "%.1f" % -model_tune("army_%s_lead" % level)
+            got = [(j["effect_key"], j["effect_scope"], j["value"]) for j in fx.get(key, [])]
+            if not row:
+                out.append("the model applies %s and no such bundle is built" % key)
+            elif row["bundle_target"] != "force":
+                out.append("%s is not a force bundle" % key)
+            elif got != [(E_ARMY_LEAD[0], E_ARMY_LEAD[1], want)]:
+                out.append("%s carries %s, not leadership %s on its army" % (key, got, want))
+    line = "armies led by its lords lose %d leadership" % model_tune("army_wavering_lead")
+    texts = [e[6] for e in EVENTS if e[0] == "secede_warn"]
+    texts += [RACES["dwf"]["EVENT_TEXT"]["secede_warn"][2]]
+    for t in texts:
+        if line not in t:
+            out.append("a secede_warn card does not say '%s'" % line)
+    return out
 
 
 def check_laws(race="chd"):
@@ -4271,6 +4360,7 @@ def check():
     out.extend(check_sound_names())
     out.extend(check_governments())
     out.extend(check_laws())
+    out.extend(check_army_bundles())
     out.extend(check_party_drawn())
     out.extend(check_race_effects())
     out.extend(check_dwf())
@@ -4777,11 +4867,12 @@ def check():
     #      run, and the runtime keys that fill a slot: a move's result line and
     #      an office's name are subtitles, a party_drawn line is a body.
     ltext = dict((e["key"], e["text"]) for e in tables["loc"])
-    # 16g2. THE TURN loyalty_warn SAYS SECESSION OPENS is the grace period's end
-    #       (IC.grace_left), off the model's own knob.
-    _opens = "From turn %d," % (model_tune("grace_turns") + 1)
-    if _opens not in ltext.get("event_feed_strings_text_" + event_key("loyalty_warn") + "_secondary", ""):
-        out.append("loyalty_warn's body does not say %r" % _opens)
+    # 16g2. NO CARD NAMES A TURN NUMBER OR A SETTING: the author's immersion rule
+    #       (2026-11-02). The grace period and the switches live in the Help tab.
+    for k, v in ltext.items():
+        if k.startswith("event_feed_strings_text_") and re.search(
+                r"\bturn \d|\bswitched (off|on)\b|\bMCT\b|\bsettings?\b|\bunless\b", v, re.I):
+            out.append("%s names a turn, a setting or an exception: %r" % (k, v[:80]))
     stems = ([event_key(e[0]) for e in EVENTS]
              + [bundle_key("event", s, r) for r in RACES if r != "chd"
                 for s in RACES[r].get("EVENT_TEXT", {})])
@@ -4881,13 +4972,15 @@ def write_tsvs(outdir):
             fh.write("#%s;%d;%s%s\n" % (name, version, container_path(table), pad))
             for row in rows:
                 for c in cols:
-                    # A TSV row IS a line and a TSV field IS tab-delimited, so
-                    # neither character can travel inside a value. Refusing here
-                    # beats writing a file whose rows no longer match build().
-                    assert "\n" not in row[c] and "\t" not in row[c], (
-                        "%s.%s cannot hold a newline or tab: %r"
+                    # A tab cannot travel inside a TSV field. A newline travels as
+                    # RPFM's escape, the three characters \\n, which its import
+                    # turns back into one (a lone \n stays literal, checked on a
+                    # built pack 2026-11-02). CA's paths keep their single
+                    # backslashes; a doubled one could be misread as the escape.
+                    assert "\t" not in row[c] and "\\\\" not in row[c], (
+                        "%s.%s cannot hold a tab or a doubled backslash: %r"
                         % (table, c, row[c]))
-                fh.write("\t".join(row[c] for c in cols) + "\n")
+                fh.write("\t".join(row[c].replace("\n", "\\\\n") for c in cols) + "\n")
         written.append(path)
     return written
 
@@ -5095,8 +5188,9 @@ def selftest():
     # friction bundle for the race. Both races have eight cultures.
     assert len(CHD_CULTURES) == len(DWF_CULTURES), "the two races' culture counts differ"
     n_cult = 2 * len(CHD_CULTURES) + 1
+    # AND ONE PER ARMY LEVEL.
     want = (n_offices * 2 + 1 + n_parties + len(CONTROL_BANDS) + n_envoy
-            + len(GOVERNMENTS) + n_laws + n_cult)
+            + len(GOVERNMENTS) + n_laws + n_cult + len(ARMY_BUNDLES))
     # PER RACE: the Dwarfs keep the skeleton, so each
     # race builds the same count; a Dwarf key carries "_dwf_".
     chd_keys = [k for k in keys if "_dwf_" not in k]

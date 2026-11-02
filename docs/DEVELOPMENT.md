@@ -63,7 +63,8 @@ pay influence, expire terms, warn of terms ending next turn (human only), enforc
 office bars (human only), let an AI court fill its
 offices and provinces, restamp the influence traits, drift loyalty, apply the office,
 overseer and control bundles, roll pressure, flush the feed, run the parties' turn (human
-only), tick secession, check the Crown for a split, save.
+only), tick secession, check the Crown for a split, restamp party traits, apply the control
+band again and the army bundles, save.
 
 | Listener | Event | Does |
 |---|---|---|
@@ -135,7 +136,8 @@ law's own `pro` and `con` lists, so the loyalty it pays lands in the data's orde
 ### The war council, claims and secrets (2026-10-17)
 
 **The war council** is a law vote kept under `court.votes[IC.COUNCIL]` with the target as its
-option, so the law engine tallies, pushes and overrules it. A party's side comes from
+option, so the law engine tallies, pushes and overrules it. Since 2026-11-02 AI courts hold one
+too (next section). A party's side comes from
 `IC.war_facts` (trade, near, weak, strong, kin, foe, and for Dwarfs the Book) through the
 race's `WAR_LINES`. A passed vote writes `court.war`, declared at turn start with the free-war
 flag set first, so `IC.war_react` (on `NegativeDiplomaticEvent`) charges nobody for the court's
@@ -152,6 +154,41 @@ party's man settles them through `IC.claims_on_assign`.
 what one can be spent on now, in the order the picker shows it. A blackmail row whose cost would
 reach `secede_break` is refused `secret_break`; Expose is never refused for it and carries
 `breaks = true` instead, which the picker shows as "Break Them".
+
+### Rival courts' wars and disloyal armies (2026-11-02)
+
+**AI courts hold war councils.** `IC.council_for(faction)` is the one gate: the `council`
+switch, and for an AI court the `ai_council` switch too; a faction in the race's `REBEL_POOL`
+(a rising) never holds one. An AI court's vote is opened only by its parties (the `council`
+party act, in the AI rotation), its Crown abstains, and nobody can push, win men over or
+overrule it, so it settles on the tally. A passed war is declared by `IC.council_turn` as a
+player's is, and `IC.news(..., "war", nil, target)` tells the players who have met the court.
+`IC.war_candidate` still refuses a human target, so an AI court never votes for war on a
+player, and for an AI court only it refuses a target of the court's own subculture (`kin`):
+the Forge and Clan Warriors vote aye on any weaker neighbour, and in game Thorgrim's court
+picked Zhufbar and Karak Kadrin's passed a war on it. A player's court may still name kin. An AI court has no turn-start snapshot; `ai_snapshot` fills it once a turn, on the
+turn path, the first time its council reads a party's line. `IC.war_react` stays player-only:
+an AI faction's own wars move no loyalty.
+
+**AI courts answer claims at once.** `IC.claim_raise` now runs for every court. An AI court
+calls `IC.ai_grant_claim` straight away: the claimant whose party has the lowest loyalty
+governs (the claim order breaks a tie, conquest first), through `IC.claim_grant`, so
+`IC.claims_on_assign` pays the grant and the passes as it does for a player. Left open, the AI's
+governor filler would run first next turn and pass every claimant over. A grant that cannot
+be made closes the claims and charges nobody.
+
+**Disloyal armies.** `IC.apply_army_bundles(faction)` walks the faction's characters; each
+general leading a field army (not a garrison) gets `derpy_ic_army_<infix>wavering` while his
+party's `clock` runs, `derpy_ic_army_<infix>restless` while its loyalty is at or under
+`secede_loyalty`, and neither otherwise (`IC.army_level`). The Crown wears neither, and the
+ruler and every legend are the Crown's. Applied with `cm:apply_effect_bundle_to_force(key,
+cqi, 0)` (0 is forever; CA's wrapper turns -1 into 0) and only when the army lacks it, so a
+quiet turn touches nothing. It runs at the end of `IC.turn`, in `answer()` after every panel
+action (so Secure Loyalty lifts the heavier one at once), in `IC.settle_switches` (the
+`disloyal_armies` switch), and with `clear` in `IC.dismantle`. The bundles are `force`
+bundles of `wh_main_effect_force_stat_leadership` at `force_to_force_own`, the pair CA ships
+in its own morale-down army bundles; the values are `IC.TUNE.army_restless_lead` and
+`army_wavering_lead`, which the generator reads.
 
 ## 3. Save state
 
@@ -353,6 +390,11 @@ Each of these cost a bug or a build to learn. Most fail silently.
   already the occupier's when it does (78 of 78 captures).
 - **A crash dump is in `%APPDATA%\The Creative Assembly\Warhammer3\crash_report\`,** not the
   game folder; the script log is in the game folder.
+- **`cm:force_remove_trait` has no quiet flag.** Every removal on a player's man raised a
+  "Trait Removed" card with no accept button, 8 to 14 at once on an old save. Every removal
+  goes through `IC.remove_trait`, which shuts the `character_trait_lost` event and opens it
+  again a second later, after the last removal and never during the turn-1 seeding. The
+  harness records any removal made with the event open.
 
 ## 8. Where the design lives
 

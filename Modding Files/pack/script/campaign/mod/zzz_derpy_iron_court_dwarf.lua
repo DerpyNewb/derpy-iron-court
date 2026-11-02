@@ -195,27 +195,27 @@ DWF.PARTY_TRAITS = {
      n = function() return 1 end},
     {key = "grasping", name = "Grasping",
      blurb = "They keep a tally of the holds denied them.",
-     rule = "+1 while they govern a province, -2 when they do not",
+     rule = "Governing a province: +1\nGoverning none: -2",
      n = function(ctx) return ctx.govs > 0 and 1 or -2 end},
     {key = "zealots", name = "Bound to the Old Ways",
      blurb = "A king must command his hall.",
-     rule = "+1 while your own party holds half the court, -2 below it",
+     rule = "Your party holds half the court: +1\nYour party holds less: -2",
      n = function(ctx) return ctx.control >= 50 and 1 or -2 end},
     {key = "ambitious", name = "Ambitious",
      blurb = "One office is too little for a clan of their name.",
-     rule = "0 with no seat, -1 with one, -2 with two or more",
+     rule = "No seat: 0\nOne seat: -1\nTwo or more seats: -2",
      n = function(ctx) return -math.min(ctx.held, 2) end},
     {key = "dutiful", name = "Dutiful",
      blurb = "They took an oath to serve. No reward was promised.",
-     rule = "+2 with no seat, +1 with any",
+     rule = "No seat: +2\nAny seat: +1",
      n = function(ctx) return ctx.held == 0 and 2 or 1 end},
     {key = "traditionalists", name = "Traditionalists",
      blurb = "Their forefathers held that office. They expect it back.",
-     rule = "+1, or -2 while an outsider holds their seat",
+     rule = "An outsider holds their seat: -2\nOtherwise: +1",
      n = function(ctx) return ctx.snubbed and -2 or 1 end},
     {key = "venal", name = "Gold-Hungry",
      blurb = "Loyalty lasts while the king pays in gold.",
-     rule = "+2 while secured, -1 otherwise",
+     rule = "Secured: +2\nOtherwise: -1",
      n = function(ctx) return ctx.sworn > 0 and 2 or -1 end},
 }
 
@@ -520,7 +520,7 @@ DWF.PLOT_TEXT = {
          IC.TUNE.plot_provoke_loyalty,
          IC.TUNE.plot_provoke_clock),
      effect_no_secession = string.format(
-         "-%d loyalty. With secession switched off, no countdown starts.",
+         "-%d loyalty. No countdown starts.",
          IC.TUNE.plot_provoke_loyalty)},
     purge = {name = "Cast Out the Clan",
      icon = "ui/campaign ui/technologies/wh_main_dwf_iron_price.png",
@@ -540,7 +540,7 @@ DWF.PLOT_TEXT = {
          "Recalls every governor from their party. -%d loyalty.",
          IC.TUNE.plot_recall_loyalty)},
     dig = {name = "Dig for Secrets",
-     blurb = "Old shames, dug up.",
+     blurb = "Their clan hides an old shame.",
      effect = string.format(
          "A secret on their party, used once. Each use: %d to %d loyalty.",
          IC.TUNE.secret_use_loyalty,
@@ -616,9 +616,9 @@ DWF.PLOT_TEXT = {
 
 DWF.FAVOUR_TEXT = {
     gift = {name = "Send a Gift",
-     blurb = "Gold, good ale and fine work buy patience."},
+     blurb = "Good ale and fine work buy patience."},
     secure = {name = "Secure Loyalty",
-     blurb = "Oaths before the Ancestors delay rebellion. They will not stop it at zero loyalty."},
+     blurb = "Oaths before the Ancestors delay rebellion. At zero loyalty the oaths break."},
 }
 
 -- THE EVENTS THE DWARFS WORD THEIR OWN WAY: their loc carries the infix
@@ -635,33 +635,33 @@ DWF.EVENT_LOC = {
 -- research, then the settled grudge, which raises the Clan Warriors and the
 -- Priesthood (DWF.DEEDS).
 DWF.HELP_SWAP = {
-    ["{@confed}A confederated Chaos Dwarf house joins as its own party, keeping roughly its former loyalty."] =
-        "{@confed}The thanes of a confederated hold sit as their own party, keeping roughly their former loyalty.",
+    ["{@confed}A confederated Chaos Dwarf house joins as its own party with roughly its former loyalty. Its men sit with it."] =
+        "{@confed}A confederated hold's thanes sit as their own party and keep roughly their former loyalty.",
     ["{@crown}Your capital's province never leaves. {@circuit}Use Ride the Circuit on Intrigue to raise every province's loyalty at once."] =
         "{@crown}Your capital's province never leaves. {@circuit}Use Walk the Holds on Intrigue to raise every province's loyalty at once.",
     ["{@bullet}Below {gov_drift_share}%, a leader draws the court toward the Conclave. A leader with no government, such as the Crown, stops it."] =
         "{@bullet}Below {gov_drift_share}%, a leader draws the hall toward the Council of Elders. A leader with no government, such as the Crown, stops it.",
-    ["{@party}Your deeds raise party renown. Victories raise the Legion; Hell-Forge rituals raise the Forge."] =
+    ["{@party}Your deeds raise party renown. Victories raise the Legion and Hell-Forge rituals raise the Forge."] =
         "{@party}Victories bring renown to the Clan Warriors. Research brings renown to the Runesmiths.",
     ["{@bullet}Tower rites and temples raise the Priesthood. Slaves and razed settlements raise the Chain."] =
         "{@bullet}A settled grudge brings renown to the Clan Warriors and the Ancestor Priesthood.",
     ["{@bullet}Convoys raise the Road. Research raises the Tower."] = false,
     ["{@bullet}Moves on a man: {@bribe}bribe him, {@discredit}discredit him, {@rumour}spread rumours, or {@murder}arrange an accident at the forge."] =
         "{@bullet}Moves on a man: {@bribe}give him gold, {@discredit}question his work, {@rumour}spread hall gossip, or {@murder}drive him to the Slayer Oath.",
-    ["{@bullet}Moves on a party: {@provoke}provoke it, or {@purge}purge it. Moves on its posts: {@unseat}strike its seats, or {@recall}recall its governors."] =
-        "{@bullet}Moves on a party: {@provoke}insult it, or {@purge}cast it out. Moves on its posts: {@unseat}bar it from the hall, or {@recall}recall its governors.",
+    ["{@bullet}Moves on a party: {@provoke}provoke it or {@purge}purge it. Moves on its posts: {@unseat}strike its seats or {@recall}recall its governors."] =
+        "{@bullet}Moves on a party: {@provoke}insult it or {@purge}cast it out. Moves on its posts: {@unseat}bar it from the hall or {@recall}recall its governors.",
     ["{@bullet}Bonds: {@oath}swear a blood-oath, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}pledge the forge to his party."] =
         "{@bullet}Bonds: {@oath}swear on the ancestors, {@patron}stand as a man's patron, {@kinsman}name him kinsman, or {@pledge}swear on the anvil to his party.",
     ["{@bullet}Errands: {@embezzle}embezzle from the vaults, {@feast}hold a feast, {@audience}hold court, or {@circuit}ride the circuit of your provinces."] =
         "{@bullet}Errands: {@embezzle}skim the tally, {@feast}host a feast, {@audience}hold court in the great hall, or {@circuit}walk the holds.",
     ["{@rebel}The rebels declare war at once and march against you. Every Chaos Dwarf court distrusts them."] =
         "{@rebel}The rebels declare war at once and march against you. The other holds distrust these oathbreakers.",
-    ["{@bullet}A bribe, Secure Loyalty, the Pledge of the Forge or a party's offer of calm stops a countdown. A purge ends the party, if it works."] =
+    ["{@bullet}A bribe, Secure Loyalty, the Pledge of the Forge or a party's offer of calm stops a countdown. A purge that works ends the party."] =
         "{@bullet}A Gift of Gold, Secure Loyalty, an Oath on the Anvil or an offer of calm stops a countdown. A Cast Out that works ends the party.",
     ["{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Purge and {@dig}Use a Secret."] =
         "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Cast Out and {@dig}Use a Secret.",
-    ["{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty."] =
-        "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",
+    ["{@rebel}A countdown you provoked or one the Crown's low share started runs at any loyalty."] =
+        "{@rebel}A countdown started by your insult or by the Crown's low share runs at any loyalty.",
     -- THE WAR COUNCIL: a Dwarf court may also name a faction in the Book of Grudges
     -- (IC.war_candidate), and the Book is a fact a party votes on.
     ["{@crown}The war council is a court vote on war with a faction that borders you. One war vote runs at a time."] =

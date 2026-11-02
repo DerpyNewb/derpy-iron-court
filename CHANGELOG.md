@@ -5,6 +5,82 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
 an MD5.
 
+## 2026-11-02 - build 7BEF2B95
+
+Built 2026-11-02. MD5 `7BEF2B9508E74B407E0812DDBCB48BC0`, 15,529,381 bytes. Not seen in
+game yet. Build 75D3F280 below, plus:
+
+- **No more "Trait Removed" cards.** Every trait the court took off one of your men (a
+  party trait, an office title, a corrected trade or birthplace) raised CA's "Trait Removed"
+  card, which has no accept button. A party leaving or splitting moved several at once, and an
+  old save raised 8 to 14 on load. The court now shuts that one event for its own removals
+  and opens it again a second later, so CA's own trait cards still show.
+- Checks: harness 1245 checks, two new: no removal anywhere in the run is made with the card
+  open, and the event is shut, then opened after the last removal and never in the middle of
+  the first-turn lord seeding. 1,450 mutants, every anchor matching; the six new ones and the
+  eight re-aimed at the removals all caught. Release gate 0 findings (no table or loc moved).
+
+## 2026-11-02 - build 75D3F280
+
+Deployed 2026-11-02. MD5 `75D3F28039905414B4EDD10D426F3CFF`, 15,528,675 bytes. Seen in game
+the same evening. Build CB7E4918 below, plus:
+
+- **Tooltips laid out line by line.** Effects one to a line, boons green and drawbacks red,
+  instead of a comma run: the governor picker, the culture and office traits, the government.
+  Stats as "Influence: 5" and "Holds: None", not "5 influence. Holds: None." Trait conditions
+  as a list ("No seat: 0", "One seat: -1"). A party's provinces one to a line. Every
+  multi-sentence tooltip one sentence to a line. Feuds count turns left, not a turn number.
+- The governor picker's first line now says "Culture:", so a culture is not read as a province.
+- Generated text can now carry line breaks into the pack.
+- Checks: harness 1243 checks; 1,444 mutants, every anchor matching, the 25 aimed at the
+  changed lines all caught; release gate 0 findings, snapshot re-pinned after reading the 140
+  moved lines (effect lists and the "Culture:" prefix only, every figure unchanged);
+  multiplayer simulator no desync.
+- Seen in game: the picker, pin, crest, party, trait and government tooltips; the two warning
+  cards; the Help tab's new lines; four turns of AI war votes, none on its own kind; and a
+  battle where the counting-down party's army showed "Other: -8" leadership in CA's own
+  breakdown.
+
+## 2026-11-02 - build CB7E4918
+
+Deployed 2026-11-02, once the game closed. MD5 `CB7E4918B5EC6BF23C90C5EA38FD35EC`, 15,515,916
+bytes. Seen in game the same evening in build 75D3F280 above. Build 69AB38E7 below, plus:
+
+- **Rival courts never vote for war on their own kind.** In game, Thorgrim's court picked
+  Zhufbar and Karak Kadrin's passed a war on it. A rival court now refuses a target of its own
+  race. Your own court still may.
+- **The whole mod's text rewritten.** 383 loc lines and about 130 panel, Help and settings
+  strings. Trait, bundle and party text stays in the world: no "unless" clauses, no
+  "legendary character" or "faction leader", no settings, turn numbers or map names. The rules
+  those lines used to carry now sit in the Help tab: the ruler and legends sit with the Crown,
+  no party leaves in the first turns, home-province bonuses only on the Old World map. One
+  sentence to a line, no semicolon chains, no em dashes. Each culture's governor bundle now
+  says how that culture governs instead of "The Clerk's way of governing."
+- Event cards can no longer name a turn number, a setting or an exception: the generator
+  refuses the build.
+- Checks: harness 1243 checks; 1,444 mutants, every anchor matching (the new kin mutant and the
+  three re-aimed text mutants caught); release gate 0 findings, snapshot re-pinned to
+  `CB7E4918` after reading every moved line; multiplayer simulator no desync.
+
+## 2026-11-02 - build 69AB38E7
+
+Deployed 2026-11-02. MD5 `69AB38E71359EB126DD6CDBAB912DBCB`, 15,562,366 bytes. Seen in game the
+same afternoon: every new feature worked, and the run found the kin bug fixed in CB7E4918.
+
+- **Rival courts vote on wars.** An AI court's parties put wars on neighbouring factions to its
+  war council, and a war it passes is declared 3 turns later, the same as yours. Never on a
+  player, never by a rising. Players who have met the court get a Record line. New MCT switch
+  "Rival courts vote on wars".
+- **Rival courts grant claims.** Taking a new province raises claims in AI courts too, and the
+  ruler grants one at once, to the least loyal claimant.
+- **Disloyal armies.** An army led by a rival party's lord loses 4 leadership while that party
+  is at or under the line where it would leave (20 on Default), and 8 while it counts down.
+  Secure Loyalty takes the heavier one off at once. Every court, the player's and the AI's. New
+  MCT switch "Disloyal armies". The countdown card says so.
+- Checks: harness 1243 checks; 1,443 mutants (the 27 new war, claim and army mutants run
+  clean); release gate 0 findings, snapshot re-pinned to `1BB222C5` for the 4 new bundles and
+  their loc; multiplayer simulator no desync.
+
 ## 2026-10-24 - build 1589E7FC
 
 Deployed 2026-10-24. MD5 `1589E7FCB6997529E51827AEDFD81C42`, 15,550,824 bytes. Not seen in game yet. The four author

@@ -91,7 +91,7 @@ function ICUI.map_tip(faction_key, province, row, memo)
     if man then
         local rank = 0
         pcall(function() rank = man:rank() end)
-        lines[#lines + 1] = string.format("Governor: %s, rank %d", ICUI.character_name(man), rank)
+        lines[#lines + 1] = string.format("Governor: %s (rank %d)", ICUI.character_name(man), rank)
         local slug = IC.house_of_cqi(faction_key, cqi)
         if slug then
             -- WHAT THIS PROVINCE ADDS TO HIS PARTY: what it adds NOW, since a governorship is earned a step a turn
@@ -100,12 +100,11 @@ function ICUI.map_tip(faction_key, province, row, memo)
             local levels = all[province] or 0
             local now, worth = IC.gov_grown_weight(court, province, all), IC.gov_weight_of(levels)
             if memo.share[slug] == nil then memo.share[slug] = IC.share(faction_key, slug) end
-            lines[#lines + 1] = string.format(
-                "%s: +%d strength from this province%s (%d settlement level%s), %d%% of the court",
-                ICUI.house_name(slug, faction_key), now,
-                now < worth and string.format(", growing to +%d", worth) or "",
-                levels, levels == 1 and "" or "s",
-                math.floor(memo.share[slug] + 0.5))
+            lines[#lines + 1] = string.format("Party: %s (%d%% of the court)",
+                ICUI.house_name(slug, faction_key), math.floor(memo.share[slug] + 0.5))
+            lines[#lines + 1] = string.format("Strength for his party: +%d%s",
+                now, now < worth and string.format(", growing to +%d", worth) or "")
+            lines[#lines + 1] = string.format("Settlement levels: %d", levels)
         end
     else
         lines[#lines + 1] = "No governor"
@@ -116,6 +115,7 @@ function ICUI.map_tip(faction_key, province, row, memo)
                                           ICUI.house_name(slug, faction_key))
     end
     -- A ROW CHOOSES; A PIN APPOINTS.
+    lines[#lines + 1] = ""
     if row then lines[#lines + 1] = "Click to choose this province."
     else lines[#lines + 1] = man and "Click to replace its governor." or "Click to choose its governor." end
     return table.concat(lines, "\n")
@@ -676,7 +676,7 @@ function ICUI.gm_party_rows(faction)
             local n = #list
             out[i] = {l1 = "No governor",
                       l2 = string.format("%d province%s", n, n == 1 and "" or "s"),
-                      tip = "Provinces with no governor. Click a pin to appoint one."}
+                      tip = "Provinces with no governor.\nClick a pin to appoint one."}
         end
     end
     return out
@@ -741,10 +741,15 @@ function ICUI.gm_picker_rows(faction)
     local rows = {}
     for i, line in ipairs(ICUI.picker_lines(faction, IC.court(faction))) do
         local tip = {}
-        if line.why then tip[#tip + 1] = line.why .. "." end
+        if line.why then tip[#tip + 1] = ICUI.red(line.why) end
         if line.tip then tip[#tip + 1] = line.tip end
-        if line.culture then tip[#tip + 1] = line.culture end
-        tip[#tip + 1] = string.format("%d influence. Holds: %s.", line.sort.standing, line.holds)
+        if line.culture then
+            if #tip > 0 then tip[#tip + 1] = "" end
+            tip[#tip + 1] = line.culture
+        end
+        if #tip > 0 then tip[#tip + 1] = "" end
+        tip[#tip + 1] = string.format("Influence: %d", line.sort.standing)
+        tip[#tip + 1] = "Holds: " .. line.holds
         rows[i] = {
             key = line.sort.cqi, cqi = ICUI.pick_rows[i],
             l1 = line[1], l2 = line[2],

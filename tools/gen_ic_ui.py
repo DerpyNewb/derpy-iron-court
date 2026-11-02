@@ -5288,8 +5288,7 @@ LAW_LAYERS = CARD_LAYERS + [
           "dock": None}, **SELECTED_PULSE),
     {"path": MASK_NONE, "offset": (0, 0), "dw": 0, "dh": 0,
      "margin": TEXTURE_MIN_MARGIN[PARTY_SELECTED], "dock": None}]
-LAW_TIP = ("Choose this law||Click to read it on the right, and to propose it "
-           "or go to its vote.")
+LAW_TIP = "Choose this law||Click to read it, propose it or go to its vote on the right."
 
 
 def _law():
@@ -9452,7 +9451,7 @@ def check_law_text():
          "enacting it", "keeping the law in force", "%d influence", "Win: [[img:%s]][[/img]]%d",
          "+%d more", " (paid)", "%s [[img:%s]][[/img]]%d", "Pass now", "Fail now",
          "%d parties, %d influence", ". A party with no stake votes with you only from ",
-         ". A party with no stake follows your side, and you have not taken one.",
+         ". A party with no stake follows your side. You have not taken one.",
          # THE WAR VOTE'S LINES (draw_law_vote, block_words, ICUI.war_title).
          '"War on "', "Declared %d turn%s after it passes", "Back to petitions",
          '"Declare war", "Keep the peace"', '"declaring war" or "keeping the peace"',
@@ -9494,7 +9493,7 @@ def check_law_text():
         "ic_lv_abstain": ["Abstaining: %s%s" % (w, why) for w in ("%s (99999), %s (99999)" % (party, party),
                                                                   "9 parties, 99999 influence")
                           for why in (". A party with no stake votes with you only from 100 loyalty.",
-                                      ". A party with no stake follows your side, and you have not taken one.")],
+                                      ". A party with no stake follows your side. You have not taken one.")],
         "ic_lv_st_1": ["Support", "Oppose", "Abstain"],
         "ic_lv_sideh": ["Your side"], "ic_lv_supph": ["Your support"],
         "ic_lv_overh": ["Decide it now"],
@@ -9561,7 +9560,7 @@ def check_law_text():
     # out of ICUI.COL_W and scaled with the box. Numbers as 99, each loyalty figure
     # wearing its picture (ICUI.units), the Dwarf court's grudge on Expose.
     need("Aye %d%%; Nay %d%%; %d%% would abstain", '"Running %d"', '"Rest %d"', '"Wait %d"',
-         'u.may and (u.breaks and "Break Them" or "Use") or', ", and write a grudge against you")
+         'u.may and (u.breaks and "Break Them" or "Use") or', " and write a grudge against you")
     picks = re.search(r"ICUI\.MISSION_PICKS = \{(.*?)\n\}", ui, re.S)
     council = re.search(r"ICUI\.COUNCIL_PICK = \{([^}]*)\}", ui)
     refusals = [re.search(r"ICUI\.%s = \{(.*?)\n\}" % t, ui, re.S)
@@ -9611,7 +9610,7 @@ def check_law_text():
         px = TEXT_STYLE.get("ic_row_b", BODY)[0]
         for e in effects:
             t = (e.replace("%d loyalty", pic + "99 loyalty").replace("%d", "99")
-                 .replace("%s", ", and write a grudge against you"))
+                 .replace("%s", " and write a grudge against you"))
             got = measure_text(t, px)
             if got > w:
                 out.append("a secret's effect would clip: %r measures %.0fpx at %dpx in a %dpx "

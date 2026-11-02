@@ -124,11 +124,11 @@ MUTANTS = [
     # what has rotted past prov_defect_floor. A tooltip that recomputes it is a
     # second owner of the rule, and the two agree until the day they do not.
     ("a tooltip counting provinces for itself", U,
-     """        "If this party walks out it takes %d of your %d provinces: %s%s.",
-        #doomed, #seats, table.concat(names, ", "), more)""",
-     """        "If this party walks out it takes %d of your %d provinces: %s%s.",
+     """        "If this party walks out it takes %d of your %d provinces:\\n%s%s",
+        #doomed, #seats, table.concat(names, "\\n"), more)""",
+     """        "If this party walks out it takes %d of your %d provinces:\\n%s%s",
         math.ceil(#seats * (IC.share(faction, slug) or 0) / 100), #seats,
-        table.concat(names, ", "), more)"""),
+        table.concat(names, "\\n"), more)"""),
 
     # THE KEY ON SCREEN. province_name() is documented as returning a key, so
     # skipping the lookup puts "wh3_main_combi_province_gash_kadrak" in front
@@ -2244,11 +2244,11 @@ end"""),
     # two incompatible bands.
     ("ambition reconciliation leaves a wrong marker trait in place", M,
      """        if key ~= want and character:has_trait(key) then
-            cm:force_remove_trait(lookup, key)
+            IC.remove_trait(lookup, key)
             moved = true
         end""",
      """        if false then
-            cm:force_remove_trait(lookup, key)
+            IC.remove_trait(lookup, key)
             moved = true
         end"""),
 
@@ -2339,14 +2339,23 @@ end"""),
     # AND THE RULE DROPPED, which puts the cell back to a name and a flavour
     # line with no number.
     ("a trait cell back to flavour text and no numbers", U,
-     """    if rule and not (n and flat) then lines[#lines + 1] = rule end""",
+     """    if rule and not (n and flat) then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = rule
+    end""",
      """"""),
 
     # THE FLAT RULE PRINTED UNDER ITS OWN LIVE NUMBER: "-1 loyalty per turn"
     # then "-1 a turn", the tooltip a player reported.
     ("a flat trait rule repeating the live number", U,
-     """    if rule and not (n and flat) then lines[#lines + 1] = rule end""",
-     """    if rule then lines[#lines + 1] = rule end"""),
+     """    if rule and not (n and flat) then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = rule
+    end""",
+     """    if rule then
+        lines[#lines + 1] = ""
+        lines[#lines + 1] = rule
+    end"""),
 
     # The effect icon on a trait.
     # THE DECORATION QUIETLY DROPPED. A trait is a term in the loyalty drift and
@@ -2600,13 +2609,13 @@ end"""),
     # first decides his party.
     ("a moved lord keeping his old trade too", M,
      """                local old = IC.bg_of_character(man)
-                if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end""",
+                if old then IC.remove_trait(lookup, IC.bg_trait(old)) end""",
      """                local old = IC.bg_of_character(man)"""),
 
     # AND THE LORD PUT IN THE FIELD KEEPING THE TRADE HIS BIRTH DEALT HIM: the
     # Forge comes before the Chain in IC.PARTIES, so he reads as the Forge's.
     ("field: the lord keeping the trade his birth dealt him too", M,
-     """                        if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end""",
+     """                        if old then IC.remove_trait(lookup, IC.bg_trait(old)) end""",
      """"""),
 
     # NO LAST RESORT: a court of legends leaves its parties faceless.
@@ -3425,8 +3434,8 @@ end"""),
                 lock(o, false)
             end"""),
     ("live: ai_courts marked live on the page", S,
-     '     .. "can split. Off, only your court runs.", false},',
-     '     .. "can split. Off, only your court runs.", true},'),
+     '     .. "can split too. Off, only your court runs.", false},',
+     '     .. "can split too. Off, only your court runs.", true},'),
     ("live: the live switches locked in a campaign", S,
      """            elseif SWITCHES[i][5] then
                 lock(o, false)""",
@@ -4007,7 +4016,7 @@ end"""),
      """                keys[#keys + 1] = IC.rkey("member", slug .. "_" .. j, R)""",
      """"""),
     ("a man wearing two parties at once", M,
-     """            cm:force_remove_trait(lookup, keys[i])
+     """            IC.remove_trait(lookup, keys[i])
             moved = true""",
      """            moved = true"""),
     ("a turn that never stamps the parties", M,
@@ -4290,8 +4299,8 @@ end"""),
      """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Insult, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Cast Out and {@dig}Use a Secret.",""",
      """        "{@bullet}On the Court tab, a chosen rival's bar offers {@provoke}Provoke, {@gift}Send a Gift, {@secure}Secure Loyalty, {@purge}Purge and {@dig}Use a Secret.","""),
     ("a Dwarf Help page saying a count was provoked", D,
-     """        "{@rebel}A count started by your insult, or by the Crown's low share, runs on whatever its loyalty.",""",
-     """        "{@rebel}A count you provoked, or one the Crown's low share started, runs on whatever its loyalty.","""),
+     """        "{@rebel}A countdown started by your insult or by the Crown's low share runs at any loyalty.",""",
+     """        "{@rebel}A countdown you provoked or one the Crown's low share started runs at any loyalty.","""),
     ("a Dwarf shared button left in CA's red", U,
      """    local names = {"ic_card_button", "ic_plot_go", "ic_row_e", "ic_row_f"}""",
      """    local names = {}"""),
@@ -4417,8 +4426,11 @@ end"""),
      """        if e.n == IC.VOID_REASONS.lost then""",
      """        if false then"""),
     ("the control band a move reaches left for next turn", M,
-     """    if done then IC.apply_control_bundle(faction_key) end""",
-     """"""),
+     """    if done then
+        IC.apply_control_bundle(faction_key)
+        IC.apply_army_bundles(faction_key)""",
+     """    if done then
+        IC.apply_army_bundles(faction_key)"""),
     ("a party at the breaking point on no list", U,
      """        if IC.at_breaking_point(faction, seated[i]) then""",
      """        if false then"""),
@@ -4433,8 +4445,8 @@ end"""),
      """            local man = last"""),
     # A FORMAT STRING NOW (it names splinter_loyalty), so the figure is "%%".
     ("the split tooltip printing a weight as a share", U,
-     """            .. "trade belongs to that party and their share of the court.\",""",
-     """            .. "trade belongs to that party and their share of the court, 5%% of it.\","""),
+     """            .. "its trade and their share of the court.\",""",
+     """            .. "its trade and their share of the court, 5%% of it.\","""),
     ("risings left out of the rotation", P,
      """    for i = 1, #R.REBEL_POOL do candidates[#candidates + 1] = R.REBEL_POOL[i] end""",
      """"""),
@@ -4482,7 +4494,7 @@ end"""),
 """,
      """"""),
     ("a party's end leaving its man his title", M,
-     """            cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i], faction_key))
+     """            IC.remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i], faction_key))
 """,
      """"""),
     ("a release of nobody written to the record", M,
@@ -4497,7 +4509,7 @@ end"""),
     if not court.govs[province_key] then return false end
 """),
     ("an AI court's rolled birthplace left on its men", M,
-     """            cm:force_remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
+     """            IC.remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
 """,
      """"""),
     ("a party paying for its move before its odds are read", P,
@@ -4551,8 +4563,8 @@ end"""),
      """"""),
     ("a turn ending on a band it does not wear", M,
      """    IC.apply_control_bundle(faction_key)
-    -- THE BOOK, caught""",
-     """    -- THE BOOK, caught"""),
+    -- THE ARMIES, after the clocks and the split""",
+     """    -- THE ARMIES, after the clocks and the split"""),
     ("a rising soured by asking with an interface", M,
      """now = a:diplomatic_standing_with(other)""",
      """now = a:diplomatic_standing_with(b)"""),
@@ -4702,11 +4714,11 @@ end"""),
      """            elseif target then
                 ICUI.play(ICUI.SOUNDS[op])"""),
     ("a governor in place said to add public order", U,
-     """    return string.format("At rank %d he adds +%d control and +%d%% \"""",
-     """    return string.format("At rank %d he adds +%d public order and +%d%% \""""),
+     """    return string.format("At rank %d he adds to this province:\\nControl: +%d\\nIncome: +%d%%\\n\"""",
+     """    return string.format("At rank %d he adds to this province:\\nPublic order: +%d\\nIncome: +%d%%\\n\""""),
     ("a governor away said to add public order", U,
-     """            .. "he returns. At rank %d he would add +%d control and +%d%% \"""",
-     """            .. "he returns. At rank %d he would add +%d public order and +%d%% \""""),
+     """            .. "he returns.\\nAt rank %d he would add:\\nControl: +%d\\nIncome: +%d%%", r, o, inc)""",
+     """            .. "he returns.\\nAt rank %d he would add:\\nPublic order: +%d\\nIncome: +%d%%", r, o, inc)"""),
     ("a gone party's business cleared and never saved", P,
      """    IC.claims_void(faction_key)
     IC.save_agenda(faction_key)
@@ -5197,8 +5209,8 @@ end"""),
     else"""),
     # THE PROVINCES PAGE.
     ("a province's weight on its tooltip from the flat rule", UM,
-     """                ICUI.house_name(slug, faction_key), now,""",
-     """                ICUI.house_name(slug, faction_key), 3,"""),
+     """                now, now < worth and string.format(", growing to +%d", worth) or "")""",
+     """                3, now < worth and string.format(", growing to +%d", worth) or "")"""),
     ("a Provinces row tells the player a click appoints", UM,
      """        local tip = ICUI.map_tip(faction, p, true, memo)""",
      """        local tip = ICUI.map_tip(faction, p, nil, memo)"""),
@@ -5272,8 +5284,8 @@ end"""),
      """        local now, worth = IC.gov_grown_weight(court, p, levels), IC.gov_weight_of(levels[p])""",
      """        local now, worth = IC.gov_weight_of(levels[p]), IC.gov_weight_of(levels[p])"""),
     ("a growing tooltip says nothing of what it grows to", UM,
-     """                now < worth and string.format(", growing to +%d", worth) or "",""",
-     """                "","""),
+     """                now, now < worth and string.format(", growing to +%d", worth) or "")""",
+     """                now, "")"""),
     ("a growing row says nothing of what it grows to", UM,
      """                 or (now < worth) and string.format("%d loyalty, +%d of %d strength", loyal, now, worth)""",
      """                 or (now < worth) and string.format("%d loyalty, +%d strength", loyal, now)"""),
@@ -5286,10 +5298,10 @@ end"""),
      """            look = ICUI.pick_rows[i] and "live" or "inactive",""",
      """            look = "live","""),
     ("the refusal not first on the tooltip", UM,
-     """        if line.why then tip[#tip + 1] = line.why .. "." end""",
-     """        if false then tip[#tip + 1] = line.why .. "." end"""),
+     """        if line.why then tip[#tip + 1] = ICUI.red(line.why) end""",
+     """        if false then tip[#tip + 1] = ICUI.red(line.why) end"""),
     ("what he holds left off the tooltip", UM,
-     '        tip[#tip + 1] = string.format("%d influence. Holds: %s.", line.sort.standing, line.holds)',
+     '        tip[#tip + 1] = "Holds: " .. line.holds',
      '        local _ = line.holds'),
     ("a refused man choosable", UM,
      """        if r and r.cqi then
@@ -5479,7 +5491,8 @@ end"""),
      """       and want == court.gov_toward and IC.gov_drift_on(faction)""",
      """       and true"""),
     ('gov: the picker hides what a government gives', U,
-     """            local tip = g.may and g.fx or (ICUI.reason_text(g.why, g.n) .. \"\\n\" .. g.fx)""",
+     """            local tip = g.may and ICUI.fx_tip(g.fx)
+                        or (ICUI.red(ICUI.reason_text(g.why, g.n)) .. \"\\n\\n\" .. ICUI.fx_tip(g.fx))""",
      """            local tip = (not g.may) and ICUI.reason_text(g.why, g.n) or \"\" """),
     ('gov: an override answering for every court', M,
      """    local court = faction_key and IC.state[faction_key]
@@ -5988,7 +6001,7 @@ end"""),
     ("starting members: the lord keeps the background his birth dealt him", M,
      """        local old = IC.bg_of_character(man)
         if old ~= bg then
-            if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+            if old then IC.remove_trait(lookup, IC.bg_trait(old)) end
             cm:force_add_trait(lookup, IC.bg_trait(bg), false)
         end""",
      """        local old = IC.bg_of_character(man)"""),
@@ -6131,7 +6144,10 @@ end"""),
      '''    if not culture or race ~= IC.R(faction) then return nil end''',
      '''    if not culture then return nil end'''),
     ("culture: the card tooltip drops the culture line", UM,
-     '''        if line.culture then tip[#tip + 1] = line.culture end''',
+     '''        if line.culture then
+            if #tip > 0 then tip[#tip + 1] = "" end
+            tip[#tip + 1] = line.culture
+        end''',
      ''''''),
 
     # The roll: seven in ten to the main culture, the rest to a side culture, a
@@ -6158,7 +6174,7 @@ end"""),
      '''    if has and not binding then return moved end''',
      ''''''),
     ("culture: a binding culture leaves the old one on him", M,
-     '''    if has then cm:force_remove_trait(lookup, IC.rkey("cult", has, hasR)) end''',
+     '''    if has then IC.remove_trait(lookup, IC.rkey("cult", has, hasR)) end''',
      ''''''),
     ("culture: a retired birthplace stays on the man", M,
      '''            if not o.faction and character:has_trait(IC.rkey("house", o.slug, R)) then''',
@@ -6554,10 +6570,48 @@ end"""),
      '''    local charged = war_charge(faction_key, war.target, "aye", IC.TUNE.law_overrule_loyalty)''',
      '''    local charged = 0'''),
 
-    # AN AI COURT NEVER VOTES ON WAR: its vote would be tallied by nobody.
-    ("war: an AI court opens a war vote", M,
-     '''    if not (IC.council_on() and IC.is_human(faction_key)) then return "council_off" end''',
-     '''    if not IC.council_on() then return "council_off" end'''),
+    # RIVAL COURTS VOTE ON WARS, under their own switch, and never a rising.
+    ("war: an AI court names its own kind", M,
+     '''    if not IC.is_human(faction_key) and them:subculture() == own:subculture() then
+        return false, "kin"
+    end
+''',
+     ''''''),
+    ("war: an AI court ignores the rival courts' switch", M,
+     '''    if IC.TUNE.ai_council == false then return false end''',
+     ''''''),
+    ("war: a rising holds a war council", M,
+     '''    for _, key in ipairs(IC.R(faction_key).REBEL_POOL) do
+        if key == faction_key then return false end
+    end
+    return true
+end''',
+     '''    return true
+end'''),
+    ("war: an AI court's vote is never resolved", M,
+     '''    if not IC.council_for(faction_key) then return nil end
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    local own = real_faction(faction_key)''',
+     '''    if not (IC.council_for(faction_key) and IC.is_human(faction_key)) then return nil end
+    local court = IC.court(faction_key)
+    local now = cm:model():turn_number()
+    local own = real_faction(faction_key)'''),
+    ("war: an AI court's pick walks the map unfilled", M,
+     '''    ai_snapshot(faction_key)
+    local list = {}''',
+     '''    local list = {}'''),
+    ("war: an AI court's snapshot refilled on every pick", M,
+     '''    if not (snap and snap.turn == cm:model():turn_number()) then
+        IC.war_snapshot(faction_key, true)
+    end''',
+     '''    IC.war_snapshot(faction_key, true)'''),
+    ("war: an AI court's war is not news", M,
+     '''        IC.news(faction_key, "war", nil, war.target)''',
+     ''''''),
+    ("war: the war news names the target by its key", U,
+     '''                             loc("factions_screen_name_" .. tostring(n.b), tostring(n.b)))''',
+     '''                             tostring(n.b))'''),
 
     # War: the save. A save from before the council holds no field 21, and a
     # council vote lives in field 18 under the laws', eight fields long.
@@ -6644,9 +6698,32 @@ end"""),
      '''           or claimed[slug] or not court.houses[slug] then''',
      '''           or not court.houses[slug] then'''),
 
-    ("claim: an AI court raises claims", M,
-     '''    if not (province_key and IC.claims_on() and IC.is_human(faction_key)) then return 0 end''',
-     '''    if not (province_key and IC.claims_on()) then return 0 end'''),
+    # AN AI COURT GRANTS ITS CLAIMS AT ONCE, to the least loyal claimant.
+    ("claim: an AI court leaves its claims open", M,
+     '''    else
+        IC.ai_grant_claim(faction_key, province_key)
+    end''',
+     '''    end'''),
+    ("claim: a player's claims answered at once", M,
+     '''    if IC.is_human(faction_key) then
+        IC.feed(faction_key, "claims_laid", "provinces_onscreen_" .. province_key)''',
+     '''    if false then
+        IC.feed(faction_key, "claims_laid", "provinces_onscreen_" .. province_key)'''),
+    ("claim: an AI court grants the most loyal claimant", M,
+     '''        if loyalty and (not low or loyalty < low) then best, low = c, loyalty end''',
+     '''        if loyalty and (not low or loyalty > low) then best, low = c, loyalty end'''),
+    ("claim: an AI tie goes to the last claim", M,
+     '''        if loyalty and (not low or loyalty < low) then best, low = c, loyalty end''',
+     '''        if loyalty and (not low or loyalty <= low) then best, low = c, loyalty end'''),
+    ("claim: a failed AI grant leaves the claims open", M,
+     '''    if best and IC.claim_grant(faction_key, province_key, best.slug) then return true end
+    court.claims[province_key] = nil''',
+     '''    if best and IC.claim_grant(faction_key, province_key, best.slug) then return true end'''),
+    ("claim: the capture raises claims for a player only", M,
+     '''        if IC.claims_on() then
+            local ok, err = pcall(function()''',
+     '''        if IC.claims_on() and IC.is_human(faction:name()) then
+            local ok, err = pcall(function()'''),
 
     ("claim: a claim lasts a turn too long", M,
      '''ends = cm:model():turn_number() + IC.TUNE.claim_turns, list = list}''',
@@ -7102,6 +7179,89 @@ end'''),
     if court.war and court.war.target == target_key then
         court.war = nil
         IC.log(faction_key, "war_early", IC.CROWN, target_key, 0)'''),
+
+    # DISLOYAL ARMIES: only a rival lord's field army wears its party's bundle.
+    ("army: a Crown lord's army wears a bundle", M,
+     '''    if IC.TUNE.disloyal_armies == false or not slug or slug == IC.CROWN then return nil end''',
+     '''    if IC.TUNE.disloyal_armies == false or not slug then return nil end'''),
+    ("army: the switch ignored", M,
+     '''    if IC.TUNE.disloyal_armies == false or not slug or slug == IC.CROWN then return nil end''',
+     '''    if not slug or slug == IC.CROWN then return nil end'''),
+    ("army: a countdown wears the lighter bundle", M,
+     '''    if (house.clock or 0) > 0 then return "wavering" end''',
+     '''    if (house.clock or 0) > 0 then return "restless" end'''),
+    ("army: restless only under the line, not at it", M,
+     '''    if (house.loyalty or IC.TUNE.loyalty_start) <= IC.TUNE.secede_loyalty then return "restless" end''',
+     '''    if (house.loyalty or IC.TUNE.loyalty_start) < IC.TUNE.secede_loyalty then return "restless" end'''),
+    ("army: a hero's army wears his party's bundle", M,
+     '''        if man and not man:is_null_interface() and IC.kind_of_character(man) == "general" then
+            local force = man:military_force()''',
+     '''        if man and not man:is_null_interface() then
+            local force = man:military_force()'''),
+    ("army: a garrison wears a bundle", M,
+     '''            if force and not force:is_null_interface() and not force:is_armed_citizenry() then
+                local want = not clear''',
+     '''            if force and not force:is_null_interface() then
+                local want = not clear'''),
+    ("army: clear ignored", M,
+     '''                local want = not clear
+                    and IC.army_level(faction_key, IC.house_of_character(man, faction_key)) or nil''',
+     '''                local want = IC.army_level(faction_key, IC.house_of_character(man, faction_key))'''),
+    ("army: the bundle put on again every turn", M,
+     '''                    if level == want and not has then''',
+     '''                    if level == want then'''),
+    ("army: the old bundle kept beside the new", M,
+     '''                    elseif level ~= want and has then
+                        cm:remove_effect_bundle_from_force(key, cqi)
+                        moved = moved + 1
+                    end''',
+     '''                    end'''),
+    ("army: forever written as -1", M,
+     '''                        cm:apply_effect_bundle_to_force(key, cqi, 0)''',
+     '''                        cm:apply_effect_bundle_to_force(key, cqi, -1)'''),
+    ("army: the turn never wears them", M,
+     '''    IC.apply_control_bundle(faction_key)
+    -- THE ARMIES, after the clocks and the split: a countdown begun this turn counts now.
+    IC.apply_army_bundles(faction_key)''',
+     '''    IC.apply_control_bundle(faction_key)'''),
+    ("army: an action leaves them for next turn", M,
+     '''        IC.apply_control_bundle(faction_key)
+        IC.apply_army_bundles(faction_key)
+    end''',
+     '''        IC.apply_control_bundle(faction_key)
+    end'''),
+    ("army: a switch flip leaves them on", M,
+     '''    IC.apply_law_bundles(faction_key)
+    IC.apply_army_bundles(faction_key)
+end''',
+     '''    IC.apply_law_bundles(faction_key)
+end'''),
+    ("army: a court taken off the map keeps them", M,
+     '''    IC.apply_army_bundles(faction_key, true)
+    IC.forget_court(faction_key)''',
+     '''    IC.forget_court(faction_key)'''),
+
+    # THE TRAIT CARD. force_remove_trait raises "Trait Removed", a card with no
+    # accept button, unless character_trait_lost is shut around the call.
+    ("a trait taken off with the card open", M,
+     """    cm:disable_event_feed_events(true, "", "", "character_trait_lost")
+    cm:force_remove_trait(lookup, key)""",
+     """    cm:force_remove_trait(lookup, key)"""),
+    ("the trait card never opened again", M,
+     """            cm:disable_event_feed_events(false, "", "", "character_trait_lost")""",
+     """            local _ = 0"""),
+    ("the first removal's opening running over a later one's card", M,
+     """        if IC._trait_quiet ~= mine then return end\n""",
+     ""),
+    ("the trait card opened in the middle of a seeding", M,
+     """        if not next(IC._seeding) then""",
+     """        if true then"""),
+    ("an office taken off past the quiet helper", M,
+     """IC.remove_trait(cm:char_lookup_str(character), IC.office_trait(office_slug, faction_key))""",
+     """cm:force_remove_trait(cm:char_lookup_str(character), IC.office_trait(office_slug, faction_key))"""),
+    ("a retired birthplace taken off past the quiet helper", M,
+     """IC.remove_trait(lookup, IC.origin_trait(has))""",
+     """cm:force_remove_trait(lookup, IC.origin_trait(has))"""),
 ]
 
 

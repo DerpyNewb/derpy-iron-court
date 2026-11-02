@@ -393,27 +393,27 @@ IC.PARTY_TRAITS = {
      n = function() return 1 end},
     {key = "grasping", name = "Grasping",
      blurb = "They demand land and resent every province denied them.",
-     rule = "+1 while they govern a province, -2 when they do not",
+     rule = "Governing a province: +1\nGoverning none: -2",
      n = function(ctx) return ctx.govs > 0 and 1 or -2 end},
     {key = "zealots", name = "Zealots of Hashut",
      blurb = "They serve strength. A weak Crown earns only contempt.",
-     rule = "+1 while the Crown holds half the court, -2 below it",
+     rule = "The Crown holds half the court: +1\nThe Crown holds less: -2",
      n = function(ctx) return ctx.control >= 50 and 1 or -2 end},
     {key = "ambitious", name = "Ambitious",
-     blurb = "Every office leaves them wanting another.",
-     rule = "0 with no seat, -1 with one, -2 with two or more",
+     blurb = "One office only leaves them wanting another.",
+     rule = "No seat: 0\nOne seat: -1\nTwo or more seats: -2",
      n = function(ctx) return -math.min(ctx.held, 2) end},
     {key = "dutiful", name = "Dutiful",
      blurb = "They serve where ordered and ask for little.",
-     rule = "+2 with no seat, +1 with any",
+     rule = "No seat: +2\nAny seat: +1",
      n = function(ctx) return ctx.held == 0 and 2 or 1 end},
     {key = "traditionalists", name = "Traditionalists",
      blurb = "Their ancestral office belongs in their own hands.",
-     rule = "+1, or -2 while an outsider holds their seat",
+     rule = "An outsider holds their seat: -2\nOtherwise: +1",
      n = function(ctx) return ctx.snubbed and -2 or 1 end},
     {key = "venal", name = "Venal",
-     blurb = "Gold is the only argument they respect.",
-     rule = "+2 while secured, -1 otherwise",
+     blurb = "They listen to gold and little else.",
+     rule = "Secured: +2\nOtherwise: -1",
      n = function(ctx) return ctx.sworn > 0 and 2 or -1 end},
 }
 
@@ -421,7 +421,7 @@ IC.LEADER_TRAITS = {
     {key = "thirst", name = "Thirst for Power",
      blurb = "He wants the Tower. He says so openly."},
     {key = "schemer", name = "Schemer",
-     blurb = "Every promise hides another bargain."},
+     blurb = "His promises always come with a price."},
     {key = "brute", name = "Brute",
      blurb = "He settles disputes with threats and iron."},
     {key = "steady", name = "Steady",
@@ -782,6 +782,9 @@ IC.TUNE = {
     -- secrets-design.md 2.9). Constants: only `council` is a switch, and only it
     -- is in IC.TUNE_ORDER. A key that names a loss is stored negative and added.
     council             = true,
+    -- RIVAL COURTS VOTE ON WARS TOO. Needs `council` on; a switch, in IC.TUNE_ORDER.
+    -- A rising never holds a war council (IC.council_for).
+    ai_council          = true,
     war_prep_turns      = 3,    -- a passed war is declared this many turns later
     war_party_share     = 15,   -- % of the court a party needs to propose a war
     war_party_rest      = 8,    -- turns between two party proposals
@@ -808,6 +811,13 @@ IC.TUNE = {
     secret_use_loyalty    = -5,   -- every use but Expose
     secret_expose_weight  = 10,
     secret_expose_loyalty = -10,
+
+    -- DISLOYAL ARMIES: leadership lost while a lord's party is at or under
+    -- secede_loyalty, and while it counts down. Only the switch is in IC.TUNE_ORDER;
+    -- tools/gen_iron_court.py builds the two bundles from these numbers.
+    disloyal_armies     = true,
+    army_restless_lead  = 4,
+    army_wavering_lead  = 8,
 
     -- THE SEVEN SWITCHES (the MCT page's Systems and Debug). All on: a campaign
     -- without MCT plays exactly as it did before they existed.
@@ -857,6 +867,8 @@ IC.TUNE_ORDER = {
     "seed_min", "seed_max",
     "council",
     "claims",
+    "ai_council",
+    "disloyal_armies",
 }
 
 -- NUMBERS NO DIFFICULTY SETS: read off the page on every difficulty, and named
@@ -1058,6 +1070,18 @@ end
 
 -- THE WAR COUNCIL'S SWITCH, separate from the laws': laws off leaves it running.
 function IC.council_on() return IC.TUNE.council ~= false end
+
+-- MAY THIS COURT HOLD A WAR COUNCIL: an AI court needs both switches. A rising never
+-- does: it is already at war with the court it left and cannot fight a second.
+function IC.council_for(faction_key)
+    if not IC.council_on() then return false end
+    if IC.is_human(faction_key) then return true end
+    if IC.TUNE.ai_council == false then return false end
+    for _, key in ipairs(IC.R(faction_key).REBEL_POOL) do
+        if key == faction_key then return false end
+    end
+    return true
+end
 
 -- CLAIMS ON CONQUERED LAND'S SWITCH.
 function IC.claims_on() return IC.TUNE.claims ~= false end
@@ -1285,15 +1309,16 @@ end
 -- flip strands nothing, and one turned back on starts again with its warning.
 -- NOT ai_courts: off, it leaves the other courts' office bundles on their men.
 -- The difficulty and every number stay frozen. The MCT page names the same
--- thirteen. Governments off takes the bundle away and drops a waiting choice
+-- fifteen. Governments off takes the bundle away and drops a waiting choice
 -- (IC.settle_switches); drift off only stops the drift; deeds off stops new
 -- renown and drawing parties in, and what is held fades on its own. Laws off
 -- drops open votes and takes every law bundle off; the laws in force stay in
--- the save. Council off drops the open war vote and the planned war. Claims off
--- drops every open claim.
+-- the save. Council off drops the open war vote and the planned war, and
+-- ai_council off does the same in the AI courts only. Claims off drops every
+-- open claim. Disloyal armies off takes the army bundles off.
 IC.LIVE_TUNE = {"parties_act", "secession", "pressure", "crown_split",
                 "all_cards", "detailed_log", "governments", "gov_drift", "deeds", "laws",
-                "dwarf_courts", "council", "claims"}
+                "dwarf_courts", "council", "claims", "ai_council", "disloyal_armies"}
 
 -- READ AT EVERY LOAD AND ON MCT'S Finalize, never in multiplayer, where each
 -- machine's MCT is its own. A change goes into the frozen copy too, so the save
@@ -1323,7 +1348,8 @@ function IC.refresh_live_tune()
     -- every one. With its switch off, each call below only clears.
     -- The courts still on disk are settled by IC.load.
     if off.secession or off.pressure or off.crown_split or off.governments
-       or off.gov_drift or off.laws ~= nil or off.council ~= nil or off.claims ~= nil then
+       or off.gov_drift or off.laws ~= nil or off.council ~= nil or off.claims ~= nil
+       or off.ai_council ~= nil or off.disloyal_armies ~= nil then
         for faction_key in pairs(IC.state) do
             IC.settle_switches(faction_key)
             IC.save(faction_key)
@@ -1354,14 +1380,16 @@ function IC.settle_switches(faction_key)
             if cat ~= IC.COUNCIL then court.votes[cat] = nil end
         end
     end
-    -- COUNCIL OFF DROPS ITS VOTE AND THE WAR IT PLANNED.
-    if not IC.council_on() then
+    -- COUNCIL OFF DROPS ITS VOTE AND THE WAR IT PLANNED, and so does ai_council
+    -- off in an AI court.
+    if not IC.council_for(faction_key) then
         court.votes[IC.COUNCIL] = nil
         court.war = nil
     end
     -- CLAIMS OFF DROPS EVERY OPEN CLAIM.
     if not IC.claims_on() then court.claims = {} end
     IC.apply_law_bundles(faction_key)
+    IC.apply_army_bundles(faction_key)
 end
 
 IC.AMBITION_ORDER = {"cautious", "steady", "ambitious"}
@@ -2961,6 +2989,10 @@ function IC.war_candidate(faction_key, target_key, seen)
     if not own or not them or them:is_dead() then return false, "dead" end
     if not own:is_known_faction(them) then return false, "unmet" end
     if them:is_human() then return false, "human" end
+    -- A RIVAL COURT NEVER NAMES ITS OWN KIND: the High King does not march on Zhufbar.
+    if not IC.is_human(faction_key) and them:subculture() == own:subculture() then
+        return false, "kin"
+    end
     local rising = false
     for _, key in ipairs(IC.R(faction_key).REBEL_POOL) do
         if key == target_key then rising = true end
@@ -2997,7 +3029,8 @@ end
 -- THE WAR COUNCIL'S VOTE AND ITS PLANNED WAR. The vote is a law vote kept under
 -- court.votes[IC.COUNCIL] with the target as its option, and the law engine
 -- tallies, pushes, wins and overrules it; IC.vote_stance gives its men their war
--- lines. Player courts only.
+-- lines. Player courts, and AI courts while ai_council is on (IC.council_for);
+-- an AI court's vote is opened by its parties only, and its Crown abstains.
 
 -- THE PARTIES WHOSE WAR LINE ON THE TARGET IS `side`, in the race's party order.
 -- Lines from facts only: a party that votes on loyalty is on neither list.
@@ -3031,9 +3064,19 @@ function IC.war_locked(_faction_key)
     return false
 end
 
+-- AN AI COURT'S SNAPSHOT, filled once a turn on the turn path when its council asks;
+-- unfilled, every party's line on every target walks the map again.
+local function ai_snapshot(faction_key)
+    if IC.is_human(faction_key) then return end
+    local snap = IC._war_snap[faction_key]
+    if not (snap and snap.turn == cm:model():turn_number()) then
+        IC.war_snapshot(faction_key, true)
+    end
+end
+
 -- WHY NO COUNCIL VOTE MAY OPEN in this court today, whoever names whom, or nil.
 local function council_shut(faction_key)
-    if not (IC.council_on() and IC.is_human(faction_key)) then return "council_off" end
+    if not IC.council_for(faction_key) then return "council_off" end
     local court = IC.court(faction_key)
     if (court.votes or {})[IC.COUNCIL] then return "council_open" end
     if court.war then return "council_war" end
@@ -3077,6 +3120,7 @@ function IC.council_party_pick(faction_key, slug)
         return nil
     end
     if IC.share(faction_key, slug) < IC.TUNE.war_party_share then return nil end
+    ai_snapshot(faction_key)
     local list = {}
     for _, key in ipairs(IC.war_candidates(faction_key)) do
         if IC.war_line(faction_key, key, slug) == "aye" then list[#list + 1] = key end
@@ -3143,16 +3187,17 @@ local function war_gone(own, them)
     return not own or not them or them:is_dead() or not own:is_known_faction(them)
 end
 
--- ONCE A TURN, player courts, after the laws: an open vote whose target changed
--- is void, one at its end resolves and the rest is pushed; then a planned war
--- whose turn has come is declared, or dropped.
+-- ONCE A TURN, after the laws, in every court IC.council_for allows: an open vote
+-- whose target changed is void, one at its end resolves and the rest is pushed;
+-- then a planned war whose turn has come is declared, or dropped.
 function IC.council_turn(faction_key)
-    if not (IC.council_on() and IC.is_human(faction_key)) then return nil end
+    if not IC.council_for(faction_key) then return nil end
     local court = IC.court(faction_key)
     local now = cm:model():turn_number()
     local own = real_faction(faction_key)
     local vote = (court.votes or {})[IC.COUNCIL]
     if vote then
+        ai_snapshot(faction_key)
         local them = real_faction(vote.option)
         -- NO LONGER NEXT DOOR IS NOTHING: the border decides who may be named,
         -- not whether a vote stands.
@@ -3195,6 +3240,9 @@ function IC.council_turn(faction_key)
         cm:force_declare_war(faction_key, war.target, false, false)
         IC.log(faction_key, "war_begins", war.proposer, war.target, 0)
         IC.feed(faction_key, "war_begins", name)
+        -- AN AI COURT'S WAR IS NEWS to the players who have met it. No proposer:
+        -- by now his party may have left the court.
+        IC.news(faction_key, "war", nil, war.target)
     end
 end
 
@@ -3445,7 +3493,7 @@ function IC.remove_house(faction_key, slug)
         -- office trait of a seat he no longer holds.
         local man = IC.character_by_cqi(faction_key, court.offices[seats[i]])
         if man then
-            cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i], faction_key))
+            IC.remove_trait(cm:char_lookup_str(man), IC.office_trait(seats[i], faction_key))
         end
         court.offices[seats[i]] = nil
         court.terms[seats[i]] = nil
@@ -3957,7 +4005,7 @@ function IC.ensure_leaders(faction_key)
             elseif man then
                 local lookup = cm:char_lookup_str(man)
                 local old = IC.bg_of_character(man)
-                if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+                if old then IC.remove_trait(lookup, IC.bg_trait(old)) end
                 -- HIS CULTURE FIRST, for the party he is moving to, and the
                 -- trade from the culture fit_culture hands back: not re-read
                 -- off him, since he may have been given it this very moment.
@@ -4047,6 +4095,24 @@ function IC.seed_quiet(off)
     for i = 1, #IC.SEED_QUIET_EVENTS do
         cm:disable_event_feed_events(off, "", "", IC.SEED_QUIET_EVENTS[i])
     end
+end
+
+-- force_remove_trait has no quiet flag, and its "Trait Removed" card has no
+-- accept button. The event is shut for the call and opened a second later,
+-- after the card would have come; a later removal moves the opening on.
+function IC.remove_trait(lookup, key)
+    IC._trait_quiet = (IC._trait_quiet or 0) + 1
+    local mine = IC._trait_quiet
+    cm:disable_event_feed_events(true, "", "", "character_trait_lost")
+    cm:force_remove_trait(lookup, key)
+    cm:callback(function()
+        if IC._trait_quiet ~= mine then return end
+        IC._trait_quiet = nil
+        -- The seeding opens it itself, after its last lord.
+        if not next(IC._seeding) then
+            cm:disable_event_feed_events(false, "", "", "character_trait_lost")
+        end
+    end, 1, "derpy_ic_trait_quiet")
 end
 
 function IC.seeding(faction_key)
@@ -4174,7 +4240,7 @@ function IC.seed_land(faction_key, plan, i, made, cqi, bg, culture)
         local lookup = cm:char_lookup_str(man)
         local old = IC.bg_of_character(man)
         if old ~= bg then
-            if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+            if old then IC.remove_trait(lookup, IC.bg_trait(old)) end
             cm:force_add_trait(lookup, IC.bg_trait(bg), false)
         end
         -- NOT BINDING: ic_born stamped this very culture on him a frame ago,
@@ -4267,7 +4333,7 @@ function IC.field_leader(faction_key, slug)
                     local lookup = cm:char_lookup_str(man)
                     local old = IC.bg_of_character(man)
                     if old ~= bg then
-                        if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+                        if old then IC.remove_trait(lookup, IC.bg_trait(old)) end
                         cm:force_add_trait(lookup, IC.bg_trait(bg), false)
                     end
                     -- BINDING, because ic_born has already dealt him a culture of
@@ -4562,7 +4628,7 @@ function IC.correct_history(character)
     local has = IC.origin_of_character(character)
     if want.origin and has ~= want.origin then
         if has then
-            cm:force_remove_trait(lookup, IC.origin_trait(has))
+            IC.remove_trait(lookup, IC.origin_trait(has))
         end
         cm:force_add_trait(lookup, IC.origin_trait(want.origin), false)
         moved = true
@@ -4571,7 +4637,7 @@ function IC.correct_history(character)
     local trade = IC.bg_of_character(character)
     if want.bg and trade ~= want.bg then
         if trade then
-            cm:force_remove_trait(lookup, IC.bg_trait(trade))
+            IC.remove_trait(lookup, IC.bg_trait(trade))
         end
         cm:force_add_trait(lookup, IC.bg_trait(want.bg), false)
         moved = true
@@ -4668,7 +4734,7 @@ function IC.stamp_culture(faction_key, character, slug, binding)
         for i = 1, #R.ORIGINS do
             local o = R.ORIGINS[i]
             if not o.faction and character:has_trait(IC.rkey("house", o.slug, R)) then
-                cm:force_remove_trait(lookup, IC.rkey("house", o.slug, R))
+                IC.remove_trait(lookup, IC.rkey("house", o.slug, R))
                 moved = true
             end
         end
@@ -4676,7 +4742,7 @@ function IC.stamp_culture(faction_key, character, slug, binding)
     local has, hasR = IC.culture_of_character(character)
     if has == slug then return moved end
     if has and not binding then return moved end
-    if has then cm:force_remove_trait(lookup, IC.rkey("cult", has, hasR)) end
+    if has then IC.remove_trait(lookup, IC.rkey("cult", has, hasR)) end
     cm:force_add_trait(lookup, IC.culture_trait(slug, faction_key), false)
     return true
 end
@@ -4694,7 +4760,7 @@ function IC.restamp_bg(character, slug)
     if old == slug then return false end
     if old and IC.fixed_history(character) then return false end
     local lookup = cm:char_lookup_str(character)
-    if old then cm:force_remove_trait(lookup, IC.bg_trait(old)) end
+    if old then IC.remove_trait(lookup, IC.bg_trait(old)) end
     cm:force_add_trait(lookup, IC.bg_trait(slug), false)
     return true
 end
@@ -4758,7 +4824,7 @@ function IC.stamp_ambition(faction_key, character)
     for i = 1, #IC.AMBITION_ORDER do
         local key = IC.ambition_trait(IC.AMBITION_ORDER[i], faction_key)
         if key ~= want and character:has_trait(key) then
-            cm:force_remove_trait(lookup, key)
+            IC.remove_trait(lookup, key)
             moved = true
         end
     end
@@ -4815,7 +4881,7 @@ function IC.stamp_standing(faction_key, character)
     for i = 0, #R.TIERS do
         local key = IC.standing_trait(i, faction_key)
         if key ~= want and character:has_trait(key) then
-            cm:force_remove_trait(lookup, key)
+            IC.remove_trait(lookup, key)
         end
     end
     cm:force_add_trait(lookup, want, false)
@@ -4870,7 +4936,7 @@ function IC.stamp_member(faction_key, character, keys)
     local moved = false
     for i = 1, #keys do
         if keys[i] ~= want and character:has_trait(keys[i]) then
-            cm:force_remove_trait(lookup, keys[i])
+            IC.remove_trait(lookup, keys[i])
             moved = true
         end
     end
@@ -5132,7 +5198,7 @@ function IC.dismiss(faction_key, office_slug, quiet)
     if not cqi then return false end
     local character = IC.character_by_cqi(faction_key, cqi)
     if character then
-        cm:force_remove_trait(cm:char_lookup_str(character), IC.office_trait(office_slug, faction_key))
+        IC.remove_trait(cm:char_lookup_str(character), IC.office_trait(office_slug, faction_key))
     end
     local slug = IC.house_of_cqi(faction_key, cqi)
     -- A TERM ON ITS LAST TURN IS NOT CUT SHORT: the
@@ -5513,13 +5579,14 @@ function IC.claimants(faction_key, province_key, occupier_cqi)
     return out
 end
 
--- THE CLAIMS ON A PROVINCE JUST TAKEN; how many were laid. Only on a player's
--- court with claims on, and only on a NEW province: exactly one region of it is
--- the court's after the capture. `region_key`, when given, must be that one - read
--- before the region changed hands the count would be off by one, and this way it
--- raises nothing rather than claims on a province already held.
+-- THE CLAIMS ON A PROVINCE JUST TAKEN; how many were laid. Only with claims on,
+-- and only on a NEW province: exactly one region of it is the court's after the
+-- capture. `region_key`, when given, must be that one - read before the region
+-- changed hands the count would be off by one, and this way it raises nothing
+-- rather than claims on a province already held. An AI court answers them at
+-- once (IC.ai_grant_claim).
 function IC.claim_raise(faction_key, province_key, occupier_cqi, region_key)
-    if not (province_key and IC.claims_on() and IC.is_human(faction_key)) then return 0 end
+    if not (province_key and IC.claims_on()) then return 0 end
     local court = IC.court(faction_key)
     court.claims = court.claims or {}
     if court.claims[province_key] then return 0 end
@@ -5539,9 +5606,30 @@ function IC.claim_raise(faction_key, province_key, occupier_cqi, region_key)
     if #list == 0 then return 0 end
     court.claims[province_key] = {ends = cm:model():turn_number() + IC.TUNE.claim_turns, list = list}
     for i = 1, #list do IC.log(faction_key, "claim", list[i].slug, province_key, 0) end
-    IC.feed(faction_key, "claims_laid", "provinces_onscreen_" .. province_key)
+    if IC.is_human(faction_key) then
+        IC.feed(faction_key, "claims_laid", "provinces_onscreen_" .. province_key)
+    else
+        IC.ai_grant_claim(faction_key, province_key)
+    end
     IC.save(faction_key)
     return #list
+end
+
+-- AN AI COURT GRANTS AT ONCE, or its governor filler seats somebody else first. The
+-- least loyal claimant wins, conquest first on a tie; a failed grant charges nobody.
+function IC.ai_grant_claim(faction_key, province_key)
+    local court = IC.court(faction_key)
+    local open = (court.claims or {})[province_key]
+    if not open then return false end
+    local best, low = nil, nil
+    for _, c in ipairs(open.list) do
+        local house = court.houses[c.slug]
+        local loyalty = house and (house.loyalty or IC.TUNE.loyalty_start)
+        if loyalty and (not low or loyalty < low) then best, low = c, loyalty end
+    end
+    if best and IC.claim_grant(faction_key, province_key, best.slug) then return true end
+    court.claims[province_key] = nil
+    return false
 end
 
 -- THE HOOK: whoever governs `province_key` now answers its claims. The void runs
@@ -5899,7 +5987,7 @@ function IC.dismantle(faction_key)
         local man = court.offices[slug] and IC.character_by_cqi(faction_key, court.offices[slug])
         if man then
             pcall(function()
-                cm:force_remove_trait(cm:char_lookup_str(man), IC.office_trait(slug, faction_key))
+                IC.remove_trait(cm:char_lookup_str(man), IC.office_trait(slug, faction_key))
             end)
         end
     end
@@ -5918,6 +6006,8 @@ function IC.dismantle(faction_key)
         end
     end
     IC.clear_gov_bundles(faction_key)
+    -- AND ITS ARMIES' BUNDLES: no turn of this court will ever take them off.
+    IC.apply_army_bundles(faction_key, true)
     IC.forget_court(faction_key)
     IC.say("IRON COURT: AI courts are off - " .. tostring(faction_key)
            .. "'s court taken off the map")
@@ -6165,7 +6255,7 @@ function IC.loyalty_terms(faction_key, slug)
             terms[#terms + 1] = {
                 label = string.format("Grudge: %s, turn %d",
                                       IC.GRUDGE_WORDS[g.code] or g.code, g.turn),
-                note = i == 1 and "A grudge never fades. Pay the Weregild, or seat "
+                note = i == 1 and "A grudge never fades. Pay the Weregild or seat "
                     .. "their man in an office they claim." or nil,
                 n = IC.TUNE.grudge_loyalty}
         end
@@ -6232,6 +6322,54 @@ function IC.apply_control_bundle(faction_key)
     end
     cm:apply_effect_bundle(IC.control_bundle(want, faction_key), faction_key, -1)
     return want
+end
+
+-- DISLOYAL ARMIES. The ruler and every legend are the Crown's (IC.house_of_character),
+-- so only a rival lord's field army ever wears one.
+IC.ARMY_LEVELS = {"restless", "wavering"}
+
+function IC.army_bundle(level, faction_key) return IC.key("army", level, faction_key) end
+
+-- WHICH OF IC.ARMY_LEVELS `slug`'s armies wear, or nil.
+function IC.army_level(faction_key, slug)
+    if IC.TUNE.disloyal_armies == false or not slug or slug == IC.CROWN then return nil end
+    local house = IC.court(faction_key).houses[slug]
+    if not house then return nil end
+    if (house.clock or 0) > 0 then return "wavering" end
+    if (house.loyalty or IC.TUNE.loyalty_start) <= IC.TUNE.secede_loyalty then return "restless" end
+    return nil
+end
+
+-- EACH ARMY WEARS ITS LORD'S PARTY'S BUNDLE AND NO OTHER; `clear` takes them all
+-- off. Returns how many went on or came off.
+function IC.apply_army_bundles(faction_key, clear)
+    local faction = real_faction(faction_key)
+    if not faction then return 0 end
+    local list = faction:character_list()
+    local moved = 0
+    for i = 0, list:num_items() - 1 do
+        local man = list:item_at(i)
+        if man and not man:is_null_interface() and IC.kind_of_character(man) == "general" then
+            local force = man:military_force()
+            if force and not force:is_null_interface() and not force:is_armed_citizenry() then
+                local want = not clear
+                    and IC.army_level(faction_key, IC.house_of_character(man, faction_key)) or nil
+                local cqi = force:command_queue_index()
+                for _, level in ipairs(IC.ARMY_LEVELS) do
+                    local key = IC.army_bundle(level, faction_key)
+                    local has = force:has_effect_bundle(key)
+                    if level == want and not has then
+                        cm:apply_effect_bundle_to_force(key, cqi, 0)
+                        moved = moved + 1
+                    elseif level ~= want and has then
+                        cm:remove_effect_bundle_from_force(key, cqi)
+                        moved = moved + 1
+                    end
+                end
+            end
+        end
+    end
+    return moved
 end
 
 function IC.strongest_rival(faction_key)
@@ -7272,7 +7410,7 @@ IC.PLOTS = {
      -- WITH SECESSION SWITCHED OFF no count starts (IC.plot), so none is
      -- promised.
      effect_no_secession = string.format(
-         "-%d loyalty. With secession switched off, no countdown starts.",
+         "-%d loyalty. No countdown starts.",
          IC.TUNE.plot_provoke_loyalty),
      blurb = "An insult they cannot ignore."},
     {key = "purge", name = "Purge the House",
@@ -7310,7 +7448,7 @@ IC.PLOTS = {
          "A secret on their party, used once. Each use: %d to %d loyalty.",
          IC.TUNE.secret_use_loyalty,
          IC.TUNE.secret_expose_loyalty),
-     blurb = "Every house hides something."},
+     blurb = "Their house has something to hide."},
     -- PAY THE WEREGILD: Dwarf courts only, GOLD from the treasury, and SURE: a
     -- blood-price is paid, not tried. In the party column, not Bonds.
     {key = "weregild", name = "Pay the Weregild", race = "dwf", gold = true, sure = true,
@@ -7347,7 +7485,7 @@ IC.PLOTS = {
          "Moves up to %d strength from his party to yours. Requires %d loyalty.",
          IC.TUNE.plot_kinsman_weight,
          IC.TUNE.plot_kinsman_min_loyalty),
-     blurb = "His party loses strength."},
+     blurb = "His old house loses him."},
     {key = "pledge", name = "Pledge of the Forge",
      icon = "ui/campaign ui/skills/mount_anvil_of_doom.png",
      cat = "bond",
@@ -7365,7 +7503,7 @@ IC.PLOTS = {
          "+%d gold. -%d loyalty with every rival party.",
          IC.TUNE.plot_embezzle_gold,
          IC.TUNE.plot_embezzle_loyalty),
-     blurb = "The books will betray the theft."},
+     blurb = "The theft will show in the books."},
     {key = "feast", name = "A Feast of Ash", aimed = false,
      icon = "ui/campaign ui/skills/wh3_main_unit_passive_gorefeast.png",
      cat = "errand",
@@ -7440,10 +7578,10 @@ end
 IC.FAVOURS = {
     {key = "gift", name = "Send a Gift",
      cost = "favour_gift_cost",
-     blurb = "Labourers, ore and strong drink buy patience."},
+     blurb = "Labourers and strong drink buy patience."},
     {key = "secure", name = "Secure Loyalty",
      cost = "favour_secure_cost",
-     blurb = "Hostages and oaths delay rebellion. They will not stop it at zero loyalty."},
+     blurb = "Hostages and oaths delay rebellion. At zero loyalty nothing holds them."},
 }
 
 function IC.favour_by_key(key)
@@ -8629,6 +8767,8 @@ function IC.turn(faction_key)
     -- AND THE BAND AGAIN, after everything above that moves weight: otherwise
     -- a split across a floor wears the old band all turn.
     IC.apply_control_bundle(faction_key)
+    -- THE ARMIES, after the clocks and the split: a countdown begun this turn counts now.
+    IC.apply_army_bundles(faction_key)
     -- THE BOOK, caught and said like the parties'
     -- turn: a Book that fails must not cost the court its save.
     local ok_book, err_book = pcall(IC.book_tick, faction_key)
@@ -9089,7 +9229,7 @@ function IC.stamp_incoming(faction_key, slug, attempts, before, loyalty)
         -- below); another house's origin would keep the house out for good.
         local had = IC.origin_of_character(man)
         if had and had ~= want and not (fixed and fixed.origin) then
-            cm:force_remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
+            IC.remove_trait(cm:char_lookup_str(man), IC.origin_trait(had))
         end
         if IC.stamp_origin(man, want, true) or had == want then
             stamped = stamped + 1
@@ -9219,8 +9359,12 @@ end
 -- names the panel. Returns what the model said.
 local function answer(faction_key, op, arg, done, why, spare)
     -- THE BAND THE MOVE REACHED, worn now: the panel names the live band, so
-    -- the bundle cannot wait for the next turn start.
-    if done then IC.apply_control_bundle(faction_key) end
+    -- the bundle cannot wait for the next turn start. The armies too, so Secure
+    -- Loyalty takes the heavier bundle off at once.
+    if done then
+        IC.apply_control_bundle(faction_key)
+        IC.apply_army_bundles(faction_key)
+    end
     if IC.after_op then IC.after_op(faction_key, op, arg, done, why, spare) end
     return done, why, spare
 end
@@ -9629,7 +9773,7 @@ function IC.register()
                         IC.TUNE.settlement_influence)
         -- AND CLAIMS, if the province is new to the court (IC.claim_raise asks).
         -- Caught: the region comes off the event, and the influence is paid.
-        if IC.claims_on() and IC.is_human(faction:name()) then
+        if IC.claims_on() then
             local ok, err = pcall(function()
                 local region = context:garrison_residence():region()
                 IC.claim_raise(faction:name(), region:province():key(),

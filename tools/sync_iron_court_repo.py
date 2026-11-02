@@ -121,7 +121,7 @@ def _dated(folder, pattern):
 _DOCS += [("docs/superpowers/specs/2026-10-04-iron-court-dwarfs-design.md", "docs/design/")]
 _DOCS += [(p, "docs/plans/") for p in _dated("docs/superpowers/plans",
                                               "2026-10-04-iron-court-dwarfs-*.md")]
-_DOCS += [(p, "docs/history/") for p in _dated("docs/sessions", "HANDOFF_202610*_IRON_COURT*.md")]
+_DOCS += [(p, "docs/history/") for p in _dated("docs/sessions", "HANDOFF_20261[0-2]*_IRON_COURT*.md")]
 _DOCS += [("docs/superpowers/specs/2026-10-15-iron-court-cultures-design.md", "docs/design/"),
           ("docs/superpowers/plans/2026-10-15-iron-court-cultures.md", "docs/plans/"),
           ("docs/superpowers/specs/2026-10-17-iron-court-war-claims-secrets-design.md", "docs/design/"),
@@ -188,6 +188,7 @@ def manifest(root=ROOT):
         "read_vanilla_loc.py",
         "read_vanilla_db.py",
         "import_house_ancillaries.py",
+        "rpfm_client.py",   # the RPFM client every tool above that talks to RPFM imports
         "check_lua_undeclared.py",
         "check_lua_literal_left.py",
         "check_lua_api.py",
