@@ -7,8 +7,8 @@ recorded a SHA-256 or only a size, not an MD5.
 
 ## 2026-11-08 - build 3E6601FF
 
-Deployed to the Workshop folder 2026-11-08, not uploaded. MD5
-`3E6601FFE07234DDBAE87FAD236954AC`, 15,530,824 bytes. Build 11275BE2 below, plus:
+Uploaded 2026-11-08. MD5 `3E6601FFE07234DDBAE87FAD236954AC`, 15,530,824 bytes. Build
+11275BE2 below, plus:
 
 - **Turn-1 crash with Call Allied Warband (Workshop 2853965122).** Each starting lord the
   court sends to the pool is made as an army and then wounded, and the engine selects every
