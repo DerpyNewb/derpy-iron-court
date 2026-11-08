@@ -11,7 +11,7 @@ No code changed in this session.
   manifest 5495122361613553388.
 - **Where it lives:** in the Workshop folder only. Never put a copy in `data/`, because it would hide the Workshop
   copy. `tools/deploy_iron_court.py` deploys there.
-- **GitHub:** synced to `76d3b60`, pushed.
+- **GitHub:** synced to `2a4d739` (build 14D3A767), pushed 11-08.
 - **Tests (before 11-08's change):** harness 1247 checks and release gate 0 findings. The full mutant run was last done on 11-02 (1,450, none
   stale) and was not repeated for the last two fixes. Those fixes each gained their own mutants (2 for 3E6601FF).
 
@@ -29,6 +29,10 @@ workshop_log: OK), with patch notes; upload config in `Modding Files/Backup/iron
 - The move's effect text ("declared 3 turns later") is built at load, before the save's numbers apply, so
   `ICUI.plot_effect` rewrites it from `IC.TUNE.war_prep_turns`, as it does for provoke and embezzle.
 - An older save is two fields short and reads both defaults (harness checks it).
+- Full mutant run 11-08: 1,458, 2 unexplained, both settled. "a growing row says nothing" was a stale anchor
+  (5DA3DF5E's "strength N of M" wording), re-aimed and caught. "gov fx: the glow drawn with governments off" is
+  equivalent code (`ICUI.gov_moving` already reads `IC.governments_on` through `IC.gov_drift_on`) and was removed
+  with a note; it survived the pre-change harness too. Now 1,457 mutants, selftest clean.
 - Harness 1248 checks (new: "the war council's two numbers are read on every difficulty, and the move says the
   wait"), 3 new mutants all caught, release gate `--pack` 0 findings (snapshot unmoved: Lua only), `check_mp_sim
   --staged ic` no desyncs. Nitefog's draft reply updated.

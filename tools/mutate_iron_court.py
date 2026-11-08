@@ -5304,7 +5304,7 @@ end"""),
      """                now, now < worth and string.format(", growing to +%d", worth) or "")""",
      """                now, "")"""),
     ("a growing row says nothing of what it grows to", UM,
-     """                 or (now < worth) and string.format("%d loyalty, +%d of %d strength", loyal, now, worth)""",
+     """                 or (now < worth) and string.format("%d loyalty, strength %d of %d", loyal, now, worth)""",
      """                 or (now < worth) and string.format("%d loyalty, +%d strength", loyal, now)"""),
     # THE PICKER IN THE COLUMN.
     ("the governor picker drawn full-screen again", UM,
@@ -5629,9 +5629,11 @@ end"""),
     ("gov fx: another tab leaves the glow on screen", U,
      """        show(comp(\"ic_gov_glow\", panel), false)""",
      """"""),
-    ("gov fx: the glow drawn with governments off", U,
-     """    show(comp(\"ic_gov_glow\", panel), on and ICUI.gov_moving(faction, court) and true or false)""",
-     """    show(comp(\"ic_gov_glow\", panel), ICUI.gov_moving(faction, court) and true or false)"""),
+    # NO "glow drawn with governments off" MUTANT: dropping draw_gov's `on and` is
+    # equivalent code, since ICUI.gov_moving reads IC.gov_drift_on, which reads
+    # IC.governments_on, and a court with no government has no gov_toward. It survived
+    # the 11-08 run for that reason. The guard that matters is gov_moving's, which
+    # "gov: the tooltip counts while nothing moves" breaks.
     ('gov: the embezzle card states the base price', U,
      """    if plot.key ~= \"embezzle\" then return plot.effect end""",
      """    do return plot.effect end"""),
