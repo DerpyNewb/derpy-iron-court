@@ -5282,13 +5282,13 @@ end
 
 -- THE GOVERNOR'S BASE BUNDLE, BUILT AT RUNTIME so it grows with his rank. The
 -- two effect keys are the ones tools/gen_iron_court.py
--- ships as E_ORDER and E_GDP_PROVINCE, and GOV_BASE_ORDER is GOVERNOR_BASE's
--- order value; gen_iron_court --check holds all four to the generator. The income
--- is PROVINCE-scoped: every vanilla payload put on one province (the Eshin
--- steal-money action, the Glottkin marks) scopes this effect province_to_*, and
--- faction_to_region_own is what the realm-wide bundles use.
+-- ships as E_C_ORDER and E_GDP_PROVINCE, and GOV_BASE_ORDER is GOVERNOR_BASE's
+-- order value; gen_iron_court --check holds all four to the generator. Both
+-- are PROVINCE-scoped: a faction_to_* effect on a province bundle reaches every
+-- province of the faction (measured 2026-11-08), so each governor stacked his
+-- Control on the whole realm.
 IC.GOV_BASE_ORDER = 2
-IC.GOV_ORDER_EFFECT = "wh_main_effect_public_order_faction"
+IC.GOV_ORDER_EFFECT = "wh_main_effect_public_order_edict"
 IC.GOV_INCOME_EFFECT = "wh_main_effect_economy_gdp_mod_all"
 IC.GOV_INCOME_SCOPE = "province_to_region_own"
 

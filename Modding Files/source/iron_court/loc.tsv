@@ -268,7 +268,7 @@ derpy_ic_law_fx2_war_gunnery	Range: +5% for Iron Daemon and Artillery units	fals
 derpy_ic_law_fx3_war_gunnery	Recruitment cost: +15% for all Missile Infantry, Artillery and War Machine units	false
 effect_bundles_localised_title_derpy_ic_gov_base	Governor of the Province	false
 effect_bundles_localised_description_derpy_ic_gov_base	The court's governor rules this province.	false
-derpy_ic_effects_derpy_ic_gov_base	Control +2, Workload -5%	false
+derpy_ic_effects_derpy_ic_gov_base	Control +2, Labour loss -5%	false
 effect_bundles_localised_title_derpy_ic_gov_house_crown	Governor: The Crown	false
 effect_bundles_localised_description_derpy_ic_gov_house_crown	Your retainers answer for this province.	false
 derpy_ic_effects_derpy_ic_gov_house_crown	Control +4	false

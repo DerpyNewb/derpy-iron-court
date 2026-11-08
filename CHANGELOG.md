@@ -5,6 +5,24 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 builds before that were only ever deployed to the game's `data/` folder. Early builds
 recorded a SHA-256 or only a size, not an MD5.
 
+## 2026-11-08 - build 205EE234
+
+Uploaded 2026-11-08 17:20. MD5 `205EE2345C77D67FB52FF734833AA964`, 15,531,692 bytes. Build
+14D3A767 below, plus:
+
+- **Governor bonuses no longer stack across the realm** (two Workshop reports: -100%
+  Workload, +34 and +60 Control from faction). The governor base bundle sits on one
+  province, but its Control and Workload (Dwarfs: growth) were scoped `faction_to_province_own`,
+  which on a province bundle reaches every province of the faction, so each governor added
+  his bonus everywhere. Measured in game: +50 Control on one province's bundle moved another
+  province 0 to 48 in one turn. All base effects are now `province_to_province_own_unseen`:
+  CA's edict Control, and for the Dwarfs the commandment growth. CA ships no province-scoped
+  Workload, so a Chaos Dwarf governor now eases Labour loss by 5% instead.
+- `check_gov_rank_constants` refuses any governor base effect not scoped `province_to_*`,
+  proven on both races.
+- Checks: harness 1248, 58 governor mutants caught, release gate 0 findings (snapshot
+  re-pinned: the 4 junction rows and 1 loc line, all read).
+
 ## 2026-11-08 - build 14D3A767
 
 Uploaded 2026-11-08. MD5 `14D3A767777FE01C82D825A0C20DA576`, 15,531,684 bytes. Build

@@ -1092,7 +1092,13 @@ def office_trait_key(slug, race="chd"):
 # base and scales the values by the Overseer's rank at runtime, which is why there
 # is one bundle here rather than five rank bundles. A custom effect bundle still
 # resolves against a real effect_bundles record, so this row must exist.
-GOVERNOR_BASE = [(E_ORDER, 2, BOON), (E_WORKLOAD, 5, BOON)]
+# EVERY EFFECT HERE IS province_to_*: the bundle sits on one province, and a
+# faction_to_* scope on a province bundle reaches EVERY province of the faction
+# (measured 2026-11-08: +50 Control on one province, 0 -> 48 in another). With
+# E_ORDER and E_WORKLOAD here each governor buffed the whole realm and they
+# stacked to -100% Workload. CA ships no province-scoped Workload, so the Chaos
+# Dwarf governor eases Labour loss instead.
+GOVERNOR_BASE = [(E_C_ORDER, 2, BOON), (E_C_LABOUR, 5, BOON)]
 
 BUNDLE_ICON = "chd_conclave_influence.png"
 
@@ -2187,7 +2193,7 @@ RACES["dwf"] = {
     "GOVERNMENTS": DWF_GOVERNMENTS,
     "LAWS": DWF_LAWS,
     "CONTROL_BANDS": DWF_CONTROL_BANDS,
-    "GOVERNOR_BASE": [(E_ORDER, 2, BOON), (E_DWF_GROWTH_GOV, 5, BOON)],
+    "GOVERNOR_BASE": [(E_C_ORDER, 2, BOON), (E_ENVOY_GROW, 5, BOON)],
     "ENVOY_EFFECT": {"ctl": E_ENVOY_CTL, "oath": E_ENVOY_OATH,
                      "grow": E_ENVOY_GROW, "rec": E_ENVOY_REC},
     "ENVOY_BLURB": {
@@ -3466,8 +3472,8 @@ def check_gov_rank_constants():
         "zzz_derpy_iron_court.lua"), encoding="utf-8").read()
     out = []
     want = {"IC.GOV_BASE_ORDER":
-                str([v for e, v, _ in GOVERNOR_BASE if e is E_ORDER][0]),
-            "IC.GOV_ORDER_EFFECT": '"%s"' % E_ORDER[0],
+                str([v for e, v, _ in GOVERNOR_BASE if e is E_C_ORDER][0]),
+            "IC.GOV_ORDER_EFFECT": '"%s"' % E_C_ORDER[0],
             "IC.GOV_INCOME_EFFECT": '"%s"' % E_GDP_PROVINCE[0],
             "IC.GOV_INCOME_SCOPE": '"%s"' % E_GDP_PROVINCE[1]}
     for name, value in want.items():
@@ -3475,6 +3481,13 @@ def check_gov_rank_constants():
         if not m or m.group(1).strip() != value:
             out.append("%s is %s in the Lua, %s here"
                        % (name, m and m.group(1), value))
+    # THE BUNDLE SITS ON ONE PROVINCE, so a faction_to_* effect in it reaches the
+    # whole realm once per governor (the 2026-11-08 stacking reports).
+    for race in RACES:
+        for e, _v, _i in RACES[race].get("GOVERNOR_BASE", GOVERNOR_BASE):
+            if not e[1].startswith("province_to_"):
+                out.append("%s governor base: %s is scoped %s; a province bundle "
+                           "needs province_to_*" % (race, e[0], e[1]))
     return out
 
 

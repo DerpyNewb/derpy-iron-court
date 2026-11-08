@@ -75,7 +75,8 @@ a Slayer.
   while he stands in it. Governors gain experience every turn, and a party whose governor
   runs a province under the Military Doctrine commandment gains loyalty. A governor's
   bonus grows with his rank: +1 control per five ranks and +1% income per two, on
-  top of a base of +2 control and 5% less workload, in his province only.
+  top of a base of +2 control and 5% less labour loss (Dwarfs: +5 growth), in his
+  province only.
 - **Loyalty.** Each party's loyalty, 0 to 100, moves every turn with its seats, its
   provinces, its traits and its leader's. Battles its men win raise it; a member's death, a
   dismissal and a snub lower it. The loyalty tooltip lists every term.

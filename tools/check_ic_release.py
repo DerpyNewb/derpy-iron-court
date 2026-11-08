@@ -55,8 +55,12 @@ LIVE = os.path.join(DEP.LIVE_DIR, G.PACK_NAME + ".pack")
 # them effect lists now one effect a line (48 picker lines, 16 culture traits, 28 office
 # titles), figures unchanged, every one read. Then build 75D3F280: the 48 picker lines
 # gained "Culture: " and nothing else moved. Snapshot: snapshot_75D3F280.
-SNAPSHOT_MD5 = "75d3f28039905414b4edd10d426f3cff"
-SNAPSHOT_SIZE = 15528675
+# Re-pinned 2026-11-08 after the governor scope fix (build 205EE234): the 4 governor base
+# junction rows moved from faction_to_province_own to province_to_province_own_unseen
+# (edict Control; CHD Labour loss for Workload, DWF commandment growth) and one loc line,
+# "Control +2, Workload -5%" -> "Control +2, Labour loss -5%". All read. snapshot_205EE234.
+SNAPSHOT_MD5 = "205ee2345c77d67fb52ff734833aa964"
+SNAPSHOT_SIZE = 15531692
 
 
 def fit_problems():
