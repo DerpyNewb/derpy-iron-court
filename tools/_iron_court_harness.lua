@@ -1279,6 +1279,15 @@ core = {
             end
         end
     end,
+    -- CA's: every listener of that name, one-shot or persistent.
+    remove_listener = function(_self, name)
+        core.listeners[name] = nil
+        for _, list in pairs(core.event_listeners) do
+            for i = #list, 1, -1 do
+                if list[i].name == name then table.remove(list, i) end
+            end
+        end
+    end,
 }
 
 -- Load the real file.
@@ -4426,6 +4435,64 @@ check("no turn handler writes the court button's tooltip", function()
     assert(tips == 0, "a turn handler wrote the tooltip " .. tips .. " time(s)")
 end)
 
+check("a new campaign's opener is placed when CA's intro ends", function()
+    -- Seen 2026-11-02: the first-tick chain gave up while the intro held the strip
+    -- off screen, and nothing tried again until turn 2.
+    local on_event = false
+    for _, l in ipairs(core.event_listeners["ScriptEventCampaignIntroComplete"] or {}) do
+        if l.name == "ic_opener_intro" then on_event = true end
+    end
+    assert(on_event, "nothing listens for the end of CA's intro")
+    with_neighbours(true, true)
+    ICUI.btn_at = nil
+    local opener, away = nil, true
+    local saved_find, saved_is = find_uicomponent, is_uicomponent
+    local saved_root, saved_cb = core.get_ui_root, cm.callback
+    local r = {
+        Dimensions = function() return 1920, 1080 end,
+        Position = function() return 0, 0 end,
+        CreateComponent = function(_self, name)
+            if name ~= ICUI.BTN then return end
+            opener = {x = -1, y = -1,
+                      Position = function(self) return self.x, self.y end,
+                      Dimensions = function() return ICUI.BTN_SIZE, ICUI.BTN_SIZE end,
+                      MoveTo = function(self, x, y) self.x, self.y = x, y end,
+                      SetVisible = function(_self, on) IC_NEED_BOOL("SetVisible", on) end,
+                      RegisterTopMost = function() end,
+                      PropagatePriority = function() end,
+                      SetInteractive = function(_self, on)
+                          IC_NEED_BOOL("SetInteractive", on) end}
+        end,
+    }
+    local bar = {is_null_interface = function() return false end,
+                 Position = function() return BAR_X, away and -400 or BAR_Y end,
+                 Dimensions = function() return BAR_W, BAR_H end}
+    core.get_ui_root = function() return r end
+    find_uicomponent = function(_parent, name)
+        if name == ICUI.BTN then return opener or false end
+        if name == "resources_bar" then return bar end
+        return false
+    end
+    is_uicomponent = function(c) return type(c) == "table" and c.Position ~= nil end
+    local fired = 0
+    cm.callback = function(_self, fn)
+        fired = fired + 1
+        if fired <= 4 * ICUI.BTN_TRIES then fn() end
+    end
+    local ok, err = pcall(function()
+        ICUI.place_opener(1)
+        assert(ICUI.btn_at == nil, "first tick placed it with the strip away, so this proves nothing")
+        away = false
+        core.listeners["ic_opener_intro"]({})
+    end)
+    find_uicomponent, is_uicomponent = saved_find, saved_is
+    core.get_ui_root, cm.callback = saved_root, saved_cb
+    local placed = ICUI.btn_at ~= nil
+    ICUI.btn_at = nil
+    assert(ok, err)
+    assert(placed, "the intro ended with the strip back and the button was not placed")
+end)
+
 check("the opener sits immediately left of the guilds button", function()
     with_neighbours(true, true)
     local x, y = ICUI.btn_anchor()
@@ -5553,6 +5620,11 @@ fake_component = function(name)
     function c:TextDimensionsForText(t)
         return #tostring(t or "") * self.text_px, 16, 1
     end
+    -- One line's drawn width. The same stand-in; a check that needs the two to
+    -- disagree, as they do in game, overrides one on its own cell.
+    function c:WidthOfTextLine(t)
+        return #tostring(t or "") * self.text_px
+    end
     -- SetTooltipText(text, text_source, set_all_states). The THIRD argument is
     -- recorded because it is the same trap as SetText vs SetStateText: a tooltip
     -- written to the current state only disappears on the hover that was meant to
@@ -6194,6 +6266,15 @@ function()
     ICUI.fit_cut(c0, "Drazhoath the Ashen of Hashut")
     assert(c0.text == "Drazhoath the Ashen of Hashut",
         "an unmeasurable cell was cut anyway: " .. c0.text)
+
+    -- MEASURED BY WHAT DRAWS. At 1280x720 TextDimensionsForText ran ~1.4x the drawn
+    -- width and office cards read "Thorgrim..." with room for the whole name.
+    local cw = fake_component("wide_metric")
+    cw.w, cw.h = 21 * cw.text_px, 16
+    function cw:TextDimensionsForText(t) return math.ceil(#tostring(t) * self.text_px * 1.4), 16, 1 end
+    ICUI.fit_cut(cw, "Thorgrim Grudgebearer")
+    assert(cw.text == "Thorgrim Grudgebearer",
+        "a name that draws within its cell was cut: " .. cw.text)
 end)
 
 check("the Crown is led by the man on the throne, and the block and the card agree",
@@ -25006,6 +25087,7 @@ function()
     local regions = {}
     for i = 1, 2 do
         regions[i] = {
+            name = function() return i == 1 and "reg_ash" or "reg_ash_" .. i end,
             is_null_interface = function() return false end,
             owning_faction = function() return faction_named(owners[i]) end,
             province_name = function() return "prov_ash" end,
@@ -25097,6 +25179,40 @@ function()
             return {region = function() return regions[1] end} end})
         assert(plain_b.state == "inactive" and plain_b.disabled,
             "a second selection of an ungoverned settlement left its edicts live")
+        -- THE EVENT'S REGION DIES WITH THE EVENT. The edict passes run after the
+        -- listener has returned, and in game a region interface read then is
+        -- freed memory: a native crash no pcall catches, intermittent because it
+        -- needs the memory reused (Workshop, 2026-11-05, settlements taken). The
+        -- stub above runs callbacks inline, inside the event, where nothing is
+        -- dead yet - so here they are held until the listener returns, and the
+        -- event's region records any call made after that.
+        do
+            local dead, queued, late = false, {}, nil
+            local event_region = setmetatable({}, {__index = function(_, k)
+                local v = regions[1][k]
+                if type(v) ~= "function" then return v end
+                return function(_self, ...)
+                    if dead then late = late or k end
+                    return v(regions[1], ...)
+                end
+            end})
+            local was_cb = cm.callback
+            cm.callback = function(_self, fn) queued[#queued + 1] = fn end
+            plain_b.state, plain_b.disabled = "active", false
+            local okr, errr = pcall(function()
+                core.listeners["ic_edicts"]({garrison_residence = function()
+                    return {region = function() return event_region end} end})
+                dead = true
+                for i = 1, #queued do queued[i]() end
+            end)
+            cm.callback = was_cb
+            assert(okr, tostring(errr))
+            assert(#queued > 0, "no edict pass was put after the selection")
+            assert(not late, "the selected settlement's region was read after its event, by "
+                .. tostring(late) .. "() - keep its key and look it up again")
+            assert(plain_b.state == "inactive" and plain_b.disabled,
+                "an edict pass that looked the region up again greyed nothing")
+        end
         -- A BUTTON THE ENGINE GREYED FOR ITS OWN REASONS stays grey in a
         -- governed province the court never touched.
         IC.court(F).govs["prov_ash"] = 77
@@ -29303,7 +29419,7 @@ check("a governorship still growing shows what it adds now and what it grows to"
         ICUI.pick = nil
         ICUI.open()
         local l3 = gm_row(panel, 1).children.ic_gr_l3.text
-        assert(l3 == string.format("%d loyalty, +1 of %d strength", IC.province_loyalty(F, "prov_a"), worth),
+        assert(l3 == string.format("%d loyalty, strength 1 of %d", IC.province_loyalty(F, "prov_a"), worth),
             "the row reads " .. l3)
     end)
     -- GROWN IN FULL, the plain figure again.
@@ -35541,6 +35657,36 @@ for _, race_key in ipairs({"dwf", "chd"}) do
         end)
     end)
 end
+
+-- ALLIED WARBAND (Workshop 2853965122): the engine selects each army the seeding
+-- makes, and that mod's CharacterSelected listener queues a one-shot holding him
+-- until the next units panel opens. The wound destroys him, so a queue still
+-- holding him at the wound is the turn-1 crash. The name is ITS, read from
+-- fyty_warband.lua, not ours.
+check("starting members: no other mod still holds a seeded lord when he is wounded", function()
+    seeding("chd", function(key, w)
+        seed_court("chd", key)
+        IC.TUNE.seed_min, IC.TUNE.seed_max = 3, 3
+        local AW = "AAAFyTyWarband_UnitsPanelListener"
+        local spawn, wound = cm._spawn_into, cm.wound_character
+        local held, wounds = 0, 0
+        cm._spawn_into = function(f)
+            local born = spawn(f)
+            core:add_listener(AW, "PanelOpenedCampaign", true, function() end, false)
+            return born
+        end
+        cm.wound_character = function(self, lookup, turns)
+            wounds = wounds + 1
+            if core.listeners[AW] then held = held + 1 end
+            return wound(self, lookup, turns)
+        end
+        local ok, err = pcall(IC.seed_members, key)
+        cm._spawn_into, cm.wound_character = spawn, wound
+        assert(ok, tostring(err))
+        assert(wounds == 7, wounds .. " lords wounded, not 7")
+        assert(held == 0, held .. " of " .. wounds .. " lords wounded while Allied Warband held him")
+    end)
+end)
 
 check("starting members: each party rolls its own number between the two, and keeps its men",
 function()

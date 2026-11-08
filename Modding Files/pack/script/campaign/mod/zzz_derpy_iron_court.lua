@@ -4233,7 +4233,17 @@ function IC.seed_step(faction_key, plan, i, made)
     end, 5)
 end
 
+-- ALLIED WARBAND (Workshop 2853965122) keeps the lord the engine selects until
+-- the next units panel opens (fyty_warband.lua, its CharacterSelected listener).
+-- The engine selects every army made here - CA clears that selection in the
+-- spawn callback itself (Gotrek, wh2_pro08_gotrek_felix.lua) - and the wound
+-- destroys him, so the player's first click read freed memory: a crash on turn 1
+-- (Workshop, 2026-11-06). Its waiting listeners go before he does. A no-op
+-- without that mod.
+IC.WARBAND_LISTENER = "AAAFyTyWarband_UnitsPanelListener"
+
 function IC.seed_land(faction_key, plan, i, made, cqi, bg, culture)
+    core:remove_listener(IC.WARBAND_LISTENER)
     local wounded, why = pcall(function()
         local man = IC.character_by_cqi(faction_key, cqi)
         if not man then error("no lord at cqi " .. tostring(cqi)) end

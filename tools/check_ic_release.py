@@ -33,7 +33,7 @@ import read_vanilla_loc as RVL        # noqa: E402
 
 BOXES = (1600, 1920, 2560)
 PACK_DIR = os.path.join(ROOT, "Modding Files", "pack")
-LIVE = os.path.join(DEP.GAME_DATA, G.PACK_NAME + ".pack")
+LIVE = os.path.join(DEP.LIVE_DIR, G.PACK_NAME + ".pack")
 # The reviewed build every later pack is compared against, found by MD5 under Backup/.
 # Re-pin only after reading every finding: the last re-pin's diff (2026-10-10) was 81 loc
 # lines, every one an event card's _primary or _secondary, plus 4 added _secondary lines -
@@ -220,7 +220,7 @@ def selftest():
     import tempfile
     from PIL import Image
     assert sorted(G.RACES) == ["chd", "dwf"], sorted(G.RACES)
-    # 1. EVERY TABLE THE PACK SHIPS DECODES - on the copy in data/, so a field type the
+    # 1. EVERY TABLE THE PACK SHIPS DECODES - on the live Workshop copy, so a field type the
     #    decoder does not know fails here and not half way through a release.
     t = pack_tables(LIVE)
     assert len(t) >= 14 and t["loc"] and all(t[k][1] for k in t if k != "loc"), sorted(t)

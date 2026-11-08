@@ -1451,7 +1451,8 @@ CARD_LAYOUT = {
     # beside the face it does not fit at any size a player can read.
     #
     # THE PRICE AND ITS BUTTON sit beside the face, the wide half to the price:
-    # "APPOINT" wants 66px and the price, icon and all, wants 102.
+    # "APPOINT" wants 66px and the price, icon and all, wants 102 here and more
+    # in game: at 106 a two-digit rank was cut, seen at 1280x720 on 2026-11-02.
     "ic_card_name": (30, 30, 304, 20),
     # THE FACE PAYS FOR IT, being the only cell on this card with room to give,
     # and 86x47 is still a porthole's shape.
@@ -1462,8 +1463,8 @@ CARD_LAYOUT = {
     # The button's plate is a 9-slice with an 8px cap at each end, so the label
     # gets the flat middle only: "APPOINT" measures 67, and at 74 wide it draws
     # across both corners of its own frame. BTN_CELLS holds every button to it.
-    "ic_card_button": (124, 90, 100, 22),
-    "ic_card_need": (228, 90, 106, 22),
+    "ic_card_button": (124, 90, 84, 22),
+    "ic_card_need": (212, 90, 122, 22),
     "ic_card_term": (30, 114, 304, 18),
     "ic_card_effect": (30, 136, 304, 18),
 }
@@ -4623,8 +4624,8 @@ TEXT_STYLE = {
     #   ic_card_name    "Warden of the Caravan Roads"          276 of 298
     #   ic_card_term    "4000 standing - 99 turns left"        268 of 298
     #   ic_card_effect  "Armaments +15%, Raw Materials +12%"   277 of 298
-    #   ic_card_need    "[icon]400 rank 30"                    101 of 106
-    #   ic_card_button  "APPOINT"                               67 of  84
+    #   ic_card_need    "[icon]400 rank 30"                    101 of 122
+    #   ic_card_button  "APPOINT"                               67 of  68
     #
     # THE BUTTON'S FIGURE IS NOT ITS CELL. It is a centred label on a 9-sliced
     # plate, so what it may occupy is the width less the two 8px end caps - see

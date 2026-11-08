@@ -1,4 +1,4 @@
-"""Builds derpy_iron_court.pack and deploys it to the game's data folder.
+"""Builds derpy_iron_court.pack and deploys it to its Workshop folder (item 3832328087).
 
     py tools/deploy_iron_court.py                 # build, verify, deploy
     py tools/deploy_iron_court.py --no-copy       # build into Modpacks only
@@ -7,10 +7,12 @@
     py tools/deploy_iron_court.py --deploy-only [--wait]   # ship the last build
     py tools/deploy_iron_court.py --selftest
 
-Deploy to data whenever the game is not running. A build made while the game is
+Deploy whenever the game is not running. A build made while the game is
 up waits in Modpacks; --wait run in the background deploys the moment
 Warhammer3 exits. Every deploy backs the live pack up first and byte-compares
-the copy.
+the copy, then deletes the loadfast campaign cache, which otherwise keeps the
+old Lua running under a local copy. Never data/ since the 2026-11-02 upload: a
+copy there shadows the Workshop one.
 
 AN UNKNOWN FLAG IS REFUSED: ignoring it would let a mistyped --selftest build
 and deploy the pack.
@@ -22,6 +24,7 @@ HTTP to the same server either way.
 CREATE, IMPORT AND SAVE MUST BE ONE RUN: rpfm_client closes the new pack when this
 script exits, saved or not, so there is no resuming this half way through.
 """
+import glob
 import io
 import os
 import shutil
@@ -35,7 +38,8 @@ import import_iron_court as V               # noqa: E402
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SRC = os.path.join(ROOT, "Modding Files", "source", "iron_court")
 OUT = os.path.join(ROOT, "Modding Files", "Modpacks", "%s.pack" % G.PACK_NAME)
-GAME_DATA = r"F:\SteamLibrary\steamapps\common\Total War WARHAMMER III\data"
+GAME = r"F:\SteamLibrary\steamapps\common\Total War WARHAMMER III"
+LIVE_DIR = r"F:\SteamLibrary\steamapps\workshop\content\1142710\3832328087"
 
 # (table name with its _tables suffix, schema version). Versions come from the
 # generator so the TSV metadata line and the created file cannot disagree.
@@ -117,7 +121,7 @@ def deploy(src, data_dir, wait=False, running=game_running, sleep=None,
     import time
     sleep = sleep or time.sleep
     if not os.path.isdir(data_dir):
-        sys.stderr.write("game data folder not found: %s\n" % data_dir)
+        sys.stderr.write("live pack folder not found: %s\n" % data_dir)
         return 1
     if running():
         if not wait:
@@ -197,7 +201,7 @@ def main(argv):
     if "--selftest" in argv:
         return _selftest()
     if "--deploy-only" in argv:
-        return deploy(OUT, GAME_DATA, wait="--wait" in argv)
+        return ship(wait="--wait" in argv)
     # 1. Every offline gate first. Nothing is created until they all pass.
     problems = V.verify()
     for problem in problems:
@@ -276,14 +280,18 @@ def main(argv):
 
     if "--no-copy" in argv:
         return 0
-    rc = deploy(OUT, GAME_DATA, wait="--wait" in argv)
-    if rc:
-        return rc
     # A pack is NOT byte-reproducible - every DB table carries a per-save GUID -
     # so two BUILDS never match by md5; deploy() compares the copy to its build.
-    print("NOTE: a new pack in data/ is listed but UNTICKED. Enable it in the "
-          "launcher or mod manager before it does anything.")
-    return 0
+    return ship(wait="--wait" in argv)
+
+
+def ship(wait):
+    rc = deploy(OUT, LIVE_DIR, wait=wait)
+    if rc == 0:
+        for f in glob.glob(os.path.join(GAME, "loadfast_cache_campaign*.bin")):
+            os.remove(f)
+            print("deleted %s" % f)
+    return rc
 
 
 if __name__ == "__main__":

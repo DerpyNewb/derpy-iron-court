@@ -1484,17 +1484,28 @@ end
 end""",
      """end"""),
     ("a selected settlement's edicts never judged", U,
-     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)""",
+     """        cm:callback(function() ICUI.apply_edict_lock(cm:get_region(key)) end, delay)""",
      """        cm:callback(function() end, delay)"""),
     # No persist argument: the engine drops the listener after the first
     # settlement the player selects.
     ("the settlement listener registered once-only", U,
-     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
+     """        cm:callback(function() ICUI.apply_edict_lock(cm:get_region(key)) end, delay)
     end
 end, true)""",
-     """        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
+     """        cm:callback(function() ICUI.apply_edict_lock(cm:get_region(key)) end, delay)
     end
 end)"""),
+    # THE SHIPPED FAULT (Workshop, 2026-11-05): the event's region interface held
+    # in the callbacks, read after the event when it is freed memory in game.
+    ("the selected settlement's region kept past its event", U,
+     """    local ok, key = pcall(function() return context:garrison_residence():region():name() end)
+    if not ok or not key then return end
+    for _, delay in ipairs(ICUI.EDICT_DELAYS) do
+        cm:callback(function() ICUI.apply_edict_lock(cm:get_region(key)) end, delay)""",
+     """    local ok, region = pcall(function() return context:garrison_residence():region() end)
+    if not ok or not region then return end
+    for _, delay in ipairs(ICUI.EDICT_DELAYS) do
+        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)"""),
     # THE REASON beside the grey buttons.
     ("no note beside the grey edicts", U,
      """    ICUI.edict_note(verdict == "grey")
@@ -4544,6 +4555,12 @@ end"""),
     ("the button's tooltip written from every faction's turn start", U,
      """    ICUI.place_opener(1, true)""",
      """    ICUI.place_opener(1)"""),
+    ("a name's cut measured by TextDimensionsForText", U,
+     """        pcall(function() got = c:WidthOfTextLine(s) end)""",
+     """        pcall(function() got = c:TextDimensionsForText(s) end)"""),
+    ("the intro's end listened for under a name CA never fires", U,
+     """"ic_opener_intro", "ScriptEventCampaignIntroComplete",""",
+     """"ic_opener_intro", "ScriptEventCampaignIntroCompleted","""),
     ("the button's tooltip written from the player's turn end", U,
      """    if comp(ICUI.PANEL) then pcall(ICUI.close, true) end""",
      """    if comp(ICUI.PANEL) then pcall(ICUI.close) end"""),
@@ -5984,6 +6001,14 @@ end"""),
      """        if man and not man:is_null_interface() and man:is_wounded() then
             local cqi = man:command_queue_index()
             if cqi > after"""),
+    # ALLIED WARBAND: its units-panel listener kept a seeded lord past his wound.
+    ("starting members: another mod's listener left holding a wounded lord", M,
+     """    core:remove_listener(IC.WARBAND_LISTENER)
+""",
+     ""),
+    ("starting members: another mod's listener removed under the wrong name", M,
+     'IC.WARBAND_LISTENER = "AAAFyTyWarband_UnitsPanelListener"',
+     'IC.WARBAND_LISTENER = "FyTyWarband_UnitsPanelListener"'),
     ("starting members: an unhurt lord sent home from convalescing", M,
      """            if hurt then cm:stop_character_convalescing(cqi_back) end""",
      """            cm:stop_character_convalescing(cqi_back)"""),

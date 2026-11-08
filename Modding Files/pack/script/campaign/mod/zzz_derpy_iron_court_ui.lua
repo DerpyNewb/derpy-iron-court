@@ -745,8 +745,8 @@ ICUI.CARD_CHILD_XY = {
     ic_card_holder   = {124, 52, 210, 20},
     ic_card_crest    = {124, 74, 16, 16},
     ic_card_house    = {144, 74, 190, 16},
-    ic_card_button   = {124, 90, 100, 22},
-    ic_card_need     = {228, 90, 106, 22},
+    ic_card_button   = {124, 90, 84, 22},
+    ic_card_need     = {212, 90, 122, 22},
     ic_card_term     = {30, 114, 304, 18},
     ic_card_effect   = {30, 136, 304, 18},
 }
@@ -3668,9 +3668,11 @@ function ICUI.cut_text(c, text, room)
     -- ROOM, when the cell draws on less than its box: a pin's name sits on a
     -- plate whose caps take the ends.
     local w = room or ICUI.cell_w(c)
+    -- WidthOfTextLine, what draws. TextDimensionsForText ran so wide at 1280x720 that
+    -- office cards cut "Thorgrim Grudgebearer" to "Thorgrim..." in a cell with room for it.
     local function fits(s)
         local got = nil
-        pcall(function() got = c:TextDimensionsForText(s) end)
+        pcall(function() got = c:WidthOfTextLine(s) end)
         return not got or got <= w
     end
     -- A CELL THE ENGINE HAS NOT LAID OUT YET MEASURES ZERO. Same guard as
@@ -9475,6 +9477,13 @@ core:add_listener("ic_opener_place", "FactionTurnStart", true, function()
     ICUI.place_opener(1, true)
 end, true)
 
+-- AND WHEN CA'S INTRO ENDS. A new campaign's intro keeps the strip off screen for
+-- longer than the first-tick window, and the next turn start is a whole turn away.
+-- CA's own advice and tours start on this event.
+core:add_listener("ic_opener_intro", "ScriptEventCampaignIntroComplete", true, function()
+    ICUI.place_opener(1)
+end, true)
+
 -- THE HUB'S REGISTRATION. A plain table, so it works whether this file loads before or
 -- after any hub copy. live/wants read what gate_opener and pulse_opener last drew.
 DERPY_HUB_QUEUE = DERPY_HUB_QUEUE or {}
@@ -9532,11 +9541,15 @@ core:add_listener("ic_char_selected", "CharacterSelected", true, function(contex
 end, true)
 
 -- A SETTLEMENT SELECTED: its edict buttons, once the engine has filled them.
+-- THE KEY, NEVER THE REGION: a script interface dies with the event that handed
+-- it over, and the callbacks run 0.1s and 0.5s later. Read then, it is freed
+-- memory - a native crash no pcall catches, and only when the memory has been
+-- reused, which a settlement just taken makes likely (Workshop, 2026-11-05).
 core:add_listener("ic_edicts", "SettlementSelected", true, function(context)
-    local ok, region = pcall(function() return context:garrison_residence():region() end)
-    if not ok or not region then return end
+    local ok, key = pcall(function() return context:garrison_residence():region():name() end)
+    if not ok or not key then return end
     for _, delay in ipairs(ICUI.EDICT_DELAYS) do
-        cm:callback(function() ICUI.apply_edict_lock(region) end, delay)
+        cm:callback(function() ICUI.apply_edict_lock(cm:get_region(key)) end, delay)
     end
 end, true)
 

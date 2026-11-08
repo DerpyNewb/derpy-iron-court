@@ -797,7 +797,7 @@ function ICUI.gm_province_rows(faction, memo)
         rows[i] = {
             key = p, l1 = name, l2 = gov,
             l3 = (not cqi) and string.format("%d loyalty", loyal)
-                 or (now < worth) and string.format("%d loyalty, +%d of %d strength", loyal, now, worth)
+                 or (now < worth) and string.format("%d loyalty, strength %d of %d", loyal, now, worth)
                  or string.format("%d loyalty, +%d strength", loyal, now),
             -- HIS FACE; else his party's crest; else the empty seat.
             face = port or ((not cqi) and ICUI.SILHOUETTE or nil),

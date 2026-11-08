@@ -1,9 +1,54 @@
 # Changelog
 
 Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is in
-`docs/history/`. The pack has only ever been deployed to the game's `data/` folder; none of
-these builds is on the Steam Workshop. Early builds recorded a SHA-256 or only a size, not
-an MD5.
+`docs/history/`. On the Steam Workshop as item 3832328087 since 2026-11-02 (build 7BEF2B95);
+builds before that were only ever deployed to the game's `data/` folder. Early builds
+recorded a SHA-256 or only a size, not an MD5.
+
+## 2026-11-08 - build 3E6601FF
+
+Deployed to the Workshop folder 2026-11-08, not uploaded. MD5
+`3E6601FFE07234DDBAE87FAD236954AC`, 15,530,824 bytes. Build 11275BE2 below, plus:
+
+- **Turn-1 crash with Call Allied Warband (Workshop 2853965122).** Each starting lord the
+  court sends to the pool is made as an army and then wounded, and the engine selects every
+  army a script makes. That mod's CharacterSelected listener keeps the selected lord until
+  the next units panel opens; on a new campaign the intro screen is up, so none opens, and
+  the first click of the game ran it on lords the wound had destroyed - freed memory. The
+  seeding now removes that mod's waiting listeners before each wound. A no-op without it.
+- Seen in game, new Zhatan campaign under intro skip + bridge + Allied Warband + this pack:
+  11275BE2 left 6 of its listeners waiting on destroyed lords, all run by the first click
+  (no crash in that short list - reading freed memory only crashes once it is reused);
+  3E6601FF left 0, and the first click opened Zhatan's panel.
+- `check_ic_release.py` read the live pack from `data/`, which the Workshop move removed;
+  it reads the Workshop copy now.
+- Checks: harness 1247 checks, one new (no seeded lord is wounded while that listener is
+  waiting); its 2 new mutants caught. The full mutant run was not repeated. Release gate 0
+  findings; all 13 tables row-identical to 11275BE2, only `zzz_derpy_iron_court.lua` moved.
+
+## 2026-11-07 - build 11275BE2
+
+Uploaded 2026-11-07. MD5 `11275BE221C4640094F5274DD2F64A60`, 15,530,223 bytes. Build
+5DA3DF5E below, plus:
+
+- **Crash when selecting a settlement.** The edict check kept the SettlementSelected event's
+  region and read it 0.1 s and 0.5 s later, a native crash once that memory was reused
+  (seen after taking settlements). It keeps the region key and looks the region up when the
+  callback runs. The harness holds the callbacks until the event is over; a mutant that keeps
+  the region is caught.
+
+## 2026-11-02 - build 5DA3DF5E
+
+Uploaded 2026-11-02. MD5 `5DA3DF5E34EA06288E8F8897933BCA8D`, 15,529,894 bytes. Build
+7BEF2B95 below, plus:
+
+- **The court button was missing for all of turn 1** on a new campaign: placing it gave up
+  during CA's intro cutscene. It is placed again on `ScriptEventCampaignIntroComplete`.
+- An office's requirement cell cut two-digit ranks: the cell is 122 wide and the button 84.
+- Names in office cells were cut at the first word: `ICUI.cut_text` measures with
+  `WidthOfTextLine`, which matches the drawn width.
+- "+0 of 1 strength" reads "strength 0 of 1".
+- Checks: harness 1246 checks; mutants for the intro listener and the cut metric caught.
 
 ## 2026-11-02 - build 7BEF2B95
 

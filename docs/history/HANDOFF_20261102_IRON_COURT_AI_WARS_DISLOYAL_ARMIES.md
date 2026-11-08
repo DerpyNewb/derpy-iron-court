@@ -143,7 +143,7 @@ on load (`IC.stamp_culture` converting retired birthplaces) and one per correcte
 a turn start; its popup has no accept button, which stalled `wh3_soak_turns` twice. A party
 leaving or splitting moves several men's party traits at once.
 
-## Trait Removed cards silenced (build 7BEF2B95, built, deploy queued)
+## Trait Removed cards silenced (build 7BEF2B95, deployed to data/ 19:49)
 
 All 15 removals now go through `IC.remove_trait`: it shuts `character_trait_lost` (that one
 event, not the category, so CA's other trait cards still show), removes, and opens it again
@@ -159,5 +159,31 @@ and it stays shut while `IC._seeding` is running, since `seed_finish` opens it i
   past the helper) and the eight re-aimed at the old `cm:force_remove_trait` anchors all caught.
 - Release gate 0 findings (no table or loc moved), MP sim no desync, Lua API clean.
 - **Not seen in game.** The game was in use when it was built; `deploy_iron_court.py
-  --deploy-only --wait` was left to copy it in when the game closes. To see it: load
+  --deploy-only --wait` copied it in when the game closed (19:49, byte-identical). To see it: load
   `derpy_ic_oldbuild_t2.23883710723.save` and count "Trait Removed" cards on load (was 8 to 14).
+
+## Dwarf description GIFs, and a turn-1 bug they found (2026-11-02, late)
+
+A new Thorgrim campaign under bridge + MCT + Iron Court, saved as `derpy_ic_dwf_t1.165896161.save` and,
+staged, `derpy_ic_dwf_t1_staged.165896161.save`. Five GIFs in `docs/workshop/iron_court/description/`
+(`ic_desc_dwf_*.gif`); the page handoff `docs/workshop/iron_court/HANDOFF_20261102_WORKSHOP_PAGE.md` lists them.
+
+**Bug:** on a new campaign the opener gave up during CA's intro cutscene (12 one-second tries,
+`GAVE UP placing the opener: unsettled`) and only `FactionTurnStart` called it again, so the button was
+missing for all of turn 1. **Fixed (same night):** `ic_opener_intro` re-places it on
+`ScriptEventCampaignIntroComplete`, the event CA's own advice and tours start on.
+
+Seen in the frames, and what became of each (same night, offline-verified, not seen in game):
+
+- An office's requirement cell cut two-digit ranks ("300 rank..."): measured off the 720p frame, the
+  cell clipped "400 rank 30" by ~5 screen px while "Appoint" drew in 52 of the button's 100. The
+  button is now 84 and the cell 122 (`CARD_LAYOUT` / `ICUI.CARD_CHILD_XY`).
+- Names in office cells cut at the first word ("Thorgrim..."): `ICUI.cut_text` measured with
+  `TextDimensionsForText`, which at 1280x720 ran ~1.4x the drawn width (whole names reached 90 of a
+  141px cell, cut ones would have been ~100). It measures with `WidthOfTextLine` now.
+- "+0 of 1 strength" reads "strength 0 of 1" (the clearer phrasings, "+0 strength, growing to +1"
+  and the like, measure 245-309 in a 234px cell).
+- The Record's "The Crown" is deliberate (`ICUI.logged_name`): under the faction's name a log line
+  reads as one more party. The Crown's box on the Court tab ties the two names. Unchanged.
+
+Harness 1246 checks; mutants for the intro listener and the cut metric are caught.
