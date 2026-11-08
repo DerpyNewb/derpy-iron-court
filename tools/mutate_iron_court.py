@@ -7287,6 +7287,18 @@ end'''),
     ("a retired birthplace taken off past the quiet helper", M,
      """IC.remove_trait(lookup, IC.origin_trait(has))""",
      """cm:force_remove_trait(lookup, IC.origin_trait(has))"""),
+
+    # THE WAR COUNCIL'S TWO SLIDERS (Nitefog, 11-05). Read on every difficulty, and
+    # the move's text, built at load, follows the frozen wait.
+    ("the war council's sliders read under Custom only", M,
+     """                 war_prep_turns = true, plot_council_cost = true}""",
+     """                 }"""),
+    ("the council move promising the default wait whatever the slider says", U,
+     """    if plot.key == "council" then\n""",
+     """    if plot.key == "never" then\n"""),
+    ("the council wait's slider on no section", S,
+     """    o:set_assigned_section(section or "start")""",
+     """    o:set_assigned_section(section)"""),
 ]
 
 

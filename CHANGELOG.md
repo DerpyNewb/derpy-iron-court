@@ -5,6 +5,22 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 builds before that were only ever deployed to the game's `data/` folder. Early builds
 recorded a SHA-256 or only a size, not an MD5.
 
+## 2026-11-08 - build 14D3A767
+
+Uploaded 2026-11-08. MD5 `14D3A767777FE01C82D825A0C20DA576`, 15,531,684 bytes. Build
+3E6601FF below, plus:
+
+- **The war council's wait and price are on the MCT page** (asked for on the Workshop):
+  `war_prep_turns` (1 to 10, default 3) and `plot_council_cost` (0 to 500 in steps of 25,
+  default 150), under a new War Council section. No difficulty sets them, so the sliders
+  count on every difficulty, as the starting-court ones do. Appended to `IC.TUNE_ORDER`, so a
+  save from before them plays on the defaults.
+- The Call the War Council text is built at load, before the save's numbers apply, so
+  `ICUI.plot_effect` now rewrites its "declared N turns later" from the frozen value.
+- Checks: harness 1248 checks, one new (both read on Harsh, an older save falls back, the
+  move's text follows the setting for both races). 3 new mutants, all caught. Release gate
+  0 findings, MP sim no desyncs.
+
 ## 2026-11-08 - build 3E6601FF
 
 Uploaded 2026-11-08. MD5 `3E6601FFE07234DDBAE87FAD236954AC`, 15,530,824 bytes. Build

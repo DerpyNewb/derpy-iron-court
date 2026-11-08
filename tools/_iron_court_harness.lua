@@ -35836,6 +35836,30 @@ function()
     end)
 end)
 
+check("the war council's two numbers are read on every difficulty, and the move says the wait", function()
+    with_mct(stub_mct({preset = "harsh", war_prep_turns = 1, plot_council_cost = 75}), function()
+        local t = IC.read_mct_or_defaults()
+        assert(t.war_prep_turns == 1 and t.plot_council_cost == 75, "Harsh read "
+               .. tostring(t.war_prep_turns) .. " and " .. tostring(t.plot_council_cost) .. " off the page")
+    end)
+    -- A SAVE FROM BEFORE THE TWO EXISTED is two fields short and plays on the defaults.
+    local short = string.match(IC.pack_tune(IC.TUNE_DEFAULTS), "^(.*)|[^|]*|[^|]*$")
+    local back = IC.unpack_tune(short)
+    assert(back.war_prep_turns == 3 and back.plot_council_cost == 150, "an older save read "
+           .. tostring(back.war_prep_turns) .. " and " .. tostring(back.plot_council_cost))
+    -- THE MOVE'S TEXT IS BUILT AT LOAD, before the save's numbers apply.
+    for n, want in pairs({[1] = "declared 1 turn later", [7] = "declared 7 turns later"}) do
+        IC.apply_tune({war_prep_turns = n, plot_council_cost = 75})
+        for _, fk in ipairs({F, D}) do
+            local plot = ICUI.plot_of("council", fk)
+            local text = ICUI.plot_effect(plot, fk)
+            assert(string.find(text, want, 1, true), fk .. " says: " .. text)
+        end
+        assert(IC.plot_cost("council", F) == 75, "the council costs " .. tostring(IC.plot_cost("council", F)))
+    end
+    IC.apply_tune(IC.TUNE_DEFAULTS)
+end)
+
 check("starting members: a starting lord is hired at a recruit's rank, once", function()
     seeding("chd", function(key, w)
         local f = seed_court("chd", key)

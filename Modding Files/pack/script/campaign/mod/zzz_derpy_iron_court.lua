@@ -869,11 +869,14 @@ IC.TUNE_ORDER = {
     "claims",
     "ai_council",
     "disloyal_armies",
+    "war_prep_turns", "plot_council_cost",
 }
 
 -- NUMBERS NO DIFFICULTY SETS: read off the page on every difficulty, and named
--- by no IC.PRESETS entry. The MCT page files them under Starting court.
-IC.TUNE_START = {seed_min = true, seed_max = true}
+-- by no IC.PRESETS entry. The MCT page files the seeds under Starting court and
+-- the war council's two under War Council.
+IC.TUNE_START = {seed_min = true, seed_max = true,
+                 war_prep_turns = true, plot_council_cost = true}
 
 -- Today's values, taken off IC.TUNE before anything can change it.
 IC.TUNE_DEFAULTS = {}

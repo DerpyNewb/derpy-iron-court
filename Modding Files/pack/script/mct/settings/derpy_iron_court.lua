@@ -43,6 +43,7 @@ local in_mp = false
 
 m:add_new_section("preset", "Difficulty")
 m:add_new_section("start", "Starting Court")
+m:add_new_section("council", "War Council")
 m:add_new_section("systems", "Systems")
 m:add_new_section("numbers", "Custom Numbers")
 m:add_new_section("debug", "Debug")
@@ -234,17 +235,21 @@ local STARTS = {
     {"seed_max", "Most members per party at the start", 6, 0, 8, 1,
      "Most members a party can have after receiving starting lords. Each party "
      .. "gets a number between these limits. Existing members are kept."},
+    {"war_prep_turns", "Turns before a war the court passes is declared", 3, 1, 10, 1,
+     "Turns between the court passing a war and the war being declared.", "council"},
+    {"plot_council_cost", "Influence to call a war council", 150, 0, 500, 25,
+     "Influence the man you send pays to call a war council.", "council"},
 }
 
 for i = 1, #STARTS do
-    local key, label, def, lo, hi, step, tip = unpack(STARTS[i])
+    local key, label, def, lo, hi, step, tip, section = unpack(STARTS[i])
     local o = m:add_new_option(key, "slider")
     o:set_text(label)
     o:set_tooltip_text(tip)
     o:slider_set_min_max(lo, hi)
     o:slider_set_step_size(step)
     o:set_default_value(def)
-    o:set_assigned_section("start")
+    o:set_assigned_section(section or "start")
 end
 
 -- WHAT EACH DIFFICULTY SETS, said on the greyed slider.

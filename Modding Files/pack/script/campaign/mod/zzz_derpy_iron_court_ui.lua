@@ -6376,6 +6376,12 @@ function ICUI.plot_effect(plot, faction)
         return (string.gsub(plot.effect, "to %d+ turns",
             "to " .. IC.tune(faction, "plot_provoke_clock") .. " turns", 1))
     end
+    -- THE WAIT IS A SETTING, frozen after this text was built at load.
+    if plot.key == "council" then
+        local n = IC.TUNE.war_prep_turns
+        return (string.gsub(plot.effect, "declared %d+ turns? later",
+            string.format("declared %d turn%s later", n, n == 1 and "" or "s"), 1))
+    end
     if plot.key ~= "embezzle" then return plot.effect end
     return (string.gsub(plot.effect, "%-%d+ loyalty",
         "-" .. IC.tune(faction, "plot_embezzle_loyalty") .. " loyalty", 1))
