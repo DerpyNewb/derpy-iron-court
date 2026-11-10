@@ -7,13 +7,29 @@ No code changed in this session.
 
 ## State
 
-- **Live build:** `3E6601FFE07234DDBAE87FAD236954AC`. Workshop item 3832328087, uploaded 2026-11-08 08:46,
-  manifest 5495122361613553388.
+- **Live build:** `205EE2345C77D67FB52FF734833AA964`. Workshop item 3832328087, uploaded 2026-11-08 17:20,
+  manifest 90993284009659620 (governor scope fix, section 0). Before it: 14D3A767 at 13:47, 3E6601FF at 08:46.
 - **Where it lives:** in the Workshop folder only. Never put a copy in `data/`, because it would hide the Workshop
   copy. `tools/deploy_iron_court.py` deploys there.
-- **GitHub:** synced to `2a4d739` (build 14D3A767), pushed 11-08.
+- **GitHub:** synced to `4a5ee39` (build 205EE234), pushed 11-08.
 - **Tests (before 11-08's change):** harness 1247 checks and release gate 0 findings. The full mutant run was last done on 11-02 (1,450, none
   stale) and was not repeated for the last two fixes. Those fixes each gained their own mutants (2 for 3E6601FF).
+
+## 0. Done 11-08 (evening): governor bonuses stacked across the realm - build 205EE234
+
+Lingongrova (11-08) and Nerberius (11-05) reported -100% Workload and +34/+60 Control "from faction". **Ours**,
+not Drill of Hashut: the governor base bundle goes on one province but its Control and Workload (Dwarfs: growth)
+were `faction_to_province_own`, which on a province bundle reaches EVERY province of the faction, so each governor
+stacked his bonus on the whole realm. Measured in game (Dwarf staged fixture, +50 Control custom bundle on
+Karaz-a-Karak's province only): Karak Kadrin, no bundle, Control 0 -> 48 in one turn. Memory
+`faction-scope-on-province-bundle-is-realm-wide`.
+
+Fix: `GOVERNOR_BASE` is CA's edict Control plus Labour loss -5% (author's choice: CA ships no province-scoped
+Workload); Dwarfs edict Control plus commandment growth; all `province_to_province_own_unseen`. `IC.GOV_ORDER_EFFECT`
+is the edict key. `check_gov_rank_constants` refuses a non-`province_to_*` governor effect (proven on both races).
+Harness 1248, 58 governor mutants caught (full run not repeated), release gate 0 findings, snapshot re-pinned to
+205EE234. An old save's custom bundle keeps the old effects until the next turn's reapply.
+Not yet seen in game: the new bundle's Labour loss line, and Control staying in one province with the real bundle.
 
 ## 1. Done 11-08: the war council's numbers are on the MCT page
 
@@ -58,7 +74,7 @@ shield. Quit the game afterwards.
 ## 3. Replies not posted
 
 Drafts are in [WORKSHOP_REPORTS_20261108_IRON_COURT.md](WORKSHOP_REPORTS_20261108_IRON_COURT.md) for zsmasher (Allied
-Warband, fixed), Nitefog (war council) and Nerberius (-100% workload, not ours: the court stops at -35%). If item 1 ships
+Warband, fixed), Nitefog (war council) and Nerberius (-100% workload: that draft is WRONG, it was ours - section 0). If item 1 ships
 first, change Nitefog's last sentence.
 
 ## 4. Known, not ours
