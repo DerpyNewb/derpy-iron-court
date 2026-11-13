@@ -5,6 +5,22 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 builds before that were only ever deployed to the game's `data/` folder. Early builds
 recorded a SHA-256 or only a size, not an MD5.
 
+## 2026-11-13 - build D6864509
+
+Uploaded 2026-11-13 09:06. MD5 `D68645097D0F220F1AE7DF7AE57761E4`, 15,532,107 bytes. Build
+205EE234 below with one Lua file changed; checked in game on the shipped build and on the fix.
+
+- **Escape works again after closing the court with it.** A Workshop report: once Escape had
+  closed the court, the next Escape did nothing until the court was reopened and closed with its
+  X. CA's `on_key_press_up` drops a fired key-steal entry but never gives the key back to the
+  game; only `release_escape_key_with_callback` calls `steal_escape_key(false)`, once no entry is
+  left. `ICUI.hold_esc`'s callback now releases by name first, as CA's own movie player does.
+- The harness's Escape stub now models the engine's own flag (on at a steal, off only when a
+  release leaves no entry), and the new mutant "Escape closes the court and never gives the key
+  back" is caught. Harness 1248 checks.
+- Tools: `rpfm_client.py` starts `rpfm_server` headless through the new `rpfm_mcp_bridge.py`;
+  the other RPFM tools' docstrings and messages match.
+
 ## 2026-11-08 - build 205EE234
 
 Uploaded 2026-11-08 17:20. MD5 `205EE2345C77D67FB52FF734833AA964`, 15,531,692 bytes. Build

@@ -28604,14 +28604,22 @@ end)
 -- leaving it gone with the rest of the UI. The stub keeps CA's two rules:
 -- stealing a held name is an error, and a fired entry is removed before its
 -- callback runs.
+-- ESCAPE_TO_SCRIPT is the engine's own flag, as CA sets it: on at a steal, and off only
+-- when a release by name leaves no entry. Firing an entry pops it and leaves the flag on,
+-- which is how Escape went dead after closing the court with it (2026-11-11/12 reports).
+local ESCAPE_TO_SCRIPT = false
 local function with_escape(fn)
     local held = {}
     local steal, release = cm.steal_escape_key_with_callback, cm.release_escape_key_with_callback
     cm.steal_escape_key_with_callback = function(_cm, name, cb)
         assert(not held[name], "the Escape key stolen twice under " .. tostring(name))
         held[name] = cb
+        ESCAPE_TO_SCRIPT = true
     end
-    cm.release_escape_key_with_callback = function(_cm, name) held[name] = nil end
+    cm.release_escape_key_with_callback = function(_cm, name)
+        held[name] = nil
+        if next(held) == nil then ESCAPE_TO_SCRIPT = false end
+    end
     local ok, err = pcall(fn, held)
     cm.steal_escape_key_with_callback, cm.release_escape_key_with_callback = steal, release
     if not ok then error(err, 0) end
@@ -28635,6 +28643,8 @@ check("Escape closes the court and gives the HUD back, from any view", function(
                 assert(panel.destroyed, view .. ": Escape left the court up")
                 assert(hud.visible == true, view .. ": Escape left the HUD hidden")
                 assert(next(held) == nil, view .. ": the court holds the key after Escape closed it")
+                assert(not ESCAPE_TO_SCRIPT, view .. ": Escape closed the court but the game never "
+                    .. "got the key back, so the player's next Escape does nothing")
             end)
         end)
     end

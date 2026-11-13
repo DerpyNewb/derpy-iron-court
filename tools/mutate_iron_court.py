@@ -5020,6 +5020,10 @@ end"""),
      """            ICUI.esc_held = false
             ICUI.close()""",
      """            ICUI.esc_held = false"""),
+    ("Escape closes the court and never gives the key back", U,
+     """            pcall(function() cm:release_escape_key_with_callback(ICUI.ESC) end)
+            ICUI.esc_held = false""",
+     """            ICUI.esc_held = false"""),
     ("closing the court keeps the Escape key", U,
      """    ICUI.drop_esc()
     -- Drop the modal state with the panel.""",

@@ -188,7 +188,7 @@ def manifest(root=ROOT):
         "read_vanilla_loc.py",
         "read_vanilla_db.py",
         "import_house_ancillaries.py",
-        "rpfm_client.py",   # the RPFM client every tool above that talks to RPFM imports
+        "rpfm_client.py", "rpfm_mcp_bridge.py",   # the RPFM client every tool above that talks to RPFM imports
         "check_lua_undeclared.py",
         "check_lua_literal_left.py",
         "check_lua_api.py",

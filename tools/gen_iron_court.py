@@ -3308,7 +3308,7 @@ def check_factions():
     import make_ic_rebel_flags as F
     out = []
     if not os.path.isfile(DONOR_FACTIONS):
-        return ["missing %s - re-export it from db.pack with RPFM open"
+        return ["missing %s - re-export it from db.pack through RPFM"
                 % DONOR_FACTIONS]
     lines = io.open(DONOR_FACTIONS, encoding="utf-8").read().split("\n")
     cols = lines[0].split("\t")

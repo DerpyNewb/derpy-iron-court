@@ -7,7 +7,7 @@
                                            and prove --check sees drift
     py tools/sync_derpy_hub.py --pack-left-bar
                                            build Modding Files/Modpacks/derpy_hub_left_bar.pack
-                                           (needs RPFM open)
+                                           (rpfm_server starts itself)
 
 Edit only Modding Files/source/derpy_hub/derpy_hud_hub.lua. Each mod ships its own copy
 under its own path (derpy_hub_ic / _gg / _ex / _mr), so every installed copy loads, and the

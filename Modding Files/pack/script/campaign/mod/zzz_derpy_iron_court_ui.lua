@@ -8695,6 +8695,11 @@ function ICUI.hold_esc()
     -- would refuse every later one and leave Escape to the game's menu.
     ICUI.esc_held = pcall(function()
         cm:steal_escape_key_with_callback(ICUI.ESC, function()
+            -- AND GIVE THE KEY BACK: CA pops a fired entry but only a release calls
+            -- steal_escape_key(false), so without this Escape closed the court and
+            -- then did nothing until the court was reopened and closed with its X
+            -- (players' reports, 2026-11-11/12). CA's movie player does the same.
+            pcall(function() cm:release_escape_key_with_callback(ICUI.ESC) end)
             ICUI.esc_held = false
             ICUI.close()
         end)
