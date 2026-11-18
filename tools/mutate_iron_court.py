@@ -1476,9 +1476,9 @@ end
      """                local to = ICUI.EDICT_LIVE[c:CurrentState()]"""),
     ("asking about edicts makes a court", U,
      """    local court = IC.state[me]
-    if not court or not IC.court_rolled(me) then return nil end""",
+    if not court or not IC.court_rolled(me, true) then return nil end""",
      """    local court = IC.court(me)
-    if not IC.court_rolled(me) then return nil end"""),
+    if not IC.court_rolled(me, true) then return nil end"""),
     ("closing the court leaves the edicts as they were", U,
      """    ICUI.refresh_edicts()
 end""",
@@ -3541,8 +3541,10 @@ end"""),
      "    local faction_key = IC.faction_by_cqi(cqi)",
      "    local faction_key = IC.faction_by_cqi(cqi) or (cm:get_human_factions() or {})[1]"),
     ("mp: a cqi left a string on the wire", M,
-     """    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], tonumber(f[2])))""",
-     """    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], f[2]))"""),
+     """    local cqi = tonumber(f[2])
+    if cqi and busy_elsewhere(fk, cqi, "office", f[1]) then""",
+     """    local cqi = f[2]
+    if cqi and busy_elsewhere(fk, cqi, "office", f[1]) then"""),
     ("mp: an empty plot target sent as an empty string", M,
      """    if target == "" then target = nil end""",
      "    local _ = target"),
@@ -3623,7 +3625,7 @@ end"""),
      "    IC.court(faction_key).rolled = true\n",
      "\n"),
     ("court: an old save never marked while it still has rivals", M,
-     "    if n > 1 then court.rolled = true end\n",
+     "    if n > 1 and not peek then court.rolled = true end\n",
      "\n"),
     ("court: the rolled marker never saved", M,
      "                 court.rolled and \"1\" or \"\", join(last",

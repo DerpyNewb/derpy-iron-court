@@ -22020,6 +22020,11 @@ check("each of the twenty-four actions waits for its trigger, then reaches the m
     f._cqi = 41
     cm.get_human_factions = function() return {F} end
     IC.register()
+    -- THE WIRE, NOT THE RULES: the gov op now refuses a province no longer held
+    -- before the model is reached (checked on its own below), and this faction
+    -- holds none.
+    local was_held = IC.held_region
+    IC.held_region = function() return {} end
     local failed = nil
     for _, c in ipairs(cases) do
         local op, arg, name, n, want = c[1], c[2], c[3], c[4], c[5]
@@ -22046,8 +22051,141 @@ check("each of the twenty-four actions waits for its trigger, then reaches the m
         if not ok then failed = err break end
     end
     cm.get_human_factions = function() return {} end
+    IC.held_region = was_held
     if failed then error(failed, 0) end
 end)
+
+check("a stale appoint or governor click is refused where it lands: one post per man, a province still held", function()
+    -- A CLICK IS CHECKED ON ONE MACHINE AND LANDS A ROUND TRIP LATER. Both
+    -- pickers draw a man with a post as Busy and only a held province; the ops
+    -- now ask again, on every machine, before the model is touched.
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    -- OWN SETUP, not the last check's: the answer's after-op hook asks it.
+    local was_humans = cm.get_human_factions
+    cm.get_human_factions = function() return {} end
+    local court = IC.court(F)
+    court.offices = {warden = 501}
+    court.govs = {prov_b = 502}
+    local calls = {}
+    local was_a, was_g, was_h = IC.appoint, IC.assign_governor, IC.held_region
+    IC.appoint = function(_fk, o, c) calls[#calls + 1] = "appoint " .. o .. " " .. c return true end
+    IC.assign_governor = function(_fk, p, c) calls[#calls + 1] = "gov " .. p .. " " .. c return true end
+    IC.held_region = function(_fk, p) if p ~= "prov_lost" then return {} end return nil end
+    local ok, err = pcall(function()
+        local function refused(op, arg, want)
+            local done, why = IC.MP_OPS[op](F, arg)
+            assert(done == false and why == want, op .. " " .. arg .. " answered "
+                .. tostring(done) .. "/" .. tostring(why) .. ", not false/" .. want)
+        end
+        refused("appoint", "marshal|502", "busy")   -- he governs prov_b
+        refused("appoint", "marshal|501", "busy")   -- he holds the warden's seat
+        refused("gov", "prov_a|501", "busy")
+        refused("gov", "prov_a|502", "busy")        -- one province per man
+        refused("gov", "prov_lost|503", "lost")
+        assert(#calls == 0, "a refused click reached the model: " .. table.concat(calls, ", "))
+        -- A RENEWAL, HIS OWN PROVINCE AGAIN AND A FREE MAN all still go through.
+        assert(IC.MP_OPS.appoint(F, "warden|501") == true, "a renewal was refused")
+        assert(IC.MP_OPS.gov(F, "prov_b|502") == true, "his own province again was refused")
+        assert(IC.MP_OPS.appoint(F, "marshal|503") == true, "a free man was refused a seat")
+        assert(IC.MP_OPS.gov(F, "prov_a|504") == true, "a free man was refused a province")
+        assert(#calls == 4, #calls .. " of 4 allowed clicks reached the model")
+    end)
+    IC.appoint, IC.assign_governor, IC.held_region = was_a, was_g, was_h
+    cm.get_human_factions = was_humans
+    if not ok then error(err, 0) end
+end)
+
+check("the panel asks whether a court is rolled without marking it: the marker is model state", function()
+    -- A PANEL RUNS ON ONE MACHINE. court.rolled is saved and read by
+    -- IC.roll_court before a roll, so a UI caller peeks; the model's own
+    -- callers still mark an old unmarked save.
+    IC.state = {}
+    make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+    IC.unpack(F, "forge,10,55,0,3,1,0,0,0;legion,10,55,0,2,1,0,0,0|||||")
+    local court = IC.court(F)
+    court.rolled = nil
+    assert(IC.court_rolled(F, true) == true, "a two-party court peeked as unrolled")
+    assert(not court.rolled, "a peek marked the court")
+    assert(IC.court_rolled(F) == true and court.rolled == true, "the model's call no longer marks")
+end)
+
+do
+    -- TWO MACHINES WHOSE pairs() DISAGREE. CA calls pairs() order unsafe in
+    -- multiplayer (campaign/lua.html); the mod's pairs is the global, so this
+    -- swaps it for one that walks keys forwards or backwards.
+    local function under_pairs(desc, fn)
+        local real = pairs
+        pairs = function(t)
+            local keys = {}
+            for k in real(t) do keys[#keys + 1] = k end
+            table.sort(keys, function(a, b)
+                local ta, tb = type(a), type(b)
+                if ta ~= tb then return ta < tb end
+                if ta ~= "string" and ta ~= "number" then return tostring(a) < tostring(b) end
+                if desc then return a > b end
+                return a < b
+            end)
+            local i = 0
+            return function()
+                while true do
+                    i = i + 1
+                    local k = keys[i]
+                    if k == nil then return nil end
+                    if t[k] ~= nil then return k, t[k] end
+                end
+            end, t, nil
+        end
+        local res = {pcall(fn)}
+        pairs = real
+        if not res[1] then error(res[2], 0) end
+        return unpack(res, 2)
+    end
+
+    check("leaderless parties take idle Crown lords in one order whatever order pairs() walks in", function()
+        cm.spawn_character_to_pool = function() return {} end
+        cm.force_add_trait_to_character_details = function() end
+        local function deal()
+            IC.state = {}
+            factions = {}
+            local low = make_character(182, ANY_SEAT, IC.CROWN)
+            local high = make_character(183, ANY_SEAT, IC.CROWN)
+            make_faction(F, IC.CHD_SUBCULTURE, {low, high}, {})
+            IC.add_house(F, IC.CROWN)
+            IC.add_house(F, "legion")
+            IC.add_house(F, "forge")
+            local court = IC.court(F)
+            court.standing[182], court.standing[183] = 5, 50
+            IC.ensure_leaders(F)
+            return IC.party_leader(F, "forge"), IC.party_leader(F, "legion")
+        end
+        local f1, l1 = under_pairs(false, deal)
+        local f2, l2 = under_pairs(true, deal)
+        cm.spawn_character_to_pool = nil
+        cm.force_add_trait_to_character_details = nil
+        assert(f1 == f2 and l1 == l2, "forwards forge/legion got " .. tostring(f1) .. "/"
+            .. tostring(l1) .. ", backwards " .. tostring(f2) .. "/" .. tostring(l2))
+        assert(f1 == 182 and l1 == 183, "forge, first by name, did not get the first idle lord")
+    end)
+
+    check("the court's total weight is one sum whatever order pairs() walks in", function()
+        -- 0.1 + 0.2 + 0.3 is 0.6000000000000001 and 0.3 + 0.2 + 0.1 is 0.6: a
+        -- share on a threshold would land on two sides of it.
+        local function weigh()
+            IC.state = {}
+            factions = {}
+            make_faction(F, IC.CHD_SUBCULTURE, {}, {})
+            IC.add_house(F, "chain")
+            IC.add_house(F, "forge")
+            IC.add_house(F, "legion")
+            local houses = IC.court(F).houses
+            houses.chain.weight, houses.forge.weight, houses.legion.weight = 0.1, 0.2, 0.3
+            return IC.total_weight(F)
+        end
+        local a, b = under_pairs(false, weigh), under_pairs(true, weigh)
+        assert(a == b, string.format("forwards %.17g, backwards %.17g", a, b))
+    end)
+end
 
 check("in multiplayer a dismissal waits for its trigger and then empties the office", function()
     IC.state = {}
@@ -25235,6 +25373,14 @@ function()
         assert(plain_b.state == "inactive" and plain_b.disabled,
             "the engine's own lock was lifted: " .. plain_b.state
             .. ", disabled " .. tostring(plain_b.disabled))
+        -- A PANEL ASKS, IT DOES NOT MARK: court.rolled is saved and read before
+        -- a roll, and this runs on one machine only.
+        IC.court(F).rolled = nil
+        assert(IC.court_rolled(F, true), "the fixture's court has under two parties")
+        ICUI.edict_verdict(regions[1])
+        assert(not IC.court(F).rolled,
+            "judging a settlement marked the court rolled, on this machine only")
+        IC.court(F).rolled = true
         -- NO COURT: nothing judged, and no court made by asking.
         IC.state = {}
         assert(ICUI.edict_verdict(regions[1]) == nil, "a faction with no court was judged")

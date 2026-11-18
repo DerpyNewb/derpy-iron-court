@@ -7020,7 +7020,7 @@ function ICUI.edict_verdict(region)
     if not me or not region or not ICUI.court_player() then return nil end
     -- READ, NEVER CREATE: IC.court makes a court for any key it is handed.
     local court = IC.state[me]
-    if not court or not IC.court_rolled(me) then return nil end
+    if not court or not IC.court_rolled(me, true) then return nil end
     local ok, verdict = pcall(function()
         if region:is_null_interface() then return nil end
         if region:owning_faction():name() ~= me then return nil end

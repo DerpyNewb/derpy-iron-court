@@ -5,6 +5,30 @@ Builds of `derpy_iron_court.pack`, newest first. The detail behind each entry is
 builds before that were only ever deployed to the game's `data/` folder. Early builds
 recorded a SHA-256 or only a size, not an MD5.
 
+## 2026-11-18 - build 663B65C0
+
+Uploaded 2026-11-18 23:10. MD5 `663B65C02EF25CB3A2074EDD66C54F8A`, 15,534,475 bytes. Build
+D6864509 below with two Lua files changed, from a multiplayer desync audit. No confirmed
+desync was found; these close the risks it did find. Not run on two machines.
+
+- **Court events resolve in one order on every machine.** Four loops whose `pairs()` order
+  decided an outcome now walk the court's slugs sorted (`IC.house_slugs`): which leaderless
+  party gets which idle Crown lord, which seceding party takes the first free rebel faction,
+  which house gets which rolled name and traits, and the court's total weight, a float sum.
+  CA calls `pairs()` order unsafe in multiplayer.
+- **A late appointment or governorship is refused where it lands.** A multiplayer click is
+  checked on one machine and lands a round trip later, so the `appoint` and `gov` ops now
+  refuse a man who holds another post (`busy`) and a province no longer held (`lost`), the
+  pickers' own rule in the panel's own words.
+- **Opening the edicts no longer marks the court rolled.** That marker is saved and read
+  before a roll, and the panel runs on one machine, so `IC.court_rolled` takes a `peek` the
+  panel passes. Only a save from before 2026-09-25 could have diverged.
+- Harness 1252 checks. The four new ones include a run of the court under two different
+  `pairs()` orders; each fix broken on purpose fails its own check. Three mutants whose
+  anchors sat on changed lines were re-aimed and are caught; all 1,458 anchors match.
+- Tools: `check_lua_api.py` knows `cm:faction_set_total_potential_override_value`, and
+  `sync_derpy_hub.py` has the Director's hub tags.
+
 ## 2026-11-13 - build D6864509
 
 Uploaded 2026-11-13 09:06. MD5 `D68645097D0F220F1AE7DF7AE57761E4`, 15,532,107 bytes. Build

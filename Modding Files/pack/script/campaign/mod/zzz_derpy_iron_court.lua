@@ -1883,9 +1883,20 @@ function IC.fade_renown(faction_key)
     court.renown_got = {}
 end
 
+-- A COURT'S SLUGS IN ONE ORDER ON EVERY MACHINE. CA calls pairs() order
+-- unsafe in multiplayer (campaign/lua.html), so a loop whose order decides a
+-- roll, a write or a float sum walks this instead. A snapshot, so a house
+-- removed mid-loop reads nil: check it.
+function IC.house_slugs(court)
+    local slugs = {}
+    for slug in pairs(court.houses) do slugs[#slugs + 1] = slug end
+    table.sort(slugs)
+    return slugs
+end
+
 function IC.total_weight(faction_key)
     local total = 0
-    for slug in pairs(IC.court(faction_key).houses) do
+    for _, slug in ipairs(IC.house_slugs(IC.court(faction_key))) do
         total = total + IC.house_weight(faction_key, slug)
     end
     return total
@@ -3444,14 +3455,17 @@ end
 -- whole new court. A save from before the marker is
 -- marked the first time it is seen with a rival, which is before it can lose
 -- its last one.
-function IC.court_rolled(faction_key)
+-- PEEK FROM THE UI: the marker is model state (saved, and read by
+-- IC.roll_court before a roll), and a panel runs on one machine only, so a UI
+-- caller asks without marking.
+function IC.court_rolled(faction_key, peek)
     local court = IC.court(faction_key)
     if court.rolled then return true end
     local n = 0
     for slug in pairs(court.houses) do
         if IC.is_party(slug, faction_key) then n = n + 1 end
     end
-    if n > 1 then court.rolled = true end
+    if n > 1 and not peek then court.rolled = true end
     return n > 1
 end
 
@@ -3999,8 +4013,11 @@ function IC.ensure_leaders(faction_key)
     local made = 0
     -- Men already moved this pass, in case the engine answers has_trait late.
     local taken = {}
-    for slug, house in pairs(court.houses) do
-        if slug ~= IC.CROWN and R.BACKGROUNDS[slug] then
+    -- SORTED: the order decides which party gets which idle lord and the order
+    -- of the rolls below.
+    for _, slug in ipairs(IC.house_slugs(court)) do
+        local house = court.houses[slug]
+        if house and slug ~= IC.CROWN and R.BACKGROUNDS[slug] then
             local led = IC.party_leader(faction_key, slug)
             local man = not led and IC.idle_crown_lord(faction_key, taken)
             if led then
@@ -7134,7 +7151,10 @@ function IC.tick_secession(faction_key)
     local warned = {}
     -- Collect first because mutating a table during pairs() traversal is undefined.
     local seceding = {}
-    for slug, house in pairs(court.houses) do
+    -- SORTED: when two parties go in one turn, the order decides which takes
+    -- the first free rebel faction and rolls its army first.
+    for _, slug in ipairs(IC.house_slugs(court)) do
+        local house = court.houses[slug]
         local angry = false
         local breaking = false
         -- AN INSULT LASTS AS LONG AS ITS COUNT. Whatever zeroed the clock - a
@@ -9173,11 +9193,13 @@ function IC.reconcile_houses(faction_key)
         changed = true
     end
     if IC.roll_court(faction_key) then changed = true end
-    for slug, house in pairs(court.houses) do
-        if slug ~= IC.CROWN and not house.head then
+    -- SORTED: the order decides which house gets which rolled name and traits.
+    for _, slug in ipairs(IC.house_slugs(court)) do
+        local house = court.houses[slug]
+        if house and slug ~= IC.CROWN and not house.head then
             if IC.name_party(faction_key, slug) then changed = true end
         end
-        if not house.t1 then
+        if house and not house.t1 then
             if IC.roll_party_traits(faction_key, slug) then changed = true end
         end
     end
@@ -9385,16 +9407,43 @@ end
 -- A number crosses the wire as its decimal string and comes back through
 -- tonumber. A plot's target stays the string the panel passes, and an empty
 -- one is nil, as the panel passes it when a plot has no target.
+-- THE PICKERS' RULE, CHECKED AGAIN WHERE IT LANDS. One post per man: a click
+-- was checked against one machine's view, and in multiplayer it arrives a
+-- round trip later, after he may have taken another post. A yes or no, so the
+-- order pairs() walks in cannot change the answer.
+local function busy_elsewhere(fk, cqi, kind, key)
+    local court = IC.court(fk)
+    for slug, c in pairs(court.offices) do
+        if c == cqi and not (kind == "office" and slug == key) then return true end
+    end
+    for province, c in pairs(court.govs) do
+        if c == cqi and not (kind == "gov" and province == key) then return true end
+    end
+    return false
+end
+
 IC.MP_OPS.appoint = function(fk, arg)          -- office|cqi
     local f = fields(arg)
-    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], tonumber(f[2])))
+    local cqi = tonumber(f[2])
+    if cqi and busy_elsewhere(fk, cqi, "office", f[1]) then
+        return answer(fk, "appoint", arg, false, "busy")
+    end
+    return answer(fk, "appoint", arg, IC.appoint(fk, f[1], cqi))
 end
 IC.MP_OPS.dismiss = function(fk, arg)          -- office
     return answer(fk, "dismiss", arg, IC.dismiss(fk, fields(arg)[1]))
 end
 IC.MP_OPS.gov = function(fk, arg)              -- province|cqi
     local f = fields(arg)
-    return answer(fk, "gov", arg, IC.assign_governor(fk, f[1], tonumber(f[2])))
+    local cqi = tonumber(f[2])
+    -- STILL YOURS: in co-op turns the province can change hands between the
+    -- click and its arrival, and a governor of nothing would count until the
+    -- next turn start's reconcile.
+    if not IC.held_region(fk, f[1]) then return answer(fk, "gov", arg, false, "lost") end
+    if cqi and busy_elsewhere(fk, cqi, "gov", f[1]) then
+        return answer(fk, "gov", arg, false, "busy")
+    end
+    return answer(fk, "gov", arg, IC.assign_governor(fk, f[1], cqi))
 end
 IC.MP_OPS.ungov = function(fk, arg)            -- province
     return answer(fk, "ungov", arg, IC.release_governor(fk, fields(arg)[1]))
